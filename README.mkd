@@ -1,0 +1,41 @@
+# RISC-V LLVM
+## About
+This repository hosts a series of patches implementing a (currently 
+incomplete) RISC-V backend for LLVM. See the [initial 
+RFC](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html) for 
+more about the implementation approach being taken with this port.
+
+Our intent is that development and code review primarily occurs upstream on 
+LLVM infrastructure. However, there is value is maintaining the RISC-V backend 
+implementation as a set of clean patches. These will be continually rebased 
+with the intention that they provide a useful reference for anybody starting a 
+new LLVM backend or who wants to better understand backend implementation.
+
+## Status
+An initial set of patches have been submitted for review to upstream LLVM. The 
+majority of these have been reviewed, and are now being committed. A second 
+tranche of patches to implement basic code generation is almost ready to be 
+shared, and will be shortly.
+
+## Future plans
+As well as the obvious implementation tasks, it is also our intent to augment 
+this patchset with copious documentation. The primary author (Alex Bradbury, 
+lowRISC CIC) has detailed notes that need to be cleaned up to form the basis 
+of this.
+
+Our aim is that RISC-V is the cleanest and most documented LLVM backend. As 
+well as benefiting the wider LLVM community, this will make it substantially 
+easier for research groups and hobbyists to explore hardware/software 
+co-design with RISC-V.
+
+Our [lowRISC](http://www.lowrisc.org) project is working to produce a 
+completely open source System-on-Chip implementing the RISC-V instruction set 
+architecture. One of the features we are pursuing is [tagged 
+memory](http://www.lowrisc.org/downloads/lowRISC-memo-2014-001.pdf). This 
+repository will eventually host compiler support for that feature, although 
+this may need time to mature before being ready to upstream and so may be 
+developed in a separate branch.
+
+## License
+All patches are under the [LLVM 
+license](http://llvm.org/docs/DeveloperPolicy.html#license).

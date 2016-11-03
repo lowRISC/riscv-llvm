@@ -1,0 +1,221 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add RISC-V ELF defines
+
+Add the necessary definitions for RISC-V ELF files, including relocs.
+Also make necessary trivial change to ELFYaml, llvm-objdump, and
+llvm-readobj in order to work with RISC-V ELFs.
+
+Differential Revision: https://reviews.llvm.org/D23558
+Upstream commit: https://reviews.llvm.org/rL285708
+Upstream commit: https://reviews.llvm.org/rL285709
+Upstream commit: https://reviews.llvm.org/rL285730
+---
+ include/llvm/Object/ELFObjectFile.h      | 13 +++++++++
+ include/llvm/Support/ELF.h               |  6 ++++
+ include/llvm/Support/ELFRelocs/RISCV.def | 50 ++++++++++++++++++++++++++++++++
+ include/llvm/module.modulemap            |  1 +
+ lib/Object/ELF.cpp                       |  7 +++++
+ lib/ObjectYAML/ELFYAML.cpp               |  4 +++
+ tools/llvm-objdump/llvm-objdump.cpp      |  1 +
+ tools/llvm-readobj/ELFDumper.cpp         |  1 +
+ 8 files changed, 83 insertions(+)
+ create mode 100644 include/llvm/Support/ELFRelocs/RISCV.def
+
+diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
+index 93b84a8..7d73b19 100644
+--- a/include/llvm/Object/ELFObjectFile.h
++++ b/include/llvm/Object/ELFObjectFile.h
+@@ -865,6 +865,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return "ELF32-mips";
+     case ELF::EM_PPC:
+       return "ELF32-ppc";
++    case ELF::EM_RISCV:
++      return "ELF32-riscv";
+     case ELF::EM_SPARC:
+     case ELF::EM_SPARC32PLUS:
+       return "ELF32-sparc";
+@@ -885,6 +887,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
+     case ELF::EM_PPC64:
+       return "ELF64-ppc64";
++    case ELF::EM_RISCV:
++      return "ELF64-riscv";
+     case ELF::EM_S390:
+       return "ELF64-s390";
+     case ELF::EM_SPARCV9:
+@@ -940,6 +944,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+     return Triple::ppc;
+   case ELF::EM_PPC64:
+     return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
++  case ELF::EM_RISCV:
++    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
++    case ELF::ELFCLASS32:
++      return Triple::riscv32;
++    case ELF::ELFCLASS64:
++      return Triple::riscv64;
++    default:
++      report_fatal_error("Invalid ELFCLASS!");
++    }
+   case ELF::EM_S390:
+     return Triple::systemz;
+ 
+diff --git a/include/llvm/Support/ELF.h b/include/llvm/Support/ELF.h
+index 7e878a5..b4ef84d 100644
+--- a/include/llvm/Support/ELF.h
++++ b/include/llvm/Support/ELF.h
+@@ -310,6 +310,7 @@ enum {
+   EM_NORC          = 218, // Nanoradio Optimized RISC
+   EM_CSR_KALIMBA   = 219, // CSR Kalimba architecture family
+   EM_AMDGPU        = 224, // AMD GPU architecture
++  EM_RISCV         = 243, // RISC-V
+   EM_LANAI         = 244, // Lanai 32-bit processor
+   EM_BPF           = 247, // Linux kernel bpf virtual machine
+ 
+@@ -597,6 +598,11 @@ enum {
+ #include "ELFRelocs/Lanai.def"
+ };
+ 
++// ELF Relocation types for RISC-V
++enum {
++#include "ELFRelocs/RISCV.def"
++};
++
+ // ELF Relocation types for S390/zSeries
+ enum {
+ #include "ELFRelocs/SystemZ.def"
+diff --git a/include/llvm/Support/ELFRelocs/RISCV.def b/include/llvm/Support/ELFRelocs/RISCV.def
+new file mode 100644
+index 0000000..9ec4955
+--- /dev/null
++++ b/include/llvm/Support/ELFRelocs/RISCV.def
+@@ -0,0 +1,50 @@
++
++#ifndef ELF_RELOC
++#error "ELF_RELOC must be defined"
++#endif
++
++ELF_RELOC(R_RISCV_NONE,               0)
++ELF_RELOC(R_RISCV_32,                 1)
++ELF_RELOC(R_RISCV_64,                 2)
++ELF_RELOC(R_RISCV_RELATIVE,           3)
++ELF_RELOC(R_RISCV_COPY,               4)
++ELF_RELOC(R_RISCV_JUMP_SLOT,          5)
++ELF_RELOC(R_RISCV_TLS_DTPMOD32,       6)
++ELF_RELOC(R_RISCV_TLS_DTPMOD64,       7)
++ELF_RELOC(R_RISCV_TLS_DTPREL32,       8)
++ELF_RELOC(R_RISCV_TLS_DTPREL64,       9)
++ELF_RELOC(R_RISCV_TLS_TPREL32,       10)
++ELF_RELOC(R_RISCV_TLS_TPREL64,       11)
++ELF_RELOC(R_RISCV_BRANCH,            16)
++ELF_RELOC(R_RISCV_JAL,               17)
++ELF_RELOC(R_RISCV_CALL,              18)
++ELF_RELOC(R_RISCV_CALL_PLT,          19)
++ELF_RELOC(R_RISCV_GOT_HI20,          20)
++ELF_RELOC(R_RISCV_TLS_GOT_HI20,      21)
++ELF_RELOC(R_RISCV_TLS_GD_HI20,       22)
++ELF_RELOC(R_RISCV_PCREL_HI20,        23)
++ELF_RELOC(R_RISCV_PCREL_LO12_I,      24)
++ELF_RELOC(R_RISCV_PCREL_LO12_S,      25)
++ELF_RELOC(R_RISCV_HI20,              26)
++ELF_RELOC(R_RISCV_LO12_I,            27)
++ELF_RELOC(R_RISCV_LO12_S,            28)
++ELF_RELOC(R_RISCV_TPREL_HI20,        29)
++ELF_RELOC(R_RISCV_TPREL_LO12_I,      30)
++ELF_RELOC(R_RISCV_TPREL_LO12_S,      31)
++ELF_RELOC(R_RISCV_TPREL_ADD,         32)
++ELF_RELOC(R_RISCV_ADD8,              33)
++ELF_RELOC(R_RISCV_ADD16,             34)
++ELF_RELOC(R_RISCV_ADD32,             35)
++ELF_RELOC(R_RISCV_ADD64,             36)
++ELF_RELOC(R_RISCV_SUB8,              37)
++ELF_RELOC(R_RISCV_SUB16,             38)
++ELF_RELOC(R_RISCV_SUB32,             39)
++ELF_RELOC(R_RISCV_SUB64,             40)
++ELF_RELOC(R_RISCV_GNU_VTINHERIT,     41)
++ELF_RELOC(R_RISCV_GNU_VTENTRY,       42)
++ELF_RELOC(R_RISCV_ALIGN,             43)
++ELF_RELOC(R_RISCV_RVC_BRANCH,        44)
++ELF_RELOC(R_RISCV_RVC_JUMP,          45)
++ELF_RELOC(R_RISCV_RVC_LUI,           46)
++ELF_RELOC(R_RISCV_GPREL_I,           47)
++ELF_RELOC(R_RISCV_GPREL_S,           48)
+diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
+index c0f661b..448a7e5 100644
+--- a/include/llvm/module.modulemap
++++ b/include/llvm/module.modulemap
+@@ -262,6 +262,7 @@ module LLVM_Utils {
+     textual header "Support/ELFRelocs/Mips.def"
+     textual header "Support/ELFRelocs/PowerPC64.def"
+     textual header "Support/ELFRelocs/PowerPC.def"
++    textual header "Support/ELFRelocs/RISCV.def"
+     textual header "Support/ELFRelocs/Sparc.def"
+     textual header "Support/ELFRelocs/SystemZ.def"
+     textual header "Support/ELFRelocs/x86_64.def"
+diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
+index 4d37a29..23682e1 100644
+--- a/lib/Object/ELF.cpp
++++ b/lib/Object/ELF.cpp
+@@ -89,6 +89,13 @@ StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type) {
+       break;
+     }
+     break;
++  case ELF::EM_RISCV:
++    switch (Type) {
++#include "llvm/Support/ELFRelocs/RISCV.def"
++    default:
++      break;
++    }
++    break;
+   case ELF::EM_S390:
+     switch (Type) {
+ #include "llvm/Support/ELFRelocs/SystemZ.def"
+diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
+index 2137eee..0c42a1a 100644
+--- a/lib/ObjectYAML/ELFYAML.cpp
++++ b/lib/ObjectYAML/ELFYAML.cpp
+@@ -194,6 +194,7 @@ ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(IO &IO,
+   ECase(EM_78KOR)
+   ECase(EM_56800EX)
+   ECase(EM_AMDGPU)
++  ECase(EM_RISCV)
+   ECase(EM_LANAI)
+   ECase(EM_BPF)
+ #undef ECase
+@@ -529,6 +530,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+   case ELF::EM_ARM:
+ #include "llvm/Support/ELFRelocs/ARM.def"
+     break;
++  case ELF::EM_RISCV:
++#include "llvm/Support/ELFRelocs/RISCV.def"
++    break;
+   case ELF::EM_LANAI:
+ #include "llvm/Support/ELFRelocs/Lanai.def"
+     break;
+diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
+index f8bef75..3f6ef52 100644
+--- a/tools/llvm-objdump/llvm-objdump.cpp
++++ b/tools/llvm-objdump/llvm-objdump.cpp
+@@ -704,6 +704,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+   case ELF::EM_HEXAGON:
+   case ELF::EM_MIPS:
+   case ELF::EM_BPF:
++  case ELF::EM_RISCV:
+     res = Target;
+     break;
+   case ELF::EM_WEBASSEMBLY:
+diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
+index 9c594a0..41f06d4 100644
+--- a/tools/llvm-readobj/ELFDumper.cpp
++++ b/tools/llvm-readobj/ELFDumper.cpp
+@@ -945,6 +945,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+   ENUM_ENT(EM_78KOR,         "EM_78KOR"),
+   ENUM_ENT(EM_56800EX,       "EM_56800EX"),
+   ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
++  ENUM_ENT(EM_RISCV,         "RISC-V"),
+   ENUM_ENT(EM_WEBASSEMBLY,   "EM_WEBASSEMBLY"),
+   ENUM_ENT(EM_LANAI,         "EM_LANAI"),
+   ENUM_ENT(EM_BPF,           "EM_BPF"),
+-- 
+2.10.2
+

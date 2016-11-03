@@ -1,0 +1,311 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add stub backend
+
+This contains just enough for lib/Target/RISCV to compile. Notably a basic
+RISCVTargetMachine and RISCVTargetInfo. At this point you can attempt `llc
+-march=riscv32 myinput.ll` and will find it fails due to the lack of
+MCAsmInfo.
+
+Differential Revision: https://reviews.llvm.org/D23560
+Upstream commit: https://reviews.llvm.org/rL285712
+---
+ CMakeLists.txt                                  |  1 +
+ docs/CompilerWriterInfo.rst                     |  4 ++
+ lib/Target/LLVMBuild.txt                        |  1 +
+ lib/Target/RISCV/CMakeLists.txt                 |  5 +++
+ lib/Target/RISCV/LLVMBuild.txt                  | 31 +++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp         | 58 +++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++++
+ lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 ++++++++++
+ lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++++
+ 10 files changed, 202 insertions(+)
+ create mode 100644 lib/Target/RISCV/CMakeLists.txt
+ create mode 100644 lib/Target/RISCV/LLVMBuild.txt
+ create mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
+ create mode 100644 lib/Target/RISCV/RISCVTargetMachine.h
+ create mode 100644 lib/Target/RISCV/TargetInfo/CMakeLists.txt
+ create mode 100644 lib/Target/RISCV/TargetInfo/LLVMBuild.txt
+ create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2b51c97..bb1055a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -279,6 +279,7 @@ set(LLVM_ALL_TARGETS
+   MSP430
+   NVPTX
+   PowerPC
++  RISCV
+   Sparc
+   SystemZ
+   X86
+diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
+index 1aacb82..a0c2997 100644
+--- a/docs/CompilerWriterInfo.rst
++++ b/docs/CompilerWriterInfo.rst
+@@ -83,6 +83,10 @@ AMDGPU
+ * `AMD Compute Resources <http://developer.amd.com/tools/heterogeneous-computing/amd-accelerated-parallel-processing-app-sdk/documentation/>`_
+ * `AMDGPU Compute Application Binary Interface <https://github.com/RadeonOpenCompute/ROCm-ComputeABI-Doc/blob/master/AMDGPU-ABI.md>`__
+ 
++RISC-V
++------
++* `RISC-V User-Level ISA Specification <https://riscv.org/specifications/>`_
++
+ SPARC
+ -----
+ 
+diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
+index 4362162..8be2a89 100644
+--- a/lib/Target/LLVMBuild.txt
++++ b/lib/Target/LLVMBuild.txt
+@@ -30,6 +30,7 @@ subdirectories =
+  NVPTX
+  Mips
+  PowerPC
++ RISCV
+  Sparc
+  SystemZ
+  WebAssembly
+diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
+new file mode 100644
+index 0000000..1de4d3b
+--- /dev/null
++++ b/lib/Target/RISCV/CMakeLists.txt
+@@ -0,0 +1,5 @@
++add_llvm_target(RISCVCodeGen
++  RISCVTargetMachine.cpp
++  )
++
++add_subdirectory(TargetInfo)
+diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
+new file mode 100644
+index 0000000..e5e5692
+--- /dev/null
++++ b/lib/Target/RISCV/LLVMBuild.txt
+@@ -0,0 +1,31 @@
++;===- ./lib/Target/RISCV/LLVMBuild.txt -------------------------*- Conf -*--===;
++;
++;                     The LLVM Compiler Infrastructure
++;
++; This file is distributed under the University of Illinois Open Source
++; License. See LICENSE.TXT for details.
++;
++;===------------------------------------------------------------------------===;
++;
++; This is an LLVMBuild description file for the components in this subdirectory.
++;
++; For more information on the LLVMBuild system, please see:
++;
++;   http://llvm.org/docs/LLVMBuild.html
++;
++;===------------------------------------------------------------------------===;
++
++[common]
++subdirectories = TargetInfo
++
++[component_0]
++type = TargetGroup
++name = RISCV
++parent = Target
++
++[component_1]
++type = Library
++name = RISCVCodeGen
++parent = RISCV
++required_libraries = Core CodeGen RISCVInfo Support Target
++add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
+new file mode 100644
+index 0000000..afbbe00
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
+@@ -0,0 +1,58 @@
++//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// Implements the info about RISCV target spec.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVTargetMachine.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
++#include "llvm/CodeGen/TargetPassConfig.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/CodeGen/Passes.h"
++#include "llvm/Support/FormattedStream.h"
++#include "llvm/Support/TargetRegistry.h"
++#include "llvm/Target/TargetOptions.h"
++using namespace llvm;
++
++extern "C" void LLVMInitializeRISCVTarget() {
++  RegisterTargetMachine<RISCVTargetMachine> X(getTheRISCV32Target());
++  RegisterTargetMachine<RISCVTargetMachine> Y(getTheRISCV64Target());
++}
++
++static std::string computeDataLayout(const Triple &TT) {
++  if (TT.isArch64Bit()) {
++    return "e-m:e-i64:64-n32:64-S128";
++  } else {
++    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
++    return "e-m:e-i64:64-n32-S128";
++  }
++}
++
++static Reloc::Model getEffectiveRelocModel(const Triple &TT,
++                                           Optional<Reloc::Model> RM) {
++  if (!RM.hasValue())
++    return Reloc::Static;
++  return *RM;
++}
++
++RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
++                                       StringRef CPU, StringRef FS,
++                                       const TargetOptions &Options,
++                                       Optional<Reloc::Model> RM,
++                                       CodeModel::Model CM,
++                                       CodeGenOpt::Level OL)
++    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
++                        getEffectiveRelocModel(TT, RM), CM, OL),
++      TLOF(make_unique<TargetLoweringObjectFileELF>()) {}
++
++TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
++  return new TargetPassConfig(this, PM);
++}
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
+new file mode 100644
+index 0000000..b4dd4ef
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVTargetMachine.h
+@@ -0,0 +1,41 @@
++//===-- RISCVTargetMachine.h - Define TargetMachine for RISCV ---*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares the RISCV specific subclass of TargetMachine.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
++#define LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
++
++#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
++#include "llvm/Target/TargetMachine.h"
++#include "llvm/IR/DataLayout.h"
++
++namespace llvm {
++class RISCVTargetMachine : public LLVMTargetMachine {
++  std::unique_ptr<TargetLoweringObjectFile> TLOF;
++
++public:
++  RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
++                     StringRef FS, const TargetOptions &Options,
++                     Optional<Reloc::Model> RM, CodeModel::Model CM,
++                     CodeGenOpt::Level OL);
++
++  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
++
++  TargetLoweringObjectFile *getObjFileLowering() const override {
++    return TLOF.get();
++  }
++};
++Target &getTheRISCV32Target();
++Target &getTheRISCV64Target();
++}
++
++#endif
+diff --git a/lib/Target/RISCV/TargetInfo/CMakeLists.txt b/lib/Target/RISCV/TargetInfo/CMakeLists.txt
+new file mode 100644
+index 0000000..f440fe2
+--- /dev/null
++++ b/lib/Target/RISCV/TargetInfo/CMakeLists.txt
+@@ -0,0 +1,3 @@
++add_llvm_library(LLVMRISCVInfo
++  RISCVTargetInfo.cpp
++  )
+diff --git a/lib/Target/RISCV/TargetInfo/LLVMBuild.txt b/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
+new file mode 100644
+index 0000000..db7f66f
+--- /dev/null
++++ b/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
+@@ -0,0 +1,23 @@
++;===- ./lib/Target/RISCV/TargetInfo/LLVMBuild.txt --------------*- Conf -*--===;
++;
++;                     The LLVM Compiler Infrastructure
++;
++; This file is distributed under the University of Illinois Open Source
++; License. See LICENSE.TXT for details.
++;
++;===------------------------------------------------------------------------===;
++;
++; This is an LLVMBuild description file for the components in this subdirectory.
++;
++; For more information on the LLVMBuild system, please see:
++;
++;   http://llvm.org/docs/LLVMBuild.html
++;
++;===------------------------------------------------------------------------===;
++
++[component_0]
++type = Library
++name = RISCVInfo
++parent = RISCV
++required_libraries = Support
++add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+new file mode 100644
+index 0000000..3cb657a
+--- /dev/null
++++ b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+@@ -0,0 +1,35 @@
++//===-- RISCVTargetInfo.cpp - RISCV Target Implementation -----------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/Support/TargetRegistry.h"
++using namespace llvm;
++
++namespace llvm {
++Target &getTheRISCV32Target() {
++  static Target TheRISCV32Target;
++  return TheRISCV32Target;
++}
++
++Target &getTheRISCV64Target() {
++  static Target TheRISCV64Target;
++  return TheRISCV64Target;
++}
++}
++
++extern "C" void LLVMInitializeRISCVTargetInfo() {
++  RegisterTarget<Triple::riscv32> X(getTheRISCV32Target(), "riscv32",
++                                    "32-bit RISC-V");
++  RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
++                                    "64-bit RISC-V");
++}
++
++// FIXME: Temporary stub - this function must be defined for linking
++// to succeed and will be called unconditionally by llc, so must be a no-op.
++// Remove once this function is properly implemented.
++extern "C" void LLVMInitializeRISCVTargetMC() {}
+-- 
+2.10.2
+
