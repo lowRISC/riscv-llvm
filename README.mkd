@@ -12,10 +12,9 @@ with the intention that they provide a useful reference for anybody starting a
 new LLVM backend or who wants to better understand backend implementation.
 
 ## Status
-An initial set of patches have been submitted for review to upstream LLVM. The 
-majority of these have been reviewed, and are now being committed. A second 
-tranche of patches to implement basic code generation is almost ready to be 
-shared, and will be shortly.
+Patches are being submitted for review and eventual merging in to upstream
+LLVM. A number of patches laying the foundation for basic code generation have
+recently been published.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 
