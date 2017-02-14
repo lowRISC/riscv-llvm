@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Codegen for conditional branches
+
+---
+ lib/Target/RISCV/RISCV.h               |  3 ++
+ lib/Target/RISCV/RISCVCallingConv.td   |  3 ++
+ lib/Target/RISCV/RISCVISelLowering.cpp |  1 +
+ lib/Target/RISCV/RISCVInstrInfo.cpp    | 33 ++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.h      | 11 +++++
+ lib/Target/RISCV/RISCVInstrInfo.td     | 40 ++++++++++++----
+ lib/Target/RISCV/RISCVRegisterInfo.cpp | 30 +++++++++++-
+ lib/Target/RISCV/RISCVRegisterInfo.h   |  2 +
+ test/CodeGen/RISCV/branch.ll           | 83 ++++++++++++++++++++++++++++++++++
+ 9 files changed, 195 insertions(+), 11 deletions(-)
+ create mode 100644 test/CodeGen/RISCV/branch.ll
+
+diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
+index 44ca4f9b29a..96eacb5325a 100644
+--- a/lib/Target/RISCV/RISCV.h
++++ b/lib/Target/RISCV/RISCV.h
+@@ -24,8 +24,11 @@
+ namespace llvm {
+ class AsmPrinter;
+ class RISCVTargetMachine;
++class MCContext;
+ class MCInst;
++class MCOperand;
+ class MachineInstr;
++class MachineOperand;
+ 
+ void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
+                                     const AsmPrinter &AP);
+diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
+index 24d9a8c44d2..d28e4f4728b 100644
+--- a/lib/Target/RISCV/RISCVCallingConv.td
++++ b/lib/Target/RISCV/RISCVCallingConv.td
+@@ -29,3 +29,6 @@ def CC_RISCV32 : CallingConv<[
+ 
+ def CSR : CalleeSavedRegs<(add X1_32, X2_32, X3_32, X4_32, X8_32, X9_32,
+                           (sequence "X%u_32", 18, 27))>;
++
++// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
++def CSR_NoRegs : CalleeSavedRegs<(add)>;
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 0753cbe1a2d..000618092b7 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -49,6 +49,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+   // TODO: add all necessary setOperationAction calls
+ 
++  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
+   setBooleanContents(ZeroOrOneBooleanContent);
+ 
+   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
+index 77206a80640..b756c69124b 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.cpp
++++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
+@@ -44,3 +44,36 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+       .addReg(SourceRegister, getKillRegState(KillSource))
+       .addImm(0);
+ }
++
++void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
++                                         MachineBasicBlock::iterator I,
++                                         unsigned SrcReg, bool IsKill, int FI,
++                                         const TargetRegisterClass *RC,
++                                         const TargetRegisterInfo *TRI) const {
++  DebugLoc DL;
++  if (I != MBB.end())
++    DL = I->getDebugLoc();
++
++  if (RC == &RISCV::GPRRegClass)
++    BuildMI(MBB, I, DL, get(RISCV::SW))
++        .addReg(SrcReg, getKillRegState(IsKill))
++        .addFrameIndex(FI)
++        .addImm(0);
++  else
++    llvm_unreachable("Can't store this register to stack slot");
++}
++
++void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
++                                          MachineBasicBlock::iterator I,
++                                          unsigned DestReg, int FI,
++                                          const TargetRegisterClass *RC,
++                                          const TargetRegisterInfo *TRI) const {
++  DebugLoc DL;
++  if (I != MBB.end())
++    DL = I->getDebugLoc();
++
++  if (RC == &RISCV::GPRRegClass)
++    BuildMI(MBB, I, DL, get(RISCV::LW), DestReg).addFrameIndex(FI).addImm(0);
++  else
++    llvm_unreachable("Can't load this register from stack slot");
++}
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
+index 27492c869db..7c0564ff99e 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.h
++++ b/lib/Target/RISCV/RISCVInstrInfo.h
+@@ -33,6 +33,17 @@ public:
+   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator Position,
+                    const DebugLoc &DL, unsigned DestinationRegister,
+                    unsigned SourceRegister, bool KillSource) const override;
++
++  void storeRegToStackSlot(MachineBasicBlock &MBB,
++                           MachineBasicBlock::iterator MBBI, unsigned SrcReg,
++                           bool isKill, int FrameIndex,
++                           const TargetRegisterClass *RC,
++                           const TargetRegisterInfo *TRI) const override;
++
++  void loadRegFromStackSlot(MachineBasicBlock &MBB,
++                            MachineBasicBlock::iterator MBBI, unsigned DestReg,
++                            int FrameIndex, const TargetRegisterClass *RC,
++                            const TargetRegisterInfo *TRI) const override;
+ };
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 9a551ddb71f..6846cb428ab 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -53,7 +53,7 @@ def uimm12 : Operand<i32> {
+ }
+ 
+ // A 13-bit signed immediate where the least significant bit is zero.
+-def simm13_lsb0 : Operand<i32> {
++def simm13_lsb0 : Operand<OtherVT> {
+   let ParserMatchClass = SImmAsmOperand<13, "Lsb0">;
+   let EncoderMethod = "getImmOpValueAsr1";
+   let DecoderMethod = "decodeSImmOperandAndLsl1<13>";
+@@ -66,7 +66,7 @@ def uimm20 : Operand<i32> {
+ }
+ 
+ // A 21-bit signed immediate where the least significant bit is zero.
+-def simm21_lsb0 : Operand<i32> {
++def simm21_lsb0 : Operand<OtherVT> {
+   let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
+   let EncoderMethod = "getImmOpValueAsr1";
+   let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
+@@ -105,6 +105,11 @@ def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
+ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
+               "jal\t$rd, $imm20", []>;
+ 
++let isTerminator=1, isBarrier=1 in {
++def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
++               PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
++}
++
+ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+               "jalr\t$rd, $rs1, $imm12", []>;
+ 
+@@ -113,17 +118,32 @@ let isReturn=1, isTerminator=1, isBarrier=1 in {
+                   PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+ }
+ 
+-class Bcc<bits<3> funct3, string OpcodeStr> :
++class Bcc<bits<3> funct3, string OpcodeStr, PatFrag CondOp> :
+       FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
+-         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
++         OpcodeStr#"\t$rs1, $rs2, $imm12", [(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12)]> {
++  let isBranch = 1;
++  let isTerminator = 1;
+ }
+ 
+-def BEQ   : Bcc<0b000, "beq">;
+-def BNE   : Bcc<0b001, "bne">;
+-def BLT   : Bcc<0b100, "blt">;
+-def BGE   : Bcc<0b101, "bge">;
+-def BLTU  : Bcc<0b110, "bltu">;
+-def BGEU  : Bcc<0b111, "bgeu">;
++def BEQ   : Bcc<0b000, "beq", seteq>;
++def BNE   : Bcc<0b001, "bne", setne>;
++def BLT   : Bcc<0b100, "blt", setlt>;
++def BGE   : Bcc<0b101, "bge", setge>;
++def BLTU  : Bcc<0b110, "bltu", setult>;
++def BGEU  : Bcc<0b111, "bgeu", setuge>;
++
++class Bcc_SwapPat<PatFrag CondOp, RISCVInst InstBcc> : Pat<
++  (brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
++  (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
++
++// Condition codes that don't have matching RISC-V branch instructions, but
++// are trivially supported by swapping the two input operands
++def : Bcc_SwapPat<setgt, BLT>;
++def : Bcc_SwapPat<setle, BGE>;
++def : Bcc_SwapPat<setugt, BLTU>;
++def : Bcc_SwapPat<setule, BGEU>;
++
++def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
+ 
+ class LD_ri<bits<3> funct3, string OpcodeStr> :
+       FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index 88ee73af3e7..c5d0c3c0c9d 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -49,10 +49,38 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+   return Reserved;
+ }
+ 
++const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
++  return CSR_NoRegs_RegMask;
++}
++
+ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+                                             int SPAdj, unsigned FIOperandNum,
+                                             RegScavenger *RS) const {
+-  llvm_unreachable("Subroutines not supported yet");
++  assert(SPAdj == 0 && "Unexpected");
++
++  MachineInstr &MI = *II;
++  MachineFunction &MF = *MI.getParent()->getParent();
++  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
++  DebugLoc DL = MI.getDebugLoc();
++
++  unsigned FrameReg = getFrameRegister(MF);
++  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
++  int Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg);
++  Offset += MI.getOperand(FIOperandNum + 1).getImm();
++
++  if (!TFI->hasFP(MF)) {
++    llvm_unreachable("eliminateFrameIndex currently requires hasFP");
++  }
++
++  // If the offset fits in an immediate, then directly encode it
++  if (isInt<12>(Offset)) {
++    MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
++    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
++    return;
++  } else {
++    llvm_unreachable(
++        "Frame offsets outside of the signed 12-bit range not supported");
++  }
+ }
+ 
+ unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
+index 30ca44247d9..4e179c22cdd 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.h
++++ b/lib/Target/RISCV/RISCVRegisterInfo.h
+@@ -29,6 +29,8 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
+ 
+   BitVector getReservedRegs(const MachineFunction &MF) const override;
+ 
++  const uint32_t *getNoPreservedMask() const override;
++
+   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
+                            unsigned FIOperandNum,
+                            RegScavenger *RS = nullptr) const override;
+diff --git a/test/CodeGen/RISCV/branch.ll b/test/CodeGen/RISCV/branch.ll
+new file mode 100644
+index 00000000000..843da023e35
+--- /dev/null
++++ b/test/CodeGen/RISCV/branch.ll
+@@ -0,0 +1,83 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++define void @foo(i32 %a, i32 *%b, i1 %c) {
++; CHECK-LABEL: foo:
++
++  %val1 = load volatile i32, i32* %b
++  %tst1 = icmp eq i32 %val1, %a
++  br i1 %tst1, label %end, label %test2
++; CHECK: beq {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test2:
++  %val2 = load volatile i32, i32* %b
++  %tst2 = icmp ne i32 %val2, %a
++  br i1 %tst2, label %end, label %test3
++; CHECK: bne {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test3:
++  %val3 = load volatile i32, i32* %b
++  %tst3 = icmp slt i32 %val3, %a
++  br i1 %tst3, label %end, label %test4
++; CHECK: blt {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test4:
++  %val4 = load volatile i32, i32* %b
++  %tst4 = icmp sge i32 %val4, %a
++  br i1 %tst4, label %end, label %test5
++; CHECK: bge {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test5:
++  %val5 = load volatile i32, i32* %b
++  %tst5 = icmp ult i32 %val5, %a
++  br i1 %tst5, label %end, label %test6
++; CHECK: bltu {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test6:
++  %val6 = load volatile i32, i32* %b
++  %tst6 = icmp uge i32 %val6, %a
++  br i1 %tst6, label %end, label %test7
++; CHECK: bgeu {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++; Check for condition codes that don't have a matching instruction
++
++test7:
++  %val7 = load volatile i32, i32* %b
++  %tst7 = icmp sgt i32 %val7, %a
++  br i1 %tst7, label %end, label %test8
++; CHECK: blt {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test8:
++  %val8 = load volatile i32, i32* %b
++  %tst8 = icmp sle i32 %val8, %a
++  br i1 %tst8, label %end, label %test9
++; CHECK: bge {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test9:
++  %val9 = load volatile i32, i32* %b
++  %tst9 = icmp ugt i32 %val9, %a
++  br i1 %tst9, label %end, label %test10
++; CHECK: bltu {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++test10:
++  %val10 = load volatile i32, i32* %b
++  %tst10 = icmp ule i32 %val10, %a
++  br i1 %tst10, label %end, label %test11
++; CHECK: bgeu {{[a-z0-9]+}}, {{[a-z0-9]+}}, .LBB
++
++; Check the case of a branch where the condition was generated in another
++; function
++
++test11:
++; CHECK: andi {{[a-z0-9]+}}, {{[a-z0-9]+}}, 1
++; CHECK: bne {{[a-z0-9]+}}, zero, .LBB
++  %val11 = load volatile i32, i32* %b
++  br i1 %c, label %end, label %test12
++
++test12:
++  %val12 = load volatile i32, i32* %b
++; CHECK: jalr zero, ra, 0
++  br label %end
++
++end:
++  ret void
++}
+-- 
+2.11.1
+

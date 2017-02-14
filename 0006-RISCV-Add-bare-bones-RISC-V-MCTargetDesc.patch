@@ -9,6 +9,8 @@ thing can be tested.
 Differential Revision: https://reviews.llvm.org/D23562
 Upstream commit: https://reviews.llvm.org/rL285770
 Upstream commit: https://reviews.llvm.org/rL285806
+
+NOTE: This patch has been updated since being committed upstream.
 ---
  lib/Target/RISCV/CMakeLists.txt                    |  2 +
  lib/Target/RISCV/LLVMBuild.txt                     |  2 +-
@@ -19,11 +21,11 @@ Upstream commit: https://reviews.llvm.org/rL285806
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   | 25 ++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 ++++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 ++++++++++++++++++++++
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 59 ++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 ++++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 58 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h              |  5 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
- 13 files changed, 437 insertions(+), 9 deletions(-)
+ 13 files changed, 436 insertions(+), 9 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
@@ -35,7 +37,7 @@ Upstream commit: https://reviews.llvm.org/rL285806
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 
 diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
-index 5a98f9f..c888754 100644
+index 5a98f9f719d..c8887548b91 100644
 --- a/lib/Target/RISCV/CMakeLists.txt
 +++ b/lib/Target/RISCV/CMakeLists.txt
 @@ -2,6 +2,7 @@ set(LLVM_TARGET_DEFINITIONS RISCV.td)
@@ -52,7 +54,7 @@ index 5a98f9f..c888754 100644
  add_subdirectory(TargetInfo)
 +add_subdirectory(MCTargetDesc)
 diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
-index e5e5692..9ba5fec 100644
+index e5e5692490c..9ba5fec928f 100644
 --- a/lib/Target/RISCV/LLVMBuild.txt
 +++ b/lib/Target/RISCV/LLVMBuild.txt
 @@ -16,7 +16,7 @@
@@ -66,7 +68,7 @@ index e5e5692..9ba5fec 100644
  type = TargetGroup
 diff --git a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
 new file mode 100644
-index 0000000..d79de74
+index 00000000000..d79de74f7cf
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
 @@ -0,0 +1,7 @@
@@ -79,7 +81,7 @@ index 0000000..d79de74
 +)
 diff --git a/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt b/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
 new file mode 100644
-index 0000000..e48f049
+index 00000000000..e48f04963ff
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
 @@ -0,0 +1,23 @@
@@ -108,7 +110,7 @@ index 0000000..e48f049
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 0000000..f8ef142
+index 00000000000..f8ef142255c
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -0,0 +1,91 @@
@@ -205,7 +207,7 @@ index 0000000..f8ef142
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 0000000..4f085d3
+index 00000000000..4f085d31a26
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -0,0 +1,47 @@
@@ -258,7 +260,7 @@ index 0000000..4f085d3
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 new file mode 100644
-index 0000000..b164df8
+index 00000000000..b164df8b595
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 @@ -0,0 +1,25 @@
@@ -289,7 +291,7 @@ index 0000000..b164df8
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
 new file mode 100644
-index 0000000..901a1eb
+index 00000000000..901a1eba8af
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
 @@ -0,0 +1,31 @@
@@ -326,7 +328,7 @@ index 0000000..901a1eb
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 new file mode 100644
-index 0000000..b2ed137
+index 00000000000..b2ed13758d4
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -0,0 +1,91 @@
@@ -423,10 +425,10 @@ index 0000000..b2ed137
 +#include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 new file mode 100644
-index 0000000..4fc69a7
+index 00000000000..41be0a2084b
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,58 @@
 +//===-- RISCVMCTargetDesc.cpp - RISCV Target Descriptions -----------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -473,13 +475,12 @@ index 0000000..4fc69a7
 +
 +static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
 +                                       const Triple &TT) {
-+  MCAsmInfo *MAI = new RISCVMCAsmInfo(TT);
-+  return MAI;
++  return new RISCVMCAsmInfo(TT);
 +}
 +
 +extern "C" void LLVMInitializeRISCVTargetMC() {
 +  for (Target *T : {&getTheRISCV32Target(), &getTheRISCV64Target()}) {
-+    RegisterMCAsmInfoFn X(*T, createRISCVMCAsmInfo);
++    TargetRegistry::RegisterMCAsmInfo(*T, createRISCVMCAsmInfo);
 +    TargetRegistry::RegisterMCInstrInfo(*T, createRISCVMCInstrInfo);
 +    TargetRegistry::RegisterMCRegInfo(*T, createRISCVMCRegisterInfo);
 +    TargetRegistry::RegisterMCAsmBackend(*T, createRISCVAsmBackend);
@@ -488,7 +489,7 @@ index 0000000..4fc69a7
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 new file mode 100644
-index 0000000..ddc3bf3
+index 00000000000..ddc3bf35045
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 @@ -0,0 +1,58 @@
@@ -551,7 +552,7 @@ index 0000000..ddc3bf3
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
-index b4dd4ef..d13e574 100644
+index b4dd4efe0f9..d13e574c9bf 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.h
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -14,9 +14,10 @@
@@ -576,7 +577,7 @@ index b4dd4ef..d13e574 100644
  
  #endif
 diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
-index 3cb657a..34932c2 100644
+index 3cb657a9978..34932c25915 100644
 --- a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 +++ b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 @@ -28,8 +28,3 @@ extern "C" void LLVMInitializeRISCVTargetInfo() {
@@ -589,5 +590,5 @@ index 3cb657a..34932c2 100644
 -// Remove once this function is properly implemented.
 -extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.10.2
+2.11.1
 

@@ -1,0 +1,1565 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: Revert upstreamed RISC-V changes
+
+This allows the patch series to be maintained and modified on an ongoing
+basis.
+---
+ CMakeLists.txt                                     |   1 -
+ docs/CompilerWriterInfo.rst                        |   4 -
+ include/llvm/ADT/Triple.h                          |   2 -
+ include/llvm/Object/ELFObjectFile.h                |  13 --
+ include/llvm/Support/ELF.h                         |   6 -
+ include/llvm/Support/ELFRelocs/RISCV.def           |  50 -------
+ include/llvm/module.modulemap                      |   1 -
+ lib/Object/ELF.cpp                                 |   7 -
+ lib/ObjectYAML/ELFYAML.cpp                         |   4 -
+ lib/Support/Triple.cpp                             |  21 ---
+ lib/Target/LLVMBuild.txt                           |   1 -
+ lib/Target/RISCV/CMakeLists.txt                    |  14 --
+ lib/Target/RISCV/LLVMBuild.txt                     |  31 -----
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   7 -
+ lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |  23 ----
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |  91 ------------
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  47 -------
+ lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |  25 ----
+ lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |  31 -----
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  91 ------------
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  59 --------
+ lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |  58 --------
+ lib/Target/RISCV/RISCV.td                          |  27 ----
+ lib/Target/RISCV/RISCVInstrFormats.td              | 152 ---------------------
+ lib/Target/RISCV/RISCVInstrInfo.td                 |  55 --------
+ lib/Target/RISCV/RISCVRegisterInfo.td              |  90 ------------
+ lib/Target/RISCV/RISCVTargetMachine.cpp            |  58 --------
+ lib/Target/RISCV/RISCVTargetMachine.h              |  40 ------
+ lib/Target/RISCV/TargetInfo/CMakeLists.txt         |   3 -
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt          |  23 ----
+ lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  30 ----
+ tools/llvm-objdump/llvm-objdump.cpp                |   1 -
+ tools/llvm-readobj/ELFDumper.cpp                   |   1 -
+ unittests/ADT/TripleTest.cpp                       |  36 -----
+ 34 files changed, 1103 deletions(-)
+ delete mode 100644 include/llvm/Support/ELFRelocs/RISCV.def
+ delete mode 100644 lib/Target/RISCV/CMakeLists.txt
+ delete mode 100644 lib/Target/RISCV/LLVMBuild.txt
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
+ delete mode 100644 lib/Target/RISCV/RISCV.td
+ delete mode 100644 lib/Target/RISCV/RISCVInstrFormats.td
+ delete mode 100644 lib/Target/RISCV/RISCVInstrInfo.td
+ delete mode 100644 lib/Target/RISCV/RISCVRegisterInfo.td
+ delete mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
+ delete mode 100644 lib/Target/RISCV/RISCVTargetMachine.h
+ delete mode 100644 lib/Target/RISCV/TargetInfo/CMakeLists.txt
+ delete mode 100644 lib/Target/RISCV/TargetInfo/LLVMBuild.txt
+ delete mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index df6ef8efedb..b2e2f7bdfd2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -312,7 +312,6 @@ set(LLVM_ALL_TARGETS
+   MSP430
+   NVPTX
+   PowerPC
+-  RISCV
+   Sparc
+   SystemZ
+   X86
+diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
+index 8ce999033b7..6d270e30fc8 100644
+--- a/docs/CompilerWriterInfo.rst
++++ b/docs/CompilerWriterInfo.rst
+@@ -83,10 +83,6 @@ AMDGPU
+ * `AMD Compute Resources <http://developer.amd.com/tools/heterogeneous-computing/amd-accelerated-parallel-processing-app-sdk/documentation/>`_
+ * `AMDGPU Compute Application Binary Interface <https://github.com/RadeonOpenCompute/ROCm-ComputeABI-Doc/blob/master/AMDGPU-ABI.md>`__
+ 
+-RISC-V
+-------
+-* `RISC-V User-Level ISA Specification <https://riscv.org/specifications/>`_
+-
+ SPARC
+ -----
+ 
+diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
+index ba68ba73c2f..8691d9cdd42 100644
+--- a/include/llvm/ADT/Triple.h
++++ b/include/llvm/ADT/Triple.h
+@@ -64,8 +64,6 @@ public:
+     ppc64le,        // PPC64LE: powerpc64le
+     r600,           // R600: AMD GPUs HD2XXX - HD6XXX
+     amdgcn,         // AMDGCN: AMD GCN GPUs
+-    riscv32,        // RISC-V (32-bit): riscv32
+-    riscv64,        // RISC-V (64-bit): riscv64
+     sparc,          // Sparc: sparc
+     sparcv9,        // Sparcv9: Sparcv9
+     sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
+diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
+index 9e95f2958aa..c1c0f9ef563 100644
+--- a/include/llvm/Object/ELFObjectFile.h
++++ b/include/llvm/Object/ELFObjectFile.h
+@@ -946,8 +946,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return "ELF32-mips";
+     case ELF::EM_PPC:
+       return "ELF32-ppc";
+-    case ELF::EM_RISCV:
+-      return "ELF32-riscv";
+     case ELF::EM_SPARC:
+     case ELF::EM_SPARC32PLUS:
+       return "ELF32-sparc";
+@@ -968,8 +966,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
+     case ELF::EM_PPC64:
+       return "ELF64-ppc64";
+-    case ELF::EM_RISCV:
+-      return "ELF64-riscv";
+     case ELF::EM_S390:
+       return "ELF64-s390";
+     case ELF::EM_SPARCV9:
+@@ -1025,15 +1021,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+     return Triple::ppc;
+   case ELF::EM_PPC64:
+     return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
+-  case ELF::EM_RISCV:
+-    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
+-    case ELF::ELFCLASS32:
+-      return Triple::riscv32;
+-    case ELF::ELFCLASS64:
+-      return Triple::riscv64;
+-    default:
+-      report_fatal_error("Invalid ELFCLASS!");
+-    }
+   case ELF::EM_S390:
+     return Triple::systemz;
+ 
+diff --git a/include/llvm/Support/ELF.h b/include/llvm/Support/ELF.h
+index dad9c2f990b..fa0acf2a295 100644
+--- a/include/llvm/Support/ELF.h
++++ b/include/llvm/Support/ELF.h
+@@ -307,7 +307,6 @@ enum {
+   EM_NORC = 218,          // Nanoradio Optimized RISC
+   EM_CSR_KALIMBA = 219,   // CSR Kalimba architecture family
+   EM_AMDGPU = 224,        // AMD GPU architecture
+-  EM_RISCV = 243,         // RISC-V
+   EM_LANAI = 244,         // Lanai 32-bit processor
+   EM_BPF = 247,           // Linux kernel bpf virtual machine
+ 
+@@ -589,11 +588,6 @@ enum {
+ #include "ELFRelocs/Lanai.def"
+ };
+ 
+-// ELF Relocation types for RISC-V
+-enum {
+-#include "ELFRelocs/RISCV.def"
+-};
+-
+ // ELF Relocation types for S390/zSeries
+ enum {
+ #include "ELFRelocs/SystemZ.def"
+diff --git a/include/llvm/Support/ELFRelocs/RISCV.def b/include/llvm/Support/ELFRelocs/RISCV.def
+deleted file mode 100644
+index 9ec4955d26d..00000000000
+--- a/include/llvm/Support/ELFRelocs/RISCV.def
++++ /dev/null
+@@ -1,50 +0,0 @@
+-
+-#ifndef ELF_RELOC
+-#error "ELF_RELOC must be defined"
+-#endif
+-
+-ELF_RELOC(R_RISCV_NONE,               0)
+-ELF_RELOC(R_RISCV_32,                 1)
+-ELF_RELOC(R_RISCV_64,                 2)
+-ELF_RELOC(R_RISCV_RELATIVE,           3)
+-ELF_RELOC(R_RISCV_COPY,               4)
+-ELF_RELOC(R_RISCV_JUMP_SLOT,          5)
+-ELF_RELOC(R_RISCV_TLS_DTPMOD32,       6)
+-ELF_RELOC(R_RISCV_TLS_DTPMOD64,       7)
+-ELF_RELOC(R_RISCV_TLS_DTPREL32,       8)
+-ELF_RELOC(R_RISCV_TLS_DTPREL64,       9)
+-ELF_RELOC(R_RISCV_TLS_TPREL32,       10)
+-ELF_RELOC(R_RISCV_TLS_TPREL64,       11)
+-ELF_RELOC(R_RISCV_BRANCH,            16)
+-ELF_RELOC(R_RISCV_JAL,               17)
+-ELF_RELOC(R_RISCV_CALL,              18)
+-ELF_RELOC(R_RISCV_CALL_PLT,          19)
+-ELF_RELOC(R_RISCV_GOT_HI20,          20)
+-ELF_RELOC(R_RISCV_TLS_GOT_HI20,      21)
+-ELF_RELOC(R_RISCV_TLS_GD_HI20,       22)
+-ELF_RELOC(R_RISCV_PCREL_HI20,        23)
+-ELF_RELOC(R_RISCV_PCREL_LO12_I,      24)
+-ELF_RELOC(R_RISCV_PCREL_LO12_S,      25)
+-ELF_RELOC(R_RISCV_HI20,              26)
+-ELF_RELOC(R_RISCV_LO12_I,            27)
+-ELF_RELOC(R_RISCV_LO12_S,            28)
+-ELF_RELOC(R_RISCV_TPREL_HI20,        29)
+-ELF_RELOC(R_RISCV_TPREL_LO12_I,      30)
+-ELF_RELOC(R_RISCV_TPREL_LO12_S,      31)
+-ELF_RELOC(R_RISCV_TPREL_ADD,         32)
+-ELF_RELOC(R_RISCV_ADD8,              33)
+-ELF_RELOC(R_RISCV_ADD16,             34)
+-ELF_RELOC(R_RISCV_ADD32,             35)
+-ELF_RELOC(R_RISCV_ADD64,             36)
+-ELF_RELOC(R_RISCV_SUB8,              37)
+-ELF_RELOC(R_RISCV_SUB16,             38)
+-ELF_RELOC(R_RISCV_SUB32,             39)
+-ELF_RELOC(R_RISCV_SUB64,             40)
+-ELF_RELOC(R_RISCV_GNU_VTINHERIT,     41)
+-ELF_RELOC(R_RISCV_GNU_VTENTRY,       42)
+-ELF_RELOC(R_RISCV_ALIGN,             43)
+-ELF_RELOC(R_RISCV_RVC_BRANCH,        44)
+-ELF_RELOC(R_RISCV_RVC_JUMP,          45)
+-ELF_RELOC(R_RISCV_RVC_LUI,           46)
+-ELF_RELOC(R_RISCV_GPREL_I,           47)
+-ELF_RELOC(R_RISCV_GPREL_S,           48)
+diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
+index 29e6d66b27f..5e1d609d76e 100644
+--- a/include/llvm/module.modulemap
++++ b/include/llvm/module.modulemap
+@@ -271,7 +271,6 @@ module LLVM_Utils {
+     textual header "Support/ELFRelocs/Mips.def"
+     textual header "Support/ELFRelocs/PowerPC64.def"
+     textual header "Support/ELFRelocs/PowerPC.def"
+-    textual header "Support/ELFRelocs/RISCV.def"
+     textual header "Support/ELFRelocs/Sparc.def"
+     textual header "Support/ELFRelocs/SystemZ.def"
+     textual header "Support/ELFRelocs/x86_64.def"
+diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
+index 23682e1fabf..4d37a298632 100644
+--- a/lib/Object/ELF.cpp
++++ b/lib/Object/ELF.cpp
+@@ -89,13 +89,6 @@ StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type) {
+       break;
+     }
+     break;
+-  case ELF::EM_RISCV:
+-    switch (Type) {
+-#include "llvm/Support/ELFRelocs/RISCV.def"
+-    default:
+-      break;
+-    }
+-    break;
+   case ELF::EM_S390:
+     switch (Type) {
+ #include "llvm/Support/ELFRelocs/SystemZ.def"
+diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
+index 3052901da45..b7de1b7f9d8 100644
+--- a/lib/ObjectYAML/ELFYAML.cpp
++++ b/lib/ObjectYAML/ELFYAML.cpp
+@@ -192,7 +192,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
+   ECase(EM_78KOR);
+   ECase(EM_56800EX);
+   ECase(EM_AMDGPU);
+-  ECase(EM_RISCV);
+   ECase(EM_LANAI);
+   ECase(EM_BPF);
+ #undef ECase
+@@ -531,9 +530,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+   case ELF::EM_ARM:
+ #include "llvm/Support/ELFRelocs/ARM.def"
+     break;
+-  case ELF::EM_RISCV:
+-#include "llvm/Support/ELFRelocs/RISCV.def"
+-    break;
+   case ELF::EM_LANAI:
+ #include "llvm/Support/ELFRelocs/Lanai.def"
+     break;
+diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
+index 5c37dfc5ae2..e0138b71b29 100644
+--- a/lib/Support/Triple.cpp
++++ b/lib/Support/Triple.cpp
+@@ -39,8 +39,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
+   case ppc:            return "powerpc";
+   case r600:           return "r600";
+   case amdgcn:         return "amdgcn";
+-  case riscv32:        return "riscv32";
+-  case riscv64:        return "riscv64";
+   case sparc:          return "sparc";
+   case sparcv9:        return "sparcv9";
+   case sparcel:        return "sparcel";
+@@ -137,9 +135,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
+   case shave:       return "shave";
+   case wasm32:
+   case wasm64:      return "wasm";
+-
+-  case riscv32:
+-  case riscv64:     return "riscv";
+   }
+ }
+ 
+@@ -267,8 +262,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+     .Case("ppc64le", ppc64le)
+     .Case("r600", r600)
+     .Case("amdgcn", amdgcn)
+-    .Case("riscv32", riscv32)
+-    .Case("riscv64", riscv64)
+     .Case("hexagon", hexagon)
+     .Case("sparc", sparc)
+     .Case("sparcel", sparcel)
+@@ -385,8 +378,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+     .Case("mips64el", Triple::mips64el)
+     .Case("r600", Triple::r600)
+     .Case("amdgcn", Triple::amdgcn)
+-    .Case("riscv32", Triple::riscv32)
+-    .Case("riscv64", Triple::riscv64)
+     .Case("hexagon", Triple::hexagon)
+     .Cases("s390x", "systemz", Triple::systemz)
+     .Case("sparc", Triple::sparc)
+@@ -629,8 +620,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+   case Triple::r600:
+   case Triple::renderscript32:
+   case Triple::renderscript64:
+-  case Triple::riscv32:
+-  case Triple::riscv64:
+   case Triple::shave:
+   case Triple::sparc:
+   case Triple::sparcel:
+@@ -1159,7 +1148,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+   case llvm::Triple::nvptx:
+   case llvm::Triple::ppc:
+   case llvm::Triple::r600:
+-  case llvm::Triple::riscv32:
+   case llvm::Triple::sparc:
+   case llvm::Triple::sparcel:
+   case llvm::Triple::tce:
+@@ -1189,7 +1177,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+   case llvm::Triple::nvptx64:
+   case llvm::Triple::ppc64:
+   case llvm::Triple::ppc64le:
+-  case llvm::Triple::riscv64:
+   case llvm::Triple::sparcv9:
+   case llvm::Triple::systemz:
+   case llvm::Triple::x86_64:
+@@ -1242,7 +1229,6 @@ Triple Triple::get32BitArchVariant() const {
+   case Triple::nvptx:
+   case Triple::ppc:
+   case Triple::r600:
+-  case Triple::riscv32:
+   case Triple::sparc:
+   case Triple::sparcel:
+   case Triple::tce:
+@@ -1266,7 +1252,6 @@ Triple Triple::get32BitArchVariant() const {
+   case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
+   case Triple::ppc64:          T.setArch(Triple::ppc);     break;
+   case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
+-  case Triple::riscv64:        T.setArch(Triple::riscv32); break;
+   case Triple::x86_64:         T.setArch(Triple::x86);     break;
+   case Triple::amdil64:        T.setArch(Triple::amdil);   break;
+   case Triple::hsail64:        T.setArch(Triple::hsail);   break;
+@@ -1309,7 +1294,6 @@ Triple Triple::get64BitArchVariant() const {
+   case Triple::nvptx64:
+   case Triple::ppc64:
+   case Triple::ppc64le:
+-  case Triple::riscv64:
+   case Triple::sparcv9:
+   case Triple::systemz:
+   case Triple::x86_64:
+@@ -1326,7 +1310,6 @@ Triple Triple::get64BitArchVariant() const {
+   case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
+   case Triple::ppc:             T.setArch(Triple::ppc64);      break;
+   case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
+-  case Triple::riscv32:         T.setArch(Triple::riscv64);    break;
+   case Triple::x86:             T.setArch(Triple::x86_64);     break;
+   case Triple::amdil:           T.setArch(Triple::amdil64);    break;
+   case Triple::hsail:           T.setArch(Triple::hsail64);    break;
+@@ -1360,8 +1343,6 @@ Triple Triple::getBigEndianArchVariant() const {
+   case Triple::nvptx64:
+   case Triple::nvptx:
+   case Triple::r600:
+-  case Triple::riscv32:
+-  case Triple::riscv64:
+   case Triple::shave:
+   case Triple::spir64:
+   case Triple::spir:
+@@ -1447,8 +1428,6 @@ bool Triple::isLittleEndian() const {
+   case Triple::nvptx:
+   case Triple::ppc64le:
+   case Triple::r600:
+-  case Triple::riscv32:
+-  case Triple::riscv64:
+   case Triple::shave:
+   case Triple::sparcel:
+   case Triple::spir64:
+diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
+index 8be2a898e38..43621629dd2 100644
+--- a/lib/Target/LLVMBuild.txt
++++ b/lib/Target/LLVMBuild.txt
+@@ -30,7 +30,6 @@ subdirectories =
+  NVPTX
+  Mips
+  PowerPC
+- RISCV
+  Sparc
+  SystemZ
+  WebAssembly
+diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
+deleted file mode 100644
+index c8887548b91..00000000000
+--- a/lib/Target/RISCV/CMakeLists.txt
++++ /dev/null
+@@ -1,14 +0,0 @@
+-set(LLVM_TARGET_DEFINITIONS RISCV.td)
+-
+-tablegen(LLVM RISCVGenRegisterInfo.inc -gen-register-info)
+-tablegen(LLVM RISCVGenInstrInfo.inc -gen-instr-info)
+-tablegen(LLVM RISCVGenMCCodeEmitter.inc -gen-emitter)
+-
+-add_public_tablegen_target(RISCVCommonTableGen)
+-
+-add_llvm_target(RISCVCodeGen
+-  RISCVTargetMachine.cpp
+-  )
+-
+-add_subdirectory(TargetInfo)
+-add_subdirectory(MCTargetDesc)
+diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
+deleted file mode 100644
+index 9ba5fec928f..00000000000
+--- a/lib/Target/RISCV/LLVMBuild.txt
++++ /dev/null
+@@ -1,31 +0,0 @@
+-;===- ./lib/Target/RISCV/LLVMBuild.txt -------------------------*- Conf -*--===;
+-;
+-;                     The LLVM Compiler Infrastructure
+-;
+-; This file is distributed under the University of Illinois Open Source
+-; License. See LICENSE.TXT for details.
+-;
+-;===------------------------------------------------------------------------===;
+-;
+-; This is an LLVMBuild description file for the components in this subdirectory.
+-;
+-; For more information on the LLVMBuild system, please see:
+-;
+-;   http://llvm.org/docs/LLVMBuild.html
+-;
+-;===------------------------------------------------------------------------===;
+-
+-[common]
+-subdirectories = TargetInfo MCTargetDesc
+-
+-[component_0]
+-type = TargetGroup
+-name = RISCV
+-parent = Target
+-
+-[component_1]
+-type = Library
+-name = RISCVCodeGen
+-parent = RISCV
+-required_libraries = Core CodeGen RISCVInfo Support Target
+-add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
+deleted file mode 100644
+index d79de74f7cf..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
++++ /dev/null
+@@ -1,7 +0,0 @@
+-add_llvm_library(LLVMRISCVDesc
+-  RISCVAsmBackend.cpp
+-  RISCVELFObjectWriter.cpp
+-  RISCVMCAsmInfo.cpp
+-  RISCVMCTargetDesc.cpp
+-  RISCVMCCodeEmitter.cpp
+-)
+diff --git a/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt b/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
+deleted file mode 100644
+index e48f04963ff..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
++++ /dev/null
+@@ -1,23 +0,0 @@
+-;===- ./lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt ------------*- Conf -*--===;
+-;
+-;                     The LLVM Compiler Infrastructure
+-;
+-; This file is distributed under the University of Illinois Open Source
+-; License. See LICENSE.TXT for details.
+-;
+-;===------------------------------------------------------------------------===;
+-;
+-; This is an LLVMBuild description file for the components in this subdirectory.
+-;
+-; For more information on the LLVMBuild system, please see:
+-;
+-;   http://llvm.org/docs/LLVMBuild.html
+-;
+-;===------------------------------------------------------------------------===;
+-
+-[component_0]
+-type = Library
+-name = RISCVDesc
+-parent = RISCV
+-required_libraries = MC RISCVInfo Support
+-add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+deleted file mode 100644
+index f8ef142255c..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
++++ /dev/null
+@@ -1,91 +0,0 @@
+-//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/MC/MCAsmBackend.h"
+-#include "llvm/MC/MCAssembler.h"
+-#include "llvm/MC/MCDirectives.h"
+-#include "llvm/MC/MCELFObjectWriter.h"
+-#include "llvm/MC/MCFixupKindInfo.h"
+-#include "llvm/MC/MCObjectWriter.h"
+-#include "llvm/MC/MCSubtargetInfo.h"
+-#include "llvm/MC/MCExpr.h"
+-#include "llvm/MC/MCSymbol.h"
+-#include "llvm/Support/ErrorHandling.h"
+-#include "llvm/Support/raw_ostream.h"
+-
+-using namespace llvm;
+-
+-namespace {
+-class RISCVAsmBackend : public MCAsmBackend {
+-  uint8_t OSABI;
+-  bool Is64Bit;
+-
+-public:
+-  RISCVAsmBackend(uint8_t OSABI, bool Is64Bit)
+-      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
+-  ~RISCVAsmBackend() override {}
+-
+-  void applyFixup(const MCFixup &Fixup, char *Data, unsigned DataSize,
+-                  uint64_t Value, bool IsPCRel) const override;
+-
+-  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
+-
+-  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
+-                            const MCRelaxableFragment *DF,
+-                            const MCAsmLayout &Layout) const override {
+-    return false;
+-  }
+-
+-  unsigned getNumFixupKinds() const override { return 1; }
+-
+-  bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
+-
+-  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
+-                        MCInst &Res) const override {
+-
+-    llvm_unreachable("RISCVAsmBackend::relaxInstruction() unimplemented");
+-  }
+-
+-  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
+-};
+-
+-bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+-  // Once support for the compressed instruction set is added, we will be able
+-  // to conditionally support 16-bit NOPs
+-  if ((Count % 4) != 0)
+-    return false;
+-
+-  // The canonical nop on RISC-V is addi x0, x0, 0
+-  for (uint64_t i = 0; i < Count; i += 4)
+-    OW->write32(0x13);
+-
+-  return true;
+-}
+-
+-void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
+-                                 unsigned DataSize, uint64_t Value,
+-                                 bool IsPCRel) const {
+-  return;
+-}
+-
+-MCObjectWriter *
+-RISCVAsmBackend::createObjectWriter(raw_pwrite_stream &OS) const {
+-  return createRISCVELFObjectWriter(OS, OSABI, Is64Bit);
+-}
+-
+-} // end anonymous namespace
+-
+-MCAsmBackend *llvm::createRISCVAsmBackend(const Target &T,
+-                                          const MCRegisterInfo &MRI,
+-                                          const Triple &TT, StringRef CPU,
+-                                          const MCTargetOptions &Options) {
+-  uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
+-  return new RISCVAsmBackend(OSABI, TT.isArch64Bit());
+-}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+deleted file mode 100644
+index 4f085d31a26..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
++++ /dev/null
+@@ -1,47 +0,0 @@
+-//===-- RISCVELFObjectWriter.cpp - RISCV ELF Writer -----------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/MC/MCELFObjectWriter.h"
+-#include "llvm/MC/MCFixup.h"
+-#include "llvm/Support/ErrorHandling.h"
+-
+-using namespace llvm;
+-
+-namespace {
+-class RISCVELFObjectWriter : public MCELFObjectTargetWriter {
+-public:
+-  RISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit);
+-
+-  ~RISCVELFObjectWriter() override;
+-
+-protected:
+-  unsigned getRelocType(MCContext &Ctx, const MCValue &Target,
+-                        const MCFixup &Fixup, bool IsPCRel) const override;
+-};
+-}
+-
+-RISCVELFObjectWriter::RISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit)
+-    : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_RISCV,
+-                              /*HasRelocationAddend*/ false) {}
+-
+-RISCVELFObjectWriter::~RISCVELFObjectWriter() {}
+-
+-unsigned RISCVELFObjectWriter::getRelocType(MCContext &Ctx,
+-                                            const MCValue &Target,
+-                                            const MCFixup &Fixup,
+-                                            bool IsPCRel) const {
+-  llvm_unreachable("invalid fixup kind!");
+-}
+-
+-MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,
+-                                                 uint8_t OSABI, bool Is64Bit) {
+-  MCELFObjectTargetWriter *MOTW = new RISCVELFObjectWriter(OSABI, Is64Bit);
+-  return createELFObjectWriter(MOTW, OS, /*IsLittleEndian*/ true);
+-}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
+deleted file mode 100644
+index b164df8b595..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
++++ /dev/null
+@@ -1,25 +0,0 @@
+-//===-- RISCVMCAsmInfo.cpp - RISCV Asm properties -------------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file contains the declarations of the RISCVMCAsmInfo properties.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "RISCVMCAsmInfo.h"
+-#include "llvm/ADT/Triple.h"
+-using namespace llvm;
+-
+-void RISCVMCAsmInfo::anchor() {}
+-
+-RISCVMCAsmInfo::RISCVMCAsmInfo(const Triple &TT) {
+-  PointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
+-  CommentString = "#";
+-  AlignmentIsInBytes = false;
+-  SupportsDebugInformation = true;
+-}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
+deleted file mode 100644
+index 901a1eba8af..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
++++ /dev/null
+@@ -1,31 +0,0 @@
+-//===-- RISCVMCAsmInfo.h - RISCV Asm Info ----------------------*- C++ -*--===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file contains the declaration of the RISCVMCAsmInfo class.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCASMINFO_H
+-#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCASMINFO_H
+-
+-#include "llvm/MC/MCAsmInfoELF.h"
+-
+-namespace llvm {
+-class Triple;
+-
+-class RISCVMCAsmInfo : public MCAsmInfoELF {
+-  void anchor() override;
+-
+-public:
+-  explicit RISCVMCAsmInfo(const Triple &TargetTriple);
+-};
+-
+-} // namespace llvm
+-
+-#endif
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+deleted file mode 100644
+index b2ed13758d4..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
++++ /dev/null
+@@ -1,91 +0,0 @@
+-//===-- RISCVMCCodeEmitter.cpp - Convert RISCV code to machine code -------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file implements the RISCVMCCodeEmitter class.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/ADT/Statistic.h"
+-#include "llvm/MC/MCCodeEmitter.h"
+-#include "llvm/MC/MCContext.h"
+-#include "llvm/MC/MCExpr.h"
+-#include "llvm/MC/MCInst.h"
+-#include "llvm/MC/MCRegisterInfo.h"
+-#include "llvm/MC/MCSymbol.h"
+-#include "llvm/MC/MCAsmInfo.h"
+-#include "llvm/Support/EndianStream.h"
+-#include "llvm/Support/raw_ostream.h"
+-
+-using namespace llvm;
+-
+-#define DEBUG_TYPE "mccodeemitter"
+-
+-STATISTIC(MCNumEmitted, "Number of MC instructions emitted");
+-
+-namespace {
+-class RISCVMCCodeEmitter : public MCCodeEmitter {
+-  RISCVMCCodeEmitter(const RISCVMCCodeEmitter &) = delete;
+-  void operator=(const RISCVMCCodeEmitter &) = delete;
+-  MCContext &Ctx;
+-
+-public:
+-  RISCVMCCodeEmitter(MCContext &ctx) : Ctx(ctx) {}
+-
+-  ~RISCVMCCodeEmitter() override {}
+-
+-  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
+-                         SmallVectorImpl<MCFixup> &Fixups,
+-                         const MCSubtargetInfo &STI) const override;
+-
+-  /// TableGen'erated function for getting the binary encoding for an
+-  /// instruction.
+-  uint64_t getBinaryCodeForInstr(const MCInst &MI,
+-                                 SmallVectorImpl<MCFixup> &Fixups,
+-                                 const MCSubtargetInfo &STI) const;
+-
+-  /// Return binary encoding of operand. If the machine operand requires
+-  /// relocation, record the relocation and return zero.
+-  unsigned getMachineOpValue(const MCInst &MI, const MCOperand &MO,
+-                             SmallVectorImpl<MCFixup> &Fixups,
+-                             const MCSubtargetInfo &STI) const;
+-};
+-} // end anonymous namespace
+-
+-MCCodeEmitter *llvm::createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
+-                                              const MCRegisterInfo &MRI,
+-                                              MCContext &Ctx) {
+-  return new RISCVMCCodeEmitter(Ctx);
+-}
+-
+-void RISCVMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
+-                                           SmallVectorImpl<MCFixup> &Fixups,
+-                                           const MCSubtargetInfo &STI) const {
+-  // For now, we only support RISC-V instructions with 32-bit length
+-  uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
+-  support::endian::Writer<support::little>(OS).write(Bits);
+-  ++MCNumEmitted; // Keep track of the # of mi's emitted.
+-}
+-
+-unsigned
+-RISCVMCCodeEmitter::getMachineOpValue(const MCInst &MI, const MCOperand &MO,
+-                                      SmallVectorImpl<MCFixup> &Fixups,
+-                                      const MCSubtargetInfo &STI) const {
+-
+-  if (MO.isReg())
+-    return Ctx.getRegisterInfo()->getEncodingValue(MO.getReg());
+-
+-  if (MO.isImm())
+-    return static_cast<unsigned>(MO.getImm());
+-
+-  llvm_unreachable("Unhandled expression!");
+-  return 0;
+-}
+-
+-#include "RISCVGenMCCodeEmitter.inc"
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
+deleted file mode 100644
+index 4fc69a7fcab..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
++++ /dev/null
+@@ -1,59 +0,0 @@
+-//===-- RISCVMCTargetDesc.cpp - RISCV Target Descriptions -----------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-///
+-/// This file provides RISCV-specific target descriptions.
+-///
+-//===----------------------------------------------------------------------===//
+-
+-#include "RISCVMCTargetDesc.h"
+-#include "RISCVMCAsmInfo.h"
+-#include "llvm/ADT/STLExtras.h"
+-#include "llvm/MC/MCAsmInfo.h"
+-#include "llvm/MC/MCInstrInfo.h"
+-#include "llvm/MC/MCRegisterInfo.h"
+-#include "llvm/MC/MCStreamer.h"
+-#include "llvm/MC/MCSubtargetInfo.h"
+-#include "llvm/Support/ErrorHandling.h"
+-#include "llvm/Support/TargetRegistry.h"
+-
+-#define GET_INSTRINFO_MC_DESC
+-#include "RISCVGenInstrInfo.inc"
+-
+-#define GET_REGINFO_MC_DESC
+-#include "RISCVGenRegisterInfo.inc"
+-
+-using namespace llvm;
+-
+-static MCInstrInfo *createRISCVMCInstrInfo() {
+-  MCInstrInfo *X = new MCInstrInfo();
+-  InitRISCVMCInstrInfo(X);
+-  return X;
+-}
+-
+-static MCRegisterInfo *createRISCVMCRegisterInfo(const Triple &TT) {
+-  MCRegisterInfo *X = new MCRegisterInfo();
+-  InitRISCVMCRegisterInfo(X, RISCV::X1_32);
+-  return X;
+-}
+-
+-static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
+-                                       const Triple &TT) {
+-  MCAsmInfo *MAI = new RISCVMCAsmInfo(TT);
+-  return MAI;
+-}
+-
+-extern "C" void LLVMInitializeRISCVTargetMC() {
+-  for (Target *T : {&getTheRISCV32Target(), &getTheRISCV64Target()}) {
+-    RegisterMCAsmInfoFn X(*T, createRISCVMCAsmInfo);
+-    TargetRegistry::RegisterMCInstrInfo(*T, createRISCVMCInstrInfo);
+-    TargetRegistry::RegisterMCRegInfo(*T, createRISCVMCRegisterInfo);
+-    TargetRegistry::RegisterMCAsmBackend(*T, createRISCVAsmBackend);
+-    TargetRegistry::RegisterMCCodeEmitter(*T, createRISCVMCCodeEmitter);
+-  }
+-}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
+deleted file mode 100644
+index ddc3bf35045..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-//===-- RISCVMCTargetDesc.h - RISCV Target Descriptions ---------*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file provides RISCV specific target descriptions.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
+-#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
+-
+-#include "llvm/MC/MCTargetOptions.h"
+-#include "llvm/Support/DataTypes.h"
+-#include "llvm/Config/config.h"
+-
+-namespace llvm {
+-class MCAsmBackend;
+-class MCCodeEmitter;
+-class MCContext;
+-class MCInstrInfo;
+-class MCObjectWriter;
+-class MCRegisterInfo;
+-class MCSubtargetInfo;
+-class StringRef;
+-class Target;
+-class Triple;
+-class raw_ostream;
+-class raw_pwrite_stream;
+-
+-Target &getTheRISCV32Target();
+-Target &getTheRISCV64Target();
+-
+-MCCodeEmitter *createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
+-                                        const MCRegisterInfo &MRI,
+-                                        MCContext &Ctx);
+-
+-MCAsmBackend *createRISCVAsmBackend(const Target &T, const MCRegisterInfo &MRI,
+-                                    const Triple &TT, StringRef CPU,
+-                                    const MCTargetOptions &Options);
+-
+-MCObjectWriter *createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
+-                                           bool Is64Bit);
+-}
+-
+-// Defines symbolic names for RISC-V registers.
+-#define GET_REGINFO_ENUM
+-#include "RISCVGenRegisterInfo.inc"
+-
+-// Defines symbolic names for RISC-V instructions.
+-#define GET_INSTRINFO_ENUM
+-#include "RISCVGenInstrInfo.inc"
+-
+-#endif
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+deleted file mode 100644
+index 14838309a1b..00000000000
+--- a/lib/Target/RISCV/RISCV.td
++++ /dev/null
+@@ -1,27 +0,0 @@
+-//===-- RISCV.td - Describe the RISCV Target Machine -------*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-include "llvm/Target/Target.td"
+-
+-include "RISCVRegisterInfo.td"
+-include "RISCVInstrInfo.td"
+-
+-
+-def RISCVInstrInfo : InstrInfo;
+-
+-def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+-                                      "Implements RV64">;
+-
+-def : ProcessorModel<"generic-rv32", NoSchedModel, []>;
+-
+-def : ProcessorModel<"generic-rv64", NoSchedModel, [Feature64Bit]>;
+-
+-def RISCV : Target {
+-  let InstructionSet = RISCVInstrInfo;
+-}
+diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
+deleted file mode 100644
+index 1e9bc3bf9bc..00000000000
+--- a/lib/Target/RISCV/RISCVInstrFormats.td
++++ /dev/null
+@@ -1,152 +0,0 @@
+-//===-- RISCVInstrFormats.td - RISCV Instruction Formats ---*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-//===----------------------------------------------------------------------===//
+-//
+-//  These instruction format definitions are structured to match the
+-//  description in the RISC-V User-Level ISA specification as closely as
+-//  possible. For instance, the specification describes instructions with the
+-//  MSB (31st bit) on the left and the LSB (0th bit) on the right. This is
+-//  reflected in the order of parameters to each instruction class.
+-//
+-//  One area of divergence is in the description of immediates. The
+-//  specification describes immediate encoding in terms of bit-slicing
+-//  operations on the logical value represented. The immediate argument to
+-//  these instruction formats instead represents the bit sequence that will be
+-//  inserted into the instruction. e.g. although JAL's immediate is logically
+-//  a 21-bit value (where the LSB is always zero), we describe it as an imm20
+-//  to match how it is encoded.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : Instruction {
+-  field bits<32> Inst;
+-  let Size = 4;
+-
+-  bits<7> Opcode = 0;
+-
+-  let Inst{6-0} = Opcode;
+-
+-  let Namespace = "RISCV";
+-
+-  dag OutOperandList = outs;
+-  dag InOperandList = ins;
+-  let AsmString = asmstr;
+-  let Pattern = pattern;
+-}
+-
+-// Pseudo instructions
+-class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern> {
+-  let isPseudo = 1;
+-}
+-
+-class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
+-         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<5> rs2;
+-  bits<5> rs1;
+-  bits<5> rd;
+-
+-  let Inst{31-25} = funct7;
+-  let Inst{24-20} = rs2;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode;
+-}
+-
+-class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<12> imm12;
+-  bits<5> rs1;
+-  bits<5> rd;
+-
+-  let Inst{31-20} = imm12;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode;
+-}
+-
+-class FI32Shift<bit arithshift, bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<5> shamt;
+-  bits<5> rs1;
+-  bits<5> rd;
+-
+-  let Inst{31} = 0;
+-  let Inst{30} = arithshift;
+-  let Inst{29-25} = 0;
+-  let Inst{24-20} = shamt;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode;
+-}
+-
+-class FS<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<12> imm12;
+-  bits<5> rs2;
+-  bits<5> rs1;
+-
+-  let Inst{31-25} = imm12{11-5};
+-  let Inst{24-20} = rs2;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-7} = imm12{4-0};
+-  let Opcode = opcode;
+-}
+-
+-class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<12> imm12;
+-  bits<5> rs2;
+-  bits<5> rs1;
+-
+-  let Inst{31} = imm12{11};
+-  let Inst{30-25} = imm12{9-4};
+-  let Inst{24-20} = rs2;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-8} = imm12{3-0};
+-  let Inst{7} = imm12{10};
+-  let Opcode = opcode;
+-}
+-
+-class FU<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<20> imm20;
+-  bits<5> rd;
+-
+-  let Inst{31-12} = imm20;
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode;
+-}
+-
+-class FUJ<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern>
+-{
+-  bits<20> imm20;
+-  bits<5> rd;
+-
+-  let Inst{31} = imm20{19};
+-  let Inst{30-21} = imm20{9-0};
+-  let Inst{20} = imm20{10};
+-  let Inst{19-12} = imm20{18-11};
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode;
+-}
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+deleted file mode 100644
+index 52530c2f136..00000000000
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ /dev/null
+@@ -1,55 +0,0 @@
+-//===-- RISCVInstrInfo.td - Target Description for RISCV ---*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file describes the RISC-V instructions in TableGen format.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-include "RISCVInstrFormats.td"
+-
+-def simm12 : Operand<i32>;
+-
+-// As noted in RISCVRegisterInfo.td, the hope is that support for
+-// variable-sized register classes will mean that instruction definitions do
+-// not need to be duplicated for 32-bit and 64-bit register classes. For now
+-// we use 'GPR', which is 32-bit. When codegen for both RV32 and RV64 is
+-// added, we will need to duplicate instruction definitions unless a proposal
+-// like <http://lists.llvm.org/pipermail/llvm-dev/2016-September/105027.html>
+-// is adopted.
+-
+-class ALU_ri<bits<3> funct3, string OpcodeStr> :
+-      FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+-         OpcodeStr#"\t$rd, $rs1, $imm12", []>
+-{
+-}
+-
+-def ADDI  : ALU_ri<0b000, "addi">;
+-def SLTI  : ALU_ri<0b010, "slti">;
+-def SLTIU : ALU_ri<0b011, "sltiu">;
+-def XORI  : ALU_ri<0b100, "xori">;
+-def ORI   : ALU_ri<0b110, "ori">;
+-def ANDI  : ALU_ri<0b111, "andi">;
+-
+-class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
+-      FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+-         OpcodeStr#"\t$rd, $rs1, $rs2", []>
+-{
+-}
+-
+-def ADD  : ALU_rr<0b0000000, 0b000, "add">;
+-def SUB  : ALU_rr<0b0100000, 0b000, "sub">;
+-def SLL  : ALU_rr<0b0000000, 0b001, "sll">;
+-def SLT  : ALU_rr<0b0000000, 0b010, "slt">;
+-def SLTU : ALU_rr<0b0000000, 0b011, "sltu">;
+-def XOR  : ALU_rr<0b0000000, 0b100, "xor">;
+-def SRL  : ALU_rr<0b0000000, 0b101, "srl">;
+-def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
+-def OR   : ALU_rr<0b0000000, 0b110, "or">;
+-def AND  : ALU_rr<0b0000000, 0b111, "and">;
+-
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
+deleted file mode 100644
+index f04de217bf0..00000000000
+--- a/lib/Target/RISCV/RISCVRegisterInfo.td
++++ /dev/null
+@@ -1,90 +0,0 @@
+-//===-- RISCVRegisterInfo.td - RISC-V Register defs --------*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-//===----------------------------------------------------------------------===//
+-//  Declarations that describe the RISC-V register file
+-//===----------------------------------------------------------------------===//
+-
+-let Namespace = "RISCV" in {
+-  def sub_32 : SubRegIndex<32>;
+-
+-  class RISCVReg32<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
+-    let HWEncoding{4-0} = Enc;
+-    let AltNames = alt;
+-  }
+-
+-  // RISCV64 registers don't define an AsmName or AltName. If they specified
+-  // names aliasing the RISCVReg32 registers, the generation of the default
+-  // MatchRegisterName/MatchRegisterAltName would fail. When necessary,
+-  // RISCVAsmParser will need to convert a register number from a RISCVReg32
+-  // to the equivalent RISCVReg64.
+-  class RISCVReg64<RISCVReg32 subreg> : Register<""> {
+-    let HWEncoding{4-0} = subreg.HWEncoding{4-0};
+-    let SubRegs = [subreg];
+-    let SubRegIndices = [sub_32];
+-  }
+-
+-  def ABIRegAltName : RegAltNameIndex;
+-}
+-
+-// Integer registers
+-let RegAltNameIndices = [ABIRegAltName] in {
+-  def X0_32    : RISCVReg32<0, "x0", ["zero"]>, DwarfRegNum<[0]>;
+-  def X1_32    : RISCVReg32<1, "x1", ["ra"]>, DwarfRegNum<[1]>;
+-  def X2_32    : RISCVReg32<2, "x2", ["sp"]>, DwarfRegNum<[2]>;
+-  def X3_32    : RISCVReg32<3, "x3", ["gp"]>, DwarfRegNum<[3]>;
+-  def X4_32    : RISCVReg32<4, "x4", ["tp"]>, DwarfRegNum<[4]>;
+-  def X5_32    : RISCVReg32<5, "x5", ["t0"]>, DwarfRegNum<[5]>;
+-  def X6_32    : RISCVReg32<6, "x6", ["t1"]>, DwarfRegNum<[6]>;
+-  def X7_32    : RISCVReg32<7, "x7", ["t2"]>, DwarfRegNum<[7]>;
+-  def X8_32    : RISCVReg32<8, "x8", ["s0"]>, DwarfRegNum<[8]>;
+-  def X9_32    : RISCVReg32<9, "x9", ["s1"]>, DwarfRegNum<[9]>;
+-  def X10_32   : RISCVReg32<10,"x10", ["a0"]>, DwarfRegNum<[10]>;
+-  def X11_32   : RISCVReg32<11,"x11", ["a1"]>, DwarfRegNum<[11]>;
+-  def X12_32   : RISCVReg32<12,"x12", ["a2"]>, DwarfRegNum<[12]>;
+-  def X13_32   : RISCVReg32<13,"x13", ["a3"]>, DwarfRegNum<[13]>;
+-  def X14_32   : RISCVReg32<14,"x14", ["a4"]>, DwarfRegNum<[14]>;
+-  def X15_32   : RISCVReg32<15,"x15", ["a5"]>, DwarfRegNum<[15]>;
+-  def X16_32   : RISCVReg32<16,"x16", ["a6"]>, DwarfRegNum<[16]>;
+-  def X17_32   : RISCVReg32<17,"x17", ["a7"]>, DwarfRegNum<[17]>;
+-  def X18_32   : RISCVReg32<18,"x18", ["s2"]>, DwarfRegNum<[18]>;
+-  def X19_32   : RISCVReg32<19,"x19", ["s3"]>, DwarfRegNum<[19]>;
+-  def X20_32   : RISCVReg32<20,"x20", ["s4"]>, DwarfRegNum<[20]>;
+-  def X21_32   : RISCVReg32<21,"x21", ["s5"]>, DwarfRegNum<[21]>;
+-  def X22_32   : RISCVReg32<22,"x22", ["s6"]>, DwarfRegNum<[22]>;
+-  def X23_32   : RISCVReg32<23,"x23", ["s7"]>, DwarfRegNum<[23]>;
+-  def X24_32   : RISCVReg32<24,"x24", ["s8"]>, DwarfRegNum<[24]>;
+-  def X25_32   : RISCVReg32<25,"x25", ["s9"]>, DwarfRegNum<[25]>;
+-  def X26_32   : RISCVReg32<26,"x26", ["s10"]>, DwarfRegNum<[26]>;
+-  def X27_32   : RISCVReg32<27,"x27", ["s11"]>, DwarfRegNum<[27]>;
+-  def X28_32   : RISCVReg32<28,"x28", ["t3"]>, DwarfRegNum<[28]>;
+-  def X29_32   : RISCVReg32<29,"x29", ["t4"]>, DwarfRegNum<[29]>;
+-  def X30_32   : RISCVReg32<30,"x30", ["t5"]>, DwarfRegNum<[30]>;
+-  def X31_32   : RISCVReg32<31,"x31", ["t6"]>, DwarfRegNum<[31]>;
+-}
+-
+-foreach Index = 0-31 in {
+-  def X#Index#_64 : RISCVReg64<!cast<RISCVReg32>("X"#Index#"_32")>, DwarfRegNum<[Index]>;
+-}
+-
+-// We currently define separate register classes for the 32-bit and 64-bit
+-// GPRs. Once variable-sized register classes
+-// <http://lists.llvm.org/pipermail/llvm-dev/2016-September/105027.html> or
+-// similar are implemented, we can just use one 'GPR' class for most
+-// instruction definitions.
+-
+-// TODO: once codegen is implemented, registers should be listed in an order
+-// reflecting the preferred register allocation sequence.
+-def GPR : RegisterClass<"RISCV", [i32], 32, (add
+-  (sequence "X%u_32", 0, 31)
+-)>;
+-
+-def GPR64 : RegisterClass<"RISCV", [i64], 64, (add
+-  (sequence "X%u_64", 0, 31)
+-)>;
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
+deleted file mode 100644
+index afbbe004186..00000000000
+--- a/lib/Target/RISCV/RISCVTargetMachine.cpp
++++ /dev/null
+@@ -1,58 +0,0 @@
+-//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// Implements the info about RISCV target spec.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "RISCVTargetMachine.h"
+-#include "llvm/ADT/STLExtras.h"
+-#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+-#include "llvm/CodeGen/TargetPassConfig.h"
+-#include "llvm/IR/LegacyPassManager.h"
+-#include "llvm/CodeGen/Passes.h"
+-#include "llvm/Support/FormattedStream.h"
+-#include "llvm/Support/TargetRegistry.h"
+-#include "llvm/Target/TargetOptions.h"
+-using namespace llvm;
+-
+-extern "C" void LLVMInitializeRISCVTarget() {
+-  RegisterTargetMachine<RISCVTargetMachine> X(getTheRISCV32Target());
+-  RegisterTargetMachine<RISCVTargetMachine> Y(getTheRISCV64Target());
+-}
+-
+-static std::string computeDataLayout(const Triple &TT) {
+-  if (TT.isArch64Bit()) {
+-    return "e-m:e-i64:64-n32:64-S128";
+-  } else {
+-    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
+-    return "e-m:e-i64:64-n32-S128";
+-  }
+-}
+-
+-static Reloc::Model getEffectiveRelocModel(const Triple &TT,
+-                                           Optional<Reloc::Model> RM) {
+-  if (!RM.hasValue())
+-    return Reloc::Static;
+-  return *RM;
+-}
+-
+-RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
+-                                       StringRef CPU, StringRef FS,
+-                                       const TargetOptions &Options,
+-                                       Optional<Reloc::Model> RM,
+-                                       CodeModel::Model CM,
+-                                       CodeGenOpt::Level OL)
+-    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
+-                        getEffectiveRelocModel(TT, RM), CM, OL),
+-      TLOF(make_unique<TargetLoweringObjectFileELF>()) {}
+-
+-TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
+-  return new TargetPassConfig(this, PM);
+-}
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
+deleted file mode 100644
+index d13e574c9bf..00000000000
+--- a/lib/Target/RISCV/RISCVTargetMachine.h
++++ /dev/null
+@@ -1,40 +0,0 @@
+-//===-- RISCVTargetMachine.h - Define TargetMachine for RISCV ---*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file declares the RISCV specific subclass of TargetMachine.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
+-#define LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
+-
+-#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
+-#include "llvm/IR/DataLayout.h"
+-#include "llvm/Target/TargetMachine.h"
+-
+-namespace llvm {
+-class RISCVTargetMachine : public LLVMTargetMachine {
+-  std::unique_ptr<TargetLoweringObjectFile> TLOF;
+-
+-public:
+-  RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+-                     StringRef FS, const TargetOptions &Options,
+-                     Optional<Reloc::Model> RM, CodeModel::Model CM,
+-                     CodeGenOpt::Level OL);
+-
+-  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+-
+-  TargetLoweringObjectFile *getObjFileLowering() const override {
+-    return TLOF.get();
+-  }
+-};
+-}
+-
+-#endif
+diff --git a/lib/Target/RISCV/TargetInfo/CMakeLists.txt b/lib/Target/RISCV/TargetInfo/CMakeLists.txt
+deleted file mode 100644
+index f440fe2cb82..00000000000
+--- a/lib/Target/RISCV/TargetInfo/CMakeLists.txt
++++ /dev/null
+@@ -1,3 +0,0 @@
+-add_llvm_library(LLVMRISCVInfo
+-  RISCVTargetInfo.cpp
+-  )
+diff --git a/lib/Target/RISCV/TargetInfo/LLVMBuild.txt b/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
+deleted file mode 100644
+index db7f66f94bf..00000000000
+--- a/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
++++ /dev/null
+@@ -1,23 +0,0 @@
+-;===- ./lib/Target/RISCV/TargetInfo/LLVMBuild.txt --------------*- Conf -*--===;
+-;
+-;                     The LLVM Compiler Infrastructure
+-;
+-; This file is distributed under the University of Illinois Open Source
+-; License. See LICENSE.TXT for details.
+-;
+-;===------------------------------------------------------------------------===;
+-;
+-; This is an LLVMBuild description file for the components in this subdirectory.
+-;
+-; For more information on the LLVMBuild system, please see:
+-;
+-;   http://llvm.org/docs/LLVMBuild.html
+-;
+-;===------------------------------------------------------------------------===;
+-
+-[component_0]
+-type = Library
+-name = RISCVInfo
+-parent = RISCV
+-required_libraries = Support
+-add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+deleted file mode 100644
+index 34932c25915..00000000000
+--- a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
++++ /dev/null
+@@ -1,30 +0,0 @@
+-//===-- RISCVTargetInfo.cpp - RISCV Target Implementation -----------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "llvm/Support/TargetRegistry.h"
+-using namespace llvm;
+-
+-namespace llvm {
+-Target &getTheRISCV32Target() {
+-  static Target TheRISCV32Target;
+-  return TheRISCV32Target;
+-}
+-
+-Target &getTheRISCV64Target() {
+-  static Target TheRISCV64Target;
+-  return TheRISCV64Target;
+-}
+-}
+-
+-extern "C" void LLVMInitializeRISCVTargetInfo() {
+-  RegisterTarget<Triple::riscv32> X(getTheRISCV32Target(), "riscv32",
+-                                    "32-bit RISC-V");
+-  RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
+-                                    "64-bit RISC-V");
+-}
+diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
+index d81cb8878b7..840684beb14 100644
+--- a/tools/llvm-objdump/llvm-objdump.cpp
++++ b/tools/llvm-objdump/llvm-objdump.cpp
+@@ -761,7 +761,6 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+   case ELF::EM_HEXAGON:
+   case ELF::EM_MIPS:
+   case ELF::EM_BPF:
+-  case ELF::EM_RISCV:
+     res = Target;
+     break;
+   case ELF::EM_WEBASSEMBLY:
+diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
+index 2ebe44bdcfe..35a685b73a9 100644
+--- a/tools/llvm-readobj/ELFDumper.cpp
++++ b/tools/llvm-readobj/ELFDumper.cpp
+@@ -949,7 +949,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+   ENUM_ENT(EM_78KOR,         "EM_78KOR"),
+   ENUM_ENT(EM_56800EX,       "EM_56800EX"),
+   ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
+-  ENUM_ENT(EM_RISCV,         "RISC-V"),
+   ENUM_ENT(EM_WEBASSEMBLY,   "EM_WEBASSEMBLY"),
+   ENUM_ENT(EM_LANAI,         "EM_LANAI"),
+   ENUM_ENT(EM_BPF,           "EM_BPF"),
+diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
+index 767d9f7248e..9e7a8784ad1 100644
+--- a/unittests/ADT/TripleTest.cpp
++++ b/unittests/ADT/TripleTest.cpp
+@@ -266,24 +266,6 @@ TEST(TripleTest, ParsedIDs) {
+   EXPECT_EQ(Triple::AMDHSA, T.getOS());
+   EXPECT_EQ(Triple::OpenCL, T.getEnvironment());
+ 
+-  T = Triple("riscv32-unknown-unknown");
+-  EXPECT_EQ(Triple::riscv32, T.getArch());
+-  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+-  EXPECT_EQ(Triple::UnknownOS, T.getOS());
+-  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+-
+-  T = Triple("riscv64-unknown-linux");
+-  EXPECT_EQ(Triple::riscv64, T.getArch());
+-  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+-  EXPECT_EQ(Triple::Linux, T.getOS());
+-  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+-
+-  T = Triple("riscv64-unknown-freebsd");
+-  EXPECT_EQ(Triple::riscv64, T.getArch());
+-  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+-  EXPECT_EQ(Triple::FreeBSD, T.getOS());
+-  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+-
+   T = Triple("huh");
+   EXPECT_EQ(Triple::UnknownArch, T.getArch());
+ }
+@@ -577,16 +559,6 @@ TEST(TripleTest, BitWidthPredicates) {
+   EXPECT_FALSE(T.isArch16Bit());
+   EXPECT_TRUE(T.isArch32Bit());
+   EXPECT_FALSE(T.isArch64Bit());
+-
+-  T.setArch(Triple::riscv32);
+-  EXPECT_FALSE(T.isArch16Bit());
+-  EXPECT_TRUE(T.isArch32Bit());
+-  EXPECT_FALSE(T.isArch64Bit());
+-
+-  T.setArch(Triple::riscv64);
+-  EXPECT_FALSE(T.isArch16Bit());
+-  EXPECT_FALSE(T.isArch32Bit());
+-  EXPECT_TRUE(T.isArch64Bit());
+ }
+ 
+ TEST(TripleTest, BitWidthArchVariants) {
+@@ -678,14 +650,6 @@ TEST(TripleTest, BitWidthArchVariants) {
+   EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
+   EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
+ 
+-  T.setArch(Triple::riscv32);
+-  EXPECT_EQ(Triple::riscv32, T.get32BitArchVariant().getArch());
+-  EXPECT_EQ(Triple::riscv64, T.get64BitArchVariant().getArch());
+-
+-  T.setArch(Triple::riscv64);
+-  EXPECT_EQ(Triple::riscv32, T.get32BitArchVariant().getArch());
+-  EXPECT_EQ(Triple::riscv64, T.get64BitArchVariant().getArch());
+-
+   T.setArch(Triple::thumbeb);
+   EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
+   EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
+-- 
+2.11.1
+

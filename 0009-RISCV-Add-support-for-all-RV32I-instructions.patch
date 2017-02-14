@@ -6,16 +6,16 @@ Differential Revision: https://reviews.llvm.org/D23566
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  96 +++++++++++++-
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  19 +++
- lib/Target/RISCV/RISCVInstrInfo.td                 | 144 +++++++++++++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td                 | 141 +++++++++++++++++++-
  test/MC/RISCV/rv32i-invalid.s                      |  44 ++++++
  test/MC/RISCV/rv32i-valid.s                        | 147 +++++++++++++++++++++
- 5 files changed, 440 insertions(+), 10 deletions(-)
+ 5 files changed, 437 insertions(+), 10 deletions(-)
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 0949674..461b6b0 100644
+index edfe39da9c7..361771373c4 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -29,6 +29,9 @@ struct RISCVOperand;
+@@ -30,6 +30,9 @@ struct RISCVOperand;
  class RISCVAsmParser : public MCTargetAsmParser {
    SMLoc getLoc() const { return getParser().getTok().getLoc(); }
  
@@ -25,7 +25,7 @@ index 0949674..461b6b0 100644
    bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                 OperandVector &Operands, MCStreamer &Out,
                                 uint64_t &ErrorInfo,
-@@ -47,6 +50,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
+@@ -48,6 +51,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
  
    OperandMatchResultTy parseImmediate(OperandVector &Operands);
    OperandMatchResultTy parseRegister(OperandVector &Operands);
@@ -33,7 +33,7 @@ index 0949674..461b6b0 100644
  
    bool parseOperand(OperandVector &Operands);
  
-@@ -129,10 +133,36 @@ public:
+@@ -125,10 +129,36 @@ public:
      return static_cast<const MCConstantExpr *>(Val)->getValue();
    }
  
@@ -70,7 +70,7 @@ index 0949674..461b6b0 100644
    /// getStartLoc - Gets location of the first token of this operand
    SMLoc getStartLoc() const override { return StartLoc; }
    /// getEndLoc - Gets location of the last token of this operand
-@@ -221,13 +251,19 @@ public:
+@@ -216,13 +246,19 @@ public:
  #define GET_SUBTARGET_FEATURE_NAME
  #include "RISCVGenAsmMatcher.inc"
  
@@ -91,7 +91,7 @@ index 0949674..461b6b0 100644
  
    switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
    default:
-@@ -240,8 +276,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -235,8 +271,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      return Error(IDLoc, "instruction use requires an option to be enabled");
    case Match_MnemonicFail:
      return Error(IDLoc, "unrecognized instruction mnemonic");
@@ -102,7 +102,7 @@ index 0949674..461b6b0 100644
      if (ErrorInfo != ~0U) {
        if (ErrorInfo >= Operands.size())
          return Error(ErrorLoc, "too few operands for instruction");
-@@ -251,10 +287,26 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -246,10 +282,26 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc = IDLoc;
      }
      return Error(ErrorLoc, "invalid operand for instruction");
@@ -132,7 +132,7 @@ index 0949674..461b6b0 100644
    }
  
    llvm_unreachable("Unknown match type detected!");
-@@ -319,6 +371,31 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -314,6 +366,31 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
    return MatchOperand_Success;
  }
  
@@ -164,7 +164,7 @@ index 0949674..461b6b0 100644
  /// Looks at a token type and creates the relevant operand
  /// from this information, adding to Operands.
  /// If operand was parsed, returns false, else true.
-@@ -328,8 +405,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+@@ -323,8 +400,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
      return false;
  
    // Attempt to parse token as an immediate
@@ -180,7 +180,7 @@ index 0949674..461b6b0 100644
    // Finally we have exhausted all options and must declare defeat.
    Error(getLoc(), "unknown operand");
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index b2ed137..968d5bb 100644
+index b2ed13758d4..968d5bbc679 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -55,6 +55,10 @@ public:
@@ -215,7 +215,7 @@ index b2ed137..968d5bb 100644
 +
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 93d13f7..237a8cb 100644
+index 93d13f79390..8dab19c98ed 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,17 +13,52 @@
@@ -344,27 +344,24 @@ index 93d13f7..237a8cb 100644
  class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
        FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
           OpcodeStr#"\t$rd, $rs1, $rs2", []>
-@@ -62,3 +153,50 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
+@@ -62,3 +153,47 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
  def OR   : ALU_rr<0b0000000, 0b110, "or">;
  def AND  : ALU_rr<0b0000000, 0b111, "and">;
  
-+def FENCE : RISCVInst<(outs), (ins uimm4:$pred, uimm4:$succ), "fence\t$pred, $succ", []>
-+{
++def FENCE : FI<0b000, 0b0001111, (outs), (ins uimm4:$pred, uimm4:$succ),
++               "fence\t$pred, $succ", []> {
 +  bits<4> pred;
 +  bits<4> succ;
 +
-+  let Opcode = 0b0001111;
-+  let Inst{19-7} = 0;
-+  let Inst{23-20} = succ;
-+  let Inst{27-24} = pred;
-+  let Inst{31-28} = 0;
++  let rs1 = 0;
++  let rd = 0;
++  let imm12 = {0b0000,pred,succ};
 +}
 +
-+def FENCEI : RISCVInst<(outs), (ins), "fence.i", []> {
-+  let Opcode = 0b0001111;
-+  let Inst{11-7} = 0;
-+  let Inst{14-12} = 0b001;
-+  let Inst{31-15} = 0;
++def FENCEI : FI<0b001, 0b0001111, (outs), (ins), "fence.i", []> {
++  let rs1 = 0;
++  let rd = 0;
++  let imm12 = 0;
 +}
 +
 +let rs1=0, rd=0 in {
@@ -396,7 +393,7 @@ index 93d13f7..237a8cb 100644
 +def CSRRSI : CSR_ri<0b110, "csrrsi">;
 +def CSRRCI : CSR_ri<0b111, "csrrci">;
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
-index d6a6de7..daec044 100644
+index d6a6de7a278..daec04425d2 100644
 --- a/test/MC/RISCV/rv32i-invalid.s
 +++ b/test/MC/RISCV/rv32i-invalid.s
 @@ -1,9 +1,53 @@
@@ -454,7 +451,7 @@ index d6a6de7..daec044 100644
  subs t0, t2, t1 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
  nandi t0, zero, 0 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
-index fc89cd4..5192852 100644
+index fc89cd42016..5192852ec6d 100644
 --- a/test/MC/RISCV/rv32i-valid.s
 +++ b/test/MC/RISCV/rv32i-valid.s
 @@ -3,6 +3,100 @@
@@ -623,5 +620,5 @@ index fc89cd4..5192852 100644
 +# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 +csrrci t1, 0x140, 5
 -- 
-2.10.2
+2.11.1
 

@@ -23,10 +23,10 @@ Upstream commit: https://reviews.llvm.org/rL285730
  create mode 100644 include/llvm/Support/ELFRelocs/RISCV.def
 
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 93b84a8..7d73b19 100644
+index c1c0f9ef563..9e95f2958aa 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -865,6 +865,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -946,6 +946,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return "ELF32-mips";
      case ELF::EM_PPC:
        return "ELF32-ppc";
@@ -35,7 +35,7 @@ index 93b84a8..7d73b19 100644
      case ELF::EM_SPARC:
      case ELF::EM_SPARC32PLUS:
        return "ELF32-sparc";
-@@ -885,6 +887,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -966,6 +968,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
      case ELF::EM_PPC64:
        return "ELF64-ppc64";
@@ -44,7 +44,7 @@ index 93b84a8..7d73b19 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -940,6 +944,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1021,6 +1025,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
@@ -61,18 +61,18 @@ index 93b84a8..7d73b19 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/Support/ELF.h b/include/llvm/Support/ELF.h
-index 7e878a5..b4ef84d 100644
+index fa0acf2a295..dad9c2f990b 100644
 --- a/include/llvm/Support/ELF.h
 +++ b/include/llvm/Support/ELF.h
-@@ -310,6 +310,7 @@ enum {
-   EM_NORC          = 218, // Nanoradio Optimized RISC
-   EM_CSR_KALIMBA   = 219, // CSR Kalimba architecture family
-   EM_AMDGPU        = 224, // AMD GPU architecture
-+  EM_RISCV         = 243, // RISC-V
-   EM_LANAI         = 244, // Lanai 32-bit processor
-   EM_BPF           = 247, // Linux kernel bpf virtual machine
+@@ -307,6 +307,7 @@ enum {
+   EM_NORC = 218,          // Nanoradio Optimized RISC
+   EM_CSR_KALIMBA = 219,   // CSR Kalimba architecture family
+   EM_AMDGPU = 224,        // AMD GPU architecture
++  EM_RISCV = 243,         // RISC-V
+   EM_LANAI = 244,         // Lanai 32-bit processor
+   EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -597,6 +598,11 @@ enum {
+@@ -588,6 +589,11 @@ enum {
  #include "ELFRelocs/Lanai.def"
  };
  
@@ -86,7 +86,7 @@ index 7e878a5..b4ef84d 100644
  #include "ELFRelocs/SystemZ.def"
 diff --git a/include/llvm/Support/ELFRelocs/RISCV.def b/include/llvm/Support/ELFRelocs/RISCV.def
 new file mode 100644
-index 0000000..9ec4955
+index 00000000000..9ec4955d26d
 --- /dev/null
 +++ b/include/llvm/Support/ELFRelocs/RISCV.def
 @@ -0,0 +1,50 @@
@@ -141,10 +141,10 @@ index 0000000..9ec4955
 +ELF_RELOC(R_RISCV_GPREL_I,           47)
 +ELF_RELOC(R_RISCV_GPREL_S,           48)
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index c0f661b..448a7e5 100644
+index 5e1d609d76e..29e6d66b27f 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -262,6 +262,7 @@ module LLVM_Utils {
+@@ -271,6 +271,7 @@ module LLVM_Utils {
      textual header "Support/ELFRelocs/Mips.def"
      textual header "Support/ELFRelocs/PowerPC64.def"
      textual header "Support/ELFRelocs/PowerPC.def"
@@ -153,7 +153,7 @@ index c0f661b..448a7e5 100644
      textual header "Support/ELFRelocs/SystemZ.def"
      textual header "Support/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 4d37a29..23682e1 100644
+index 4d37a298632..23682e1fabf 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
 @@ -89,6 +89,13 @@ StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type) {
@@ -171,18 +171,18 @@ index 4d37a29..23682e1 100644
      switch (Type) {
  #include "llvm/Support/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 2137eee..0c42a1a 100644
+index b7de1b7f9d8..3052901da45 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
-@@ -194,6 +194,7 @@ ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(IO &IO,
-   ECase(EM_78KOR)
-   ECase(EM_56800EX)
-   ECase(EM_AMDGPU)
-+  ECase(EM_RISCV)
-   ECase(EM_LANAI)
-   ECase(EM_BPF)
+@@ -192,6 +192,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
+   ECase(EM_78KOR);
+   ECase(EM_56800EX);
+   ECase(EM_AMDGPU);
++  ECase(EM_RISCV);
+   ECase(EM_LANAI);
+   ECase(EM_BPF);
  #undef ECase
-@@ -529,6 +530,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -530,6 +531,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARM:
  #include "llvm/Support/ELFRelocs/ARM.def"
      break;
@@ -193,10 +193,10 @@ index 2137eee..0c42a1a 100644
  #include "llvm/Support/ELFRelocs/Lanai.def"
      break;
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index f8bef75..3f6ef52 100644
+index 840684beb14..d81cb8878b7 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
-@@ -704,6 +704,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+@@ -761,6 +761,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
    case ELF::EM_HEXAGON:
    case ELF::EM_MIPS:
    case ELF::EM_BPF:
@@ -205,10 +205,10 @@ index f8bef75..3f6ef52 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 9c594a0..41f06d4 100644
+index 35a685b73a9..2ebe44bdcfe 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -945,6 +945,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -949,6 +949,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -217,5 +217,5 @@ index 9c594a0..41f06d4 100644
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
 -- 
-2.10.2
+2.11.1
 

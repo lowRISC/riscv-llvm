@@ -1,0 +1,1406 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Initial codegen support for ALU operations
+
+This roughly constitutes the minimum necessary to get code generation for
+simple ALU operations to work. Frame handling, and generation of full function
+prologue/epilogues remains unimplemented until a future patch.
+---
+ lib/Target/RISCV/CMakeLists.txt         |  11 ++
+ lib/Target/RISCV/LLVMBuild.txt          |   3 +-
+ lib/Target/RISCV/RISCV.h                |  31 ++++++
+ lib/Target/RISCV/RISCV.td               |   1 +
+ lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 ++++++++++++
+ lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
+ lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  64 ++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 177 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h    |  59 +++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
+ lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
+ lib/Target/RISCV/RISCVInstrInfo.td      |  64 +++++++-----
+ lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  60 +++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
+ lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
+ lib/Target/RISCV/RISCVSubtarget.h       |  60 +++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp |  28 ++++-
+ lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
+ test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/lit.local.cfg        |   2 +
+ 24 files changed, 1063 insertions(+), 35 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCV.h
+ create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
+ create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
+ create mode 100644 lib/Target/RISCV/RISCVFrameLowering.cpp
+ create mode 100644 lib/Target/RISCV/RISCVFrameLowering.h
+ create mode 100644 lib/Target/RISCV/RISCVISelDAGToDAG.cpp
+ create mode 100644 lib/Target/RISCV/RISCVISelLowering.cpp
+ create mode 100644 lib/Target/RISCV/RISCVISelLowering.h
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfo.cpp
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfo.h
+ create mode 100644 lib/Target/RISCV/RISCVMCInstLower.cpp
+ create mode 100644 lib/Target/RISCV/RISCVRegisterInfo.cpp
+ create mode 100644 lib/Target/RISCV/RISCVRegisterInfo.h
+ create mode 100644 lib/Target/RISCV/RISCVSubtarget.cpp
+ create mode 100644 lib/Target/RISCV/RISCVSubtarget.h
+ create mode 100644 test/CodeGen/RISCV/alu.ll
+ create mode 100644 test/CodeGen/RISCV/lit.local.cfg
+
+diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
+index b9f3fc110c7..bac4d4c353d 100644
+--- a/lib/Target/RISCV/CMakeLists.txt
++++ b/lib/Target/RISCV/CMakeLists.txt
+@@ -3,14 +3,25 @@ set(LLVM_TARGET_DEFINITIONS RISCV.td)
+ tablegen(LLVM RISCVGenRegisterInfo.inc -gen-register-info)
+ tablegen(LLVM RISCVGenInstrInfo.inc -gen-instr-info)
+ tablegen(LLVM RISCVGenMCCodeEmitter.inc -gen-emitter)
++tablegen(LLVM RISCVGenMCPseudoLowering.inc -gen-pseudo-lowering)
+ tablegen(LLVM RISCVGenAsmMatcher.inc -gen-asm-matcher)
+ tablegen(LLVM RISCVGenAsmWriter.inc -gen-asm-writer)
++tablegen(LLVM RISCVGenCallingConv.inc -gen-callingconv)
++tablegen(LLVM RISCVGenDAGISel.inc -gen-dag-isel)
+ tablegen(LLVM RISCVGenSubtargetInfo.inc -gen-subtarget)
+ tablegen(LLVM RISCVGenDisassemblerTables.inc -gen-disassembler)
+ 
+ add_public_tablegen_target(RISCVCommonTableGen)
+ 
+ add_llvm_target(RISCVCodeGen
++  RISCVAsmPrinter.cpp
++  RISCVFrameLowering.cpp
++  RISCVInstrInfo.cpp
++  RISCVISelDAGToDAG.cpp
++  RISCVISelLowering.cpp
++  RISCVMCInstLower.cpp
++  RISCVRegisterInfo.cpp
++  RISCVSubtarget.cpp
+   RISCVTargetMachine.cpp
+   )
+ 
+diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
+index e15963b5bd7..ab21565b0c2 100644
+--- a/lib/Target/RISCV/LLVMBuild.txt
++++ b/lib/Target/RISCV/LLVMBuild.txt
+@@ -30,5 +30,6 @@ has_disassembler = 1
+ type = Library
+ name = RISCVCodeGen
+ parent = RISCV
+-required_libraries = AsmPrinter Core CodeGen MC RISCVAsmPrinter RISCVDesc RISCVInfo Support Target
++required_libraries = AsmPrinter Core CodeGen MC RISCVAsmPrinter RISCVDesc
++  RISCVInfo SelectionDAG Support Target
+ add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
+new file mode 100644
+index 00000000000..1b6140203c8
+--- /dev/null
++++ b/lib/Target/RISCV/RISCV.h
+@@ -0,0 +1,31 @@
++//===-- RISCV.h - Top-level interface for RISCV -----------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the entry points for global functions defined in the LLVM
++// RISC-V back-end.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCV_H
++#define LLVM_LIB_TARGET_RISCV_RISCV_H
++
++#include "MCTargetDesc/RISCVMCTargetDesc.h"
++#include "llvm/Target/TargetMachine.h"
++
++namespace llvm {
++class RISCVTargetMachine;
++class MCInst;
++class MachineInstr;
++
++void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI);
++
++FunctionPass *createRISCVISelDag(RISCVTargetMachine &TM);
++}
++
++#endif
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 19e11839ac3..8bdd4b19c4c 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -10,6 +10,7 @@
+ include "llvm/Target/Target.td"
+ 
+ include "RISCVRegisterInfo.td"
++include "RISCVCallingConv.td"
+ include "RISCVInstrInfo.td"
+ 
+ 
+diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
+new file mode 100644
+index 00000000000..1c213b6c7e9
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVAsmPrinter.cpp
+@@ -0,0 +1,67 @@
++//===-- RISCVAsmPrinter.cpp - RISCV LLVM assembly writer ------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains a printer that converts from our internal representation
++// of machine-dependent LLVM code to the RISCV assembly language.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "InstPrinter/RISCVInstPrinter.h"
++#include "RISCVTargetMachine.h"
++#include "llvm/CodeGen/AsmPrinter.h"
++#include "llvm/CodeGen/MachineConstantPool.h"
++#include "llvm/CodeGen/MachineFunctionPass.h"
++#include "llvm/CodeGen/MachineInstr.h"
++#include "llvm/CodeGen/MachineModuleInfo.h"
++#include "llvm/MC/MCAsmInfo.h"
++#include "llvm/MC/MCInst.h"
++#include "llvm/MC/MCStreamer.h"
++#include "llvm/MC/MCSymbol.h"
++#include "llvm/Support/TargetRegistry.h"
++#include "llvm/Support/raw_ostream.h"
++using namespace llvm;
++
++#define DEBUG_TYPE "asm-printer"
++
++namespace {
++class RISCVAsmPrinter : public AsmPrinter {
++public:
++  explicit RISCVAsmPrinter(TargetMachine &TM,
++                           std::unique_ptr<MCStreamer> Streamer)
++      : AsmPrinter(TM, std::move(Streamer)) {}
++
++  StringRef getPassName() const override { return "RISCV Assembly Printer"; }
++
++  void EmitInstruction(const MachineInstr *MI) override;
++
++  bool emitPseudoExpansionLowering(MCStreamer &OutStreamer,
++                                   const MachineInstr *MI);
++};
++}
++
++// Simple pseudo-instructions have their lowering (with expansion to real
++// instructions) auto-generated.
++#include "RISCVGenMCPseudoLowering.inc"
++
++void RISCVAsmPrinter::EmitInstruction(const MachineInstr *MI) {
++  // Do any auto-generated pseudo lowerings.
++  if (emitPseudoExpansionLowering(*OutStreamer, MI))
++    return;
++
++  MCInst TmpInst;
++  LowerRISCVMachineInstrToMCInst(MI, TmpInst);
++  EmitToStreamer(*OutStreamer, TmpInst);
++}
++
++// Force static initialization.
++extern "C" void LLVMInitializeRISCVAsmPrinter() {
++  RegisterAsmPrinter<RISCVAsmPrinter> X(getTheRISCV32Target());
++  RegisterAsmPrinter<RISCVAsmPrinter> Y(getTheRISCV64Target());
++}
+diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
+new file mode 100644
+index 00000000000..24d9a8c44d2
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVCallingConv.td
+@@ -0,0 +1,31 @@
++//===-- RISCVCallingConv.td - Calling Conventions RISCV ----*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This describes the calling conventions for the RISCV architecture.
++//
++//===----------------------------------------------------------------------===//
++
++// RISCV 32-bit C return-value convention.
++def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10_32, X11_32]>>]>;
++
++// RISCV 32-bit C Calling convention.
++def CC_RISCV32 : CallingConv<[
++  // Promote i8/i16 args to i32
++  CCIfType<[ i8, i16 ], CCPromoteToType<i32>>,
++
++  // All arguments get passed in integer registers if there is space.
++  CCIfType<[i32], CCAssignToReg<[ X10_32, X11_32, X12_32, X13_32, X14_32,
++                                  X15_32, X16_32, X17_32 ]>>,
++
++  // Could be assigned to the stack in 8-byte aligned units, but unsupported
++  CCAssignToStack<8, 8>
++]>;
++
++def CSR : CalleeSavedRegs<(add X1_32, X2_32, X3_32, X4_32, X8_32, X9_32,
++                          (sequence "X%u_32", 18, 27))>;
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
+new file mode 100644
+index 00000000000..fd3b258e26c
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
+@@ -0,0 +1,29 @@
++//===-- RISCVFrameLowering.cpp - RISCV Frame Information ------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the RISCV implementation of TargetFrameLowering class.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVFrameLowering.h"
++#include "RISCVSubtarget.h"
++#include "llvm/CodeGen/MachineFrameInfo.h"
++#include "llvm/CodeGen/MachineFunction.h"
++#include "llvm/CodeGen/MachineInstrBuilder.h"
++#include "llvm/CodeGen/MachineRegisterInfo.h"
++
++using namespace llvm;
++
++bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
++
++void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
++                                      MachineBasicBlock &MBB) const {}
++
++void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
++                                      MachineBasicBlock &MBB) const {}
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
+new file mode 100644
+index 00000000000..3048fa75e3f
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVFrameLowering.h
+@@ -0,0 +1,35 @@
++//===-- RISCVFrameLowering.h - Define frame lowering for RISCV -*- C++ -*--===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This class implements RISCV-specific bits of TargetFrameLowering class.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVFRAMELOWERING_H
++#define LLVM_LIB_TARGET_RISCV_RISCVFRAMELOWERING_H
++
++#include "llvm/Target/TargetFrameLowering.h"
++
++namespace llvm {
++class RISCVSubtarget;
++
++class RISCVFrameLowering : public TargetFrameLowering {
++public:
++  explicit RISCVFrameLowering(const RISCVSubtarget &STI)
++      : TargetFrameLowering(StackGrowsDown,
++                            /*StackAlignment=*/8,
++                            /*LocalAreaOffset=*/0) {}
++
++  void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
++  void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
++
++  bool hasFP(const MachineFunction &MF) const override;
++};
++}
++#endif
+diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
+new file mode 100644
+index 00000000000..0daad5c6a96
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
+@@ -0,0 +1,64 @@
++//===-- RISCVISelDAGToDAG.cpp - A dag to dag inst selector for RISCV ------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file defines an instruction selector for the RISCV target.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "MCTargetDesc/RISCVMCTargetDesc.h"
++#include "RISCVTargetMachine.h"
++#include "llvm/CodeGen/SelectionDAGISel.h"
++#include "llvm/IR/Function.h" // To access function attributes.
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/MathExtras.h"
++#include "llvm/Support/raw_ostream.h"
++using namespace llvm;
++
++#define DEBUG_TYPE "riscv-isel"
++
++// RISCV-specific code to select RISCV machine instructions for
++// SelectionDAG operations.
++namespace {
++class RISCVDAGToDAGISel final : public SelectionDAGISel {
++public:
++  explicit RISCVDAGToDAGISel(RISCVTargetMachine &TargetMachine)
++      : SelectionDAGISel(TargetMachine) {}
++
++  StringRef getPassName() const override {
++    return "RISCV DAG->DAG Pattern Instruction Selection";
++  }
++
++  void Select(SDNode *Node) override;
++
++// Include the pieces autogenerated from the target description.
++#include "RISCVGenDAGISel.inc"
++};
++}
++
++void RISCVDAGToDAGISel::Select(SDNode *Node) {
++  // Dump information about the Node being selected.
++  DEBUG(errs() << "Selecting: "; Node->dump(CurDAG); errs() << "\n");
++
++  // If we have a custom node, we have already selected
++  if (Node->isMachineOpcode()) {
++    DEBUG(errs() << "== "; Node->dump(CurDAG); errs() << "\n");
++    Node->setNodeId(-1);
++    return;
++  }
++
++  // Select the default instruction.
++  SelectCode(Node);
++}
++
++// This pass converts a legalized DAG into a RISCV-specific DAG, ready
++// for instruction scheduling.
++FunctionPass *llvm::createRISCVISelDag(RISCVTargetMachine &TM) {
++  return new RISCVDAGToDAGISel(TM);
++}
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+new file mode 100644
+index 00000000000..d0eb8573922
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -0,0 +1,177 @@
++//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file defines the interfaces that RISCV uses to lower LLVM code into a
++// selection DAG.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVISelLowering.h"
++#include "RISCV.h"
++#include "RISCVRegisterInfo.h"
++#include "RISCVSubtarget.h"
++#include "RISCVTargetMachine.h"
++#include "llvm/CodeGen/CallingConvLower.h"
++#include "llvm/CodeGen/MachineFrameInfo.h"
++#include "llvm/CodeGen/MachineFunction.h"
++#include "llvm/CodeGen/MachineInstrBuilder.h"
++#include "llvm/CodeGen/MachineRegisterInfo.h"
++#include "llvm/CodeGen/SelectionDAGISel.h"
++#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
++#include "llvm/CodeGen/ValueTypes.h"
++#include "llvm/IR/DiagnosticInfo.h"
++#include "llvm/IR/DiagnosticPrinter.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++
++using namespace llvm;
++
++#define DEBUG_TYPE "riscv-lower"
++
++RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
++                                     const RISCVSubtarget &STI)
++    : TargetLowering(TM) {
++
++  // Set up the register classes.
++  addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
++
++  // Compute derived properties from the register classes
++  computeRegisterProperties(STI.getRegisterInfo());
++
++  setStackPointerRegisterToSaveRestore(RISCV::X2_32);
++
++  // TODO: add all necessary setOperationAction calls
++
++  setBooleanContents(ZeroOrOneBooleanContent);
++
++  // Function alignments (log2)
++  setMinFunctionAlignment(3);
++  setPrefFunctionAlignment(3);
++
++  // inline memcpy() for kernel to see explicit copy
++  MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
++  MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
++  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
++}
++
++SDValue RISCVTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
++  switch (Op.getOpcode()) {
++  default:
++    report_fatal_error("unimplemented operand");
++  }
++}
++
++// Calling Convention Implementation
++#include "RISCVGenCallingConv.inc"
++
++// Transform physical registers into virtual registers
++SDValue RISCVTargetLowering::LowerFormalArguments(
++    SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
++    const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
++    SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
++
++  switch (CallConv) {
++  default:
++    llvm_unreachable("Unsupported calling convention");
++  case CallingConv::C:
++    break;
++  }
++
++  MachineFunction &MF = DAG.getMachineFunction();
++  MachineRegisterInfo &RegInfo = MF.getRegInfo();
++
++  if (IsVarArg) {
++    llvm_unreachable("VarArg not supported");
++  }
++
++  // Assign locations to all of the incoming arguments.
++  SmallVector<CCValAssign, 16> ArgLocs;
++  CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
++  CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
++
++  for (auto &VA : ArgLocs) {
++    if (VA.isRegLoc()) {
++      // Arguments passed in registers
++      EVT RegVT = VA.getLocVT();
++      switch (RegVT.getSimpleVT().SimpleTy) {
++      case MVT::i32: {
++        const unsigned VReg =
++            RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
++        RegInfo.addLiveIn(VA.getLocReg(), VReg);
++        SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
++
++        InVals.push_back(ArgIn);
++        break;
++      }
++      default:
++        DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
++                     << RegVT.getEVTString() << "\n");
++        llvm_unreachable("unhandled argument type");
++      }
++    } else {
++      llvm_unreachable("Defined with too many args");
++    }
++  }
++  return Chain;
++}
++
++SDValue
++RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
++                               bool IsVarArg,
++                               const SmallVectorImpl<ISD::OutputArg> &Outs,
++                               const SmallVectorImpl<SDValue> &OutVals,
++                               const SDLoc &DL, SelectionDAG &DAG) const {
++  if (IsVarArg) {
++    report_fatal_error("VarArg not supported");
++  }
++
++  // Stores the assignment of the return value to a location
++  SmallVector<CCValAssign, 16> RVLocs;
++
++  // Info about the registers and stack slot
++  CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
++                 *DAG.getContext());
++
++  CCInfo.AnalyzeReturn(Outs, RetCC_RISCV32);
++
++  SDValue Flag;
++  SmallVector<SDValue, 4> RetOps(1, Chain);
++
++  // Copy the result values into the output registers.
++  for (unsigned i = 0, e = RVLocs.size(); i < e; ++i) {
++    CCValAssign &VA = RVLocs[i];
++    assert(VA.isRegLoc() && "Can only return in registers!");
++
++    Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), OutVals[i], Flag);
++
++    // Guarantee that all emitted copies are stuck together
++    Flag = Chain.getValue(1);
++    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
++  }
++
++  RetOps[0] = Chain; // Update chain.
++
++  // Add the flag if we have it.
++  if (Flag.getNode()) {
++    RetOps.push_back(Flag);
++  }
++
++  return DAG.getNode(RISCVISD::RET_FLAG, DL, MVT::Other, RetOps);
++}
++
++const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
++  switch ((RISCVISD::NodeType)Opcode) {
++  case RISCVISD::FIRST_NUMBER:
++    break;
++  case RISCVISD::RET_FLAG:
++    return "RISCVISD::RET_FLAG";
++  }
++  return nullptr;
++}
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+new file mode 100644
+index 00000000000..fb05d3ff2a5
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -0,0 +1,59 @@
++//===-- RISCVISelLowering.h - RISCV DAG Lowering Interface ------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file defines the interfaces that RISCV uses to lower LLVM code into a
++// selection DAG.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVISELLOWERING_H
++#define LLVM_LIB_TARGET_RISCV_RISCVISELLOWERING_H
++
++#include "RISCV.h"
++#include "llvm/CodeGen/SelectionDAG.h"
++#include "llvm/Target/TargetLowering.h"
++
++namespace llvm {
++class RISCVSubtarget;
++namespace RISCVISD {
++enum NodeType : unsigned {
++  FIRST_NUMBER = ISD::BUILTIN_OP_END,
++  RET_FLAG
++};
++}
++
++class RISCVTargetLowering : public TargetLowering {
++public:
++  explicit RISCVTargetLowering(const TargetMachine &TM, const RISCVSubtarget &STI);
++
++  // Provide custom lowering hooks for some operations.
++  SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
++
++  // This method returns the name of a target specific DAG node.
++  const char *getTargetNodeName(unsigned Opcode) const override;
++
++private:
++  // Lower incoming arguments, copy physregs into vregs
++  SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
++                               bool IsVarArg,
++                               const SmallVectorImpl<ISD::InputArg> &Ins,
++                               const SDLoc &DL, SelectionDAG &DAG,
++                               SmallVectorImpl<SDValue> &InVals) const override;
++  SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
++                      const SmallVectorImpl<ISD::OutputArg> &Outs,
++                      const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
++                      SelectionDAG &DAG) const override;
++  bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
++                                         Type *Ty) const override {
++    return true;
++  }
++};
++}
++
++#endif
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
+new file mode 100644
+index 00000000000..92db5358ce4
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
+@@ -0,0 +1,31 @@
++//===-- RISCVInstrInfo.cpp - RISCV Instruction Information ------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the RISCV implementation of the TargetInstrInfo class.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVInstrInfo.h"
++#include "RISCV.h"
++#include "RISCVSubtarget.h"
++#include "RISCVTargetMachine.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/CodeGen/MachineFunctionPass.h"
++#include "llvm/CodeGen/MachineInstrBuilder.h"
++#include "llvm/CodeGen/MachineRegisterInfo.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/TargetRegistry.h"
++
++#define GET_INSTRINFO_CTOR_DTOR
++#include "RISCVGenInstrInfo.inc"
++
++using namespace llvm;
++
++RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
+new file mode 100644
+index 00000000000..a89198a157b
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfo.h
+@@ -0,0 +1,35 @@
++//===-- RISCVInstrInfo.h - RISCV Instruction Information --------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the RISCV implementation of the TargetInstrInfo class.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVINSTRINFO_H
++#define LLVM_LIB_TARGET_RISCV_RISCVINSTRINFO_H
++
++#include "RISCVRegisterInfo.h"
++#include "llvm/Target/TargetInstrInfo.h"
++
++#define GET_INSTRINFO_HEADER
++#include "RISCVGenInstrInfo.inc"
++
++namespace llvm {
++
++class RISCVInstrInfo : public RISCVGenInstrInfo {
++  const RISCVRegisterInfo RI;
++
++public:
++  RISCVInstrInfo();
++
++  const RISCVRegisterInfo &getRegisterInfo() const { return RI; }
++};
++}
++
++#endif
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 91f185af0a4..7538af347d1 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -13,6 +13,11 @@
+ 
+ include "RISCVInstrFormats.td"
+ 
++// Target-independent nodes
++def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
++                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
++
++// Operands
+ class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
+   let Name = prefix # "Imm" # width # suffix;
+   let RenderMethod = "addImmOperands";
+@@ -32,12 +37,12 @@ def uimm4 : Operand<i32> {
+   let DecoderMethod = "decodeUImmOperand<4>";
+ }
+ 
+-def uimm5 : Operand<i32> {
++def uimm5 : Operand<i32>, ImmLeaf<i32, [{return isUInt<5>(Imm);}]> {
+   let ParserMatchClass = UImmAsmOperand<5>;
+   let DecoderMethod = "decodeUImmOperand<5>";
+ }
+ 
+-def simm12 : Operand<i32> {
++def simm12 : Operand<i32>, ImmLeaf<i32, [{return isInt<12>(Imm);}]> {
+   let ParserMatchClass = SImmAsmOperand<12>;
+   let EncoderMethod = "getImmOpValue";
+   let DecoderMethod = "decodeSImmOperand<12>";
+@@ -88,6 +93,11 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
+ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+               "jalr\t$rd, $rs1, $imm12", []>;
+ 
++let isReturn=1, isTerminator=1, isBarrier=1 in {
++  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
++                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
++}
++
+ class Bcc<bits<3> funct3, string OpcodeStr> :
+       FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
+          OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
+@@ -122,45 +132,45 @@ def SB  : ST_ri<0b000, "sb">;
+ def SH  : ST_ri<0b001, "sh">;
+ def SW  : ST_ri<0b010, "sw">;
+ 
+-class ALU_ri<bits<3> funct3, string OpcodeStr> :
++class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
+       FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+-         OpcodeStr#"\t$rd, $rs1, $imm12", []>
++         OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
+ {
+ }
+ 
+-def ADDI  : ALU_ri<0b000, "addi">;
+-def SLTI  : ALU_ri<0b010, "slti">;
+-def SLTIU : ALU_ri<0b011, "sltiu">;
+-def XORI  : ALU_ri<0b100, "xori">;
+-def ORI   : ALU_ri<0b110, "ori">;
+-def ANDI  : ALU_ri<0b111, "andi">;
++def ADDI  : ALU_ri<0b000, "addi", add>;
++def SLTI  : ALU_ri<0b010, "slti", setlt>;
++def SLTIU : ALU_ri<0b011, "sltiu", setult>;
++def XORI  : ALU_ri<0b100, "xori", xor>;
++def ORI   : ALU_ri<0b110, "ori", or>;
++def ANDI  : ALU_ri<0b111, "andi", and>;
+ 
+-class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr> :
++class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
+       FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
+-         OpcodeStr#"\t$rd, $rs1, $shamt", []>
++         OpcodeStr#"\t$rd, $rs1, $shamt", [(set GPR:$rd, (OpNode GPR:$rs1, uimm5:$shamt))]>
+ {
+ }
+ 
+-def SLLI : SHIFT32_ri<0, 0b001, "slli">;
+-def SRLI : SHIFT32_ri<0, 0b101, "srli">;
+-def SRAI : SHIFT32_ri<1, 0b101, "srai">;
++def SLLI : SHIFT32_ri<0, 0b001, "slli", shl>;
++def SRLI : SHIFT32_ri<0, 0b101, "srli", srl>;
++def SRAI : SHIFT32_ri<1, 0b101, "srai", sra>;
+ 
+-class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
++class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
+       FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+-         OpcodeStr#"\t$rd, $rs1, $rs2", []>
++         OpcodeStr#"\t$rd, $rs1, $rs2", [(set GPR:$rd, (OpNode GPR:$rs1, GPR:$rs2))]>
+ {
+ }
+ 
+-def ADD  : ALU_rr<0b0000000, 0b000, "add">;
+-def SUB  : ALU_rr<0b0100000, 0b000, "sub">;
+-def SLL  : ALU_rr<0b0000000, 0b001, "sll">;
+-def SLT  : ALU_rr<0b0000000, 0b010, "slt">;
+-def SLTU : ALU_rr<0b0000000, 0b011, "sltu">;
+-def XOR  : ALU_rr<0b0000000, 0b100, "xor">;
+-def SRL  : ALU_rr<0b0000000, 0b101, "srl">;
+-def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
+-def OR   : ALU_rr<0b0000000, 0b110, "or">;
+-def AND  : ALU_rr<0b0000000, 0b111, "and">;
++def ADD  : ALU_rr<0b0000000, 0b000, "add", add>;
++def SUB  : ALU_rr<0b0100000, 0b000, "sub", sub>;
++def SLL  : ALU_rr<0b0000000, 0b001, "sll", shl>;
++def SLT  : ALU_rr<0b0000000, 0b010, "slt", setlt>;
++def SLTU : ALU_rr<0b0000000, 0b011, "sltu", setult>;
++def XOR  : ALU_rr<0b0000000, 0b100, "xor", xor>;
++def SRL  : ALU_rr<0b0000000, 0b101, "srl", srl>;
++def SRA  : ALU_rr<0b0100000, 0b101, "sra", sra>;
++def OR   : ALU_rr<0b0000000, 0b110, "or", or>;
++def AND  : ALU_rr<0b0000000, 0b111, "and", and>;
+ 
+ def FENCE : FI<0b000, 0b0001111, (outs), (ins uimm4:$pred, uimm4:$succ),
+                "fence\t$pred, $succ", []> {
+diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
+new file mode 100644
+index 00000000000..1f3510b7c38
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
+@@ -0,0 +1,52 @@
++//===-- RISCVMCInstLower.cpp - Convert RISCV MachineInstr to an MCInst ------=//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains code to lower RISCV MachineInstrs to their corresponding
++// MCInst records.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "llvm/CodeGen/MachineBasicBlock.h"
++#include "llvm/CodeGen/MachineInstr.h"
++#include "llvm/MC/MCAsmInfo.h"
++#include "llvm/MC/MCContext.h"
++#include "llvm/MC/MCExpr.h"
++#include "llvm/MC/MCInst.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++
++using namespace llvm;
++
++void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI,
++                                          MCInst &OutMI) {
++  OutMI.setOpcode(MI->getOpcode());
++
++  for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
++    const MachineOperand &MO = MI->getOperand(i);
++
++    MCOperand MCOp;
++    switch (MO.getType()) {
++    default:
++      MI->dump();
++      llvm_unreachable("unknown operand type");
++    case MachineOperand::MO_Register:
++      // Ignore all implicit register operands.
++      if (MO.isImplicit())
++        continue;
++      MCOp = MCOperand::createReg(MO.getReg());
++      break;
++    case MachineOperand::MO_Immediate:
++      MCOp = MCOperand::createImm(MO.getImm());
++      break;
++    }
++
++    OutMI.addOperand(MCOp);
++  }
++}
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+new file mode 100644
+index 00000000000..88ee73af3e7
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -0,0 +1,60 @@
++//===-- RISCVRegisterInfo.cpp - RISCV Register Information ------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the RISCV implementation of the TargetRegisterInfo class.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVRegisterInfo.h"
++#include "RISCV.h"
++#include "RISCVSubtarget.h"
++#include "llvm/CodeGen/MachineFrameInfo.h"
++#include "llvm/CodeGen/MachineFunction.h"
++#include "llvm/CodeGen/MachineInstrBuilder.h"
++#include "llvm/CodeGen/RegisterScavenging.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Target/TargetFrameLowering.h"
++#include "llvm/Target/TargetInstrInfo.h"
++
++#define GET_REGINFO_TARGET_DESC
++#include "RISCVGenRegisterInfo.inc"
++
++using namespace llvm;
++
++RISCVRegisterInfo::RISCVRegisterInfo() : RISCVGenRegisterInfo(RISCV::X1_32) {}
++
++const MCPhysReg *
++RISCVRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
++  return CSR_SaveList;
++}
++
++BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
++  BitVector Reserved(getNumRegs());
++  Reserved.set(RISCV::X0_64); // zero
++  Reserved.set(RISCV::X0_32); // zero
++  Reserved.set(RISCV::X2_64); // sp
++  Reserved.set(RISCV::X2_32); // sp
++  Reserved.set(RISCV::X3_64); // gp
++  Reserved.set(RISCV::X3_32); // gp
++  Reserved.set(RISCV::X4_64); // tp
++  Reserved.set(RISCV::X4_32); // tp
++  Reserved.set(RISCV::X8_64); // fp
++  Reserved.set(RISCV::X8_32); // fp
++  return Reserved;
++}
++
++void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
++                                            int SPAdj, unsigned FIOperandNum,
++                                            RegScavenger *RS) const {
++  llvm_unreachable("Subroutines not supported yet");
++}
++
++unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
++  return RISCV::X8_32;
++}
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
+new file mode 100644
+index 00000000000..30ca44247d9
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVRegisterInfo.h
+@@ -0,0 +1,40 @@
++//===-- RISCVRegisterInfo.h - RISCV Register Information Impl ---*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains the RISCV implementation of the TargetRegisterInfo class.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
++#define LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
++
++#include "llvm/Target/TargetRegisterInfo.h"
++
++#define GET_REGINFO_HEADER
++#include "RISCVGenRegisterInfo.inc"
++
++namespace llvm {
++
++struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
++
++  RISCVRegisterInfo();
++
++  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
++
++  BitVector getReservedRegs(const MachineFunction &MF) const override;
++
++  void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
++                           unsigned FIOperandNum,
++                           RegScavenger *RS = nullptr) const override;
++
++  unsigned getFrameRegister(const MachineFunction &MF) const override;
++};
++}
++
++#endif
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
+index f04de217bf0..df707746d04 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.td
++++ b/lib/Target/RISCV/RISCVRegisterInfo.td
+@@ -79,12 +79,22 @@ foreach Index = 0-31 in {
+ // similar are implemented, we can just use one 'GPR' class for most
+ // instruction definitions.
+ 
+-// TODO: once codegen is implemented, registers should be listed in an order
+-// reflecting the preferred register allocation sequence.
++// The order of registers represents the preferred allocation sequence.
++// Registers are listed in the order caller-save, callee-save, specials.
+ def GPR : RegisterClass<"RISCV", [i32], 32, (add
+-  (sequence "X%u_32", 0, 31)
++  (sequence "X%u_32", 10, 17),
++  (sequence "X%u_32", 5, 7),
++  (sequence "X%u_32", 28, 31),
++  (sequence "X%u_32", 8, 9),
++  (sequence "X%u_32", 18, 27),
++  (sequence "X%u_32", 0, 4)
+ )>;
+ 
+ def GPR64 : RegisterClass<"RISCV", [i64], 64, (add
+-  (sequence "X%u_64", 0, 31)
++  (sequence "X%u_64", 10, 17),
++  (sequence "X%u_64", 5, 7),
++  (sequence "X%u_64", 28, 31),
++  (sequence "X%u_64", 8, 9),
++  (sequence "X%u_64", 18, 27),
++  (sequence "X%u_64", 0, 4)
+ )>;
+diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
+new file mode 100644
+index 00000000000..865c243b96f
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVSubtarget.cpp
+@@ -0,0 +1,32 @@
++//===-- RISCVSubtarget.cpp - RISCV Subtarget Information ------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements the RISCV specific subclass of TargetSubtargetInfo.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "RISCVFrameLowering.h"
++#include "RISCVSubtarget.h"
++#include "llvm/Support/TargetRegistry.h"
++
++using namespace llvm;
++
++#define DEBUG_TYPE "riscv-subtarget"
++
++#define GET_SUBTARGETINFO_TARGET_DESC
++#define GET_SUBTARGETINFO_CTOR
++#include "RISCVGenSubtargetInfo.inc"
++
++void RISCVSubtarget::anchor() {}
++
++RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
++                               const std::string &FS, const TargetMachine &TM)
++    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
++      TLInfo(TM, *this), HasRV64(false) {}
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+new file mode 100644
+index 00000000000..3da7ff705aa
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -0,0 +1,60 @@
++//===-- RISCVSubtarget.h - Define Subtarget for the RISCV -------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares the RISCV specific subclass of TargetSubtargetInfo.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVSUBTARGET_H
++#define LLVM_LIB_TARGET_RISCV_RISCVSUBTARGET_H
++
++#include "RISCVFrameLowering.h"
++#include "RISCVISelLowering.h"
++#include "RISCVInstrInfo.h"
++#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/Target/TargetMachine.h"
++#include "llvm/Target/TargetSubtargetInfo.h"
++
++#define GET_SUBTARGETINFO_HEADER
++#include "RISCVGenSubtargetInfo.inc"
++
++namespace llvm {
++class StringRef;
++
++class RISCVSubtarget : public RISCVGenSubtargetInfo {
++  virtual void anchor();
++  RISCVInstrInfo InstrInfo;
++  RISCVFrameLowering FrameLowering;
++  RISCVTargetLowering TLInfo;
++  bool HasRV64;
++
++public:
++  // Initializes the data members to match that of the specified triple.
++  RISCVSubtarget(const Triple &TT, const std::string &CPU,
++                 const std::string &FS, const TargetMachine &TM);
++
++  // Parses features string setting specified subtarget options. The
++  // definition of this function is auto-generated by tblgen.
++  void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
++
++  const RISCVFrameLowering *getFrameLowering() const override {
++    return &FrameLowering;
++  }
++  const RISCVInstrInfo *getInstrInfo() const override { return &InstrInfo; }
++  const TargetRegisterInfo *getRegisterInfo() const override {
++    return &InstrInfo.getRegisterInfo();
++  }
++  const RISCVTargetLowering *getTargetLowering() const override {
++    return &TLInfo;
++  }
++};
++} // End llvm namespace
++
++#endif
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
+index a20331cd0a3..6e1be40eff9 100644
+--- a/lib/Target/RISCV/RISCVTargetMachine.cpp
++++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
+@@ -11,12 +11,13 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
++#include "RISCV.h"
+ #include "RISCVTargetMachine.h"
+ #include "llvm/ADT/STLExtras.h"
++#include "llvm/CodeGen/Passes.h"
+ #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+ #include "llvm/CodeGen/TargetPassConfig.h"
+ #include "llvm/IR/LegacyPassManager.h"
+-#include "llvm/CodeGen/Passes.h"
+ #include "llvm/Support/FormattedStream.h"
+ #include "llvm/Support/TargetRegistry.h"
+ #include "llvm/Target/TargetOptions.h"
+@@ -51,10 +52,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
+                                        CodeGenOpt::Level OL)
+     : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
+                         getEffectiveRelocModel(TT, RM), CM, OL),
+-      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
++      TLOF(make_unique<TargetLoweringObjectFileELF>()),
++      Subtarget(TT, CPU, FS, *this) {
+   initAsmInfo();
+ }
+ 
++namespace {
++class RISCVPassConfig : public TargetPassConfig {
++public:
++  RISCVPassConfig(RISCVTargetMachine *TM, PassManagerBase &PM)
++      : TargetPassConfig(TM, PM) {}
++
++  RISCVTargetMachine &getRISCVTargetMachine() const {
++    return getTM<RISCVTargetMachine>();
++  }
++
++  bool addInstSelector() override;
++};
++}
++
+ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
+-  return new TargetPassConfig(this, PM);
++  return new RISCVPassConfig(this, PM);
++}
++
++bool RISCVPassConfig::addInstSelector() {
++  addPass(createRISCVISelDag(getRISCVTargetMachine()));
++
++  return false;
+ }
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
+index d13e574c9bf..9edda134bfa 100644
+--- a/lib/Target/RISCV/RISCVTargetMachine.h
++++ b/lib/Target/RISCV/RISCVTargetMachine.h
+@@ -15,6 +15,7 @@
+ #define LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
+ 
+ #include "MCTargetDesc/RISCVMCTargetDesc.h"
++#include "RISCVSubtarget.h"
+ #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
+ #include "llvm/IR/DataLayout.h"
+ #include "llvm/Target/TargetMachine.h"
+@@ -22,6 +23,7 @@
+ namespace llvm {
+ class RISCVTargetMachine : public LLVMTargetMachine {
+   std::unique_ptr<TargetLoweringObjectFile> TLOF;
++  RISCVSubtarget Subtarget;
+ 
+ public:
+   RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+@@ -29,6 +31,10 @@ public:
+                      Optional<Reloc::Model> RM, CodeModel::Model CM,
+                      CodeGenOpt::Level OL);
+ 
++  const RISCVSubtarget *getSubtargetImpl(const Function &) const override {
++    return &Subtarget;
++  }
++
+   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
+ 
+   TargetLoweringObjectFile *getObjFileLowering() const override {
+diff --git a/test/CodeGen/RISCV/alu.ll b/test/CodeGen/RISCV/alu.ll
+new file mode 100644
+index 00000000000..01cdf2eaacf
+--- /dev/null
++++ b/test/CodeGen/RISCV/alu.ll
+@@ -0,0 +1,162 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++; Register-immediate instructions
++
++define i32 @addi(i32 %a) nounwind {
++; CHECK-LABEL: addi:
++; CHECK: addi a0, a0, 1
++; CHECK: jalr zero, ra, 0
++; TODO: check support for materialising larger constants
++  %1 = add i32 %a, 1
++  ret i32 %1
++}
++
++define i32 @slti(i32 %a) nounwind {
++; CHECK-LABEL: slti:
++; CHECK: slti a0, a0, 2
++; CHECK: jalr zero, ra, 0
++  %1 = icmp slt i32 %a, 2
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @sltiu(i32 %a) nounwind {
++; CHECK-LABEL: sltiu:
++; CHECK: sltiu a0, a0, 3
++; CHECK: jalr zero, ra, 0
++  %1 = icmp ult i32 %a, 3
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @xori(i32 %a) nounwind {
++; CHECK-LABEL: xori:
++; CHECK: xori a0, a0, 4
++; CHECK: jalr zero, ra, 0
++  %1 = xor i32 %a, 4
++  ret i32 %1
++}
++
++define i32 @ori(i32 %a) nounwind {
++; CHECK-LABEL: ori:
++; CHECK: ori a0, a0, 5
++; CHECK: jalr zero, ra, 0
++  %1 = or i32 %a, 5
++  ret i32 %1
++}
++
++define i32 @andi(i32 %a) nounwind {
++; CHECK-LABEL: andi:
++; CHECK: andi a0, a0, 6
++; CHECK: jalr zero, ra, 0
++  %1 = and i32 %a, 6
++  ret i32 %1
++}
++
++define i32 @slli(i32 %a) nounwind {
++; CHECK-LABEL: slli:
++; CHECK: slli a0, a0, 7
++; CHECK: jalr zero, ra, 0
++  %1 = shl i32 %a, 7
++  ret i32 %1
++}
++
++define i32 @srli(i32 %a) nounwind {
++; CHECK-LABEL: srli:
++; CHECK: srli a0, a0, 8
++; CHECK: jalr zero, ra, 0
++  %1 = lshr i32 %a, 8
++  ret i32 %1
++}
++
++define i32 @srai(i32 %a) nounwind {
++; CHECK-LABEL: srai:
++; CHECK: srai a0, a0, 9
++; CHECK: jalr zero, ra, 0
++  %1 = ashr i32 %a, 9
++  ret i32 %1
++}
++
++; Register-register instructions
++
++define i32 @add(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: add:
++; CHECK: add a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = add i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @sub(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: sub:
++; CHECK: sub a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = sub i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @sll(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: sll:
++; CHECK: sll a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = shl i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @slt(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: slt:
++; CHECK: slt a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = icmp slt i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @sltu(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: sltu:
++; CHECK: sltu a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = icmp ult i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @xor(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: xor:
++; CHECK: xor a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = xor i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @srl(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: srl:
++; CHECK: srl a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = lshr i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @sra(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: sra:
++; CHECK: sra a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = ashr i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @or(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: or:
++; CHECK: or a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = or i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @and(i32 %a, i32 %b) nounwind {
++; CHECK-LABEL: and:
++; CHECK: and a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = and i32 %a, %b
++  ret i32 %1
++}
+diff --git a/test/CodeGen/RISCV/lit.local.cfg b/test/CodeGen/RISCV/lit.local.cfg
+new file mode 100644
+index 00000000000..c63820126f8
+--- /dev/null
++++ b/test/CodeGen/RISCV/lit.local.cfg
+@@ -0,0 +1,2 @@
++if not 'RISCV' in config.root.targets:
++    config.unsupported = True
+-- 
+2.11.1
+

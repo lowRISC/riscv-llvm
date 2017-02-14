@@ -9,18 +9,20 @@ MCAsmInfo.
 
 Differential Revision: https://reviews.llvm.org/D23560
 Upstream commit: https://reviews.llvm.org/rL285712
+
+NOTE: This patch has been updated since being committed upstream.
 ---
  CMakeLists.txt                                  |  1 +
  docs/CompilerWriterInfo.rst                     |  4 ++
  lib/Target/LLVMBuild.txt                        |  1 +
  lib/Target/RISCV/CMakeLists.txt                 |  5 +++
  lib/Target/RISCV/LLVMBuild.txt                  | 31 +++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp         | 58 +++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp         | 60 +++++++++++++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++++
  lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
  lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 ++++++++++
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++++
- 10 files changed, 202 insertions(+)
+ 10 files changed, 204 insertions(+)
  create mode 100644 lib/Target/RISCV/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
@@ -30,10 +32,10 @@ Upstream commit: https://reviews.llvm.org/rL285712
  create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2b51c97..bb1055a 100644
+index b2e2f7bdfd2..df6ef8efedb 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -279,6 +279,7 @@ set(LLVM_ALL_TARGETS
+@@ -312,6 +312,7 @@ set(LLVM_ALL_TARGETS
    MSP430
    NVPTX
    PowerPC
@@ -42,7 +44,7 @@ index 2b51c97..bb1055a 100644
    SystemZ
    X86
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index 1aacb82..a0c2997 100644
+index 6d270e30fc8..8ce999033b7 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
 @@ -83,6 +83,10 @@ AMDGPU
@@ -57,7 +59,7 @@ index 1aacb82..a0c2997 100644
  -----
  
 diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
-index 4362162..8be2a89 100644
+index 43621629dd2..8be2a898e38 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
 @@ -30,6 +30,7 @@ subdirectories =
@@ -70,7 +72,7 @@ index 4362162..8be2a89 100644
   WebAssembly
 diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
 new file mode 100644
-index 0000000..1de4d3b
+index 00000000000..1de4d3b5d0b
 --- /dev/null
 +++ b/lib/Target/RISCV/CMakeLists.txt
 @@ -0,0 +1,5 @@
@@ -81,7 +83,7 @@ index 0000000..1de4d3b
 +add_subdirectory(TargetInfo)
 diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
 new file mode 100644
-index 0000000..e5e5692
+index 00000000000..e5e5692490c
 --- /dev/null
 +++ b/lib/Target/RISCV/LLVMBuild.txt
 @@ -0,0 +1,31 @@
@@ -118,10 +120,10 @@ index 0000000..e5e5692
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 new file mode 100644
-index 0000000..afbbe00
+index 00000000000..a20331cd0a3
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,60 @@
 +//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -156,7 +158,7 @@ index 0000000..afbbe00
 +    return "e-m:e-i64:64-n32:64-S128";
 +  } else {
 +    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
-+    return "e-m:e-i64:64-n32-S128";
++    return "e-m:e-p:32:32-i64:64-n32-S128";
 +  }
 +}
 +
@@ -175,14 +177,16 @@ index 0000000..afbbe00
 +                                       CodeGenOpt::Level OL)
 +    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
 +                        getEffectiveRelocModel(TT, RM), CM, OL),
-+      TLOF(make_unique<TargetLoweringObjectFileELF>()) {}
++      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
++  initAsmInfo();
++}
 +
 +TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
 +  return new TargetPassConfig(this, PM);
 +}
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
 new file mode 100644
-index 0000000..b4dd4ef
+index 00000000000..b4dd4efe0f9
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -0,0 +1,41 @@
@@ -229,7 +233,7 @@ index 0000000..b4dd4ef
 +#endif
 diff --git a/lib/Target/RISCV/TargetInfo/CMakeLists.txt b/lib/Target/RISCV/TargetInfo/CMakeLists.txt
 new file mode 100644
-index 0000000..f440fe2
+index 00000000000..f440fe2cb82
 --- /dev/null
 +++ b/lib/Target/RISCV/TargetInfo/CMakeLists.txt
 @@ -0,0 +1,3 @@
@@ -238,7 +242,7 @@ index 0000000..f440fe2
 +  )
 diff --git a/lib/Target/RISCV/TargetInfo/LLVMBuild.txt b/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
 new file mode 100644
-index 0000000..db7f66f
+index 00000000000..db7f66f94bf
 --- /dev/null
 +++ b/lib/Target/RISCV/TargetInfo/LLVMBuild.txt
 @@ -0,0 +1,23 @@
@@ -267,7 +271,7 @@ index 0000000..db7f66f
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 new file mode 100644
-index 0000000..3cb657a
+index 00000000000..3cb657a9978
 --- /dev/null
 +++ b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 @@ -0,0 +1,35 @@
@@ -307,5 +311,5 @@ index 0000000..3cb657a
 +// Remove once this function is properly implemented.
 +extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.10.2
+2.11.1
 
