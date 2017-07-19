@@ -36,7 +36,7 @@ diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISel
 index 000618092b7..42d9d599461 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -149,6 +149,136 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -149,6 +149,134 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
@@ -71,9 +71,7 @@ index 000618092b7..42d9d599461 100644
 +  // Get a count of how many bytes are to be pushed on the stack.
 +  unsigned NumBytes = ArgCCInfo.getNextStackOffset();
 +
-+  Chain = DAG.getCALLSEQ_START(Chain,
-+                                 DAG.getIntPtrConstant(NumBytes, DL, true),
-+                                 DL);
++  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
 +
 +  // Copy argument values to their designated locations.
 +  SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
@@ -222,11 +220,12 @@ diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInf
 index 6846cb428ab..4edf5cb3537 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,8 +13,21 @@
+@@ -13,8 +13,22 @@
  
  include "RISCVInstrFormats.td"
  
-+def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
++def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
++                                            SDTCisVT<1, i32>]>;
 +def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
 +                                         SDTCisVT<1, i32>]>;
 +def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
@@ -275,8 +274,8 @@ index 6846cb428ab..4edf5cb3537 100644
  
 +// Pessimstically assume the stack pointer will be clobbered
 +let Defs = [X2_32], Uses = [X2_32] in {
-+  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt),
-+                                [(CallSeqStart timm:$amt)]>;
++  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
++                                [(CallSeqStart timm:$amt1, timm:$amt2)]>;
 +  def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 +                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
 +}

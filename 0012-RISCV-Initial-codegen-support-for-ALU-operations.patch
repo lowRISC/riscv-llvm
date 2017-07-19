@@ -1152,11 +1152,10 @@ index a20331cd0a3..6e1be40eff9 100644
 +#include "RISCV.h"
  #include "RISCVTargetMachine.h"
  #include "llvm/ADT/STLExtras.h"
-+#include "llvm/CodeGen/Passes.h"
+ #include "llvm/CodeGen/Passes.h"
  #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
  #include "llvm/CodeGen/TargetPassConfig.h"
  #include "llvm/IR/LegacyPassManager.h"
--#include "llvm/CodeGen/Passes.h"
  #include "llvm/Support/FormattedStream.h"
  #include "llvm/Support/TargetRegistry.h"
  #include "llvm/Target/TargetOptions.h"
@@ -1173,7 +1172,7 @@ index a20331cd0a3..6e1be40eff9 100644
 +namespace {
 +class RISCVPassConfig : public TargetPassConfig {
 +public:
-+  RISCVPassConfig(RISCVTargetMachine *TM, PassManagerBase &PM)
++  RISCVPassConfig(RISCVTargetMachine &TM, PassManagerBase &PM)
 +      : TargetPassConfig(TM, PM) {}
 +
 +  RISCVTargetMachine &getRISCVTargetMachine() const {
@@ -1185,8 +1184,8 @@ index a20331cd0a3..6e1be40eff9 100644
 +}
 +
  TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
--  return new TargetPassConfig(this, PM);
-+  return new RISCVPassConfig(this, PM);
+-  return new TargetPassConfig(*this, PM);
++  return new RISCVPassConfig(*this, PM);
 +}
 +
 +bool RISCVPassConfig::addInstSelector() {

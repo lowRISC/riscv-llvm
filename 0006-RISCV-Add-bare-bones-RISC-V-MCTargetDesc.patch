@@ -113,7 +113,7 @@ new file mode 100644
 index 00000000000..f8ef142255c
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,93 @@
 +//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -128,10 +128,10 @@ index 00000000000..f8ef142255c
 +#include "llvm/MC/MCAssembler.h"
 +#include "llvm/MC/MCDirectives.h"
 +#include "llvm/MC/MCELFObjectWriter.h"
++#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCFixupKindInfo.h"
 +#include "llvm/MC/MCObjectWriter.h"
 +#include "llvm/MC/MCSubtargetInfo.h"
-+#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCSymbol.h"
 +#include "llvm/Support/ErrorHandling.h"
 +#include "llvm/Support/raw_ostream.h"
@@ -148,8 +148,9 @@ index 00000000000..f8ef142255c
 +      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
 +  ~RISCVAsmBackend() override {}
 +
-+  void applyFixup(const MCFixup &Fixup, char *Data, unsigned DataSize,
-+                  uint64_t Value, bool IsPCRel) const override;
++  void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
++                  const MCValue &Target, MutableArrayRef<char> Data,
++                  uint64_t Value, bool IsResolved) const override;
 +
 +  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
 +
@@ -185,9 +186,10 @@ index 00000000000..f8ef142255c
 +  return true;
 +}
 +
-+void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
-+                                 unsigned DataSize, uint64_t Value,
-+                                 bool IsPCRel) const {
++void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
++                                 const MCValue &Target,
++                                 MutableArrayRef<char> Data, uint64_t Value,
++                                 bool IsResolved) const {
 +  return;
 +}
 +
@@ -284,7 +286,7 @@ index 00000000000..b164df8b595
 +void RISCVMCAsmInfo::anchor() {}
 +
 +RISCVMCAsmInfo::RISCVMCAsmInfo(const Triple &TT) {
-+  PointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
++  CodePointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
 +  CommentString = "#";
 +  AlignmentIsInBytes = false;
 +  SupportsDebugInformation = true;
@@ -347,13 +349,13 @@ index 00000000000..b2ed13758d4
 +
 +#include "MCTargetDesc/RISCVMCTargetDesc.h"
 +#include "llvm/ADT/Statistic.h"
++#include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/MC/MCCodeEmitter.h"
 +#include "llvm/MC/MCContext.h"
 +#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCInst.h"
 +#include "llvm/MC/MCRegisterInfo.h"
 +#include "llvm/MC/MCSymbol.h"
-+#include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/Support/EndianStream.h"
 +#include "llvm/Support/raw_ostream.h"
 +
@@ -509,9 +511,9 @@ index 00000000000..ddc3bf35045
 +#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 +#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 +
++#include "llvm/Config/config.h"
 +#include "llvm/MC/MCTargetOptions.h"
 +#include "llvm/Support/DataTypes.h"
-+#include "llvm/Config/config.h"
 +
 +namespace llvm {
 +class MCAsmBackend;
