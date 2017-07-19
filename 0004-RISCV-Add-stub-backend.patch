@@ -48,8 +48,8 @@ index 6d270e30fc8..8ce999033b7 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
 @@ -83,6 +83,10 @@ AMDGPU
- * `AMD Compute Resources <http://developer.amd.com/tools/heterogeneous-computing/amd-accelerated-parallel-processing-app-sdk/documentation/>`_
- * `AMDGPU Compute Application Binary Interface <https://github.com/RadeonOpenCompute/ROCm-ComputeABI-Doc/blob/master/AMDGPU-ABI.md>`__
+ 
+ Refer to :doc:`AMDGPUUsage` for additional documentation.
  
 +RISC-V
 +------
@@ -63,8 +63,8 @@ index 43621629dd2..8be2a898e38 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
 @@ -30,6 +30,7 @@ subdirectories =
-  NVPTX
   Mips
+  Nios2
   PowerPC
 + RISCV
   Sparc
@@ -139,10 +139,10 @@ index 00000000000..a20331cd0a3
 +
 +#include "RISCVTargetMachine.h"
 +#include "llvm/ADT/STLExtras.h"
++#include "llvm/CodeGen/Passes.h"
 +#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 +#include "llvm/CodeGen/TargetPassConfig.h"
 +#include "llvm/IR/LegacyPassManager.h"
-+#include "llvm/CodeGen/Passes.h"
 +#include "llvm/Support/FormattedStream.h"
 +#include "llvm/Support/TargetRegistry.h"
 +#include "llvm/Target/TargetOptions.h"
@@ -182,7 +182,7 @@ index 00000000000..a20331cd0a3
 +}
 +
 +TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
-+  return new TargetPassConfig(this, PM);
++  return new TargetPassConfig(*this, PM);
 +}
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
 new file mode 100644

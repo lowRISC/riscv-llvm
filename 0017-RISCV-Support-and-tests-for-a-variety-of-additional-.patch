@@ -191,16 +191,18 @@ new file mode 100644
 index 00000000000..1945a1aa40a
 --- /dev/null
 +++ b/test/CodeGen/RISCV/addc-adde-sube-subc.ll
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,22 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +; Ensure that the ISDOpcodes ADDC, ADDE, SUBC, SUBE are handled correctly
 +
 +define i64 @addc_adde(i64 %a, i64 %b) {
 +; CHECK-LABEL: addc_adde:
-+; CHECK: addi a5, zero, 1
-+; CHECK: bltu a0, a2, .LBB0_2
-+; CHECK: sltu a5, a0, a4
++; CHECK: add a1, a1, a3
++; CHECK: add a2, a0, a2
++; CHECK: sltu a0, a2, a0
++; CHECK: add a1, a1, a0
++; CHECK: addi a0, a2, 0
 +  %1 = add i64 %a, %b
 +  ret i64 %1
 +}

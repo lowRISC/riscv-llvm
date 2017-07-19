@@ -56,7 +56,7 @@ index e0138b71b29..5c37dfc5ae2 100644
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
 @@ -378,6 +385,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
-     .Case("mips64el", Triple::mips64el)
+     .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
 +    .Case("riscv32", Triple::riscv32)
@@ -144,8 +144,8 @@ index 9e7a8784ad1..767d9f7248e 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
 @@ -266,6 +266,24 @@ TEST(TripleTest, ParsedIDs) {
-   EXPECT_EQ(Triple::AMDHSA, T.getOS());
-   EXPECT_EQ(Triple::OpenCL, T.getEnvironment());
+   EXPECT_EQ(Triple::Linux, T.getOS());
+   EXPECT_EQ(Triple::GNUEABI, T.getEnvironment());
  
 +  T = Triple("riscv32-unknown-unknown");
 +  EXPECT_EQ(Triple::riscv32, T.getArch());

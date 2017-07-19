@@ -394,9 +394,10 @@ index f8ef142255c..6455ebbd9cd 100644
 +  }
 +}
 +
- void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
-                                  unsigned DataSize, uint64_t Value,
-                                  bool IsPCRel) const {
+ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                                  const MCValue &Target,
+                                  MutableArrayRef<char> Data, uint64_t Value,
+                                  bool IsResolved) const {
 +  MCFixupKind Kind = Fixup.getKind();
 +  unsigned NumBytes = (getFixupKindInfo(Kind).TargetSize + 7) / 8;
 +  if (!Value)
@@ -409,7 +410,7 @@ index f8ef142255c..6455ebbd9cd 100644
 +  Value <<= Info.TargetOffset;
 +
 +  unsigned Offset = Fixup.getOffset();
-+  assert(Offset + NumBytes <= DataSize && "Invalid fixup offset!");
++  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
 +
 +  // For each byte of the fragment that the fixup touches, mask in the
 +  // bits from the fixup value.
@@ -570,6 +571,7 @@ index 53b43c92d09..904d4062c6c 100644
 +#include "MCTargetDesc/RISCVMCExpr.h"
  #include "MCTargetDesc/RISCVMCTargetDesc.h"
  #include "llvm/ADT/Statistic.h"
+ #include "llvm/MC/MCAsmInfo.h"
  #include "llvm/MC/MCCodeEmitter.h"
  #include "llvm/MC/MCContext.h"
  #include "llvm/MC/MCExpr.h"
@@ -577,7 +579,6 @@ index 53b43c92d09..904d4062c6c 100644
 +#include "llvm/MC/MCInstrInfo.h"
  #include "llvm/MC/MCRegisterInfo.h"
  #include "llvm/MC/MCSymbol.h"
- #include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/Support/Casting.h"
  #include "llvm/Support/EndianStream.h"
  #include "llvm/Support/raw_ostream.h"
