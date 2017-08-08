@@ -8,9 +8,9 @@ basis.
  CMakeLists.txt                                     |   1 -
  docs/CompilerWriterInfo.rst                        |   4 -
  include/llvm/ADT/Triple.h                          |   2 -
+ include/llvm/BinaryFormat/ELF.h                    |   6 -
+ include/llvm/BinaryFormat/ELFRelocs/RISCV.def      |  50 -------
  include/llvm/Object/ELFObjectFile.h                |  13 --
- include/llvm/Support/ELF.h                         |   6 -
- include/llvm/Support/ELFRelocs/RISCV.def           |  50 -------
  include/llvm/module.modulemap                      |   1 -
  lib/Object/ELF.cpp                                 |   7 -
  lib/ObjectYAML/ELFYAML.cpp                         |   4 -
@@ -20,18 +20,18 @@ basis.
  lib/Target/RISCV/LLVMBuild.txt                     |  31 -----
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   7 -
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |  23 ----
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |  91 ------------
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |  93 -------------
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  47 -------
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |  25 ----
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |  31 -----
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  91 ------------
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  59 --------
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  58 --------
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |  58 --------
  lib/Target/RISCV/RISCV.td                          |  27 ----
- lib/Target/RISCV/RISCVInstrFormats.td              | 152 ---------------------
+ lib/Target/RISCV/RISCVInstrFormats.td              | 153 ---------------------
  lib/Target/RISCV/RISCVInstrInfo.td                 |  55 --------
  lib/Target/RISCV/RISCVRegisterInfo.td              |  90 ------------
- lib/Target/RISCV/RISCVTargetMachine.cpp            |  58 --------
+ lib/Target/RISCV/RISCVTargetMachine.cpp            |  67 ---------
  lib/Target/RISCV/RISCVTargetMachine.h              |  40 ------
  lib/Target/RISCV/TargetInfo/CMakeLists.txt         |   3 -
  lib/Target/RISCV/TargetInfo/LLVMBuild.txt          |  23 ----
@@ -39,8 +39,8 @@ basis.
  tools/llvm-objdump/llvm-objdump.cpp                |   1 -
  tools/llvm-readobj/ELFDumper.cpp                   |   1 -
  unittests/ADT/TripleTest.cpp                       |  36 -----
- 34 files changed, 1103 deletions(-)
- delete mode 100644 include/llvm/Support/ELFRelocs/RISCV.def
+ 34 files changed, 1114 deletions(-)
+ delete mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  delete mode 100644 lib/Target/RISCV/CMakeLists.txt
  delete mode 100644 lib/Target/RISCV/LLVMBuild.txt
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
@@ -63,10 +63,10 @@ basis.
  delete mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index df6ef8efedb..b2e2f7bdfd2 100644
+index fe5343bcadd..5148a0df4e8 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -312,7 +312,6 @@ set(LLVM_ALL_TARGETS
+@@ -320,7 +320,6 @@ set(LLVM_ALL_TARGETS
    MSP430
    NVPTX
    PowerPC
@@ -75,12 +75,12 @@ index df6ef8efedb..b2e2f7bdfd2 100644
    SystemZ
    X86
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index 8ce999033b7..6d270e30fc8 100644
+index 24375fb70d4..f1002308137 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
-@@ -83,10 +83,6 @@ AMDGPU
- * `AMD Compute Resources <http://developer.amd.com/tools/heterogeneous-computing/amd-accelerated-parallel-processing-app-sdk/documentation/>`_
- * `AMDGPU Compute Application Binary Interface <https://github.com/RadeonOpenCompute/ROCm-ComputeABI-Doc/blob/master/AMDGPU-ABI.md>`__
+@@ -74,10 +74,6 @@ AMDGPU
+ 
+ Refer to :doc:`AMDGPUUsage` for additional documentation.
  
 -RISC-V
 -------
@@ -90,10 +90,10 @@ index 8ce999033b7..6d270e30fc8 100644
  -----
  
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index ba68ba73c2f..8691d9cdd42 100644
+index e4d3d5daa2d..b777bc172f1 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
-@@ -64,8 +64,6 @@ public:
+@@ -65,8 +65,6 @@ public:
      ppc64le,        // PPC64LE: powerpc64le
      r600,           // R600: AMD GPUs HD2XXX - HD6XXX
      amdgcn,         // AMDGCN: AMD GCN GPUs
@@ -102,49 +102,11 @@ index ba68ba73c2f..8691d9cdd42 100644
      sparc,          // Sparc: sparc
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
-diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 9e95f2958aa..c1c0f9ef563 100644
---- a/include/llvm/Object/ELFObjectFile.h
-+++ b/include/llvm/Object/ELFObjectFile.h
-@@ -946,8 +946,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
-       return "ELF32-mips";
-     case ELF::EM_PPC:
-       return "ELF32-ppc";
--    case ELF::EM_RISCV:
--      return "ELF32-riscv";
-     case ELF::EM_SPARC:
-     case ELF::EM_SPARC32PLUS:
-       return "ELF32-sparc";
-@@ -968,8 +966,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
-       return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
-     case ELF::EM_PPC64:
-       return "ELF64-ppc64";
--    case ELF::EM_RISCV:
--      return "ELF64-riscv";
-     case ELF::EM_S390:
-       return "ELF64-s390";
-     case ELF::EM_SPARCV9:
-@@ -1025,15 +1021,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
-     return Triple::ppc;
-   case ELF::EM_PPC64:
-     return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
--  case ELF::EM_RISCV:
--    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
--    case ELF::ELFCLASS32:
--      return Triple::riscv32;
--    case ELF::ELFCLASS64:
--      return Triple::riscv64;
--    default:
--      report_fatal_error("Invalid ELFCLASS!");
--    }
-   case ELF::EM_S390:
-     return Triple::systemz;
- 
-diff --git a/include/llvm/Support/ELF.h b/include/llvm/Support/ELF.h
-index dad9c2f990b..fa0acf2a295 100644
---- a/include/llvm/Support/ELF.h
-+++ b/include/llvm/Support/ELF.h
-@@ -307,7 +307,6 @@ enum {
+diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
+index a4450ee13b4..6d0d0398277 100644
+--- a/include/llvm/BinaryFormat/ELF.h
++++ b/include/llvm/BinaryFormat/ELF.h
+@@ -309,7 +309,6 @@ enum {
    EM_NORC = 218,          // Nanoradio Optimized RISC
    EM_CSR_KALIMBA = 219,   // CSR Kalimba architecture family
    EM_AMDGPU = 224,        // AMD GPU architecture
@@ -152,7 +114,7 @@ index dad9c2f990b..fa0acf2a295 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -589,11 +588,6 @@ enum {
+@@ -591,11 +590,6 @@ enum {
  #include "ELFRelocs/Lanai.def"
  };
  
@@ -164,10 +126,10 @@ index dad9c2f990b..fa0acf2a295 100644
  // ELF Relocation types for S390/zSeries
  enum {
  #include "ELFRelocs/SystemZ.def"
-diff --git a/include/llvm/Support/ELFRelocs/RISCV.def b/include/llvm/Support/ELFRelocs/RISCV.def
+diff --git a/include/llvm/BinaryFormat/ELFRelocs/RISCV.def b/include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 deleted file mode 100644
 index 9ec4955d26d..00000000000
---- a/include/llvm/Support/ELFRelocs/RISCV.def
+--- a/include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 +++ /dev/null
 @@ -1,50 +0,0 @@
 -
@@ -220,41 +182,79 @@ index 9ec4955d26d..00000000000
 -ELF_RELOC(R_RISCV_RVC_LUI,           46)
 -ELF_RELOC(R_RISCV_GPREL_I,           47)
 -ELF_RELOC(R_RISCV_GPREL_S,           48)
+diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
+index 73011f6f9fe..5b5b175005a 100644
+--- a/include/llvm/Object/ELFObjectFile.h
++++ b/include/llvm/Object/ELFObjectFile.h
+@@ -958,8 +958,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return "ELF32-mips";
+     case ELF::EM_PPC:
+       return "ELF32-ppc";
+-    case ELF::EM_RISCV:
+-      return "ELF32-riscv";
+     case ELF::EM_SPARC:
+     case ELF::EM_SPARC32PLUS:
+       return "ELF32-sparc";
+@@ -980,8 +978,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+       return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
+     case ELF::EM_PPC64:
+       return "ELF64-ppc64";
+-    case ELF::EM_RISCV:
+-      return "ELF64-riscv";
+     case ELF::EM_S390:
+       return "ELF64-s390";
+     case ELF::EM_SPARCV9:
+@@ -1037,15 +1033,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+     return Triple::ppc;
+   case ELF::EM_PPC64:
+     return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
+-  case ELF::EM_RISCV:
+-    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
+-    case ELF::ELFCLASS32:
+-      return Triple::riscv32;
+-    case ELF::ELFCLASS64:
+-      return Triple::riscv64;
+-    default:
+-      report_fatal_error("Invalid ELFCLASS!");
+-    }
+   case ELF::EM_S390:
+     return Triple::systemz;
+ 
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 29e6d66b27f..5e1d609d76e 100644
+index e95d0fcd565..11038578b81 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -271,7 +271,6 @@ module LLVM_Utils {
-     textual header "Support/ELFRelocs/Mips.def"
-     textual header "Support/ELFRelocs/PowerPC64.def"
-     textual header "Support/ELFRelocs/PowerPC.def"
--    textual header "Support/ELFRelocs/RISCV.def"
-     textual header "Support/ELFRelocs/Sparc.def"
-     textual header "Support/ELFRelocs/SystemZ.def"
-     textual header "Support/ELFRelocs/x86_64.def"
+@@ -57,7 +57,6 @@ module LLVM_BinaryFormat {
+     textual header "BinaryFormat/ELFRelocs/Mips.def"
+     textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
+     textual header "BinaryFormat/ELFRelocs/PowerPC.def"
+-    textual header "BinaryFormat/ELFRelocs/RISCV.def"
+     textual header "BinaryFormat/ELFRelocs/Sparc.def"
+     textual header "BinaryFormat/ELFRelocs/SystemZ.def"
+     textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 23682e1fabf..4d37a298632 100644
+index 448fb1bd6b5..1603d4165ce 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
-@@ -89,13 +89,6 @@ StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type) {
+@@ -93,13 +93,6 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
        break;
      }
      break;
 -  case ELF::EM_RISCV:
 -    switch (Type) {
--#include "llvm/Support/ELFRelocs/RISCV.def"
+-#include "llvm/BinaryFormat/ELFRelocs/RISCV.def"
 -    default:
 -      break;
 -    }
 -    break;
    case ELF::EM_S390:
      switch (Type) {
- #include "llvm/Support/ELFRelocs/SystemZ.def"
+ #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 3052901da45..b7de1b7f9d8 100644
+index fd0aa49445f..8db7cb9e85b 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
-@@ -192,7 +192,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
+@@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
    ECase(EM_78KOR);
    ECase(EM_56800EX);
    ECase(EM_AMDGPU);
@@ -262,21 +262,21 @@ index 3052901da45..b7de1b7f9d8 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -531,9 +530,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -555,9 +554,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARM:
- #include "llvm/Support/ELFRelocs/ARM.def"
+ #include "llvm/BinaryFormat/ELFRelocs/ARM.def"
      break;
 -  case ELF::EM_RISCV:
--#include "llvm/Support/ELFRelocs/RISCV.def"
+-#include "llvm/BinaryFormat/ELFRelocs/RISCV.def"
 -    break;
    case ELF::EM_LANAI:
- #include "llvm/Support/ELFRelocs/Lanai.def"
+ #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 5c37dfc5ae2..e0138b71b29 100644
+index 018f993c2dc..67b78c627b3 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
-@@ -39,8 +39,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
+@@ -40,8 +40,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
    case ppc:            return "powerpc";
    case r600:           return "r600";
    case amdgcn:         return "amdgcn";
@@ -285,7 +285,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case sparc:          return "sparc";
    case sparcv9:        return "sparcv9";
    case sparcel:        return "sparcel";
-@@ -137,9 +135,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
+@@ -140,9 +138,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
    case shave:       return "shave";
    case wasm32:
    case wasm64:      return "wasm";
@@ -295,7 +295,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    }
  }
  
-@@ -267,8 +262,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -272,8 +267,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -304,8 +304,8 @@ index 5c37dfc5ae2..e0138b71b29 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -385,8 +378,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
-     .Case("mips64el", Triple::mips64el)
+@@ -398,8 +391,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+     .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
 -    .Case("riscv32", Triple::riscv32)
@@ -313,7 +313,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -629,8 +620,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -644,8 +635,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -322,7 +322,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1159,7 +1148,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1181,7 +1170,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -330,7 +330,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1189,7 +1177,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1211,7 +1199,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -338,7 +338,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1242,7 +1229,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1265,7 +1252,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -346,7 +346,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1266,7 +1252,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1289,7 +1275,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -354,7 +354,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1309,7 +1294,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1333,7 +1318,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -362,7 +362,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1326,7 +1310,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1350,7 +1334,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -370,7 +370,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1360,8 +1343,6 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1385,8 +1368,6 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -379,7 +379,7 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1447,8 +1428,6 @@ bool Triple::isLittleEndian() const {
+@@ -1473,8 +1454,6 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -389,12 +389,12 @@ index 5c37dfc5ae2..e0138b71b29 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
-index 8be2a898e38..43621629dd2 100644
+index 34b966df776..c6794ab8114 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
-@@ -30,7 +30,6 @@ subdirectories =
-  NVPTX
+@@ -31,7 +31,6 @@ subdirectories =
   Mips
+  Nios2
   PowerPC
 - RISCV
   Sparc
@@ -501,10 +501,10 @@ index e48f04963ff..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 deleted file mode 100644
-index f8ef142255c..00000000000
+index be83efc02d2..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ /dev/null
-@@ -1,91 +0,0 @@
+@@ -1,93 +0,0 @@
 -//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -519,10 +519,10 @@ index f8ef142255c..00000000000
 -#include "llvm/MC/MCAssembler.h"
 -#include "llvm/MC/MCDirectives.h"
 -#include "llvm/MC/MCELFObjectWriter.h"
+-#include "llvm/MC/MCExpr.h"
 -#include "llvm/MC/MCFixupKindInfo.h"
 -#include "llvm/MC/MCObjectWriter.h"
 -#include "llvm/MC/MCSubtargetInfo.h"
--#include "llvm/MC/MCExpr.h"
 -#include "llvm/MC/MCSymbol.h"
 -#include "llvm/Support/ErrorHandling.h"
 -#include "llvm/Support/raw_ostream.h"
@@ -539,8 +539,9 @@ index f8ef142255c..00000000000
 -      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
 -  ~RISCVAsmBackend() override {}
 -
--  void applyFixup(const MCFixup &Fixup, char *Data, unsigned DataSize,
--                  uint64_t Value, bool IsPCRel) const override;
+-  void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+-                  const MCValue &Target, MutableArrayRef<char> Data,
+-                  uint64_t Value, bool IsResolved) const override;
 -
 -  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
 -
@@ -576,9 +577,10 @@ index f8ef142255c..00000000000
 -  return true;
 -}
 -
--void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
--                                 unsigned DataSize, uint64_t Value,
--                                 bool IsPCRel) const {
+-void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+-                                 const MCValue &Target,
+-                                 MutableArrayRef<char> Data, uint64_t Value,
+-                                 bool IsResolved) const {
 -  return;
 -}
 -
@@ -651,7 +653,7 @@ index 4f085d31a26..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 deleted file mode 100644
-index b164df8b595..00000000000
+index d622911e92c..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 +++ /dev/null
 @@ -1,25 +0,0 @@
@@ -675,7 +677,7 @@ index b164df8b595..00000000000
 -void RISCVMCAsmInfo::anchor() {}
 -
 -RISCVMCAsmInfo::RISCVMCAsmInfo(const Triple &TT) {
--  PointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
+-  CodePointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
 -  CommentString = "#";
 -  AlignmentIsInBytes = false;
 -  SupportsDebugInformation = true;
@@ -719,7 +721,7 @@ index 901a1eba8af..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 deleted file mode 100644
-index b2ed13758d4..00000000000
+index 9309d493cef..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ /dev/null
 @@ -1,91 +0,0 @@
@@ -738,13 +740,13 @@ index b2ed13758d4..00000000000
 -
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
 -#include "llvm/ADT/Statistic.h"
+-#include "llvm/MC/MCAsmInfo.h"
 -#include "llvm/MC/MCCodeEmitter.h"
 -#include "llvm/MC/MCContext.h"
 -#include "llvm/MC/MCExpr.h"
 -#include "llvm/MC/MCInst.h"
 -#include "llvm/MC/MCRegisterInfo.h"
 -#include "llvm/MC/MCSymbol.h"
--#include "llvm/MC/MCAsmInfo.h"
 -#include "llvm/Support/EndianStream.h"
 -#include "llvm/Support/raw_ostream.h"
 -
@@ -816,10 +818,10 @@ index b2ed13758d4..00000000000
 -#include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 deleted file mode 100644
-index 4fc69a7fcab..00000000000
+index 41be0a2084b..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ /dev/null
-@@ -1,59 +0,0 @@
+@@ -1,58 +0,0 @@
 -//===-- RISCVMCTargetDesc.cpp - RISCV Target Descriptions -----------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -866,13 +868,12 @@ index 4fc69a7fcab..00000000000
 -
 -static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
 -                                       const Triple &TT) {
--  MCAsmInfo *MAI = new RISCVMCAsmInfo(TT);
--  return MAI;
+-  return new RISCVMCAsmInfo(TT);
 -}
 -
 -extern "C" void LLVMInitializeRISCVTargetMC() {
 -  for (Target *T : {&getTheRISCV32Target(), &getTheRISCV64Target()}) {
--    RegisterMCAsmInfoFn X(*T, createRISCVMCAsmInfo);
+-    TargetRegistry::RegisterMCAsmInfo(*T, createRISCVMCAsmInfo);
 -    TargetRegistry::RegisterMCInstrInfo(*T, createRISCVMCInstrInfo);
 -    TargetRegistry::RegisterMCRegInfo(*T, createRISCVMCRegisterInfo);
 -    TargetRegistry::RegisterMCAsmBackend(*T, createRISCVAsmBackend);
@@ -881,7 +882,7 @@ index 4fc69a7fcab..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 deleted file mode 100644
-index ddc3bf35045..00000000000
+index 7c98b1c8f32..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 +++ /dev/null
 @@ -1,58 +0,0 @@
@@ -901,9 +902,9 @@ index ddc3bf35045..00000000000
 -#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 -#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 -
+-#include "llvm/Config/config.h"
 -#include "llvm/MC/MCTargetOptions.h"
 -#include "llvm/Support/DataTypes.h"
--#include "llvm/Config/config.h"
 -
 -namespace llvm {
 -class MCAsmBackend;
@@ -978,10 +979,10 @@ index 14838309a1b..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
 deleted file mode 100644
-index 1e9bc3bf9bc..00000000000
+index 3fab7122f6f..00000000000
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ /dev/null
-@@ -1,152 +0,0 @@
+@@ -1,153 +0,0 @@
 -//===-- RISCVInstrFormats.td - RISCV Instruction Formats ---*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1028,8 +1029,9 @@ index 1e9bc3bf9bc..00000000000
 -
 -// Pseudo instructions
 -class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern> {
+-    : RISCVInst<outs, ins, "", pattern> {
 -  let isPseudo = 1;
+-  let isCodeGenOnly = 1;
 -}
 -
 -class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
@@ -1293,10 +1295,10 @@ index f04de217bf0..00000000000
 -)>;
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 deleted file mode 100644
-index afbbe004186..00000000000
+index 78d9cf53b5d..00000000000
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ /dev/null
-@@ -1,58 +0,0 @@
+@@ -1,67 +0,0 @@
 -//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1312,10 +1314,10 @@ index afbbe004186..00000000000
 -
 -#include "RISCVTargetMachine.h"
 -#include "llvm/ADT/STLExtras.h"
+-#include "llvm/CodeGen/Passes.h"
 -#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 -#include "llvm/CodeGen/TargetPassConfig.h"
 -#include "llvm/IR/LegacyPassManager.h"
--#include "llvm/CodeGen/Passes.h"
 -#include "llvm/Support/FormattedStream.h"
 -#include "llvm/Support/TargetRegistry.h"
 -#include "llvm/Target/TargetOptions.h"
@@ -1331,7 +1333,7 @@ index afbbe004186..00000000000
 -    return "e-m:e-i64:64-n32:64-S128";
 -  } else {
 -    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
--    return "e-m:e-i64:64-n32-S128";
+-    return "e-m:e-p:32:32-i64:64-n32-S128";
 -  }
 -}
 -
@@ -1342,22 +1344,31 @@ index afbbe004186..00000000000
 -  return *RM;
 -}
 -
+-static CodeModel::Model getEffectiveCodeModel(Optional<CodeModel::Model> CM) {
+-  if (CM)
+-    return *CM;
+-  return CodeModel::Small;
+-}
+-
 -RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
 -                                       StringRef CPU, StringRef FS,
 -                                       const TargetOptions &Options,
 -                                       Optional<Reloc::Model> RM,
--                                       CodeModel::Model CM,
--                                       CodeGenOpt::Level OL)
+-                                       Optional<CodeModel::Model> CM,
+-                                       CodeGenOpt::Level OL, bool JIT)
 -    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
--                        getEffectiveRelocModel(TT, RM), CM, OL),
--      TLOF(make_unique<TargetLoweringObjectFileELF>()) {}
+-                        getEffectiveRelocModel(TT, RM),
+-                        getEffectiveCodeModel(CM), OL),
+-      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
+-  initAsmInfo();
+-}
 -
 -TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
--  return new TargetPassConfig(this, PM);
+-  return new TargetPassConfig(*this, PM);
 -}
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
 deleted file mode 100644
-index d13e574c9bf..00000000000
+index 5c2ec956ee2..00000000000
 --- a/lib/Target/RISCV/RISCVTargetMachine.h
 +++ /dev/null
 @@ -1,40 +0,0 @@
@@ -1389,8 +1400,8 @@ index d13e574c9bf..00000000000
 -public:
 -  RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
 -                     StringRef FS, const TargetOptions &Options,
--                     Optional<Reloc::Model> RM, CodeModel::Model CM,
--                     CodeGenOpt::Level OL);
+-                     Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
+-                     CodeGenOpt::Level OL, bool JIT);
 -
 -  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 -
@@ -1476,10 +1487,10 @@ index 34932c25915..00000000000
 -                                    "64-bit RISC-V");
 -}
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index d81cb8878b7..840684beb14 100644
+index 579917550fa..fc8c29a1067 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
-@@ -761,7 +761,6 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+@@ -768,7 +768,6 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
    case ELF::EM_HEXAGON:
    case ELF::EM_MIPS:
    case ELF::EM_BPF:
@@ -1488,10 +1499,10 @@ index d81cb8878b7..840684beb14 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 2ebe44bdcfe..35a685b73a9 100644
+index 5698420bbcc..efaf389c60a 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -949,7 +949,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -983,7 +983,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -1500,10 +1511,10 @@ index 2ebe44bdcfe..35a685b73a9 100644
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index 767d9f7248e..9e7a8784ad1 100644
+index 16732c9578d..0ecdd5e445c 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
-@@ -266,24 +266,6 @@ TEST(TripleTest, ParsedIDs) {
+@@ -272,24 +272,6 @@ TEST(TripleTest, ParsedIDs) {
    EXPECT_EQ(Triple::AMDHSA, T.getOS());
    EXPECT_EQ(Triple::OpenCL, T.getEnvironment());
  
@@ -1525,10 +1536,10 @@ index 767d9f7248e..9e7a8784ad1 100644
 -  EXPECT_EQ(Triple::FreeBSD, T.getOS());
 -  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
 -
-   T = Triple("huh");
-   EXPECT_EQ(Triple::UnknownArch, T.getArch());
- }
-@@ -577,16 +559,6 @@ TEST(TripleTest, BitWidthPredicates) {
+   T = Triple("armv7hl-suse-linux-gnueabi");
+   EXPECT_EQ(Triple::arm, T.getArch());
+   EXPECT_EQ(Triple::SUSE, T.getVendor());
+@@ -589,16 +571,6 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -1545,7 +1556,7 @@ index 767d9f7248e..9e7a8784ad1 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -678,14 +650,6 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -690,14 +662,6 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  
@@ -1561,5 +1572,5 @@ index 767d9f7248e..9e7a8784ad1 100644
    EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
 -- 
-2.11.1
+2.14.0
 

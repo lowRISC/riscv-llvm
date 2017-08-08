@@ -11,7 +11,7 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 42d9d599461..010e552ecc5 100644
+index c1ffb362d63..fab7ffff68c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -22,7 +22,7 @@ index 42d9d599461..010e552ecc5 100644
    setBooleanContents(ZeroOrOneBooleanContent);
  
    setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
-@@ -68,6 +69,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
+@@ -69,6 +70,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
    switch (Op.getOpcode()) {
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
@@ -31,7 +31,7 @@ index 42d9d599461..010e552ecc5 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -95,6 +98,125 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -96,6 +99,125 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -167,7 +167,7 @@ index 42d9d599461..010e552ecc5 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index f2691fcf270..1428c97f2fc 100644
+index 5c90d00ab53..515c646c2fe 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -25,7 +25,8 @@ namespace RISCVISD {
@@ -180,7 +180,7 @@ index f2691fcf270..1428c97f2fc 100644
  };
  }
  
-@@ -41,6 +42,10 @@ public:
+@@ -42,6 +43,10 @@ public:
    // This method returns the name of a target specific DAG node.
    const char *getTargetNodeName(unsigned Opcode) const override;
  
@@ -191,7 +191,7 @@ index f2691fcf270..1428c97f2fc 100644
  private:
    // Lower incoming arguments, copy physregs into vregs
    SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
-@@ -59,6 +64,7 @@ private:
+@@ -60,6 +65,7 @@ private:
      return true;
    }
    SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
@@ -200,10 +200,10 @@ index f2691fcf270..1428c97f2fc 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 4edf5cb3537..66b487f3350 100644
+index e567053de1f..b0e3d5bb177 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -17,6 +17,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
+@@ -18,6 +18,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
  def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
                                           SDTCisVT<1, i32>]>;
  def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
@@ -213,7 +213,7 @@ index 4edf5cb3537..66b487f3350 100644
  
  
  def Call             : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
-@@ -28,6 +31,7 @@ def CallSeqStart     : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
+@@ -29,6 +32,7 @@ def CallSeqStart     : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
                                [SDNPHasChain, SDNPOutGlue]>;
  def CallSeqEnd       : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
                                [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
@@ -221,7 +221,7 @@ index 4edf5cb3537..66b487f3350 100644
  
  // Operands
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -175,6 +179,13 @@ def : Bcc_SwapPat<setule, BGEU>;
+@@ -176,6 +180,13 @@ def : Bcc_SwapPat<setule, BGEU>;
  
  def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
  
@@ -298,5 +298,5 @@ index 00000000000..bb7ad950a90
 +  ret i32 %val20
 +}
 -- 
-2.11.1
+2.14.0
 

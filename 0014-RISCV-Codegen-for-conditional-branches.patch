@@ -32,18 +32,18 @@ index 44ca4f9b29a..96eacb5325a 100644
  void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
                                      const AsmPrinter &AP);
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
-index 24d9a8c44d2..d28e4f4728b 100644
+index 7eb48c8f177..05a515e7b76 100644
 --- a/lib/Target/RISCV/RISCVCallingConv.td
 +++ b/lib/Target/RISCV/RISCVCallingConv.td
 @@ -29,3 +29,6 @@ def CC_RISCV32 : CallingConv<[
  
- def CSR : CalleeSavedRegs<(add X1_32, X2_32, X3_32, X4_32, X8_32, X9_32,
+ def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 +
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0753cbe1a2d..000618092b7 100644
+index a1a63d0d536..0cfddbca01c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,6 +49,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -339,5 +339,5 @@ index 00000000000..843da023e35
 +  ret void
 +}
 -- 
-2.11.1
+2.14.0
 

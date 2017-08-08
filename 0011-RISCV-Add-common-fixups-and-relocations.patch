@@ -9,31 +9,36 @@ tell whether it should emit a lo12_i fixup or a lo12_s fixup (RISC-V has
 two 12-bit immediate encodings depending on the instruction type).
 
 Additionally, fixups and relocations in jal and branch instructions are
-supported.
+supported. Errors are reported in the case of out-of-range or insufficiently
+aligned fixups.
 
 Differential Revision: https://reviews.llvm.org/D23568
+
+add checking for out-of-range and insufficiently aligned fixups
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 163 +++++++++++++++++++--
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |  97 +++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 +++++++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  38 +++++
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 ++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  60 +++++++-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  61 +++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  96 ++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 ++++++++++
  lib/Target/RISCV/RISCVInstrFormats.td              |  36 +++--
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
+ test/MC/RISCV/fixups-diagnostics.s                 |  18 +++
  test/MC/RISCV/fixups.s                             |  49 +++++++
  test/MC/RISCV/hilo-constaddr.s                     |  39 +++++
- test/MC/RISCV/relocations.s                        |  45 ++++++
+ test/MC/RISCV/relocations.s                        |  65 ++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   6 +-
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 16 files changed, 767 insertions(+), 31 deletions(-)
+ 17 files changed, 818 insertions(+), 31 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
+ create mode 100644 test/MC/RISCV/fixups-diagnostics.s
  create mode 100644 test/MC/RISCV/fixups.s
  create mode 100644 test/MC/RISCV/hilo-constaddr.s
  create mode 100644 test/MC/RISCV/relocations.s
@@ -295,10 +300,10 @@ index d79de74f7cf..60429647edd 100644
 +  RISCVMCTargetDesc.cpp
  )
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index f8ef142255c..6455ebbd9cd 100644
+index be83efc02d2..6381efa1390 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -7,7 +7,9 @@
+@@ -7,9 +7,12 @@
  //
  //===----------------------------------------------------------------------===//
  
@@ -307,8 +312,11 @@ index f8ef142255c..6455ebbd9cd 100644
 +#include "llvm/ADT/APInt.h"
  #include "llvm/MC/MCAsmBackend.h"
  #include "llvm/MC/MCAssembler.h"
++#include "llvm/MC/MCContext.h"
  #include "llvm/MC/MCDirectives.h"
-@@ -43,7 +45,32 @@ public:
+ #include "llvm/MC/MCELFObjectWriter.h"
+ #include "llvm/MC/MCExpr.h"
+@@ -44,7 +47,32 @@ public:
      return false;
    }
  
@@ -342,11 +350,13 @@ index f8ef142255c..6455ebbd9cd 100644
  
    bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
  
-@@ -69,9 +96,77 @@ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+@@ -70,10 +98,89 @@ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
    return true;
  }
  
-+static uint64_t adjustFixupValue(unsigned Kind, uint64_t Value) {
++static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
++                                 MCContext &Ctx) {
++  unsigned Kind = Fixup.getKind();
 +  switch (Kind) {
 +  default:
 +    llvm_unreachable("Unknown fixup kind!");
@@ -364,6 +374,10 @@ index f8ef142255c..6455ebbd9cd 100644
 +    // Add 1 if bit 11 is 1, to compensate for low 12 bits being negative.
 +    return ((Value + 0x800) >> 12) & 0xfffff;
 +  case RISCV::fixup_riscv_jal: {
++    if (!isInt<21>(Value))
++      Ctx.reportError(Fixup.getLoc(), "fixup value out of range");
++    if (Value & 0x1)
++      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned");
 +    // Need to produce imm[19|10:1|11|19:12] from the 21-bit Value.
 +    unsigned Sbit = (Value >> 20) & 0x1;
 +    unsigned Hi8 = (Value >> 12) & 0xff;
@@ -377,6 +391,10 @@ index f8ef142255c..6455ebbd9cd 100644
 +    return Value;
 +  }
 +  case RISCV::fixup_riscv_branch: {
++    if (!isInt<13>(Value))
++      Ctx.reportError(Fixup.getLoc(), "fixup value out of range");
++    if (Value & 0x1)
++      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned");
 +    // Need to extract imm[12], imm[10:5], imm[4:1], imm[11] from the 13-bit
 +    // Value.
 +    unsigned Sbit = (Value >> 12) & 0x1;
@@ -394,22 +412,24 @@ index f8ef142255c..6455ebbd9cd 100644
 +  }
 +}
 +
- void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
-                                  unsigned DataSize, uint64_t Value,
-                                  bool IsPCRel) const {
+ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                                  const MCValue &Target,
+                                  MutableArrayRef<char> Data, uint64_t Value,
+                                  bool IsResolved) const {
++  MCContext &Ctx = Asm.getContext();
 +  MCFixupKind Kind = Fixup.getKind();
 +  unsigned NumBytes = (getFixupKindInfo(Kind).TargetSize + 7) / 8;
 +  if (!Value)
 +    return; // Doesn't change encoding.
 +  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
 +  // Apply any target-specific value adjustments.
-+  Value = adjustFixupValue(Fixup.getKind(), Value);
++  Value = adjustFixupValue(Fixup, Value, Ctx);
 +
 +  // Shift the value into position.
 +  Value <<= Info.TargetOffset;
 +
 +  unsigned Offset = Fixup.getOffset();
-+  assert(Offset + NumBytes <= DataSize && "Invalid fixup offset!");
++  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
 +
 +  // For each byte of the fragment that the fixup touches, mask in the
 +  // bits from the fixup value.
@@ -465,7 +485,7 @@ index 00000000000..2e836ded2c6
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-index 4f085d31a26..fd6eea64222 100644
+index db8fc5591f4..95d4242e404 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -7,6 +7,7 @@
@@ -558,10 +578,10 @@ index 00000000000..a4a3af6e2b1
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index 53b43c92d09..904d4062c6c 100644
+index f4eaf06f622..e4bba0ff08a 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-@@ -11,15 +11,20 @@
+@@ -11,6 +11,9 @@
  //
  //===----------------------------------------------------------------------===//
  
@@ -570,14 +590,14 @@ index 53b43c92d09..904d4062c6c 100644
 +#include "MCTargetDesc/RISCVMCExpr.h"
  #include "MCTargetDesc/RISCVMCTargetDesc.h"
  #include "llvm/ADT/Statistic.h"
- #include "llvm/MC/MCCodeEmitter.h"
+ #include "llvm/MC/MCAsmInfo.h"
+@@ -18,8 +21,10 @@
  #include "llvm/MC/MCContext.h"
  #include "llvm/MC/MCExpr.h"
  #include "llvm/MC/MCInst.h"
 +#include "llvm/MC/MCInstrInfo.h"
  #include "llvm/MC/MCRegisterInfo.h"
  #include "llvm/MC/MCSymbol.h"
- #include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/Support/Casting.h"
  #include "llvm/Support/EndianStream.h"
  #include "llvm/Support/raw_ostream.h"
@@ -630,7 +650,7 @@ index 53b43c92d09..904d4062c6c 100644
  }
  
  unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
-@@ -118,11 +125,52 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+@@ -118,11 +125,53 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
  
    const MCOperand &MO = MI.getOperand(OpNo);
  
@@ -678,6 +698,7 @@ index 53b43c92d09..904d4062c6c 100644
 +  } else {
 +    llvm_unreachable("Unhandled expression!");
 +  }
++
 +  Fixups.push_back(
 +      MCFixup::create(0, Expr, MCFixupKind(FixupKind), MI.getLoc()));
 +  ++MCNumFixups;
@@ -983,6 +1004,30 @@ index 443fd387108..91f185af0a4 100644
    let DecoderMethod = "decodeSImmOperand<12>";
  }
  
+diff --git a/test/MC/RISCV/fixups-diagnostics.s b/test/MC/RISCV/fixups-diagnostics.s
+new file mode 100644
+index 00000000000..d346605221c
+--- /dev/null
++++ b/test/MC/RISCV/fixups-diagnostics.s
+@@ -0,0 +1,18 @@
++# RUN: not llvm-mc -triple riscv32 -filetype obj < %s -o /dev/null 2>&1 | FileCheck %s
++
++  jal a0, far_distant # CHECK: :[[@LINE]]:3: error: fixup value out of range
++  jal a0, unaligned # CHECK: :[[@LINE]]:3: error: fixup value must be 2-byte aligned
++
++  beq a0, a1, distant # CHECK: :[[@LINE]]:3: error: fixup value out of range
++  blt t0, t1, unaligned # CHECK: :[[@LINE]]:3: error: fixup value must be 2-byte aligned
++
++  .byte 0
++unaligned:
++  .byte 0
++  .byte 0
++  .byte 0
++
++  .space 1<<12
++distant:
++  .space 1<<20
++far_distant:
 diff --git a/test/MC/RISCV/fixups.s b/test/MC/RISCV/fixups.s
 new file mode 100644
 index 00000000000..19cc6922d6d
@@ -1085,10 +1130,10 @@ index 00000000000..691401f0bab
 +# CHECK-REL-NOT: R_RISCV
 diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
 new file mode 100644
-index 00000000000..a7c4f6001d0
+index 00000000000..c11e2f38dfc
 --- /dev/null
 +++ b/test/MC/RISCV/relocations.s
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,65 @@
 +# RUN: llvm-mc -triple riscv32 < %s -show-encoding \
 +# RUN:     | FileCheck -check-prefix=INSTR -check-prefix=FIXUP %s
 +# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
@@ -1106,24 +1151,44 @@ index 00000000000..a7c4f6001d0
 +# RELOC: R_RISCV_64 foo
 +
 +lui t1, %hi(foo)
-+# RELOC: R_RISCV_HI20 foo
++# RELOC: R_RISCV_HI20 foo 0x0
 +# INSTR: lui t1, %hi(foo)
 +# FIXUP: fixup A - offset: 0, value: %hi(foo), kind: fixup_riscv_hi20
 +
++lui t1, %hi(foo+4)
++# RELOC: R_RISCV_HI20 foo 0x4
++# INSTR: lui t1, %hi(foo+4)
++# FIXUP: fixup A - offset: 0, value: %hi(foo+4), kind: fixup_riscv_hi20
++
 +addi t1, t1, %lo(foo)
-+# RELOC: R_RISCV_LO12_I foo
++# RELOC: R_RISCV_LO12_I foo 0x0
 +# INSTR: addi t1, t1, %lo(foo)
 +# FIXUP: fixup A - offset: 0, value: %lo(foo), kind: fixup_riscv_lo12_i
 +
++addi t1, t1, %lo(foo+4)
++# RELOC: R_RISCV_LO12_I foo 0x4
++# INSTR: addi t1, t1, %lo(foo+4)
++# FIXUP: fixup A - offset: 0, value: %lo(foo+4), kind: fixup_riscv_lo12_i
++
 +sb t1, %lo(foo)(a2)
-+# RELOC: R_RISCV_LO12_S foo
++# RELOC: R_RISCV_LO12_S foo 0x0
 +# INSTR: sb t1, %lo(foo)(a2)
 +# FIXUP: fixup A - offset: 0, value: %lo(foo), kind: fixup_riscv_lo12_s
 +
++sb t1, %lo(foo+4)(a2)
++# RELOC: R_RISCV_LO12_S foo 0x4
++# INSTR: sb t1, %lo(foo+4)(a2)
++# FIXUP: fixup A - offset: 0, value: %lo(foo+4), kind: fixup_riscv_lo12_s
++
 +auipc t1, %pcrel_hi(foo)
-+# RELOC: R_RISCV_PCREL_HI20
++# RELOC: R_RISCV_PCREL_HI20 foo 0x0
 +# INSTR: auipc t1, %pcrel_hi(foo)
 +# FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo), kind: fixup_riscv_pcrel_hi20
++
++auipc t1, %pcrel_hi(foo+4)
++# RELOC: R_RISCV_PCREL_HI20 foo 0x4
++# INSTR: auipc t1, %pcrel_hi(foo+4)
++# FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo+4), kind: fixup_riscv_pcrel_hi20
 +
 +jal zero, foo
 +# RELOC: R_RISCV_JAL
@@ -1212,5 +1277,5 @@ index c8404eb63e5..2d316598987 100644
  # CHECK: encoding: [0x93,0x70,0xf1,0x7f]
  andi ra, sp, 2047
 -- 
-2.11.1
+2.14.0
 

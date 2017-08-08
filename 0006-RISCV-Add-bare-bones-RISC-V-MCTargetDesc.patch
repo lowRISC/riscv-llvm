@@ -16,16 +16,16 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/LLVMBuild.txt                     |  2 +-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  7 ++
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        | 23 ++++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 91 ++++++++++++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 93 ++++++++++++++++++++++
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 47 +++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   | 25 ++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 ++++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 ++++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 +++++++++++++++++++++
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 ++++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 58 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h              |  5 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
- 13 files changed, 436 insertions(+), 9 deletions(-)
+ 13 files changed, 438 insertions(+), 9 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
@@ -110,10 +110,10 @@ index 00000000000..e48f04963ff
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 00000000000..f8ef142255c
+index 00000000000..be83efc02d2
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,93 @@
 +//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -128,10 +128,10 @@ index 00000000000..f8ef142255c
 +#include "llvm/MC/MCAssembler.h"
 +#include "llvm/MC/MCDirectives.h"
 +#include "llvm/MC/MCELFObjectWriter.h"
++#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCFixupKindInfo.h"
 +#include "llvm/MC/MCObjectWriter.h"
 +#include "llvm/MC/MCSubtargetInfo.h"
-+#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCSymbol.h"
 +#include "llvm/Support/ErrorHandling.h"
 +#include "llvm/Support/raw_ostream.h"
@@ -148,8 +148,9 @@ index 00000000000..f8ef142255c
 +      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
 +  ~RISCVAsmBackend() override {}
 +
-+  void applyFixup(const MCFixup &Fixup, char *Data, unsigned DataSize,
-+                  uint64_t Value, bool IsPCRel) const override;
++  void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
++                  const MCValue &Target, MutableArrayRef<char> Data,
++                  uint64_t Value, bool IsResolved) const override;
 +
 +  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
 +
@@ -185,9 +186,10 @@ index 00000000000..f8ef142255c
 +  return true;
 +}
 +
-+void RISCVAsmBackend::applyFixup(const MCFixup &Fixup, char *Data,
-+                                 unsigned DataSize, uint64_t Value,
-+                                 bool IsPCRel) const {
++void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
++                                 const MCValue &Target,
++                                 MutableArrayRef<char> Data, uint64_t Value,
++                                 bool IsResolved) const {
 +  return;
 +}
 +
@@ -207,7 +209,7 @@ index 00000000000..f8ef142255c
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 00000000000..4f085d31a26
+index 00000000000..db8fc5591f4
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -0,0 +1,47 @@
@@ -242,7 +244,7 @@ index 00000000000..4f085d31a26
 +
 +RISCVELFObjectWriter::RISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit)
 +    : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_RISCV,
-+                              /*HasRelocationAddend*/ false) {}
++                              /*HasRelocationAddend*/ true) {}
 +
 +RISCVELFObjectWriter::~RISCVELFObjectWriter() {}
 +
@@ -260,7 +262,7 @@ index 00000000000..4f085d31a26
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 new file mode 100644
-index 00000000000..b164df8b595
+index 00000000000..d622911e92c
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 @@ -0,0 +1,25 @@
@@ -284,7 +286,7 @@ index 00000000000..b164df8b595
 +void RISCVMCAsmInfo::anchor() {}
 +
 +RISCVMCAsmInfo::RISCVMCAsmInfo(const Triple &TT) {
-+  PointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
++  CodePointerSize = CalleeSaveStackSlotSize = TT.isArch64Bit() ? 8 : 4;
 +  CommentString = "#";
 +  AlignmentIsInBytes = false;
 +  SupportsDebugInformation = true;
@@ -328,7 +330,7 @@ index 00000000000..901a1eba8af
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 new file mode 100644
-index 00000000000..b2ed13758d4
+index 00000000000..9309d493cef
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -0,0 +1,91 @@
@@ -347,13 +349,13 @@ index 00000000000..b2ed13758d4
 +
 +#include "MCTargetDesc/RISCVMCTargetDesc.h"
 +#include "llvm/ADT/Statistic.h"
++#include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/MC/MCCodeEmitter.h"
 +#include "llvm/MC/MCContext.h"
 +#include "llvm/MC/MCExpr.h"
 +#include "llvm/MC/MCInst.h"
 +#include "llvm/MC/MCRegisterInfo.h"
 +#include "llvm/MC/MCSymbol.h"
-+#include "llvm/MC/MCAsmInfo.h"
 +#include "llvm/Support/EndianStream.h"
 +#include "llvm/Support/raw_ostream.h"
 +
@@ -489,7 +491,7 @@ index 00000000000..41be0a2084b
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 new file mode 100644
-index 00000000000..ddc3bf35045
+index 00000000000..7c98b1c8f32
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 @@ -0,0 +1,58 @@
@@ -509,9 +511,9 @@ index 00000000000..ddc3bf35045
 +#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 +#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCTARGETDESC_H
 +
++#include "llvm/Config/config.h"
 +#include "llvm/MC/MCTargetOptions.h"
 +#include "llvm/Support/DataTypes.h"
-+#include "llvm/Config/config.h"
 +
 +namespace llvm {
 +class MCAsmBackend;
@@ -552,7 +554,7 @@ index 00000000000..ddc3bf35045
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
-index b4dd4efe0f9..d13e574c9bf 100644
+index 6402a5f652d..5c2ec956ee2 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.h
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -14,9 +14,10 @@
@@ -590,5 +592,5 @@ index 3cb657a9978..34932c25915 100644
 -// Remove once this function is properly implemented.
 -extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.11.1
+2.14.0
 

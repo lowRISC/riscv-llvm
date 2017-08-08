@@ -4,10 +4,10 @@ Subject: [RISCV] Support for function calls
 
 ---
  lib/Target/RISCV/RISCVFrameLowering.h  |   6 ++
- lib/Target/RISCV/RISCVISelLowering.cpp | 132 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 131 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   5 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp    |   2 +-
- lib/Target/RISCV/RISCVInstrInfo.td     |  30 ++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  31 ++++++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |   6 ++
  lib/Target/RISCV/RISCVRegisterInfo.h   |   3 +
@@ -33,18 +33,17 @@ index 3048fa75e3f..ae2ed99f82d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 000618092b7..42d9d599461 100644
+index 0cfddbca01c..c1ffb362d63 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -149,6 +149,136 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -150,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
 +// Lower a call to a callseq_start + CALL + callseq_end chain, and add input 
 +// and output parameter nodes.
-+SDValue
-+RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
-+                                 SmallVectorImpl<SDValue> &InVals) const {
++SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
++                                       SmallVectorImpl<SDValue> &InVals) const {
 +  SelectionDAG &DAG = CLI.DAG;
 +  SDLoc &DL = CLI.DL;
 +  SmallVectorImpl<ISD::OutputArg> &Outs = CLI.Outs;
@@ -71,9 +70,13 @@ index 000618092b7..42d9d599461 100644
 +  // Get a count of how many bytes are to be pushed on the stack.
 +  unsigned NumBytes = ArgCCInfo.getNextStackOffset();
 +
-+  Chain = DAG.getCALLSEQ_START(Chain,
-+                                 DAG.getIntPtrConstant(NumBytes, DL, true),
-+                                 DL);
++  for (auto &Arg : Outs) {
++    if (!Arg.Flags.isByVal())
++      continue;
++    llvm_unreachable("Passing arguments byval not yet implemented");
++  }
++
++  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, CLI.DL);
 +
 +  // Copy argument values to their designated locations.
 +  SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
@@ -103,9 +106,8 @@ index 000618092b7..42d9d599461 100644
 +  SDValue Glue;
 +
 +  // Build a sequence of copy-to-reg nodes, chained and glued together.
-+  for (unsigned I = 0, E = RegsToPass.size(); I != E; ++I) {
-+    Chain = DAG.getCopyToReg(Chain, DL, RegsToPass[I].first,
-+                             RegsToPass[I].second, Glue);
++  for (auto &Reg : RegsToPass) {
++    Chain = DAG.getCopyToReg(Chain, DL, Reg.first, Reg.second, Glue);
 +    Glue = Chain.getValue(1);
 +  }
 +
@@ -123,9 +125,8 @@ index 000618092b7..42d9d599461 100644
 +
 +  // Add argument registers to the end of the list so that they are
 +  // known live into the call.
-+  for (unsigned I = 0, E = RegsToPass.size(); I != E; ++I)
-+    Ops.push_back(DAG.getRegister(RegsToPass[I].first,
-+                                  RegsToPass[I].second.getValueType()));
++  for (auto &Reg : RegsToPass)
++    Ops.push_back(DAG.getRegister(Reg.first, Reg.second.getValueType()));
 +
 +  // Add a register mask operand representing the call-preserved registers.
 +  const TargetRegisterInfo *TRI = Subtarget->getRegisterInfo();
@@ -150,14 +151,12 @@ index 000618092b7..42d9d599461 100644
 +  Glue = Chain.getValue(1);
 +
 +  // Assign locations to each value returned by this call.
-+  SmallVector<CCValAssign, 16> RetLocs;
-+  CCState RetCCInfo(CallConv, IsVarArg, MF, RetLocs, *DAG.getContext());
++  SmallVector<CCValAssign, 16> RVLocs;
++  CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
 +  RetCCInfo.AnalyzeCallResult(Ins, RetCC_RISCV32);
 +
 +  // Copy all of the result registers out of their specified physreg.
-+  for (unsigned I = 0, E = RetLocs.size(); I != E; ++I) {
-+    CCValAssign &VA = RetLocs[I];
-+
++  for (auto &VA : RVLocs) {
 +    // Copy the value out, gluing the copy to the end of the call sequence.
 +    SDValue RetValue = DAG.getCopyFromReg(Chain, DL, VA.getLocReg(),
 +                                          VA.getLocVT(), Glue);
@@ -172,8 +171,8 @@ index 000618092b7..42d9d599461 100644
 +
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
-                                bool IsVarArg,
-@@ -199,6 +329,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+                                  bool IsVarArg,
+@@ -200,6 +329,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      break;
    case RISCVISD::RET_FLAG:
      return "RISCVISD::RET_FLAG";
@@ -183,7 +182,7 @@ index 000618092b7..42d9d599461 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index ae96a0d4dc6..f2691fcf270 100644
+index 9fe8853ed27..5c90d00ab53 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -24,7 +24,8 @@ class RISCVSubtarget;
@@ -196,7 +195,7 @@ index ae96a0d4dc6..f2691fcf270 100644
  };
  }
  
-@@ -51,6 +52,8 @@ private:
+@@ -52,6 +53,8 @@ private:
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
                        SelectionDAG &DAG) const override;
@@ -219,14 +218,15 @@ index b756c69124b..c5a0288259d 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 6846cb428ab..4edf5cb3537 100644
+index 6846cb428ab..e567053de1f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,8 +13,21 @@
+@@ -13,8 +13,22 @@
  
  include "RISCVInstrFormats.td"
  
-+def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
++def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
++                                            SDTCisVT<1, i32>]>;
 +def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
 +                                         SDTCisVT<1, i32>]>;
 +def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
@@ -244,7 +244,7 @@ index 6846cb428ab..4edf5cb3537 100644
  
  // Operands
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -102,22 +115,39 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
+@@ -102,22 +116,39 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
  def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
               "auipc\t$rd, $imm20", []>;
  
@@ -273,10 +273,10 @@ index 6846cb428ab..4edf5cb3537 100644
                    PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
  }
  
-+// Pessimstically assume the stack pointer will be clobbered
++// Pessimistically assume the stack pointer will be clobbered
 +let Defs = [X2_32], Uses = [X2_32] in {
-+  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt),
-+                                [(CallSeqStart timm:$amt)]>;
++  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
++                                [(CallSeqStart timm:$amt1, timm:$amt2)]>;
 +  def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 +                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
 +}
@@ -368,5 +368,5 @@ index 00000000000..04113f8b854
 +  ret i32 %1
 +}
 -- 
-2.11.1
+2.14.0
 

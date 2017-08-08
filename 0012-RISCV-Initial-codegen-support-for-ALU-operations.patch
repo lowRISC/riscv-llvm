@@ -5,6 +5,14 @@ Subject: [RISCV] Initial codegen support for ALU operations
 This roughly constitutes the minimum necessary to get code generation for
 simple ALU operations to work. Frame handling, and generation of full function
 prologue/epilogues remains unimplemented until a future patch.
+
+Note that RISCVCallingConv.td does not implement the full details of the
+RISC-V calling convention at this stage. We also choose not to mark the stack
+pointer as a callee-saved register, as the function prologue and epilogue
+inserter will manage it instead.
+
+A default SelectionDAGTargetInfo is needed in RISCVSubtarget to support
+target-specific generation of libc functions like strcmp.
 ---
  lib/Target/RISCV/CMakeLists.txt         |  11 ++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
@@ -15,22 +23,22 @@ prologue/epilogues remains unimplemented until a future patch.
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  64 ++++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 177 ++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelLowering.h    |  59 +++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 178 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
  lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
  lib/Target/RISCV/RISCVInstrInfo.td      |  64 +++++++-----
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  60 +++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  40 +++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
  lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
- lib/Target/RISCV/RISCVSubtarget.h       |  60 +++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp |  28 ++++-
+ lib/Target/RISCV/RISCVSubtarget.h       |  64 ++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1063 insertions(+), 35 deletions(-)
+ 24 files changed, 1068 insertions(+), 34 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -215,7 +223,7 @@ index 00000000000..1c213b6c7e9
 +}
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
 new file mode 100644
-index 00000000000..24d9a8c44d2
+index 00000000000..7eb48c8f177
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVCallingConv.td
 @@ -0,0 +1,31 @@
@@ -248,7 +256,7 @@ index 00000000000..24d9a8c44d2
 +  CCAssignToStack<8, 8>
 +]>;
 +
-+def CSR : CalleeSavedRegs<(add X1_32, X2_32, X3_32, X4_32, X8_32, X9_32,
++def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
 +                          (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 new file mode 100644
@@ -398,10 +406,10 @@ index 00000000000..0daad5c6a96
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..d0eb8573922
+index 00000000000..8c7fccd567f
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,178 @@
 +//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -440,7 +448,7 @@ index 00000000000..d0eb8573922
 +#define DEBUG_TYPE "riscv-lower"
 +
 +RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-+                                     const RISCVSubtarget &STI)
++                                         const RISCVSubtarget &STI)
 +    : TargetLowering(TM) {
 +
 +  // Set up the register classes.
@@ -465,7 +473,8 @@ index 00000000000..d0eb8573922
 +  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
 +}
 +
-+SDValue RISCVTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
++SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
++                                            SelectionDAG &DAG) const {
 +  switch (Op.getOpcode()) {
 +  default:
 +    report_fatal_error("unimplemented operand");
@@ -528,10 +537,10 @@ index 00000000000..d0eb8573922
 +
 +SDValue
 +RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
-+                               bool IsVarArg,
-+                               const SmallVectorImpl<ISD::OutputArg> &Outs,
-+                               const SmallVectorImpl<SDValue> &OutVals,
-+                               const SDLoc &DL, SelectionDAG &DAG) const {
++                                 bool IsVarArg,
++                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
++                                 const SmallVectorImpl<SDValue> &OutVals,
++                                 const SDLoc &DL, SelectionDAG &DAG) const {
 +  if (IsVarArg) {
 +    report_fatal_error("VarArg not supported");
 +  }
@@ -581,10 +590,10 @@ index 00000000000..d0eb8573922
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
 new file mode 100644
-index 00000000000..fb05d3ff2a5
+index 00000000000..fc4ab2b9c4c
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,60 @@
 +//===-- RISCVISelLowering.h - RISCV DAG Lowering Interface ------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -617,7 +626,8 @@ index 00000000000..fb05d3ff2a5
 +
 +class RISCVTargetLowering : public TargetLowering {
 +public:
-+  explicit RISCVTargetLowering(const TargetMachine &TM, const RISCVSubtarget &STI);
++  explicit RISCVTargetLowering(const TargetMachine &TM,
++                               const RISCVSubtarget &STI);
 +
 +  // Provide custom lowering hooks for some operations.
 +  SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
@@ -1077,10 +1087,10 @@ index 00000000000..865c243b96f
 +      TLInfo(TM, *this), HasRV64(false) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 new file mode 100644
-index 00000000000..3da7ff705aa
+index 00000000000..fc3fbf1b328
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,64 @@
 +//===-- RISCVSubtarget.h - Define Subtarget for the RISCV -------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1116,6 +1126,7 @@ index 00000000000..3da7ff705aa
 +  RISCVInstrInfo InstrInfo;
 +  RISCVFrameLowering FrameLowering;
 +  RISCVTargetLowering TLInfo;
++  SelectionDAGTargetInfo TSInfo;
 +  bool HasRV64;
 +
 +public:
@@ -1137,33 +1148,29 @@ index 00000000000..3da7ff705aa
 +  const RISCVTargetLowering *getTargetLowering() const override {
 +    return &TLInfo;
 +  }
++  const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
++    return &TSInfo;
++  }
 +};
 +} // End llvm namespace
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index a20331cd0a3..6e1be40eff9 100644
+index 78d9cf53b5d..34da6de504d 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -11,12 +11,13 @@
+@@ -11,6 +11,7 @@
  //
  //===----------------------------------------------------------------------===//
  
 +#include "RISCV.h"
  #include "RISCVTargetMachine.h"
  #include "llvm/ADT/STLExtras.h"
-+#include "llvm/CodeGen/Passes.h"
- #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
- #include "llvm/CodeGen/TargetPassConfig.h"
- #include "llvm/IR/LegacyPassManager.h"
--#include "llvm/CodeGen/Passes.h"
- #include "llvm/Support/FormattedStream.h"
- #include "llvm/Support/TargetRegistry.h"
- #include "llvm/Target/TargetOptions.h"
-@@ -51,10 +52,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
-                                        CodeGenOpt::Level OL)
+ #include "llvm/CodeGen/Passes.h"
+@@ -58,10 +59,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
      : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
-                         getEffectiveRelocModel(TT, RM), CM, OL),
+                         getEffectiveRelocModel(TT, RM),
+                         getEffectiveCodeModel(CM), OL),
 -      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
 +      TLOF(make_unique<TargetLoweringObjectFileELF>()),
 +      Subtarget(TT, CPU, FS, *this) {
@@ -1173,7 +1180,7 @@ index a20331cd0a3..6e1be40eff9 100644
 +namespace {
 +class RISCVPassConfig : public TargetPassConfig {
 +public:
-+  RISCVPassConfig(RISCVTargetMachine *TM, PassManagerBase &PM)
++  RISCVPassConfig(RISCVTargetMachine &TM, PassManagerBase &PM)
 +      : TargetPassConfig(TM, PM) {}
 +
 +  RISCVTargetMachine &getRISCVTargetMachine() const {
@@ -1185,8 +1192,8 @@ index a20331cd0a3..6e1be40eff9 100644
 +}
 +
  TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
--  return new TargetPassConfig(this, PM);
-+  return new RISCVPassConfig(this, PM);
+-  return new TargetPassConfig(*this, PM);
++  return new RISCVPassConfig(*this, PM);
 +}
 +
 +bool RISCVPassConfig::addInstSelector() {
@@ -1195,7 +1202,7 @@ index a20331cd0a3..6e1be40eff9 100644
 +  return false;
  }
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
-index d13e574c9bf..9edda134bfa 100644
+index 5c2ec956ee2..02361dddebf 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.h
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -15,6 +15,7 @@
@@ -1215,8 +1222,8 @@ index d13e574c9bf..9edda134bfa 100644
  public:
    RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
 @@ -29,6 +31,10 @@ public:
-                      Optional<Reloc::Model> RM, CodeModel::Model CM,
-                      CodeGenOpt::Level OL);
+                      Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
+                      CodeGenOpt::Level OL, bool JIT);
  
 +  const RISCVSubtarget *getSubtargetImpl(const Function &) const override {
 +    return &Subtarget;
@@ -1402,5 +1409,5 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 -- 
-2.11.1
+2.14.0
 

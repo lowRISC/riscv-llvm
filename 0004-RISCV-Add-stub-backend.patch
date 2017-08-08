@@ -15,14 +15,14 @@ NOTE: This patch has been updated since being committed upstream.
  CMakeLists.txt                                  |  1 +
  docs/CompilerWriterInfo.rst                     |  4 ++
  lib/Target/LLVMBuild.txt                        |  1 +
- lib/Target/RISCV/CMakeLists.txt                 |  5 +++
- lib/Target/RISCV/LLVMBuild.txt                  | 31 +++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp         | 60 +++++++++++++++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++++
+ lib/Target/RISCV/CMakeLists.txt                 |  5 ++
+ lib/Target/RISCV/LLVMBuild.txt                  | 31 ++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp         | 67 +++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++
  lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
- lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 ++++++++++
- lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++++
- 10 files changed, 204 insertions(+)
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 +++++++++
+ lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++
+ 10 files changed, 211 insertions(+)
  create mode 100644 lib/Target/RISCV/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
@@ -32,10 +32,10 @@ NOTE: This patch has been updated since being committed upstream.
  create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index b2e2f7bdfd2..df6ef8efedb 100644
+index 5148a0df4e8..fe5343bcadd 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -312,6 +312,7 @@ set(LLVM_ALL_TARGETS
+@@ -320,6 +320,7 @@ set(LLVM_ALL_TARGETS
    MSP430
    NVPTX
    PowerPC
@@ -44,12 +44,12 @@ index b2e2f7bdfd2..df6ef8efedb 100644
    SystemZ
    X86
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index 6d270e30fc8..8ce999033b7 100644
+index f1002308137..24375fb70d4 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
-@@ -83,6 +83,10 @@ AMDGPU
- * `AMD Compute Resources <http://developer.amd.com/tools/heterogeneous-computing/amd-accelerated-parallel-processing-app-sdk/documentation/>`_
- * `AMDGPU Compute Application Binary Interface <https://github.com/RadeonOpenCompute/ROCm-ComputeABI-Doc/blob/master/AMDGPU-ABI.md>`__
+@@ -74,6 +74,10 @@ AMDGPU
+ 
+ Refer to :doc:`AMDGPUUsage` for additional documentation.
  
 +RISC-V
 +------
@@ -59,12 +59,12 @@ index 6d270e30fc8..8ce999033b7 100644
  -----
  
 diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
-index 43621629dd2..8be2a898e38 100644
+index c6794ab8114..34b966df776 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
-@@ -30,6 +30,7 @@ subdirectories =
-  NVPTX
+@@ -31,6 +31,7 @@ subdirectories =
   Mips
+  Nios2
   PowerPC
 + RISCV
   Sparc
@@ -120,10 +120,10 @@ index 00000000000..e5e5692490c
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 new file mode 100644
-index 00000000000..a20331cd0a3
+index 00000000000..78d9cf53b5d
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,67 @@
 +//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -139,10 +139,10 @@ index 00000000000..a20331cd0a3
 +
 +#include "RISCVTargetMachine.h"
 +#include "llvm/ADT/STLExtras.h"
++#include "llvm/CodeGen/Passes.h"
 +#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 +#include "llvm/CodeGen/TargetPassConfig.h"
 +#include "llvm/IR/LegacyPassManager.h"
-+#include "llvm/CodeGen/Passes.h"
 +#include "llvm/Support/FormattedStream.h"
 +#include "llvm/Support/TargetRegistry.h"
 +#include "llvm/Target/TargetOptions.h"
@@ -169,24 +169,31 @@ index 00000000000..a20331cd0a3
 +  return *RM;
 +}
 +
++static CodeModel::Model getEffectiveCodeModel(Optional<CodeModel::Model> CM) {
++  if (CM)
++    return *CM;
++  return CodeModel::Small;
++}
++
 +RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
 +                                       StringRef CPU, StringRef FS,
 +                                       const TargetOptions &Options,
 +                                       Optional<Reloc::Model> RM,
-+                                       CodeModel::Model CM,
-+                                       CodeGenOpt::Level OL)
++                                       Optional<CodeModel::Model> CM,
++                                       CodeGenOpt::Level OL, bool JIT)
 +    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
-+                        getEffectiveRelocModel(TT, RM), CM, OL),
++                        getEffectiveRelocModel(TT, RM),
++                        getEffectiveCodeModel(CM), OL),
 +      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
 +  initAsmInfo();
 +}
 +
 +TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
-+  return new TargetPassConfig(this, PM);
++  return new TargetPassConfig(*this, PM);
 +}
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
 new file mode 100644
-index 00000000000..b4dd4efe0f9
+index 00000000000..6402a5f652d
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -0,0 +1,41 @@
@@ -217,8 +224,8 @@ index 00000000000..b4dd4efe0f9
 +public:
 +  RISCVTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
 +                     StringRef FS, const TargetOptions &Options,
-+                     Optional<Reloc::Model> RM, CodeModel::Model CM,
-+                     CodeGenOpt::Level OL);
++                     Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
++                     CodeGenOpt::Level OL, bool JIT);
 +
 +  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 +
@@ -311,5 +318,5 @@ index 00000000000..3cb657a9978
 +// Remove once this function is properly implemented.
 +extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.11.1
+2.14.0
 

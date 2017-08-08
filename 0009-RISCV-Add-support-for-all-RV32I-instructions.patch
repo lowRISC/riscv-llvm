@@ -180,7 +180,7 @@ index edfe39da9c7..361771373c4 100644
    // Finally we have exhausted all options and must declare defeat.
    Error(getLoc(), "unknown operand");
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index b2ed13758d4..968d5bbc679 100644
+index 9309d493cef..eb0beb028ad 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -55,6 +55,10 @@ public:
@@ -620,5 +620,5 @@ index fc89cd42016..5192852ec6d 100644
 +# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 +csrrci t1, 0x140, 5
 -- 
-2.11.1
+2.14.0
 
