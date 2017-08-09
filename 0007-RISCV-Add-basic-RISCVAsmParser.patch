@@ -9,12 +9,12 @@ Differential Revision: https://reviews.llvm.org/D23563
 ---
  lib/Target/RISCV/AsmParser/CMakeLists.txt     |   3 +
  lib/Target/RISCV/AsmParser/LLVMBuild.txt      |  23 ++
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 373 ++++++++++++++++++++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 372 ++++++++++++++++++++++++++
  lib/Target/RISCV/CMakeLists.txt               |   2 +
  lib/Target/RISCV/LLVMBuild.txt                |   3 +-
  lib/Target/RISCV/RISCV.td                     |   5 +
  lib/Target/RISCV/RISCVInstrInfo.td            |  11 +-
- 7 files changed, 418 insertions(+), 2 deletions(-)
+ 7 files changed, 417 insertions(+), 2 deletions(-)
  create mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/AsmParser/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
@@ -59,10 +59,10 @@ index 00000000000..a9ad92c872e
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 new file mode 100644
-index 00000000000..edfe39da9c7
+index 00000000000..63b21058461
 --- /dev/null
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -0,0 +1,373 @@
+@@ -0,0 +1,372 @@
 +//===-- RISCVAsmParser.cpp - Parse RISCV assembly to MCInst instructions --===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -278,7 +278,6 @@ index 00000000000..edfe39da9c7
 +
 +#define GET_REGISTER_MATCHER
 +#define GET_MATCHER_IMPLEMENTATION
-+#define GET_SUBTARGET_FEATURE_NAME
 +#include "RISCVGenAsmMatcher.inc"
 +
 +bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,

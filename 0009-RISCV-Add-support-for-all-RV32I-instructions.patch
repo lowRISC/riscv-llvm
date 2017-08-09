@@ -12,7 +12,7 @@ Differential Revision: https://reviews.llvm.org/D23566
  5 files changed, 437 insertions(+), 10 deletions(-)
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index edfe39da9c7..361771373c4 100644
+index 63b21058461..54b9216d8fe 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -30,6 +30,9 @@ struct RISCVOperand;
@@ -70,8 +70,8 @@ index edfe39da9c7..361771373c4 100644
    /// getStartLoc - Gets location of the first token of this operand
    SMLoc getStartLoc() const override { return StartLoc; }
    /// getEndLoc - Gets location of the last token of this operand
-@@ -216,13 +246,19 @@ public:
- #define GET_SUBTARGET_FEATURE_NAME
+@@ -215,13 +245,19 @@ public:
+ #define GET_MATCHER_IMPLEMENTATION
  #include "RISCVGenAsmMatcher.inc"
  
 +bool RISCVAsmParser::generateImmOutOfRangeError(
@@ -91,7 +91,7 @@ index edfe39da9c7..361771373c4 100644
  
    switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
    default:
-@@ -235,8 +271,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -234,8 +270,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      return Error(IDLoc, "instruction use requires an option to be enabled");
    case Match_MnemonicFail:
      return Error(IDLoc, "unrecognized instruction mnemonic");
@@ -102,7 +102,7 @@ index edfe39da9c7..361771373c4 100644
      if (ErrorInfo != ~0U) {
        if (ErrorInfo >= Operands.size())
          return Error(ErrorLoc, "too few operands for instruction");
-@@ -246,10 +282,26 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -245,10 +281,26 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc = IDLoc;
      }
      return Error(ErrorLoc, "invalid operand for instruction");
@@ -132,7 +132,7 @@ index edfe39da9c7..361771373c4 100644
    }
  
    llvm_unreachable("Unknown match type detected!");
-@@ -314,6 +366,31 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -313,6 +365,31 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
    return MatchOperand_Success;
  }
  
@@ -164,7 +164,7 @@ index edfe39da9c7..361771373c4 100644
  /// Looks at a token type and creates the relevant operand
  /// from this information, adding to Operands.
  /// If operand was parsed, returns false, else true.
-@@ -323,8 +400,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+@@ -322,8 +399,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
      return false;
  
    // Attempt to parse token as an immediate

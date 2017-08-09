@@ -44,7 +44,7 @@ add checking for out-of-range and insufficiently aligned fixups
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 361771373c4..7419dc53c60 100644
+index 54b9216d8fe..fe7f65d654d 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -8,6 +8,7 @@
@@ -149,7 +149,7 @@ index 361771373c4..7419dc53c60 100644
      Op->Imm.Val = Val;
      Op->StartLoc = S;
      Op->EndLoc = E;
-@@ -345,6 +388,10 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
+@@ -344,6 +387,10 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
  }
  
  OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
@@ -160,7 +160,7 @@ index 361771373c4..7419dc53c60 100644
    switch (getLexer().getKind()) {
    default:
      return MatchOperand_NoMatch;
-@@ -353,16 +400,63 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -352,16 +399,63 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
    case AsmToken::Plus:
    case AsmToken::Integer:
    case AsmToken::String:
@@ -228,7 +228,7 @@ index 361771373c4..7419dc53c60 100644
    return MatchOperand_Success;
  }
  
-@@ -447,6 +541,57 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -446,6 +540,57 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
  

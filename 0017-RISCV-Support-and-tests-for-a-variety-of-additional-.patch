@@ -19,7 +19,7 @@ for a number of these cases:
 * ctlz, cttz, ctpop
 * rotl, rotr
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp    |  65 ++++++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp    |  67 ++++++++-
  lib/Target/RISCV/RISCVISelLowering.h      |   1 +
  lib/Target/RISCV/RISCVInstrInfo.td        |  17 +++
  lib/Target/RISCV/RISCVMCInstLower.cpp     |   4 +
@@ -36,7 +36,7 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll               |  91 ++++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll     | 233 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll              |  28 ++++
- 17 files changed, 784 insertions(+), 3 deletions(-)
+ 17 files changed, 785 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/ctlz-cttz-ctpop.ll
@@ -51,10 +51,10 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index fab7ffff68c..0c96b1a1f95 100644
+index fab7ffff68c..4559eb6225d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -49,16 +49,55 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -49,17 +49,56 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  
    // TODO: add all necessary setOperationAction calls
  
@@ -105,12 +105,14 @@ index fab7ffff68c..0c96b1a1f95 100644
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
  
+-  // inline memcpy() for kernel to see explicit copy
 +  // Effectively disable jump table generation
 +  setMinimumJumpTableEntries(INT_MAX);
 +
-   // inline memcpy() for kernel to see explicit copy
++  // inline memcpy()
    MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
    MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
+   MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
 @@ -99,6 +138,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }

@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [Hack] Set Frame{Setup,Destroy} in PrologEpilogInserter
+
+This is hopefully a temporary change, see my proposed RFC
+<http://lists.llvm.org/pipermail/llvm-dev/2017-February/110281.html>.
+---
+ lib/CodeGen/PrologEpilogInserter.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/lib/CodeGen/PrologEpilogInserter.cpp b/lib/CodeGen/PrologEpilogInserter.cpp
+index cbb43203b5c..3cb1b2a06f4 100644
+--- a/lib/CodeGen/PrologEpilogInserter.cpp
++++ b/lib/CodeGen/PrologEpilogInserter.cpp
+@@ -483,6 +483,12 @@ static void insertCSRSaves(MachineBasicBlock &SaveBlock,
+       const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
+       TII.storeRegToStackSlot(SaveBlock, I, Reg, true, CS.getFrameIdx(), RC,
+                               TRI);
++      // Ensure the instruction to spill the callee-saved register is marked
++      // as part of the frame setup. This assumes that the target's
++      // storeRegtoStackSlot only inserts one MachineInstr
++      --I;
++      I->setFlag(MachineInstr::FrameSetup);
++      ++I;
+     }
+   }
+ }
+@@ -506,6 +512,12 @@ static void insertCSRRestores(MachineBasicBlock &RestoreBlock,
+       TII.loadRegFromStackSlot(RestoreBlock, I, Reg, CI.getFrameIdx(), RC, TRI);
+       assert(I != RestoreBlock.begin() &&
+              "loadRegFromStackSlot didn't insert any code!");
++      // Ensure the instruction to load the callee-saved register is marked
++      // as part of the frame destruction. This assumes that the target's
++      // loadRegFromStackSlot only inserts one MachineInstr
++      --I;
++      I->setFlag(MachineInstr::FrameDestroy);
++      ++I;
+       // Insert in reverse order.  loadRegFromStackSlot can insert
+       // multiple instructions.
+     }
+-- 
+2.14.0
+
