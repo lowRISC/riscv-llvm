@@ -1,0 +1,334 @@
+From 65472178fb2c89a97c25c5be73243b4503bd3de5 Mon Sep 17 00:00:00 2001
+From: David Craven <david@craven.ch>
+Date: Tue, 8 Aug 2017 08:32:30 +0200
+Subject: [PATCH] Initial RISCV support.
+
+---
+ ELF/Arch/RISCV.cpp               | 100 +++++++++++++++++++++++++++++++++++++++
+ ELF/CMakeLists.txt               |   1 +
+ ELF/Driver.cpp                   |   2 +
+ ELF/InputFiles.cpp               |   3 ++
+ ELF/Target.cpp                   |   2 +
+ ELF/Target.h                     |   1 +
+ test/ELF/Inputs/riscv-foo.s      |  12 +++++
+ test/ELF/Inputs/riscv-foo.script |  10 ++++
+ test/ELF/riscv-relocs.s          |  85 +++++++++++++++++++++++++++++++++
+ test/lit.cfg                     |   2 +
+ 10 files changed, 218 insertions(+)
+ create mode 100644 ELF/Arch/RISCV.cpp
+ create mode 100644 test/ELF/Inputs/riscv-foo.s
+ create mode 100644 test/ELF/Inputs/riscv-foo.script
+ create mode 100644 test/ELF/riscv-relocs.s
+
+diff --git a/ELF/Arch/RISCV.cpp b/ELF/Arch/RISCV.cpp
+new file mode 100644
+index 000000000..8ac3d30bc
+--- /dev/null
++++ b/ELF/Arch/RISCV.cpp
+@@ -0,0 +1,100 @@
++//===- RISCV.cpp ---------------------------------------------------------===//
++//
++//                             The LLVM Linker
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "Error.h"
++#include "InputFiles.h"
++#include "Symbols.h"
++#include "Target.h"
++#include "llvm/Object/ELF.h"
++#include "llvm/Support/Endian.h"
++
++using namespace llvm;
++using namespace llvm::object;
++using namespace llvm::support::endian;
++using namespace llvm::ELF;
++using namespace lld;
++using namespace lld::elf;
++
++namespace {
++class RISCV final : public TargetInfo {
++public:
++  void relocateOne(uint8_t *Loc, uint32_t Type, uint64_t Val) const override;
++  RelExpr getRelExpr(uint32_t Type, const SymbolBody &S,
++                     const InputFile &File,
++                     const uint8_t *Loc) const override;
++};
++} // namespace
++
++static void or32le(uint8_t *Loc, uint32_t Val) {
++  write32le(Loc, read32le(Loc) | Val);
++}
++
++RelExpr RISCV::getRelExpr(uint32_t Type, const SymbolBody &S,
++                          const InputFile &File, const uint8_t *Loc) const {
++  switch (Type) {
++  case R_RISCV_32:
++  case R_RISCV_64:
++  case R_RISCV_HI20:
++  case R_RISCV_LO12_I:
++  case R_RISCV_LO12_S:
++    return R_ABS;
++  case R_RISCV_PCREL_HI20:
++  case R_RISCV_JAL:
++  case R_RISCV_BRANCH:
++    return R_PC;
++  default:
++    error(toString(&File) + ": unknown relocation type: " + toString(Type));
++    return R_HINT;
++  }
++}
++
++void RISCV::relocateOne(uint8_t *Loc, uint32_t Type, uint64_t Val) const {
++  switch (Type) {
++  case R_RISCV_32:
++    checkIntUInt<32>(Loc, Val, Type);
++    write32le(Loc, Val);
++    break;
++  case R_RISCV_64:
++    write64le(Loc, Val);
++    break;
++  case R_RISCV_HI20:
++    checkUInt<32>(Loc, Val, Type);
++    or32le(Loc, Val & 0xFFFFF000);
++    break;
++  case R_RISCV_LO12_I:
++    checkUInt<32>(Loc, Val, Type);
++    or32le(Loc, (Val & 0xFFF) << 20);
++    break;
++  case R_RISCV_LO12_S:
++    checkUInt<32>(Loc, Val, Type);
++    or32le(Loc, ((Val & 0xFE0) << 20) | ((Val & 0x1F) << 7));
++    break;
++  case R_RISCV_PCREL_HI20:
++    checkInt<32>(Loc, Val, Type);
++    or32le(Loc, (Val + 0x1000) & 0xFFFFF000);
++    break;
++  case R_RISCV_JAL:
++    checkInt<21>(Loc, Val, Type);
++    or32le(Loc, ((Val & 0x100000) << 11) | ((Val & 0x7FE)   << 20)
++           |    ((Val & 0x800)    <<  9) | ((Val & 0xFF000) <<  0));
++    break;
++  case R_RISCV_BRANCH:
++    checkInt<13>(Loc, Val, Type);
++    or32le(Loc, ((Val & 0x1000) << 19) | ((Val & 0x7E0) << 20)
++           |    ((Val & 0x1E)   <<  7) | ((Val & 0x800) >>  4));
++    break;
++  default:
++    error(getErrorLocation(Loc) + "unrecognized reloc " + toString(Type));
++  }
++}
++
++TargetInfo *elf::getRISCVTargetInfo() {
++  static RISCV Target;
++  return &Target;
++}
+diff --git a/ELF/CMakeLists.txt b/ELF/CMakeLists.txt
+index 77243bd49..a9d71633d 100644
+--- a/ELF/CMakeLists.txt
++++ b/ELF/CMakeLists.txt
+@@ -15,6 +15,7 @@ add_lld_library(lldELF
+   Arch/MipsArchTree.cpp
+   Arch/PPC.cpp
+   Arch/PPC64.cpp
++  Arch/RISCV.cpp
+   Arch/SPARCV9.cpp
+   Arch/X86.cpp
+   Arch/X86_64.cpp
+diff --git a/ELF/Driver.cpp b/ELF/Driver.cpp
+index a52693b05..96c7af75d 100644
+--- a/ELF/Driver.cpp
++++ b/ELF/Driver.cpp
+@@ -111,6 +111,8 @@ static std::tuple<ELFKind, uint16_t, uint8_t> parseEmulation(StringRef Emul) {
+           .Cases("elf_amd64", "elf_x86_64", {ELF64LEKind, EM_X86_64})
+           .Case("elf_i386", {ELF32LEKind, EM_386})
+           .Case("elf_iamcu", {ELF32LEKind, EM_IAMCU})
++          .Case("elf32-riscv", {ELF32LEKind, EM_RISCV})
++          .Case("elf64-riscv", {ELF64LEKind, EM_RISCV})
+           .Default({ELFNoneKind, EM_NONE});
+ 
+   if (Ret.first == ELFNoneKind) {
+diff --git a/ELF/InputFiles.cpp b/ELF/InputFiles.cpp
+index 26caa4c2f..c609d4b16 100644
+--- a/ELF/InputFiles.cpp
++++ b/ELF/InputFiles.cpp
+@@ -810,6 +810,9 @@ static uint8_t getBitcodeMachineKind(StringRef Path, const Triple &T) {
+     return EM_PPC;
+   case Triple::ppc64:
+     return EM_PPC64;
++  case Triple::riscv32:
++  case Triple::riscv64:
++    return EM_RISCV;
+   case Triple::x86:
+     return T.isOSIAMCU() ? EM_IAMCU : EM_386;
+   case Triple::x86_64:
+diff --git a/ELF/Target.cpp b/ELF/Target.cpp
+index 11986efc7..2a29e6ad1 100644
+--- a/ELF/Target.cpp
++++ b/ELF/Target.cpp
+@@ -77,6 +77,8 @@ TargetInfo *elf::getTarget() {
+     return getPPCTargetInfo();
+   case EM_PPC64:
+     return getPPC64TargetInfo();
++  case EM_RISCV:
++    return getRISCVTargetInfo();
+   case EM_SPARCV9:
+     return getSPARCV9TargetInfo();
+   case EM_X86_64:
+diff --git a/ELF/Target.h b/ELF/Target.h
+index 7720e1b94..0874a6ac6 100644
+--- a/ELF/Target.h
++++ b/ELF/Target.h
+@@ -116,6 +116,7 @@ TargetInfo *getARMTargetInfo();
+ TargetInfo *getAVRTargetInfo();
+ TargetInfo *getPPC64TargetInfo();
+ TargetInfo *getPPCTargetInfo();
++TargetInfo *getRISCVTargetInfo();
+ TargetInfo *getSPARCV9TargetInfo();
+ TargetInfo *getX32TargetInfo();
+ TargetInfo *getX86TargetInfo();
+diff --git a/test/ELF/Inputs/riscv-foo.s b/test/ELF/Inputs/riscv-foo.s
+new file mode 100644
+index 000000000..0be4c2af2
+--- /dev/null
++++ b/test/ELF/Inputs/riscv-foo.s
+@@ -0,0 +1,12 @@
++  .section .text.foo.near
++	.globl foo_near
++
++foo_near:
++	addi zero, zero, 0
++
++
++	.section .text.foo.far
++	.globl foo_far
++
++foo_far:
++	addi zero, zero, 0
+diff --git a/test/ELF/Inputs/riscv-foo.script b/test/ELF/Inputs/riscv-foo.script
+new file mode 100644
+index 000000000..d0042980a
+--- /dev/null
++++ b/test/ELF/Inputs/riscv-foo.script
+@@ -0,0 +1,10 @@
++SECTIONS
++{
++  . = 0x11111000;
++  .text : {
++    *(.text.foo.far)
++    . = 0x11113000;
++    *(.text.foo.near)
++    *(.text.test)
++  }
++}
+\ No newline at end of file
+diff --git a/test/ELF/riscv-relocs.s b/test/ELF/riscv-relocs.s
+new file mode 100644
+index 000000000..340a528e5
+--- /dev/null
++++ b/test/ELF/riscv-relocs.s
+@@ -0,0 +1,85 @@
++# Check R_RISCV_* relocations calculation.
++
++# RUN: llvm-mc -filetype=obj -triple=riscv32-unknown-none %s -o %t1.o
++# RUN: llvm-mc -filetype=obj -triple=riscv32-unknown-none \
++# RUN:     %S/Inputs/riscv-foo.s -o %t2.o
++# RUN: ld.lld %t1.o %t2.o -o %t.exe -script %S/Inputs/riscv-foo.script
++# RUN: llvm-objdump -d -t -s %t.exe | FileCheck %s
++
++# REQUIRES: riscv
++
++# CHECK: foo_far:
++# CHECK: 11111000:	13 00 00 00 	addi	zero, zero, 0
++# CHECK: foo_near:
++# CHECK: 11113000:	13 00 00 00 	addi	zero, zero, 0
++
++  .section .text.test
++	.globl _start
++	.extern foo
++
++_start:
++	addi t1, t1, 0
++# CHECK: _start:
++# CHECK: 11113004:	13 03 03 00 	addi	t1, t1, 0
++
++R_RISCV_32:
++	.long foo_far
++# CHECK: R_RISCV_32:
++# CHECK: 11113008:	00 10 11 11  <unknown>
++
++R_RISCV_64:
++	.quad foo_far
++# CHECK: R_RISCV_64:
++# CHECK: 1111300c:	00 10 11 11  <unknown>
++# CHECK: 11113010:	00 00 00 00  <unknown>
++
++R_RISCV_HI20:
++	lui t1, %hi(foo_far)
++# CHECK: R_RISCV_HI20:
++# CHECK: 11113014:	37 13 11 11 	lui	t1, 69905
++
++R_RISCV_HI20_OFFSET:
++	lui t1, %hi(foo_far+4)
++# CHECK: R_RISCV_HI20_OFFSET:
++# CHECK: 11113018:	37 13 11 11 	lui	t1, 69905
++
++R_RISCV_LO12_I:
++	addi t1, t1, %lo(foo_far)
++# CHECK: R_RISCV_LO12_I:
++# CHECK: 1111301c:	13 03 03 00 	addi	t1, t1, 0
++
++R_RISCV_LO12_I_OFFSET:
++	addi t1, t1, %lo(foo_far+4)
++# CHECK: R_RISCV_LO12_I_OFFSET:
++# CHECK: 11113020:	13 03 43 00 	addi	t1, t1, 4
++
++R_RISCV_LO12_S:
++	sb t1, %lo(foo_far)(a2)
++# CHECK: R_RISCV_LO12_S:
++# CHECK: 11113024:	23 00 66 00 	sb	t1, 0(a2)
++
++R_RISCV_LO12_S_OFFSET:
++	sb t1, %lo(foo_far+4)(a2)
++# CHECK: R_RISCV_LO12_S_OFFSET:
++# CHECK: 11113028:	23 02 66 00 	sb	t1, 4(a2)
++
++
++R_RISCV_PCREL_HI20:
++	auipc t1, %pcrel_hi(foo_far)
++# CHECK: R_RISCV_PCREL_HI20:
++# CHECK: 1111302c:	17 e3 ff ff 	auipc	t1, 1048574
++
++R_RISCV_PCREL_HI20_OFFSET:
++	auipc t1, %pcrel_hi(foo_far+4)
++# CHECK: R_RISCV_PCREL_HI20_OFFSET:
++# CHECK: 11113030:	17 e3 ff ff 	auipc	t1, 1048574
++
++R_RISCV_JAL:
++	jal zero, foo_near
++# CHECK: R_RISCV_JAL:
++# CHECK: 11113034:	6f f0 df fc 	jal	zero, -52
++
++R_RISCV_BRANCH:
++	bgeu a0, a1, foo_near
++# CHECK: R_RISCV_BRANCH:
++# CHECK: 11113038:	e3 74 b5 fc 	bgeu	a0, a1, -56
+diff --git a/test/lit.cfg b/test/lit.cfg
+index 95bf3c0dc..f9413c653 100644
+--- a/test/lit.cfg
++++ b/test/lit.cfg
+@@ -255,6 +255,8 @@ if re.search(r'Mips', archs):
+     config.available_features.add('mips')
+ if re.search(r'PowerPC', archs):
+     config.available_features.add('ppc')
++if re.search(r'RISCV', archs):
++    config.available_features.add('riscv')
+ if re.search(r'Sparc', archs):
+     config.available_features.add('sparc')
+ if re.search(r'X86', archs):
+-- 
+2.11.1
+
