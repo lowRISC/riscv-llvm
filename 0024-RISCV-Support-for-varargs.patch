@@ -1,0 +1,802 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Support for varargs
+
+Includes support for expanding va_copy. Also adds support for using 'aligned'
+registers when necessary for vararg calls, and ensure the frame pointer always
+points to the bottom of the vararg spill region. This is necessary to ensure
+that the saved return address and stack pointer are always available at fixed
+known offsets of the frame pointer.
+---
+ lib/Target/RISCV/RISCVFrameLowering.cpp     |   7 +-
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 167 +++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.h        |   1 +
+ lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 ++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp      |   3 +
+ test/CodeGen/RISCV/vararg.ll                | 361 ++++++++++++++++++++++++++++
+ 6 files changed, 557 insertions(+), 26 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
+ create mode 100644 test/CodeGen/RISCV/vararg.ll
+
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
+index c1b38d6f101..2c3fd785c32 100644
+--- a/lib/Target/RISCV/RISCVFrameLowering.cpp
++++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
+@@ -12,6 +12,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "RISCVFrameLowering.h"
++#include "RISCVMachineFunctionInfo.h"
+ #include "RISCVSubtarget.h"
+ #include "llvm/CodeGen/MachineFrameInfo.h"
+ #include "llvm/CodeGen/MachineFunction.h"
+@@ -67,6 +68,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+ 
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   const RISCVInstrInfo *TII = STI.getInstrInfo();
++  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineBasicBlock::iterator MBBI = MBB.begin();
+ 
+   unsigned FPReg = RISCV::X8_32;
+@@ -111,7 +113,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   // Generate new FP
+   BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), FPReg)
+       .addReg(SPReg)
+-      .addImm(StackSize)
++      .addImm(StackSize - RVFI->getVarArgsSaveSize())
+       .setMIFlag(MachineInstr::FrameSetup);
+ }
+ 
+@@ -126,6 +128,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   const RISCVInstrInfo *TII = STI.getInstrInfo();
+   const RISCVRegisterInfo *RI = STI.getRegisterInfo();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
++  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   DebugLoc DL = MBBI->getDebugLoc();
+   unsigned FPReg = RISCV::X8_32;
+   unsigned SPReg = RISCV::X2_32;
+@@ -147,7 +150,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
+     BuildMI(MBB, LastFrameDestroy, DL, TII->get(RISCV::ADDI), SPReg)
+         .addReg(FPReg)
+-        .addImm(-StackSize)
++        .addImm(-StackSize + RVFI->getVarArgsSaveSize())
+         .setMIFlag(MachineInstr::FrameDestroy);
+   }
+ 
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index c755d2ae321..380a8d415f6 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -14,6 +14,7 @@
+ 
+ #include "RISCVISelLowering.h"
+ #include "RISCV.h"
++#include "RISCVMachineFunctionInfo.h"
+ #include "RISCVRegisterInfo.h"
+ #include "RISCVSubtarget.h"
+ #include "RISCVTargetMachine.h"
+@@ -58,6 +59,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
+   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
+ 
++  setOperationAction(ISD::VASTART, MVT::Other, Custom);
++  setOperationAction(ISD::VAARG, MVT::Other, Expand);
++  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
++  setOperationAction(ISD::VAEND, MVT::Other, Expand);
++
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8, Expand);
+   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Expand);
+@@ -115,6 +121,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+     return lowerGlobalAddress(Op, DAG);
+   case ISD::SELECT_CC:
+     return lowerSELECT_CC(Op, DAG);
++  case ISD::VASTART:
++    return lowerVASTART(Op, DAG);
+   default:
+     report_fatal_error("unimplemented operand");
+   }
+@@ -191,6 +199,21 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
+   return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
+ }
+ 
++SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
++  MachineFunction &MF = DAG.getMachineFunction();
++  RISCVMachineFunctionInfo *FuncInfo = MF.getInfo<RISCVMachineFunctionInfo>();
++
++  SDLoc DL(Op);
++  SDValue FI = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(),
++                                 getPointerTy(MF.getDataLayout()));
++
++  // vastart just stores the address of the VarArgsFrameIndex slot into the
++  // memory location argument.
++  const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
++  return DAG.getStore(Op.getOperand(0), DL, FI, Op.getOperand(1),
++                      MachinePointerInfo(SV));
++}
++
+ MachineBasicBlock *
+ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+                                                  MachineBasicBlock *BB) const {
+@@ -282,6 +305,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+   return BB;
+ }
+ 
++static const MCPhysReg RV32ArgGPRs[] = {
++    RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
++    RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32};
++
+ // Calling Convention Implementation
+ // The expectations for frontend ABI lowering vary from target to target.
+ // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
+@@ -305,13 +332,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+ // * Struct return values and varargs should be coerced to structs containing
+ // register-size fields in the same situations they would be for fixed
+ // arguments.
+-static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+-                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
+-                       CCState &State) {
+-  static const MCPhysReg ArgGPRs[] = {
+-      RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
+-      RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32};
+-
++static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
++                       MVT LocVT, CCValAssign::LocInfo LocInfo,
++                       ISD::ArgFlagsTy ArgFlags, CCState &State, bool IsFixed,
++                       Type *OrigTy) {
+   // Promote i8 and i16
+   if (LocVT == MVT::i8 || LocVT == MVT::i16) {
+     LocVT = MVT::i32;
+@@ -323,6 +347,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+       LocInfo = CCValAssign::AExt;
+   }
+ 
++  // If this is a variadic argument, ensure it is assigned an even register
++  // if it has 8-byte alignment (RV32) or 16-byte alignment (RV64)
++  // An aligned register should be used regardless of
++  // whether the original argument is 'split' or not. The argument will not be
++  // passed by registers if the original type is larger than 2x xlen, so don't
++  // bother aligning for that case.
++  // TODO: adjust for RV64.
++  if (!IsFixed && ArgFlags.getOrigAlign() == 8 &&
++      DL.getTypeAllocSize(OrigTy) == 8) {
++    unsigned RegIdx = State.getFirstUnallocated(RV32ArgGPRs);
++    if (RegIdx != array_lengthof(RV32ArgGPRs) && RegIdx % 2 == 1) {
++      State.AllocateReg(RV32ArgGPRs);
++    }
++  }
++
+   SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
+ 
+   // Split arguments might be passed indirectly, so keep track of the pending
+@@ -341,18 +380,19 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+   // in registers or on the stack
+   if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
+     assert(PendingMembers.size() == 2);
++
+     // Apply the normal calling convention rules to the first half of the
+     // split argument
+     CCValAssign VA = PendingMembers[0];
+     PendingMembers.clear();
+-    CC_RISCV32(VA.getValNo(), VA.getValVT(), VA.getLocVT(), CCValAssign::Full,
+-               ISD::ArgFlagsTy(), State);
++    CC_RISCV32(DL, VA.getValNo(), VA.getValVT(), VA.getLocVT(),
++               CCValAssign::Full, ISD::ArgFlagsTy(), State, IsFixed, OrigTy);
+     // Continue with this second half of the argument as normal
+     LocInfo = CCValAssign::Full;
+   }
+ 
+   // Allocate to a register if possible, or else a stack slot
+-  unsigned Reg = State.AllocateReg(ArgGPRs);
++  unsigned Reg = State.AllocateReg(RV32ArgGPRs);
+   unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
+ 
+   // If we reach this point and PendingMembers is non-empty, we must be at the
+@@ -402,18 +442,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   }
+ 
+   MachineFunction &MF = DAG.getMachineFunction();
++  FunctionType *FType = MF.getFunction()->getFunctionType();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   MachineRegisterInfo &RegInfo = MF.getRegInfo();
+   EVT PtrVT = getPointerTy(DAG.getDataLayout());
+-
+-  if (IsVarArg) {
+-    llvm_unreachable("VarArg not supported");
+-  }
++  // Used with vargs to acumulate store chains.
++  std::vector<SDValue> OutChains;
+ 
+   // Assign locations to all of the incoming arguments.
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
++
++  unsigned NumArgs = Ins.size();
++
++  for (unsigned i = 0; i != NumArgs; ++i) {
++    MVT ArgVT = Ins[i].VT;
++    ISD::ArgFlagsTy ArgFlags = Ins[i].Flags;
++    Type *ArgTy = Ins[i].isOrigArg()
++                      ? FType->getParamType(Ins[i].getOrigArgIndex())
++                      : nullptr;
++    if (CC_RISCV32(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++                   ArgFlags, CCInfo, true, ArgTy)) {
++#ifndef NDEBUG
++      dbgs() << "Formal argument #" << i << " has unhandled type "
++             << EVT(ArgVT).getEVTString() << '\n';
++#endif
++      llvm_unreachable(nullptr);
++    }
++  }
+ 
+   for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
+     CCValAssign &VA = ArgLocs[I];
+@@ -470,6 +526,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+       InVals.push_back(ArgValue);
+     }
+   }
++
++  if (IsVarArg) {
++    ArrayRef<MCPhysReg> ArgRegs = makeArrayRef(RV32ArgGPRs);
++    unsigned Idx = CCInfo.getFirstUnallocated(ArgRegs);
++    // TODO: needs to be modified for rv64
++    int RegSizeInBytes = 4;
++    MVT RegTy = MVT::getIntegerVT(RegSizeInBytes * 8);
++    const TargetRegisterClass *RC = &RISCV::GPRRegClass;
++    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
++
++    // Offset of the first variable argument from stack pointer, and size of
++    // the vararg save area. For now, the varargs save area is either zero or
++    // large enough to hold a0-a7.
++    int VaArgOffset, VarArgsSaveSize;
++
++    // If all registers are allocated, then all varargs must be passed on the
++    // stack and we don't need to save any argregs
++    if (ArgRegs.size() == Idx) {
++      VaArgOffset = CCInfo.getNextStackOffset();
++      VarArgsSaveSize = 0;
++    } else {
++      VarArgsSaveSize = RegSizeInBytes * ArgRegs.size();
++      VaArgOffset = -VarArgsSaveSize + Idx*RegSizeInBytes;
++    }
++
++    // Record the frame index of the first variable argument
++    // which is a value necessary to VASTART.
++    int FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
++    RVFI->setVarArgsFrameIndex(FI);
++
++    // Copy the integer registers that may have been used for passing varargs
++    // to the vararg save area.
++    for (unsigned I = Idx; I < ArgRegs.size();
++         ++I, VaArgOffset += RegSizeInBytes) {
++      const unsigned Reg = RegInfo.createVirtualRegister(RC);
++      RegInfo.addLiveIn(ArgRegs[I], Reg);
++      SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, RegTy);
++      FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
++      SDValue PtrOff = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
++      SDValue Store =
++          DAG.getStore(Chain, DL, ArgValue, PtrOff, MachinePointerInfo());
++      cast<StoreSDNode>(Store.getNode())
++          ->getMemOperand()
++          ->setValue((Value *)nullptr);
++      OutChains.push_back(Store);
++    }
++    RVFI->setVarArgsSaveSize(VarArgsSaveSize);
++  }
++
++  // All stores are grouped in one node to allow the matching between
++  // the size of Ins and InVals. This only happens when on varg functions
++  if (!OutChains.empty()) {
++    OutChains.push_back(Chain);
++    Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, OutChains);
++  }
++
+   return Chain;
+ }
+ 
+@@ -489,16 +601,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   bool IsVarArg = CLI.IsVarArg;
+   EVT PtrVT = getPointerTy(DAG.getDataLayout());
+ 
+-  if (IsVarArg) {
+-    llvm_unreachable("LowerCall with varargs not implemented");
+-  }
+-
+   MachineFunction &MF = DAG.getMachineFunction();
+ 
+   // Analyze the operands of the call, assigning locations to each operand.
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  ArgCCInfo.AnalyzeCallOperands(Outs, CC_RISCV32);
++  unsigned NumArgs = Outs.size();
++
++  for (unsigned i = 0; i != NumArgs; i++) {
++    MVT ArgVT = Outs[i].VT;
++    ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
++    Type *OrigTy = CLI.getArgs()[Outs[i].OrigArgIndex].Ty;
++
++    if (CC_RISCV32(DAG.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++                   ArgFlags, ArgCCInfo, Outs[i].IsFixed, OrigTy)) {
++#ifndef NDEBUG
++      dbgs() << "Call operand #" << i << " has unhandled type "
++             << EVT(ArgVT).getEVTString() << "\n";
++#endif
++      llvm_unreachable(nullptr);
++    }
++  }
+ 
+   // Get a count of how many bytes are to be pushed on the stack.
+   unsigned NumBytes = ArgCCInfo.getNextStackOffset();
+@@ -669,10 +792,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+                                  const SmallVectorImpl<ISD::OutputArg> &Outs,
+                                  const SmallVectorImpl<SDValue> &OutVals,
+                                  const SDLoc &DL, SelectionDAG &DAG) const {
+-  if (IsVarArg) {
+-    report_fatal_error("VarArg not supported");
+-  }
+-
+   // Stores the assignment of the return value to a location
+   SmallVector<CCValAssign, 16> RVLocs;
+ 
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 806fa678b40..8d7d0cd4912 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -67,6 +67,7 @@ private:
+   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
++  SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+ };
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVMachineFunctionInfo.h b/lib/Target/RISCV/RISCVMachineFunctionInfo.h
+new file mode 100644
+index 00000000000..433a3fb1543
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVMachineFunctionInfo.h
+@@ -0,0 +1,44 @@
++//=- RISCVMachineFunctionInfo.h - RISCV machine function info -----*- C++ -*-=//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares RISCV-specific per-machine-function information.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
++#define LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
++
++#include "llvm/CodeGen/MachineFunction.h"
++
++namespace llvm {
++
++/// RISCVMachineFunctionInfo - This class is derived from MachineFunctionInfo
++/// and contains private RISCV-specific information for each MachineFunction.
++class RISCVMachineFunctionInfo : public MachineFunctionInfo {
++
++  /// FrameIndex for start of varargs area
++  int VarArgsFrameIndex = 0;
++  /// Size of the save area used for varargs
++  int VarArgsSaveSize = 0;
++
++public:
++  RISCVMachineFunctionInfo() = default;
++
++  explicit RISCVMachineFunctionInfo(MachineFunction &MF) {}
++
++  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
++  void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
++
++  unsigned getVarArgsSaveSize() const { return VarArgsSaveSize; }
++  void setVarArgsSaveSize(int Size) { VarArgsSaveSize = Size; }
++};
++
++} // end namespace llvm
++
++#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index 4a0373ff155..c0f90a09b73 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -11,6 +11,7 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
++#include "RISCVMachineFunctionInfo.h"
+ #include "RISCVRegisterInfo.h"
+ #include "RISCV.h"
+ #include "RISCVSubtarget.h"
+@@ -60,6 +61,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+ 
+   MachineInstr &MI = *II;
+   MachineFunction &MF = *MI.getParent()->getParent();
++  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+@@ -87,6 +89,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+     Offset += MF.getFrameInfo().getStackSize();
+   } else {
+     FrameReg = getFrameRegister(MF);
++    Offset += RVFI->getVarArgsSaveSize();
+   }
+ 
+   unsigned Reg = MI.getOperand(0).getReg();
+diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
+new file mode 100644
+index 00000000000..3758aef0d82
+--- /dev/null
++++ b/test/CodeGen/RISCV/vararg.ll
+@@ -0,0 +1,361 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++declare void @llvm.va_start(i8*)
++declare void @llvm.va_end(i8*)
++
++declare void @notdead(i8*)
++
++; Although frontends are recommended to not generate va_arg due to the lack of
++; support for aggregate types, we test simple cases here to ensure they are
++; lowered correctly
++
++ define i32 @va1(i8* %fmt, ...) {
++; CHECK-LABEL: va1
++; CHECK: addi sp, sp, -40
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: sw a1, 4(s0)
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: addi a0, s0, 8
++; CHECK: sw a0, -4(s0)
++; CHECK: lw a0, 4(s0)
++; CHECK: lw s0, 8(sp)
++; CHECK: addi sp, sp, 40
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %argp.cur = load i8*, i8** %va, align 4
++  %argp.next = getelementptr inbounds i8, i8* %argp.cur, i32 4
++  store i8* %argp.next, i8** %va, align 4
++  %2 = bitcast i8* %argp.cur to i32*
++  %3 = load i32, i32* %2, align 4
++  call void @llvm.va_end(i8* %1)
++  ret i32 %3
++}
++
++define i32 @va1_va_arg(i8* %fmt, ...) {
++; CHECK-LABEL: va1_va_arg
++; CHECK: addi sp, sp, -40
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: sw a1, 4(s0)
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: addi a0, s0, 8
++; CHECK: sw a0, -4(s0)
++; CHECK: lw a0, 4(s0)
++; CHECK: lw s0, 8(sp)
++; CHECK: addi sp, sp, 40
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = va_arg i8** %va, i32
++  call void @llvm.va_end(i8* %1)
++  ret i32 %2
++}
++
++; Ensure the adjustment when restoring the stack pointer using the frame
++; pointer is correct
++define i32 @va1_va_arg_alloca(i8* %fmt, ...) {
++; CHECK-LABEL: va1_va_arg_alloca:
++; CHECK: addi sp, sp, -48
++; CHECK: sw s0, 12(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: addi sp, s0, -16
++; CHECK: lw s0, 12(sp)
++; CHECK: addi sp, sp, 48
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = va_arg i8** %va, i32
++  %3 = alloca i8, i32 %2
++  call void @notdead(i8* %3)
++  call void @llvm.va_end(i8* %1)
++  ret i32 %2
++}
++
++define void @va1_caller() {
++; CHECK-LABEL: va1_caller:
++; CHECK: lui a0, 261888
++; CHECK: addi a3, a0, 0
++; CHECK: lui a0, %hi(va1)
++; CHECK: addi a0, a0, %lo(va1)
++; CHECK: addi a4, zero, 2
++; CHECK: addi a2, zero, 0
++; CHECK: jalr ra, a0, 0
++; Pass a double, as a float would be promoted by a C/C++ frontend
++  %1 = call i32 (i8*, ...) @va1(i8* undef, double 1.0, i32 2)
++  ret void
++}
++
++; Ensure that 2x xlen size+alignment varargs are accessed via an "aligned"
++; register pair (wher the first register is even-numbered.
++
++define double @va2(i8 *%fmt, ...) {
++; CHECK-LABEL: va2:
++; CHECK: addi sp, sp, -40
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: sw a1, 4(s0)
++; CHECK: addi a0, s0, 19
++; CHECK: sw a0, -4(s0)
++; CHECK: addi a0, s0, 11
++; CHECK: andi a1, a0, -8
++; CHECK: lw a0, 0(a1)
++; CHECK: ori a1, a1, 4
++; CHECK: lw a1, 0(a1)
++; CHECK: lw s0, 8(sp)
++; CHECK: addi sp, sp, 40
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = bitcast i8** %va to i32*
++  %argp.cur = load i32, i32* %2, align 4
++  %3 = add i32 %argp.cur, 7
++  %4 = and i32 %3, -8
++  %argp.cur.aligned = inttoptr i32 %3 to i8*
++  %argp.next = getelementptr inbounds i8, i8* %argp.cur.aligned, i32 8
++  store i8* %argp.next, i8** %va, align 4
++  %5 = inttoptr i32 %4 to double*
++  %6 = load double, double* %5, align 8
++  call void @llvm.va_end(i8* %1)
++  ret double %6
++}
++
++define double @va2_va_arg(i8 *%fmt, ...) {
++; CHECK-LABEL: va2_va_arg:
++; CHECK: addi sp, sp, -40
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: sw a1, 4(s0)
++; CHECK: addi a0, s0, 11
++; CHECK: andi a0, a0, -8
++; CHECK: ori a1, a0, 4
++; CHECK: sw a1, -4(s0)
++; CHECK: lw a0, 0(a0)
++; CHECK: addi a2, a1, 4
++; CHECK: sw a2, -4(s0)
++; CHECK: lw a1, 0(a1)
++; CHECK: lw s0, 8(sp)
++; CHECK: addi sp, sp, 40
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = va_arg i8** %va, double
++  call void @llvm.va_end(i8* %1)
++  ret double %2
++}
++
++define void @va2_caller() {
++; CHECK-LABEL: va2_caller:
++; CHECK: lui a0, 261888
++; CHECK: addi a3, a0, 0
++; CHECK: lui a0, %hi(va2)
++; CHECK: addi a0, a0, %lo(va2)
++; CHECK: addi a2, zero, 0
++; CHECK: jalr ra, a0, 0
++ %1 = call double (i8*, ...) @va2(i8* undef, double 1.000000e+00)
++ ret void
++}
++
++; Ensure a named double argument is passed in a1 and a2, while the vararg
++; double is passed in a4 and a5 (rather than a3 and a4)
++
++define double @va3(i32 %a, double %b, ...) {
++; CHECK-LABEL: va3:
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 8(sp)
++; CHECK: sw s0, 4(sp)
++; CHECK: addi s0, sp, 0
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: addi a0, s0, 27
++; CHECK: sw a0, 0(s0)
++; CHECK: lui a0, %hi(__adddf3)
++; CHECK: addi a5, a0, %lo(__adddf3)
++; CHECK: addi a0, s0, 19
++; CHECK: andi a0, a0, -8
++; CHECK: lw a4, 0(a0)
++; CHECK: ori a0, a0, 4
++; CHECK: lw a3, 0(a0)
++; CHECK: addi a0, a1, 0
++; CHECK: addi a1, a2, 0
++; CHECK: addi a2, a4, 0
++; CHECK: jalr ra, a5, 0
++; CHECK: lw s0, 4(sp)
++; CHECK: lw ra, 8(sp)
++; CHECK: addi sp, sp, 32
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = bitcast i8** %va to i32*
++  %argp.cur = load i32, i32* %2, align 4
++  %3 = add i32 %argp.cur, 7
++  %4 = and i32 %3, -8
++  %argp.cur.aligned = inttoptr i32 %3 to i8*
++  %argp.next = getelementptr inbounds i8, i8* %argp.cur.aligned, i32 8
++  store i8* %argp.next, i8** %va, align 4
++  %5 = inttoptr i32 %4 to double*
++  %6 = load double, double* %5, align 8
++  call void @llvm.va_end(i8* %1)
++  %7 = fadd double %b, %6
++  ret double %7
++}
++
++define double @va3_va_arg(i32 %a, double %b, ...) {
++; CHECK-LABEL: va3_va_arg:
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 8(sp)
++; CHECK: sw s0, 4(sp)
++; CHECK: addi s0, sp, 0
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: addi a0, s0, 19
++; CHECK: andi a0, a0, -8
++; CHECK: ori a3, a0, 4
++; CHECK: sw a3, 0(s0)
++; CHECK: lw a4, 0(a0)
++; CHECK: addi a0, a3, 4
++; CHECK: sw a0, 0(s0)
++; CHECK: lui a0, %hi(__adddf3)
++; CHECK: addi a5, a0, %lo(__adddf3)
++; CHECK: lw a3, 0(a3)
++; CHECK: addi a0, a1, 0
++; CHECK: addi a1, a2, 0
++; CHECK: addi a2, a4, 0
++; CHECK: jalr ra, a5, 0
++; CHECK: lw s0, 4(sp)
++; CHECK: lw ra, 8(sp)
++; CHECK: addi sp, sp, 32
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = va_arg i8** %va, double
++  call void @llvm.va_end(i8* %1)
++  %3 = fadd double %b, %2
++  ret double %3
++}
++
++define void @va3_caller() {
++; CHECK-LABEL: va3_caller:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: lui a0, 261888
++; CHECK: addi a2, a0, 0
++; CHECK: lui a0, 262144
++; CHECK: addi a5, a0, 0
++; CHECK: lui a0, %hi(va3)
++; CHECK: addi a3, a0, %lo(va3)
++; CHECK: addi a0, zero, 2
++; CHECK: addi a1, zero, 0
++; CHECK: addi a4, zero, 0
++; CHECK: jalr ra, a3, 0
++; CHECK: lw s0, 0(sp)
++; CHECK: lw ra, 4(sp)
++; CHECK: addi sp, sp, 8
++; CHECK: jalr zero, ra, 0
++ %1 = call double (i32, double, ...) @va3(i32 2, double 1.000000e+00, double 2.000000e+00)
++ ret void
++}
++
++declare void @llvm.va_copy(i8*, i8*)
++
++define i32 @va4_va_copy(i32 %argno, ...) {
++; CHECK-LABEL: va4_va_copy:
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 16(sp)
++; CHECK: sw s0, 12(sp)
++; CHECK: sw s1, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: sw a1, 4(s0)
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: addi a0, s0, 8
++; CHECK: sw a0, -12(s0)
++; CHECK: sw a0, -16(s0)
++; CHECK: lw s1, 4(s0)
++; CHECK: lui a1, %hi(notdead)
++; CHECK: addi a1, a1, %lo(notdead)
++; CHECK: jalr ra, a1, 0
++; CHECK: lw a0, -12(s0)
++; CHECK: addi a0, a0, 3
++; CHECK: andi a0, a0, -4
++; CHECK: addi a1, a0, 4
++; CHECK: sw a1, -12(s0)
++; CHECK: lw a1, 0(a0)
++; CHECK: addi a0, a0, 7
++; CHECK: andi a0, a0, -4
++; CHECK: addi a2, a0, 4
++; CHECK: sw a2, -12(s0)
++; CHECK: lw a2, 0(a0)
++; CHECK: addi a0, a0, 7
++; CHECK: andi a0, a0, -4
++; CHECK: addi a3, a0, 4
++; CHECK: sw a3, -12(s0)
++; CHECK: add a1, a1, s1
++; CHECK: add a1, a1, a2
++; CHECK: lw a0, 0(a0)
++; CHECK: add a0, a1, a0
++; CHECK: lw s1, 8(sp)
++; CHECK: lw s0, 12(sp)
++; CHECK: lw ra, 16(sp)
++; CHECK: addi sp, sp, 48
++; CHECK: jalr zero, ra, 0
++  %vargs = alloca i8*, align 4
++  %wargs = alloca i8*, align 4
++  %1 = bitcast i8** %vargs to i8*
++  %2 = bitcast i8** %wargs to i8*
++  call void @llvm.va_start(i8* %1)
++  %3 = va_arg i8** %vargs, i32
++  call void @llvm.va_copy(i8* %2, i8* %1)
++  %4 = load i8*, i8** %wargs, align 4
++  call void @notdead(i8* %4)
++  %5 = va_arg i8** %vargs, i32
++  %6 = va_arg i8** %vargs, i32
++  %7 = va_arg i8** %vargs, i32
++  call void @llvm.va_end(i8* %1)
++  call void @llvm.va_end(i8* %2)
++  %add1 = add i32 %5, %3
++  %add2 = add i32 %add1, %6
++  %add3 = add i32 %add2, %7
++  ret i32 %add3
++}
+-- 
+2.14.1
+

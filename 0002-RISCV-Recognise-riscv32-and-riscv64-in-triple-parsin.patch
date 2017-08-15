@@ -201,5 +201,5 @@ index 0ecdd5e445c..16732c9578d 100644
    EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
 -- 
-2.14.0
+2.14.1
 

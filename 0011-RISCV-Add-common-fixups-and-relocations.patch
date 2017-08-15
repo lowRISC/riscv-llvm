@@ -1277,5 +1277,5 @@ index c8404eb63e5..2d316598987 100644
  # CHECK: encoding: [0x93,0x70,0xf1,0x7f]
  andi ra, sp, 2047
 -- 
-2.14.0
+2.14.1
 
