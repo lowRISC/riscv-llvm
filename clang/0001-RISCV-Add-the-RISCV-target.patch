@@ -1,0 +1,327 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add the RISCV target
+
+---
+ lib/Basic/CMakeLists.txt        |  1 +
+ lib/Basic/Targets.cpp           |  4 +++
+ lib/Basic/Targets/RISCV.cpp     | 46 +++++++++++++++++++++++++++++++
+ lib/Basic/Targets/RISCV.h       | 61 +++++++++++++++++++++++++++++++++++++++++
+ lib/Driver/CMakeLists.txt       |  1 +
+ lib/Driver/Driver.cpp           |  4 +++
+ lib/Driver/ToolChains/RISCV.cpp | 43 +++++++++++++++++++++++++++++
+ lib/Driver/ToolChains/RISCV.h   | 51 ++++++++++++++++++++++++++++++++++
+ test/Driver/riscv32-toolchain.c |  4 +++
+ 9 files changed, 215 insertions(+)
+ create mode 100644 lib/Basic/Targets/RISCV.cpp
+ create mode 100644 lib/Basic/Targets/RISCV.h
+ create mode 100644 lib/Driver/ToolChains/RISCV.cpp
+ create mode 100644 lib/Driver/ToolChains/RISCV.h
+ create mode 100644 test/Driver/riscv32-toolchain.c
+
+diff --git a/lib/Basic/CMakeLists.txt b/lib/Basic/CMakeLists.txt
+index c9f8898cec..83c4a6ff2d 100644
+--- a/lib/Basic/CMakeLists.txt
++++ b/lib/Basic/CMakeLists.txt
+@@ -115,6 +115,7 @@ add_clang_library(clangBasic
+   Targets/OSTargets.cpp
+   Targets/PNaCl.cpp
+   Targets/PPC.cpp
++  Targets/RISCV.cpp
+   Targets/SPIR.cpp
+   Targets/Sparc.cpp
+   Targets/SystemZ.cpp
+diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
+index 9946f82405..89c231f9a1 100644
+--- a/lib/Basic/Targets.cpp
++++ b/lib/Basic/Targets.cpp
+@@ -29,6 +29,7 @@
+ #include "Targets/OSTargets.h"
+ #include "Targets/PNaCl.h"
+ #include "Targets/PPC.h"
++#include "Targets/RISCV.h"
+ #include "Targets/SPIR.h"
+ #include "Targets/Sparc.h"
+ #include "Targets/SystemZ.h"
+@@ -357,6 +358,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+   case llvm::Triple::r600:
+     return new AMDGPUTargetInfo(Triple, Opts);
+ 
++  case llvm::Triple::riscv32:
++    return new RISCVTargetInfo(Triple, Opts);
++
+   case llvm::Triple::sparc:
+     switch (os) {
+     case llvm::Triple::Linux:
+diff --git a/lib/Basic/Targets/RISCV.cpp b/lib/Basic/Targets/RISCV.cpp
+new file mode 100644
+index 0000000000..5714e85743
+--- /dev/null
++++ b/lib/Basic/Targets/RISCV.cpp
+@@ -0,0 +1,46 @@
++//===--- RISCV.cpp - Implement RISCV target feature support ---------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements RISCV TargetInfo objects.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "clang/Basic/MacroBuilder.h"
++#include "llvm/ADT/StringSwitch.h"
++
++using namespace clang;
++using namespace clang::targets;
++
++ArrayRef<const char *> RISCVTargetInfo::getGCCRegNames() const {
++  static const char *const GCCRegNames[] = {
++      "x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",
++      "x8",  "x9",  "x10", "x11", "x12", "x13", "x14", "x15",
++      "x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23",
++      "x24", "x25", "x26", "x27", "x28", "x29", "x30", "x31"};
++  return llvm::makeArrayRef(GCCRegNames);
++}
++
++ArrayRef<TargetInfo::GCCRegAlias> RISCVTargetInfo::getGCCRegAliases() const {
++  static const TargetInfo::GCCRegAlias GCCRegAliases[] = {
++      {{"zero"}, "x0"}, {{"ra"}, "x1"},  {{"sp"}, "x2"},   {{"gp"}, "x3"},
++      {{"tp"}, "x4"},   {{"t0"}, "x5"},  {{"t1"}, "x6"},   {{"t2"}, "x7"},
++      {{"s0"}, "x8"},   {{"s1"}, "x9"},  {{"a0"}, "x10"},  {{"a1"}, "x11"},
++      {{"a2"}, "x12"},  {{"a3"}, "x13"}, {{"a4"}, "x15"},  {{"a5"}, "x15"},
++      {{"a6"}, "x16"},  {{"a7"}, "x17"}, {{"s2"}, "x18"},  {{"s3"}, "x19"},
++      {{"s4"}, "x20"},  {{"s5"}, "x21"}, {{"s6"}, "x22"},  {{"s7"}, "x23"},
++      {{"s8"}, "x24"},  {{"s9"}, "x25"}, {{"s10"}, "x26"}, {{"s11"}, "x27"},
++      {{"t3"}, "x28"},  {{"t4"}, "x29"}, {{"t5"}, "x30"},  {{"t6"}, "x31"}};
++  return llvm::makeArrayRef(GCCRegAliases);
++}
++
++void RISCVTargetInfo::getTargetDefines(const LangOptions &Opts,
++                                       MacroBuilder &Builder) const {
++  Builder.defineMacro("__riscv__");
++}
+diff --git a/lib/Basic/Targets/RISCV.h b/lib/Basic/Targets/RISCV.h
+new file mode 100644
+index 0000000000..aa232eb146
+--- /dev/null
++++ b/lib/Basic/Targets/RISCV.h
+@@ -0,0 +1,61 @@
++//===--- RISCV.h - Declare RISCV target feature support ---------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file declares RISCV TargetInfo objects.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_LIB_BASIC_TARGETS_RISCV_H
++#define LLVM_CLANG_LIB_BASIC_TARGETS_RISCV_H
++
++#include "clang/Basic/TargetInfo.h"
++#include "clang/Basic/TargetOptions.h"
++#include "llvm/ADT/Triple.h"
++#include "llvm/Support/Compiler.h"
++
++namespace clang {
++namespace targets {
++
++// RISC-V Target
++// TODO: need to handle 64-bit as well as 32-bit
++class RISCVTargetInfo : public TargetInfo {
++public:
++  RISCVTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
++      : TargetInfo(Triple) {
++    TLSSupported = false;
++    resetDataLayout("e-m:e-p:32:32-i64:64-n32-S128");
++    LongDoubleWidth = 128;
++    LongDoubleAlign = 128;
++    LongDoubleFormat = &llvm::APFloat::IEEEquad();
++  }
++
++  void getTargetDefines(const LangOptions &Opts,
++                        MacroBuilder &Builder) const override;
++
++  ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
++
++  BuiltinVaListKind getBuiltinVaListKind() const override {
++    return TargetInfo::VoidPtrBuiltinVaList;
++  }
++
++  const char *getClobbers() const override { return ""; }
++
++  ArrayRef<const char *> getGCCRegNames() const override;
++
++  ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override;
++
++  bool validateAsmConstraint(const char *&Name,
++                             TargetInfo::ConstraintInfo &Info) const override {
++    return false;
++  }
++};
++} // namespace targets
++} // namespace clang
++
++#endif // LLVM_CLANG_LIB_BASIC_TARGETS_LANAI_H
+diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
+index 5bf91f2be9..1c123b8d1b 100644
+--- a/lib/Driver/CMakeLists.txt
++++ b/lib/Driver/CMakeLists.txt
+@@ -55,6 +55,7 @@ add_clang_library(clangDriver
+   ToolChains/NetBSD.cpp
+   ToolChains/OpenBSD.cpp
+   ToolChains/PS4CPU.cpp
++  ToolChains/RISCV.cpp
+   ToolChains/Solaris.cpp
+   ToolChains/TCE.cpp
+   ToolChains/WebAssembly.cpp
+diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
+index 04090f567f..d7bc42a304 100644
+--- a/lib/Driver/Driver.cpp
++++ b/lib/Driver/Driver.cpp
+@@ -36,6 +36,7 @@
+ #include "ToolChains/NetBSD.h"
+ #include "ToolChains/OpenBSD.h"
+ #include "ToolChains/PS4CPU.h"
++#include "ToolChains/RISCV.h"
+ #include "ToolChains/Solaris.h"
+ #include "ToolChains/TCE.h"
+ #include "ToolChains/WebAssembly.h"
+@@ -3904,6 +3905,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+       case llvm::Triple::avr:
+         TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
+         break;
++      case llvm::Triple::riscv32:
++        TC = llvm::make_unique<toolchains::RISCVToolChain>(*this, Target, Args);
++        break;
+       default:
+         if (Target.getVendor() == llvm::Triple::Myriad)
+           TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
+diff --git a/lib/Driver/ToolChains/RISCV.cpp b/lib/Driver/ToolChains/RISCV.cpp
+new file mode 100644
+index 0000000000..6973bbfc11
+--- /dev/null
++++ b/lib/Driver/ToolChains/RISCV.cpp
+@@ -0,0 +1,43 @@
++//===--- RISCV.cpp - RISCV ToolChain Implementations ------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "CommonArgs.h"
++#include "InputInfo.h"
++#include "clang/Driver/Compilation.h"
++#include "llvm/Option/ArgList.h"
++
++using namespace clang::driver;
++using namespace clang::driver::toolchains;
++using namespace clang::driver::tools;
++using namespace clang;
++using namespace llvm::opt;
++
++/// RISCV Toolchain
++RISCVToolChain::RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
++                               const ArgList &Args)
++    : Generic_ELF(D, Triple, Args) {}
++Tool *RISCVToolChain::buildLinker() const {
++  return new tools::RISCV::Linker(*this);
++}
++
++void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
++                                 const InputInfo &Output,
++                                 const InputInfoList &Inputs,
++                                 const ArgList &Args,
++                                 const char *LinkingOutput) const {
++  std::string Linker = getToolChain().GetProgramPath(getShortName());
++  ArgStringList CmdArgs;
++  AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
++  CmdArgs.push_back("-o");
++  CmdArgs.push_back(Output.getFilename());
++  C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
++                                          CmdArgs, Inputs));
++}
++// RISCV tools end.
+diff --git a/lib/Driver/ToolChains/RISCV.h b/lib/Driver/ToolChains/RISCV.h
+new file mode 100644
+index 0000000000..512ea599a6
+--- /dev/null
++++ b/lib/Driver/ToolChains/RISCV.h
+@@ -0,0 +1,51 @@
++//===--- RISCV.h - RISCV ToolChain Implementations --------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
++#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
++
++#include "Gnu.h"
++#include "clang/Driver/ToolChain.h"
++
++namespace clang {
++namespace driver {
++namespace toolchains {
++
++class LLVM_LIBRARY_VISIBILITY RISCVToolChain : public Generic_ELF {
++public:
++  RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
++                 const llvm::opt::ArgList &Args);
++
++  bool IsIntegratedAssemblerDefault() const override { return true; }
++
++protected:
++  Tool *buildLinker() const override;
++};
++
++} // end namespace toolchains
++
++namespace tools {
++namespace RISCV {
++class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
++public:
++  Linker(const ToolChain &TC) : GnuTool("RISCV::Linker", "riscv-ld", TC) {}
++  bool hasIntegratedCPP() const override { return false; }
++  bool isLinkJob() const override { return true; }
++  void ConstructJob(Compilation &C, const JobAction &JA,
++                    const InputInfo &Output, const InputInfoList &Inputs,
++                    const llvm::opt::ArgList &TCArgs,
++                    const char *LinkingOutput) const override;
++};
++} // end namespace RISCV
++} // end namespace tools
++
++} // end namespace driver
++} // end namespace clang
++
++#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
+diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
+new file mode 100644
+index 0000000000..5f8a544999
+--- /dev/null
++++ b/test/Driver/riscv32-toolchain.c
+@@ -0,0 +1,4 @@
++// A basic clang -cc1 command-line.
++
++// RUN: %clang %s -### -no-canonical-prefixes -target riscv32 2>&1 | FileCheck -check-prefix=CC1 %s
++// CC1: clang{{.*}} "-cc1" "-triple" "riscv32"
+-- 
+2.14.1
+
