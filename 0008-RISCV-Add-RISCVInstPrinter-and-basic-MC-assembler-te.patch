@@ -84,7 +84,7 @@ index 00000000000..5f4545e3d67
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 new file mode 100644
-index 00000000000..23f3352c00c
+index 00000000000..e55658e3968
 --- /dev/null
 +++ b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 @@ -0,0 +1,55 @@
@@ -126,7 +126,7 @@ index 00000000000..23f3352c00c
 +}
 +
 +void RISCVInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-+                                  raw_ostream &O, const char *Modifier) {
++                                    raw_ostream &O, const char *Modifier) {
 +  assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
 +  const MCOperand &MO = MI->getOperand(OpNo);
 +

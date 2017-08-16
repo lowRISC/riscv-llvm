@@ -2,20 +2,36 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add support for all RV32I instructions
 
+This patch supports all RV32I instructions as described in the RISC-V manual.
+A future patch will add support for pseudoinstructions and other instruction
+expansions (e.g. 0-arg fence -> fence iorw, iorw).
+
 Differential Revision: https://reviews.llvm.org/D23566
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  96 +++++++++++++-
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 152 +++++++++++++++++++--
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  14 ++
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   1 +
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 ++++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  19 +++
- lib/Target/RISCV/RISCVInstrInfo.td                 | 141 +++++++++++++++++++-
- test/MC/RISCV/rv32i-invalid.s                      |  44 ++++++
- test/MC/RISCV/rv32i-valid.s                        | 147 +++++++++++++++++++++
- 5 files changed, 437 insertions(+), 10 deletions(-)
+ lib/Target/RISCV/RISCVInstrInfo.td                 | 148 +++++++++++++++++++-
+ test/MC/RISCV/rv32i-invalid.s                      |  50 ++++++-
+ test/MC/RISCV/rv32i-valid.s                        | 150 ++++++++++++++++++++
+ 8 files changed, 571 insertions(+), 17 deletions(-)
+ create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 63b21058461..54b9216d8fe 100644
+index 63b21058461..bb015569666 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -30,6 +30,9 @@ struct RISCVOperand;
+@@ -7,6 +7,7 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
++#include "MCTargetDesc/RISCVBaseInfo.h"
+ #include "MCTargetDesc/RISCVMCTargetDesc.h"
+ #include "llvm/MC/MCParser/MCAsmLexer.h"
+ #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
+@@ -30,6 +31,9 @@ struct RISCVOperand;
  class RISCVAsmParser : public MCTargetAsmParser {
    SMLoc getLoc() const { return getParser().getTok().getLoc(); }
  
@@ -25,7 +41,7 @@ index 63b21058461..54b9216d8fe 100644
    bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                 OperandVector &Operands, MCStreamer &Out,
                                 uint64_t &ErrorInfo,
-@@ -48,6 +51,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
+@@ -48,6 +52,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
  
    OperandMatchResultTy parseImmediate(OperandVector &Operands);
    OperandMatchResultTy parseRegister(OperandVector &Operands);
@@ -33,14 +49,31 @@ index 63b21058461..54b9216d8fe 100644
  
    bool parseOperand(OperandVector &Operands);
  
-@@ -125,10 +129,36 @@ public:
+@@ -125,10 +130,53 @@ public:
      return static_cast<const MCConstantExpr *>(Val)->getValue();
    }
  
 +  // Predicate methods for AsmOperands defined in RISCVInstrInfo.td
 +
-+  bool isUImm4() const {
-+    return (isConstantImm() && isUInt<4>(getConstantImm()));
++  bool isFenceArg() const {
++    const MCExpr *Val = getImm();
++    auto *SVal = dyn_cast<MCSymbolRefExpr>(Val);
++    if (!SVal || SVal->getKind() != MCSymbolRefExpr::VK_None)
++      return false;
++
++    StringRef Str = SVal->getSymbol().getName();
++    // Letters must be unique, taken from 'iorw', and in ascending order. This
++    // holds as long as each individual character is one of 'iorw' and is
++    // greater than the previous character.
++    char Prev = '\0';
++    for (char c : Str) {
++      if (c != 'i' && c != 'o' && c != 'r' && c != 'w')
++        return false;
++      if (c <= Prev)
++        return false;
++      Prev = c;
++    }
++    return true;
 +  }
 +
 +  bool isUImm5() const {
@@ -70,7 +103,32 @@ index 63b21058461..54b9216d8fe 100644
    /// getStartLoc - Gets location of the first token of this operand
    SMLoc getStartLoc() const override { return StartLoc; }
    /// getEndLoc - Gets location of the last token of this operand
-@@ -215,13 +245,19 @@ public:
+@@ -208,6 +256,24 @@ public:
+     assert(N == 1 && "Invalid number of operands!");
+     addExpr(Inst, getImm());
+   }
++
++  void addFenceArgOperands(MCInst &Inst, unsigned N) const {
++    assert(N == 1 && "Invalid number of operands!");
++    auto SE = dyn_cast<MCSymbolRefExpr>(getImm());
++    assert(SE && "FenceArg should have been validated by isFenceArg");
++
++    unsigned Imm = 0;
++    for (char c : SE->getSymbol().getName()) {
++      switch (c) {
++        case 'i': Imm |= RISCVFenceField::I; break;
++        case 'o': Imm |= RISCVFenceField::O; break;
++        case 'r': Imm |= RISCVFenceField::R; break;
++        case 'w': Imm |= RISCVFenceField::W; break;
++        default: llvm_unreachable("FenceArg must contain only [iorw]");
++      }
++    }
++    Inst.addOperand(MCOperand::createImm(Imm));
++  }
+ };
+ } // end anonymous namespace.
+ 
+@@ -215,13 +281,19 @@ public:
  #define GET_MATCHER_IMPLEMENTATION
  #include "RISCVGenAsmMatcher.inc"
  
@@ -91,7 +149,7 @@ index 63b21058461..54b9216d8fe 100644
  
    switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
    default:
-@@ -234,8 +270,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -234,8 +306,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      return Error(IDLoc, "instruction use requires an option to be enabled");
    case Match_MnemonicFail:
      return Error(IDLoc, "unrecognized instruction mnemonic");
@@ -102,19 +160,14 @@ index 63b21058461..54b9216d8fe 100644
      if (ErrorInfo != ~0U) {
        if (ErrorInfo >= Operands.size())
          return Error(ErrorLoc, "too few operands for instruction");
-@@ -245,10 +281,26 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -245,10 +317,30 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc = IDLoc;
      }
      return Error(ErrorLoc, "invalid operand for instruction");
 +  }
-+  case Match_InvalidUImm4:
-+    return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 4) - 1);
 +  case Match_InvalidUImm5:
 +    return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
    case Match_InvalidSImm12:
--    SMLoc ErrorLoc = ((RISCVOperand &)*Operands[ErrorInfo]).getStartLoc();
--    return Error(ErrorLoc,
--                 "immediate must be an integer in the range [-2048, 2047]");
 +    return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
 +                                      (1 << 11) - 1);
 +  case Match_InvalidUImm12:
@@ -129,17 +182,56 @@ index 63b21058461..54b9216d8fe 100644
 +    return generateImmOutOfRangeError(
 +        Operands, ErrorInfo, -(1 << 20), (1 << 20) - 2,
 +        "immediate must be a multiple of 2 bytes in the range");
++  case Match_InvalidFenceArg: {
+     SMLoc ErrorLoc = ((RISCVOperand &)*Operands[ErrorInfo]).getStartLoc();
+-    return Error(ErrorLoc,
+-                 "immediate must be an integer in the range [-2048, 2047]");
++    return Error(
++        ErrorLoc,
++        "operand must be formed of letters selected in-order from 'iorw'");
++  }
    }
  
    llvm_unreachable("Unknown match type detected!");
-@@ -313,6 +365,31 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
-   return MatchOperand_Success;
+@@ -292,6 +384,10 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
  }
  
+ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
++  SMLoc S = getLoc();
++  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
++  const MCExpr *Res;
++
+   switch (getLexer().getKind()) {
+   default:
+     return MatchOperand_NoMatch;
+@@ -300,16 +396,45 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+   case AsmToken::Plus:
+   case AsmToken::Integer:
+   case AsmToken::String:
++    if (getParser().parseExpression(Res))
++      return MatchOperand_ParseFail;
++    break;
++  case AsmToken::Identifier: {
++    StringRef Identifier;
++    if (getParser().parseIdentifier(Identifier))
++      return MatchOperand_ParseFail;
++    MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
++    Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
+     break;
+   }
++  }
+ 
+-  const MCExpr *IdVal;
+-  SMLoc S = getLoc();
+-  if (getParser().parseExpression(IdVal))
++  Operands.push_back(RISCVOperand::createImm(Res, S, E));
++  return MatchOperand_Success;
++}
++
 +OperandMatchResultTy RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
 +  if (getLexer().getKind() != AsmToken::LParen) {
 +    Error(getLoc(), "expected '('");
-+    return MatchOperand_ParseFail;
+     return MatchOperand_ParseFail;
 +  }
 +
 +  getParser().Lex(); // Eat '('
@@ -157,14 +249,13 @@ index 63b21058461..54b9216d8fe 100644
 +
 +  getParser().Lex(); // Eat ')'
 +  Operands.push_back(RISCVOperand::createToken(")", getLoc()));
-+
-+  return MatchOperand_Success;
-+}
-+
- /// Looks at a token type and creates the relevant operand
- /// from this information, adding to Operands.
- /// If operand was parsed, returns false, else true.
-@@ -322,8 +399,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+ 
+-  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+-  Operands.push_back(RISCVOperand::createImm(IdVal, S, E));
+   return MatchOperand_Success;
+ }
+ 
+@@ -322,8 +447,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
      return false;
  
    // Attempt to parse token as an immediate
@@ -179,6 +270,107 @@ index 63b21058461..54b9216d8fe 100644
  
    // Finally we have exhausted all options and must declare defeat.
    Error(getLoc(), "unknown operand");
+diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
+index e55658e3968..6bc4ea2cd0d 100644
+--- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
++++ b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
+@@ -12,6 +12,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "RISCVInstPrinter.h"
++#include "MCTargetDesc/RISCVBaseInfo.h"
+ #include "llvm/MC/MCAsmInfo.h"
+ #include "llvm/MC/MCExpr.h"
+ #include "llvm/MC/MCInst.h"
+@@ -53,3 +54,16 @@ void RISCVInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+   assert(MO.isExpr() && "Unknown operand kind in printOperand");
+   MO.getExpr()->print(O, &MAI);
+ }
++
++void RISCVInstPrinter::printFenceArg(const MCInst *MI, unsigned OpNo,
++                                     raw_ostream &O) {
++  unsigned FenceArg = MI->getOperand(OpNo).getImm();
++  if ((FenceArg & RISCVFenceField::I) != 0)
++    O << 'i';
++  if ((FenceArg & RISCVFenceField::O) != 0)
++    O << 'o';
++  if ((FenceArg & RISCVFenceField::R) != 0)
++    O << 'r';
++  if ((FenceArg & RISCVFenceField::W) != 0)
++    O << 'w';
++}
+diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
+index f378c6f18da..3bb4fa37f15 100644
+--- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
++++ b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
+@@ -32,6 +32,7 @@ public:
+ 
+   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+                     const char *Modifier = nullptr);
++  void printFenceArg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+ 
+   // Autogenerated by tblgen.
+   void printInstruction(const MCInst *MI, raw_ostream &O);
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+new file mode 100644
+index 00000000000..5d1e490f0f0
+--- /dev/null
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+@@ -0,0 +1,54 @@
++//===-- RISCVBaseInfo.h - Top level definitions for RISCV MC ----*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file contains small standalone enum definitions for the RISCV target
++// useful for the compiler back-end and the MC libraries.
++//
++//===----------------------------------------------------------------------===//
++#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVBASEINFO_H
++#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVBASEINFO_H
++
++#include "RISCVMCTargetDesc.h"
++
++namespace llvm {
++
++// RISCVII - This namespace holds all of the target specific flags that
++// instruction info tracks. All definitions must match RISCVInstrFormats.td.
++namespace RISCVII {
++enum {
++  Pseudo = 0,
++  FrmR = 1,
++  FrmI = 2,
++  FrmS = 3,
++  FrmSB = 4,
++  FrmU = 5,
++  FrmOther = 6,
++
++  FormMask = 15
++};
++enum {
++  MO_None,
++  MO_LO,
++  MO_HI,
++  MO_PCREL_HI,
++};
++}
++
++// Describes the predecessor/successor bits used in the FENCE instruction.
++namespace RISCVFenceField {
++enum FenceField {
++  I = 8,
++  O = 4,
++  R = 2,
++  W = 1
++};
++}
++}
++
++#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 index 9309d493cef..eb0beb028ad 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
@@ -215,10 +407,10 @@ index 9309d493cef..eb0beb028ad 100644
 +
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 93d13f79390..8dab19c98ed 100644
+index 93d13f79390..78b1c907f33 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,17 +13,52 @@
+@@ -13,17 +13,59 @@
  
  include "RISCVInstrFormats.td"
  
@@ -239,8 +431,15 @@ index 93d13f79390..8dab19c98ed 100644
 +  : ImmAsmOperand<"U", width, suffix> {
 +}
 +
-+def uimm4 : Operand<i32> {
-+  let ParserMatchClass = UImmAsmOperand<4>;
++def FenceArg : AsmOperandClass {
++  let Name = "FenceArg";
++  let RenderMethod = "addFenceArgOperands";
++  let DiagnosticType = "InvalidFenceArg";
++}
++
++def fencearg : Operand<i32> {
++  let ParserMatchClass = FenceArg;
++  let PrintMethod = "printFenceArg";
 +}
 +
 +def uimm5 : Operand<i32> {
@@ -274,7 +473,7 @@ index 93d13f79390..8dab19c98ed 100644
  // As noted in RISCVRegisterInfo.td, the hope is that support for
  // variable-sized register classes will mean that instruction definitions do
  // not need to be duplicated for 32-bit and 64-bit register classes. For now
-@@ -32,6 +67,52 @@ def simm12 : Operand<i32> {
+@@ -32,6 +74,52 @@ def simm12 : Operand<i32> {
  // like <http://lists.llvm.org/pipermail/llvm-dev/2016-September/105027.html>
  // is adopted.
  
@@ -327,7 +526,7 @@ index 93d13f79390..8dab19c98ed 100644
  class ALU_ri<bits<3> funct3, string OpcodeStr> :
        FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
           OpcodeStr#"\t$rd, $rs1, $imm12", []>
-@@ -45,6 +126,16 @@ def XORI  : ALU_ri<0b100, "xori">;
+@@ -45,6 +133,16 @@ def XORI  : ALU_ri<0b100, "xori">;
  def ORI   : ALU_ri<0b110, "ori">;
  def ANDI  : ALU_ri<0b111, "andi">;
  
@@ -344,11 +543,11 @@ index 93d13f79390..8dab19c98ed 100644
  class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
        FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
           OpcodeStr#"\t$rd, $rs1, $rs2", []>
-@@ -62,3 +153,47 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
+@@ -62,3 +160,47 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
  def OR   : ALU_rr<0b0000000, 0b110, "or">;
  def AND  : ALU_rr<0b0000000, 0b111, "and">;
  
-+def FENCE : FI<0b000, 0b0001111, (outs), (ins uimm4:$pred, uimm4:$succ),
++def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
 +               "fence\t$pred, $succ", []> {
 +  bits<4> pred;
 +  bits<4> succ;
@@ -393,10 +592,10 @@ index 93d13f79390..8dab19c98ed 100644
 +def CSRRSI : CSR_ri<0b110, "csrrsi">;
 +def CSRRCI : CSR_ri<0b111, "csrrci">;
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
-index d6a6de7a278..daec04425d2 100644
+index d6a6de7a278..1be0594c706 100644
 --- a/test/MC/RISCV/rv32i-invalid.s
 +++ b/test/MC/RISCV/rv32i-invalid.s
-@@ -1,9 +1,53 @@
+@@ -1,17 +1,61 @@
  # RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
  
  # Out of range immediates
@@ -432,12 +631,6 @@ index d6a6de7a278..daec04425d2 100644
 +csrrsi t1, 999, 32 # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
 +csrrci x0, 43, -90 # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
 +
-+## imm4
-+fence -1, 0 # CHECK: :[[@LINE]]:7: error: immediate must be an integer in the range [0, 15]
-+fence 0, -1 # CHECK: :[[@LINE]]:10: error: immediate must be an integer in the range [0, 15]
-+fence 16, 0 # CHECK: :[[@LINE]]:7: error: immediate must be an integer in the range [0, 15]
-+fence 0, 16 # CHECK: :[[@LINE]]:10: error: immediate must be an integer in the range [0, 15]
-+
 +## imm12
 +csrrw a0, -1, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
 +csrrs a0, 4096, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
@@ -447,11 +640,28 @@ index d6a6de7a278..daec04425d2 100644
 +csrrsi a0, 4097, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 +csrrci a0, 0xffff, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 +
++## fencearg
++fence iorw, iore # CHECK: :[[@LINE]]:13: error: operand must be formed of letters selected in-order from 'iorw'
++fence wr, wr # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++fence rw, rr # CHECK: :[[@LINE]]:11: error: operand must be formed of letters selected in-order from 'iorw'
++fence 1, rw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++
  # Invalid mnemonics
  subs t0, t2, t1 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
  nandi t0, zero, 0 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
+ 
+ # Invalid register names
+-addi foo, sp, 10 # CHECK: :[[@LINE]]:6: error: unknown operand
+-slti a10, a2, 0x20 # CHECK: :[[@LINE]]:6: error: unknown operand
+-slt x32, s0, s0 # CHECK: :[[@LINE]]:5: error: unknown operand
++addi foo, sp, 10 # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
++slti a10, a2, 0x20 # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
++slt x32, s0, s0 # CHECK: :[[@LINE]]:5: error: invalid operand for instruction
+ 
+ # RV64I mnemonics
+ addiw a0, sp, 100 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
-index fc89cd42016..5192852ec6d 100644
+index fc89cd42016..4c883e9a0ae 100644
 --- a/test/MC/RISCV/rv32i-valid.s
 +++ b/test/MC/RISCV/rv32i-valid.s
 @@ -3,6 +3,100 @@
@@ -572,21 +782,24 @@ index fc89cd42016..5192852ec6d 100644
  # CHECK-INST: add ra, zero, zero
  # CHECK: encoding: [0xb3,0x00,0x00,0x00]
  add ra, zero, zero
-@@ -61,3 +165,46 @@ or s10, t1, ra
+@@ -61,3 +165,49 @@ or s10, t1, ra
  # CHECK-INST: and a0, s2, s3
  # CHECK: encoding: [0x33,0x75,0x39,0x01]
  and a0, s2, s3
 +
-+# TODO: gnu assembler supports fence with no arguments
-+# CHECK-INST: fence 0, 15
-+# # CHECK: encoding: [0x0f,0x00,0xf0,0x00]
-+fence 0, 15
-+# CHECK-INST: fence 15, 0
-+# CHECK: encoding: [0x0f,0x00,0x00,0x0f]
-+fence 15, 0
-+# CHECK-INST: fence 4, 9
-+# CHECK: encoding: [0x0f,0x00,0x90,0x04]
-+fence 4, 9
++# CHECK-INST: fence iorw, iorw
++# CHECK: encoding: [0x0f,0x00,0xf0,0x0f]
++fence iorw, iorw
++# CHECK-INST: fence io, rw
++# CHECK: encoding: [0x0f,0x00,0x30,0x0c]
++fence io, rw
++# CHECK-INST: fence r, w
++# CHECK: encoding: [0x0f,0x00,0x10,0x02]
++fence r,w
++# CHECK-INST: fence w, ir
++# CHECK: encoding: [0x0f,0x00,0xa0,0x01]
++fence w,ir
++
 +# CHECK-INST: fence.i
 +# CHECK: encoding: [0x0f,0x10,0x00,0x00]
 +fence.i

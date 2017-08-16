@@ -5,40 +5,22 @@ Subject: [RISCV] Codegen support for memory operations
 This required the implementation of RISCVTargetInstrInfo::copyPhysReg, which
 in turn enabled code generation for `ret i32 <CONST>`.
 ---
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |   6 ++
- lib/Target/RISCV/RISCV.h                      |   9 +-
- lib/Target/RISCV/RISCVAsmPrinter.cpp          |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp        |  28 +++++-
- lib/Target/RISCV/RISCVISelLowering.h          |   3 +
- lib/Target/RISCV/RISCVInstrInfo.cpp           |  15 +++
- lib/Target/RISCV/RISCVInstrInfo.h             |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td            |  52 +++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp         |  60 ++++++++++--
- lib/Target/RISCV/RISCVSubtarget.h             |   1 +
- test/CodeGen/RISCV/alu.ll                     |  39 ++++++++
- test/CodeGen/RISCV/mem.ll                     | 131 ++++++++++++++++++++++++++
- test/CodeGen/RISCV/wide-mem.ll                |  25 +++++
- 13 files changed, 366 insertions(+), 14 deletions(-)
+ lib/Target/RISCV/RISCV.h               |   9 ++-
+ lib/Target/RISCV/RISCVAsmPrinter.cpp   |   7 +-
+ lib/Target/RISCV/RISCVISelLowering.cpp |  28 ++++++-
+ lib/Target/RISCV/RISCVISelLowering.h   |   3 +
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
+ lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
+ lib/Target/RISCV/RISCVInstrInfo.td     |  52 ++++++++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  60 ++++++++++++---
+ lib/Target/RISCV/RISCVSubtarget.h      |   1 +
+ test/CodeGen/RISCV/alu.ll              |  39 ++++++++++
+ test/CodeGen/RISCV/mem.ll              | 131 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/wide-mem.ll         |  25 +++++++
+ 12 files changed, 360 insertions(+), 14 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
-diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-index 2e836ded2c6..d6f99d2f9af 100644
---- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-+++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-@@ -32,6 +32,12 @@ enum {
- 
-   FormMask = 15
- };
-+enum {
-+  MO_None,
-+  MO_LO,
-+  MO_HI,
-+  MO_PCREL_HI,
-+};
- }
- }
- 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
 index 1b6140203c8..44ca4f9b29a 100644
 --- a/lib/Target/RISCV/RISCV.h
@@ -210,7 +192,7 @@ index a89198a157b..27492c869db 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 7538af347d1..9a551ddb71f 100644
+index 2d78e03344f..9a768ba6308 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,7 +13,6 @@
@@ -221,7 +203,7 @@ index 7538af347d1..9a551ddb71f 100644
  def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
                       [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
  
-@@ -73,6 +72,22 @@ def simm21_lsb0 : Operand<i32> {
+@@ -80,6 +79,22 @@ def simm21_lsb0 : Operand<i32> {
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
  }
  
@@ -244,7 +226,7 @@ index 7538af347d1..9a551ddb71f 100644
  // As noted in RISCVRegisterInfo.td, the hope is that support for
  // variable-sized register classes will mean that instruction definitions do
  // not need to be duplicated for 32-bit and 64-bit register classes. For now
-@@ -122,16 +137,42 @@ def LW   : LD_ri<0b010, "lw">;
+@@ -129,16 +144,42 @@ def LW   : LD_ri<0b010, "lw">;
  def LBU  : LD_ri<0b100, "lbu">;
  def LHU  : LD_ri<0b101, "lhu">;
  
@@ -288,7 +270,7 @@ index 7538af347d1..9a551ddb71f 100644
  class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
        FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
           OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
-@@ -216,3 +257,10 @@ class CSR_ri<bits<3> funct3, string OpcodeStr> :
+@@ -223,3 +264,10 @@ class CSR_ri<bits<3> funct3, string OpcodeStr> :
  def CSRRWI : CSR_ri<0b101, "csrrwi">;
  def CSRRSI : CSR_ri<0b110, "csrrsi">;
  def CSRRCI : CSR_ri<0b111, "csrrci">;

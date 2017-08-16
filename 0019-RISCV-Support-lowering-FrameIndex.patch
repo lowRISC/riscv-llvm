@@ -76,10 +76,10 @@ index c5a0288259d..dca1dda9e15 100644
      llvm_unreachable("Can't load this register from stack slot");
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index ac1b3f50cee..7d8670dc6ae 100644
+index 45f703d5ca4..7a3265722dd 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -90,6 +90,14 @@ def simm21_lsb0 : Operand<OtherVT> {
+@@ -97,6 +97,14 @@ def simm21_lsb0 : Operand<OtherVT> {
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
  }
  
@@ -94,7 +94,7 @@ index ac1b3f50cee..7d8670dc6ae 100644
  // Extract least significant 12 bits from an immediate value and sign extend
  // them.
  def LO12Sext : SDNodeXForm<imm, [{
-@@ -217,6 +225,9 @@ defm : LD_Pat<load, LW>;
+@@ -224,6 +232,9 @@ defm : LD_Pat<load, LW>;
  defm : LD_Pat<zextloadi8, LBU>;
  defm : LD_Pat<zextloadi16, LHU>;
  
@@ -104,7 +104,7 @@ index ac1b3f50cee..7d8670dc6ae 100644
  // Operands for stores are in the order srcreg, base, offset rather than
  // reflecting the order these fields are specified in the instruction
  // encoding.
-@@ -240,6 +251,9 @@ defm : ST_Pat<truncstorei8, SB>;
+@@ -247,6 +258,9 @@ defm : ST_Pat<truncstorei8, SB>;
  defm : ST_Pat<truncstorei16, SH>;
  defm : ST_Pat<store, SW>;
  
@@ -114,7 +114,7 @@ index ac1b3f50cee..7d8670dc6ae 100644
  class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
        FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
           OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
-@@ -253,6 +267,10 @@ def XORI  : ALU_ri<0b100, "xori", xor>;
+@@ -260,6 +274,10 @@ def XORI  : ALU_ri<0b100, "xori", xor>;
  def ORI   : ALU_ri<0b110, "ori", or>;
  def ANDI  : ALU_ri<0b111, "andi", and>;
  

@@ -118,10 +118,10 @@ index 27492c869db..7c0564ff99e 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9a551ddb71f..6846cb428ab 100644
+index 9a768ba6308..504ce2d9bd2 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -53,7 +53,7 @@ def uimm12 : Operand<i32> {
+@@ -60,7 +60,7 @@ def uimm12 : Operand<i32> {
  }
  
  // A 13-bit signed immediate where the least significant bit is zero.
@@ -130,7 +130,7 @@ index 9a551ddb71f..6846cb428ab 100644
    let ParserMatchClass = SImmAsmOperand<13, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
    let DecoderMethod = "decodeSImmOperandAndLsl1<13>";
-@@ -66,7 +66,7 @@ def uimm20 : Operand<i32> {
+@@ -73,7 +73,7 @@ def uimm20 : Operand<i32> {
  }
  
  // A 21-bit signed immediate where the least significant bit is zero.
@@ -139,7 +139,7 @@ index 9a551ddb71f..6846cb428ab 100644
    let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
-@@ -105,6 +105,11 @@ def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
+@@ -112,6 +112,11 @@ def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
  def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
                "jal\t$rd, $imm20", []>;
  
@@ -151,7 +151,7 @@ index 9a551ddb71f..6846cb428ab 100644
  def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
  
-@@ -113,17 +118,32 @@ let isReturn=1, isTerminator=1, isBarrier=1 in {
+@@ -120,17 +125,32 @@ let isReturn=1, isTerminator=1, isBarrier=1 in {
                    PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
  }
  

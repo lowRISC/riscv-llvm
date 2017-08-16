@@ -333,13 +333,13 @@ index 3fab7122f6f..d77f3874c7d 100644
  
    bits<7> Opcode = 0;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 8dab19c98ed..443fd387108 100644
+index 78b1c907f33..e84e4dabb94 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -29,34 +29,42 @@ class UImmAsmOperand<int width, string suffix = "">
- 
- def uimm4 : Operand<i32> {
-   let ParserMatchClass = UImmAsmOperand<4>;
+@@ -36,34 +36,42 @@ def FenceArg : AsmOperandClass {
+ def fencearg : Operand<i32> {
+   let ParserMatchClass = FenceArg;
+   let PrintMethod = "printFenceArg";
 +  let DecoderMethod = "decodeUImmOperand<4>";
  }
  
@@ -380,7 +380,7 @@ index 8dab19c98ed..443fd387108 100644
  
  // As noted in RISCVRegisterInfo.td, the hope is that support for
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
-index 5192852ec6d..c8404eb63e5 100644
+index 4c883e9a0ae..95d9da4bb51 100644
 --- a/test/MC/RISCV/rv32i-valid.s
 +++ b/test/MC/RISCV/rv32i-valid.s
 @@ -2,6 +2,10 @@

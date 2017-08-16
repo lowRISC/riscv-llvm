@@ -164,10 +164,10 @@ index 515c646c2fe..806fa678b40 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b0e3d5bb177..ac1b3f50cee 100644
+index d891a61ee22..45f703d5ca4 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -135,6 +135,11 @@ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+@@ -142,6 +142,11 @@ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
  }
  
@@ -179,7 +179,7 @@ index b0e3d5bb177..ac1b3f50cee 100644
  let isCall=1, Defs=[X1_32] in {
    def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
                     PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
-@@ -275,6 +280,18 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra", sra>;
+@@ -282,6 +287,18 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra", sra>;
  def OR   : ALU_rr<0b0000000, 0b110, "or", or>;
  def AND  : ALU_rr<0b0000000, 0b111, "and", and>;
  
@@ -195,7 +195,7 @@ index b0e3d5bb177..ac1b3f50cee 100644
 +def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;
 +def : Pat<(setle GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs2, GPR:$rs1), 1)>;
 +
- def FENCE : FI<0b000, 0b0001111, (outs), (ins uimm4:$pred, uimm4:$succ),
+ def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
                 "fence\t$pred, $succ", []> {
    bits<4> pred;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp

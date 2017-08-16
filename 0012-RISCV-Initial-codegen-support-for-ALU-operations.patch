@@ -733,7 +733,7 @@ index 00000000000..a89198a157b
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 91f185af0a4..7538af347d1 100644
+index 1a5f32ecabe..2d78e03344f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,6 +13,11 @@
@@ -748,7 +748,7 @@ index 91f185af0a4..7538af347d1 100644
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
    let Name = prefix # "Imm" # width # suffix;
    let RenderMethod = "addImmOperands";
-@@ -32,12 +37,12 @@ def uimm4 : Operand<i32> {
+@@ -39,12 +44,12 @@ def fencearg : Operand<i32> {
    let DecoderMethod = "decodeUImmOperand<4>";
  }
  
@@ -763,7 +763,7 @@ index 91f185af0a4..7538af347d1 100644
    let ParserMatchClass = SImmAsmOperand<12>;
    let EncoderMethod = "getImmOpValue";
    let DecoderMethod = "decodeSImmOperand<12>";
-@@ -88,6 +93,11 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
+@@ -95,6 +100,11 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
  def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
  
@@ -775,7 +775,7 @@ index 91f185af0a4..7538af347d1 100644
  class Bcc<bits<3> funct3, string OpcodeStr> :
        FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
           OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
-@@ -122,45 +132,45 @@ def SB  : ST_ri<0b000, "sb">;
+@@ -129,45 +139,45 @@ def SB  : ST_ri<0b000, "sb">;
  def SH  : ST_ri<0b001, "sh">;
  def SW  : ST_ri<0b010, "sw">;
  
@@ -844,7 +844,7 @@ index 91f185af0a4..7538af347d1 100644
 +def OR   : ALU_rr<0b0000000, 0b110, "or", or>;
 +def AND  : ALU_rr<0b0000000, 0b111, "and", and>;
  
- def FENCE : FI<0b000, 0b0001111, (outs), (ins uimm4:$pred, uimm4:$succ),
+ def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
                 "fence\t$pred, $succ", []> {
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 new file mode 100644

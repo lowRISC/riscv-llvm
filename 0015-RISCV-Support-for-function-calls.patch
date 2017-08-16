@@ -218,7 +218,7 @@ index b756c69124b..c5a0288259d 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 6846cb428ab..e567053de1f 100644
+index 504ce2d9bd2..2ecdf092e35 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,8 +13,22 @@
@@ -244,7 +244,7 @@ index 6846cb428ab..e567053de1f 100644
  
  // Operands
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -102,22 +116,39 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
+@@ -109,22 +123,39 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
  def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
               "auipc\t$rd, $imm20", []>;
  
