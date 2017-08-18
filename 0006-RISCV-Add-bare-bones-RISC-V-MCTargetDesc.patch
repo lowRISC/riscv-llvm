@@ -110,7 +110,7 @@ index 00000000000..e48f04963ff
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 00000000000..be83efc02d2
+index 00000000000..4896c38dbb0
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -0,0 +1,93 @@
@@ -167,7 +167,7 @@ index 00000000000..be83efc02d2
 +  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
 +                        MCInst &Res) const override {
 +
-+    llvm_unreachable("RISCVAsmBackend::relaxInstruction() unimplemented");
++    report_fatal_error("RISCVAsmBackend::relaxInstruction() unimplemented");
 +  }
 +
 +  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
@@ -209,7 +209,7 @@ index 00000000000..be83efc02d2
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 00000000000..db8fc5591f4
+index 00000000000..93c981e2a2a
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -0,0 +1,47 @@
@@ -252,7 +252,7 @@ index 00000000000..db8fc5591f4
 +                                            const MCValue &Target,
 +                                            const MCFixup &Fixup,
 +                                            bool IsPCRel) const {
-+  llvm_unreachable("invalid fixup kind!");
++  report_fatal_error("invalid fixup kind!");
 +}
 +
 +MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,

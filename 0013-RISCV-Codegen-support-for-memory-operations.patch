@@ -12,12 +12,12 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
  lib/Target/RISCV/RISCVInstrInfo.td     |  52 ++++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp  |  60 ++++++++++++---
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  59 +++++++++++++--
  lib/Target/RISCV/RISCVSubtarget.h      |   1 +
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++++
  test/CodeGen/RISCV/mem.ll              | 131 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++++
- 12 files changed, 360 insertions(+), 14 deletions(-)
+ 12 files changed, 360 insertions(+), 13 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -75,7 +75,7 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 8c7fccd567f..a1a63d0d536 100644
+index 3665e14795b..71156d076dd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -37,7 +37,7 @@ using namespace llvm;
@@ -125,7 +125,7 @@ index 8c7fccd567f..a1a63d0d536 100644
 +        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
 +    return MNLo;
 +  } else {
-+    llvm_unreachable("Unable to lowerGlobalAddress");
++    report_fatal_error("Unable to lowerGlobalAddress");
 +  }
 +}
 +
@@ -282,7 +282,7 @@ index 2d78e03344f..9a768ba6308 100644
 +// 32-bit immediate
 +def : Pat<(i32 imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index 1f3510b7c38..2ca98ef84b4 100644
+index 9837b46532b..df49f816b9a 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
 @@ -13,6 +13,8 @@
@@ -294,7 +294,7 @@ index 1f3510b7c38..2ca98ef84b4 100644
  #include "llvm/CodeGen/MachineBasicBlock.h"
  #include "llvm/CodeGen/MachineInstr.h"
  #include "llvm/MC/MCAsmInfo.h"
-@@ -24,29 +26,69 @@
+@@ -24,14 +26,39 @@
  
  using namespace llvm;
  
@@ -339,8 +339,8 @@ index 1f3510b7c38..2ca98ef84b4 100644
 +                                               const AsmPrinter &AP) {
      switch (MO.getType()) {
      default:
--      MI->dump();
-       llvm_unreachable("unknown operand type");
+       report_fatal_error(
+@@ -39,14 +66,30 @@ void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI,
      case MachineOperand::MO_Register:
        // Ignore all implicit register operands.
        if (MO.isImplicit())

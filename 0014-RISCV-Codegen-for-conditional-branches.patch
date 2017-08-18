@@ -43,7 +43,7 @@ index 7eb48c8f177..05a515e7b76 100644
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index a1a63d0d536..0cfddbca01c 100644
+index 71156d076dd..b904062d183 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,6 +49,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -193,7 +193,7 @@ index 9a768ba6308..504ce2d9bd2 100644
  class LD_ri<bits<3> funct3, string OpcodeStr> :
        FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 88ee73af3e7..c5d0c3c0c9d 100644
+index 6cc5af12ad5..53428e99a8a 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -49,10 +49,38 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
@@ -207,7 +207,7 @@ index 88ee73af3e7..c5d0c3c0c9d 100644
  void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                              int SPAdj, unsigned FIOperandNum,
                                              RegScavenger *RS) const {
--  llvm_unreachable("Subroutines not supported yet");
+-  report_fatal_error("Subroutines not supported yet");
 +  assert(SPAdj == 0 && "Unexpected");
 +
 +  MachineInstr &MI = *II;
@@ -221,7 +221,7 @@ index 88ee73af3e7..c5d0c3c0c9d 100644
 +  Offset += MI.getOperand(FIOperandNum + 1).getImm();
 +
 +  if (!TFI->hasFP(MF)) {
-+    llvm_unreachable("eliminateFrameIndex currently requires hasFP");
++    report_fatal_error("eliminateFrameIndex currently requires hasFP");
 +  }
 +
 +  // If the offset fits in an immediate, then directly encode it
@@ -230,7 +230,7 @@ index 88ee73af3e7..c5d0c3c0c9d 100644
 +    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
 +    return;
 +  } else {
-+    llvm_unreachable(
++    report_fatal_error(
 +        "Frame offsets outside of the signed 12-bit range not supported");
 +  }
  }

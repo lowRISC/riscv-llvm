@@ -406,7 +406,7 @@ index 00000000000..0daad5c6a96
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..8c7fccd567f
+index 00000000000..3665e14795b
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -0,0 +1,178 @@
@@ -492,7 +492,7 @@ index 00000000000..8c7fccd567f
 +
 +  switch (CallConv) {
 +  default:
-+    llvm_unreachable("Unsupported calling convention");
++    report_fatal_error("Unsupported calling convention");
 +  case CallingConv::C:
 +    break;
 +  }
@@ -501,7 +501,7 @@ index 00000000000..8c7fccd567f
 +  MachineRegisterInfo &RegInfo = MF.getRegInfo();
 +
 +  if (IsVarArg) {
-+    llvm_unreachable("VarArg not supported");
++    report_fatal_error("VarArg not supported");
 +  }
 +
 +  // Assign locations to all of the incoming arguments.
@@ -526,10 +526,10 @@ index 00000000000..8c7fccd567f
 +      default:
 +        DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 +                     << RegVT.getEVTString() << "\n");
-+        llvm_unreachable("unhandled argument type");
++        report_fatal_error("unhandled argument type");
 +      }
 +    } else {
-+      llvm_unreachable("Defined with too many args");
++      report_fatal_error("Defined with too many args");
 +    }
 +  }
 +  return Chain;
@@ -848,7 +848,7 @@ index 1a5f32ecabe..2d78e03344f 100644
                 "fence\t$pred, $succ", []> {
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 new file mode 100644
-index 00000000000..1f3510b7c38
+index 00000000000..9837b46532b
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
 @@ -0,0 +1,52 @@
@@ -888,8 +888,8 @@ index 00000000000..1f3510b7c38
 +    MCOperand MCOp;
 +    switch (MO.getType()) {
 +    default:
-+      MI->dump();
-+      llvm_unreachable("unknown operand type");
++      report_fatal_error(
++          "LowerRISCVMachineInstrToMCInst: unknown operand type");
 +    case MachineOperand::MO_Register:
 +      // Ignore all implicit register operands.
 +      if (MO.isImplicit())
@@ -906,7 +906,7 @@ index 00000000000..1f3510b7c38
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 new file mode 100644
-index 00000000000..88ee73af3e7
+index 00000000000..6cc5af12ad5
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -0,0 +1,60 @@
@@ -964,7 +964,7 @@ index 00000000000..88ee73af3e7
 +void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 +                                            int SPAdj, unsigned FIOperandNum,
 +                                            RegScavenger *RS) const {
-+  llvm_unreachable("Subroutines not supported yet");
++  report_fatal_error("Subroutines not supported yet");
 +}
 +
 +unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {

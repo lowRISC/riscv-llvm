@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index fab7ffff68c..4559eb6225d 100644
+index 17889176dfc..14f14fd3430 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,17 +49,56 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -134,7 +134,7 @@ index fab7ffff68c..4559eb6225d 100644
 +        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
 +    return MNLo;
 +  } else {
-+    llvm_unreachable("Unable to lowerExternalSymbol");
++    report_fatal_error("Unable to lowerExternalSymbol");
 +  }
 +}
 +
@@ -145,7 +145,7 @@ index fab7ffff68c..4559eb6225d 100644
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
--    llvm_unreachable(
+-    report_fatal_error(
 -        "lowerExternalSymbol, needed for lowerCall, not yet handled");
 +    Callee = lowerExternalSymbol(Callee, DAG);
    }
@@ -199,10 +199,10 @@ index d891a61ee22..45f703d5ca4 100644
                 "fence\t$pred, $succ", []> {
    bits<4> pred;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index 032fe06fa99..48346668ffe 100644
+index eaaa841df00..bd2c884f2d8 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -81,6 +81,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+@@ -82,6 +82,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
      case MachineOperand::MO_GlobalAddress:
        MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
        break;

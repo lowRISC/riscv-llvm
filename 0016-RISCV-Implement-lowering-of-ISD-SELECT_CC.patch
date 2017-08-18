@@ -11,7 +11,7 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c1ffb362d63..fab7ffff68c 100644
+index 4f427a17e45..17889176dfc 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

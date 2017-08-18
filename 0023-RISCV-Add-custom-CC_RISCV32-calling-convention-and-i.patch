@@ -16,12 +16,12 @@ perform. I would like to drastically simplify these requirements over time,
 but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/RISCVCallingConv.td   |  12 +-
- lib/Target/RISCV/RISCVISelLowering.cpp | 227 +++++++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp | 228 +++++++++++++++++++--
  test/CodeGen/RISCV/byval.ll            |  27 +++
  test/CodeGen/RISCV/calling-conv.ll     | 362 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll            |  27 +++
  test/CodeGen/RISCV/fp128.ll            |  14 ++
- 6 files changed, 644 insertions(+), 25 deletions(-)
+ 6 files changed, 645 insertions(+), 25 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
  create mode 100644 test/CodeGen/RISCV/fp128.ll
@@ -50,7 +50,7 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4b334dd8ff9..c755d2ae321 100644
+index 146f353ea75..55b042cc841 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -283,6 +283,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
@@ -172,8 +172,8 @@ index 4b334dd8ff9..c755d2ae321 100644
 +  EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
    if (IsVarArg) {
-     llvm_unreachable("VarArg not supported");
-@@ -310,27 +415,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+     report_fatal_error("VarArg not supported");
+@@ -310,27 +415,60 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -201,10 +201,10 @@ index 4b334dd8ff9..c755d2ae321 100644
          DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 -                     << RegVT.getEVTString() << "\n");
 +                     << LocVT.getEVTString() << "\n");
-         llvm_unreachable("unhandled argument type");
+         report_fatal_error("unhandled argument type");
        }
      } else {
--      llvm_unreachable("Defined with too many args");
+-      report_fatal_error("Defined with too many args");
 +      assert(VA.isMemLoc() && "Argument not register or memory");
 +
 +      // Create the frame index object for this incoming parameter.
@@ -238,10 +238,11 @@ index 4b334dd8ff9..c755d2ae321 100644
 +      }
 +    } else {
 +      InVals.push_back(ArgValue);
++>>>>>>> bb4419f... [RISCV] Add custom CC_RISCV32 calling convention and improved call support
      }
    }
    return Chain;
-@@ -366,39 +503,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -366,39 +504,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -253,7 +254,7 @@ index 4b334dd8ff9..c755d2ae321 100644
 +    ISD::ArgFlagsTy Flags = Outs[I].Flags;
 +    if (!Flags.isByVal())
        continue;
--    llvm_unreachable("Passing arguments byval not yet implemented");
+-    report_fatal_error("Passing arguments byval not yet implemented");
 +
 +    SDValue Arg = OutVals[I];
 +    unsigned Size = Flags.getByValSize();
@@ -322,12 +323,12 @@ index 4b334dd8ff9..c755d2ae321 100644
 +    if (Flags.isByVal())
 +      ArgValue = ByValArgs[J++];
 +
-     if (VA.isRegLoc())
+     if (VA.isRegLoc()) {
        // Queue up the argument copies and emit them at the end.
        RegsToPass.push_back(std::make_pair(VA.getLocReg(), ArgValue));
-     else {
+     } else {
        assert(VA.isMemLoc() && "Argument not register or memory");
--      llvm_unreachable("Passing arguments via the stack not yet implemented");
+-      report_fatal_error("Passing arguments via the stack not yet implemented");
 +
 +      // Work out the address of the stack slot.
 +      if (!StackPtr.getNode())
@@ -384,13 +385,13 @@ index 00000000000..bef084f8376
 +}
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
-index 00000000000..274993dd690
+index 00000000000..0f504c2bf91
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -0,0 +1,362 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
-+; Check that on RV32, i64 and double are passed in a pair of registers. Unlike 
++; Check that on RV32, i64 and double are passed in a pair of registers. Unlike
 +; the convention for varargs, this need not be an aligned pair
 +
 +define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) {

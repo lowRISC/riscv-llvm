@@ -126,7 +126,7 @@ index 45f703d5ca4..7a3265722dd 100644
        FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
           OpcodeStr#"\t$rd, $rs1, $shamt", [(set GPR:$rd, (OpNode GPR:$rs1, uimm5:$shamt))]>
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 1f9497f975e..4b50bd8fa2e 100644
+index ed8bfe98d20..f8cac999b5a 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -61,6 +61,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -145,7 +145,7 @@ index 1f9497f975e..4b50bd8fa2e 100644
 +  assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
 +
    if (!TFI->hasFP(MF)) {
-     llvm_unreachable("eliminateFrameIndex currently requires hasFP");
+     report_fatal_error("eliminateFrameIndex currently requires hasFP");
    }
  
 +  MachineBasicBlock &MBB = *MI.getParent();
@@ -176,7 +176,7 @@ index 1f9497f975e..4b50bd8fa2e 100644
 +      llvm_unreachable("Unexpected opcode");
 +    }
    } else {
-     llvm_unreachable(
+     report_fatal_error(
          "Frame offsets outside of the signed 12-bit range not supported");
    }
 +

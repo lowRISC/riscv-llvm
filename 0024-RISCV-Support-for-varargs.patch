@@ -9,17 +9,17 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 167 +++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 168 +++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 ++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp      |   3 +
  test/CodeGen/RISCV/vararg.ll                | 361 ++++++++++++++++++++++++++++
- 6 files changed, 557 insertions(+), 26 deletions(-)
+ 6 files changed, 557 insertions(+), 27 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index c1b38d6f101..2c3fd785c32 100644
+index d91eb1b150e..cd1c33059d5 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -12,6 +12,7 @@
@@ -65,7 +65,7 @@ index c1b38d6f101..2c3fd785c32 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c755d2ae321..380a8d415f6 100644
+index 55b042cc841..fcbd790dfa0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -203,7 +203,7 @@ index c755d2ae321..380a8d415f6 100644
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
 -
 -  if (IsVarArg) {
--    llvm_unreachable("VarArg not supported");
+-    report_fatal_error("VarArg not supported");
 -  }
 +  // Used with vargs to acumulate store chains.
 +  std::vector<SDValue> OutChains;
@@ -233,8 +233,11 @@ index c755d2ae321..380a8d415f6 100644
  
    for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
      CCValAssign &VA = ArgLocs[I];
-@@ -470,6 +526,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -468,9 +524,64 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+       }
+     } else {
        InVals.push_back(ArgValue);
+->>>>>>> bb4419f... [RISCV] Add custom CC_RISCV32 calling convention and improved call support
      }
    }
 +
@@ -296,12 +299,12 @@ index c755d2ae321..380a8d415f6 100644
    return Chain;
  }
  
-@@ -489,16 +601,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -490,16 +601,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
 -  if (IsVarArg) {
--    llvm_unreachable("LowerCall with varargs not implemented");
+-    report_fatal_error("LowerCall with varargs not implemented");
 -  }
 -
    MachineFunction &MF = DAG.getMachineFunction();
@@ -329,7 +332,7 @@ index c755d2ae321..380a8d415f6 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -669,10 +792,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -670,10 +792,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -403,7 +406,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 4a0373ff155..c0f90a09b73 100644
+index 5b40095fe63..63899acff17 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -11,6 +11,7 @@

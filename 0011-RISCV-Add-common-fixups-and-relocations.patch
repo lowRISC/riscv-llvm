@@ -14,14 +14,14 @@ aligned fixups.
 
 Differential Revision: https://reviews.llvm.org/D23568
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 149 ++++++++++++++++++++-
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 146 ++++++++++++++++++++-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
  lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 ++++++++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   1 +
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 +++-
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  61 ++++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  96 +++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  96 ++++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++++
  lib/Target/RISCV/RISCVInstrFormats.td              |  36 +++--
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
@@ -30,7 +30,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  test/MC/RISCV/hilo-constaddr.s                     |  39 ++++++
  test/MC/RISCV/relocations.s                        |  65 +++++++++
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 16 files changed, 767 insertions(+), 25 deletions(-)
+ 16 files changed, 764 insertions(+), 25 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -40,7 +40,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index bb015569666..e3efb341ca3 100644
+index bb015569666..c9b94d59149 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -9,6 +9,7 @@
@@ -152,8 +152,9 @@ index bb015569666..e3efb341ca3 100644
 +  case AsmToken::Percent:
 +    return parseOperandWithModifier(Operands);
 +    break;
-+  }
-+
+   }
+ 
+-  Operands.push_back(RISCVOperand::createImm(Res, S, E));
 +  Operands.push_back(RISCVOperand::createImm(Res, S, E, getContext()));
 +  return MatchOperand_Success;
 +}
@@ -185,10 +186,9 @@ index bb015569666..e3efb341ca3 100644
 +  if (getLexer().getKind() != AsmToken::LParen) {
 +    Error(getLoc(), "expected '('");
 +    return MatchOperand_ParseFail;
-   }
++  }
 +  getParser().Lex(); // Eat '('
- 
--  Operands.push_back(RISCVOperand::createImm(Res, S, E));
++
 +  const MCExpr *SubExpr;
 +  if (getParser().parseParenExpression(SubExpr, E)) {
 +    return MatchOperand_ParseFail;
@@ -199,14 +199,14 @@ index bb015569666..e3efb341ca3 100644
    return MatchOperand_Success;
  }
  
-@@ -494,6 +580,57 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -494,6 +580,54 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
  
 +bool RISCVAsmParser::classifySymbolRef(const MCExpr *Expr,
 +                                       RISCVMCExpr::VariantKind &Kind,
 +                                       int64_t &Addend) {
-+  Kind = RISCVMCExpr::VK_RISCV_Invalid;
++  Kind = RISCVMCExpr::VK_RISCV_None;
 +  Addend = 0;
 +
 +  if (const RISCVMCExpr *RE = dyn_cast<RISCVMCExpr>(Expr)) {
@@ -217,18 +217,15 @@ index bb015569666..e3efb341ca3 100644
 +  assert(!isa<MCConstantExpr>(Expr) &&
 +         "simple constants should have been evaluated already");
 +
-+  const MCSymbolRefExpr *SE = dyn_cast<MCSymbolRefExpr>(Expr);
-+  if (SE) {
-+    // It's a simple symbol reference with no addend.
++  // It's a simple symbol reference with no addend.
++  if (isa<MCSymbolRefExpr>(Expr))
 +    return true;
-+  }
 +
 +  const MCBinaryExpr *BE = dyn_cast<MCBinaryExpr>(Expr);
 +  if (!BE)
 +    return false;
 +
-+  SE = dyn_cast<MCSymbolRefExpr>(BE->getLHS());
-+  if (!SE)
++  if (!isa<MCSymbolRefExpr>(BE->getLHS()))
 +    return false;
 +
 +  if (BE->getOpcode() != MCBinaryExpr::Add &&
@@ -237,7 +234,7 @@ index bb015569666..e3efb341ca3 100644
 +
 +  // We are able to support the subtraction of two symbol references
 +  if (BE->getOpcode() == MCBinaryExpr::Sub &&
-+      isa<MCSymbolRefExpr>(BE->getLHS()) && isa<MCSymbolRefExpr>(BE->getRHS()))
++      isa<MCSymbolRefExpr>(BE->getRHS()))
 +    return true;
 +
 +  // See if the addend is is a constant, otherwise there's more going
@@ -271,7 +268,7 @@ index d79de74f7cf..60429647edd 100644
 +  RISCVMCTargetDesc.cpp
  )
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index be83efc02d2..6381efa1390 100644
+index 4896c38dbb0..3e10cdbc1ec 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -7,9 +7,12 @@
@@ -424,7 +421,7 @@ index 5d1e490f0f0..d1de601b186 100644
    MO_None,
    MO_LO,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-index db8fc5591f4..95d4242e404 100644
+index 93c981e2a2a..95d4242e404 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -7,6 +7,7 @@
@@ -439,7 +436,7 @@ index db8fc5591f4..95d4242e404 100644
                                              const MCValue &Target,
                                              const MCFixup &Fixup,
                                              bool IsPCRel) const {
--  llvm_unreachable("invalid fixup kind!");
+-  report_fatal_error("invalid fixup kind!");
 +  // Determine the type of the relocation
 +  switch ((unsigned)Fixup.getKind()) {
 +  default:

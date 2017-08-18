@@ -33,7 +33,7 @@ index 3048fa75e3f..ae2ed99f82d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0cfddbca01c..c1ffb362d63 100644
+index b904062d183..4f427a17e45 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -150,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
@@ -57,7 +57,7 @@ index 0cfddbca01c..c1ffb362d63 100644
 +  EVT PtrVT = getPointerTy(DAG.getDataLayout());
 +
 +  if (IsVarArg) {
-+    llvm_unreachable("LowerCall with varargs not implemented");
++    report_fatal_error("LowerCall with varargs not implemented");
 +  }
 +
 +  MachineFunction &MF = DAG.getMachineFunction();
@@ -73,7 +73,7 @@ index 0cfddbca01c..c1ffb362d63 100644
 +  for (auto &Arg : Outs) {
 +    if (!Arg.Flags.isByVal())
 +      continue;
-+    llvm_unreachable("Passing arguments byval not yet implemented");
++    report_fatal_error("Passing arguments byval not yet implemented");
 +  }
 +
 +  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, CLI.DL);
@@ -94,12 +94,12 @@ index 0cfddbca01c..c1ffb362d63 100644
 +      llvm_unreachable("Unknown loc info!");
 +    }
 +
-+    if (VA.isRegLoc())
++    if (VA.isRegLoc()) {
 +      // Queue up the argument copies and emit them at the end.
 +      RegsToPass.push_back(std::make_pair(VA.getLocReg(), ArgValue));
-+    else {
++    } else {
 +      assert(VA.isMemLoc() && "Argument not register or memory");
-+      llvm_unreachable("Passing arguments via the stack not yet implemented");
++      report_fatal_error("Passing arguments via the stack not yet implemented");
 +    }
 +  }
 +
@@ -114,7 +114,7 @@ index 0cfddbca01c..c1ffb362d63 100644
 +  if (isa<GlobalAddressSDNode>(Callee)) {
 +    Callee = lowerGlobalAddress(Callee, DAG);
 +  } else if (isa<ExternalSymbolSDNode>(Callee)) {
-+    llvm_unreachable(
++    report_fatal_error(
 +        "lowerExternalSymbol, needed for lowerCall, not yet handled");
 +  }
 +
@@ -285,10 +285,10 @@ index 504ce2d9bd2..2ecdf092e35 100644
        FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
           OpcodeStr#"\t$rs1, $rs2, $imm12", [(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12)]> {
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index 2ca98ef84b4..032fe06fa99 100644
+index df49f816b9a..eaaa841df00 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -68,6 +68,9 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+@@ -69,6 +69,9 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
          return false;
        MCOp = MCOperand::createReg(MO.getReg());
        break;
@@ -299,7 +299,7 @@ index 2ca98ef84b4..032fe06fa99 100644
        MCOp = MCOperand::createImm(MO.getImm());
        break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index c5d0c3c0c9d..1f9497f975e 100644
+index 53428e99a8a..ed8bfe98d20 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -86,3 +86,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

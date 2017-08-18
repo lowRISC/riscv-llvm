@@ -7,14 +7,14 @@ function.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp | 78 +++++++++++++++++++++------------
  lib/Target/RISCV/RISCVFrameLowering.h   |  3 ++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  | 66 ++++++++++++++++++----------
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  | 68 +++++++++++++++++-----------
  lib/Target/RISCV/RISCVRegisterInfo.h    |  8 ++++
  test/CodeGen/RISCV/large-stack.ll       | 27 ++++++++++++
- 5 files changed, 130 insertions(+), 52 deletions(-)
+ 5 files changed, 131 insertions(+), 53 deletions(-)
  create mode 100644 test/CodeGen/RISCV/large-stack.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 2c3fd785c32..b310f84ac96 100644
+index cd1c33059d5..ad01a88f12c 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -57,6 +57,49 @@ void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
@@ -80,7 +80,7 @@ index 2c3fd785c32..b310f84ac96 100644
      return;
  
 -  if (!isInt<12>(StackSize)) {
--    llvm_unreachable("Stack adjustment won't fit in signed 12-bit immediate");
+-    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
 -  }
 -
    // Allocate space on the stack if necessary
@@ -126,7 +126,7 @@ index 2c3fd785c32..b310f84ac96 100644
 -  }
 -
 -  if (!isInt<12>(StackSize)) {
--    llvm_unreachable("Stack adjustment won't fit in signed 12-bit immediate");
+-    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
 +    adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
 +              -StackSize + RVFI->getVarArgsSaveSize(),
 +              MachineInstr::FrameDestroy);
@@ -156,7 +156,7 @@ index 3bd8d0ffd84..e608a5e7d53 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index c0f90a09b73..fbc25e1c75f 100644
+index 63899acff17..55f1091f301 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -63,6 +63,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -194,6 +194,8 @@ index c0f90a09b73..fbc25e1c75f 100644
 -      llvm_unreachable("Unexpected opcode");
 -    }
 -  } else {
+-    report_fatal_error(
+-        "Frame offsets outside of the signed 12-bit range not supported");
 +  unsigned FrameRegFlags = 0;
 +
 +  if (!isInt<12>(Offset) && isInt<32>(Offset)) {
@@ -213,8 +215,7 @@ index c0f90a09b73..fbc25e1c75f 100644
 +    FrameReg = ScratchReg;
 +    FrameRegFlags = RegState::Kill;
 +  } else if (!isInt<32>(Offset)) {
-     llvm_unreachable(
--        "Frame offsets outside of the signed 12-bit range not supported");
++    llvm_unreachable(
 +        "Frame offsets outside of the signed 32-bit range not supported");
 +  }
 +
