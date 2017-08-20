@@ -12,10 +12,10 @@ calling convention and ABI.
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index d2fcbeadbc..38a0e14e00 100644
+index 37df2db4d5..23aec7634a 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8561,6 +8561,128 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8717,6 +8717,128 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -144,7 +144,7 @@ index d2fcbeadbc..38a0e14e00 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8675,6 +8797,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8831,6 +8953,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  

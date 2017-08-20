@@ -2,6 +2,8 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add the RISCV target
 
+Note that although early GCC RISC-V versions defined `__riscv__`, this has now
+been removed in favour of `__riscv`.
 ---
  lib/Basic/CMakeLists.txt        |  1 +
  lib/Basic/Targets.cpp           |  4 +++
@@ -32,7 +34,7 @@ index c9f8898cec..83c4a6ff2d 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index 9946f82405..89c231f9a1 100644
+index 3c1c08bb05..768334aea4 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -29,6 +29,7 @@
@@ -43,7 +45,7 @@ index 9946f82405..89c231f9a1 100644
  #include "Targets/SPIR.h"
  #include "Targets/Sparc.h"
  #include "Targets/SystemZ.h"
-@@ -357,6 +358,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -363,6 +364,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
    case llvm::Triple::r600:
      return new AMDGPUTargetInfo(Triple, Opts);
  
@@ -55,7 +57,7 @@ index 9946f82405..89c231f9a1 100644
      case llvm::Triple::Linux:
 diff --git a/lib/Basic/Targets/RISCV.cpp b/lib/Basic/Targets/RISCV.cpp
 new file mode 100644
-index 0000000000..5714e85743
+index 0000000000..2c110d0727
 --- /dev/null
 +++ b/lib/Basic/Targets/RISCV.cpp
 @@ -0,0 +1,46 @@
@@ -103,7 +105,7 @@ index 0000000000..5714e85743
 +
 +void RISCVTargetInfo::getTargetDefines(const LangOptions &Opts,
 +                                       MacroBuilder &Builder) const {
-+  Builder.defineMacro("__riscv__");
++  Builder.defineMacro("__riscv");
 +}
 diff --git a/lib/Basic/Targets/RISCV.h b/lib/Basic/Targets/RISCV.h
 new file mode 100644
@@ -185,7 +187,7 @@ index 5bf91f2be9..1c123b8d1b 100644
    ToolChains/TCE.cpp
    ToolChains/WebAssembly.cpp
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index 04090f567f..d7bc42a304 100644
+index b11629aace..c41c580b4d 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
 @@ -36,6 +36,7 @@
@@ -196,7 +198,7 @@ index 04090f567f..d7bc42a304 100644
  #include "ToolChains/Solaris.h"
  #include "ToolChains/TCE.h"
  #include "ToolChains/WebAssembly.h"
-@@ -3904,6 +3905,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+@@ -3909,6 +3910,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
        case llvm::Triple::avr:
          TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
          break;

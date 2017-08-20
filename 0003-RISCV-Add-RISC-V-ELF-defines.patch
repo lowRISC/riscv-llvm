@@ -10,16 +10,19 @@ Differential Revision: https://reviews.llvm.org/D23558
 Upstream commit: https://reviews.llvm.org/rL285708
 Upstream commit: https://reviews.llvm.org/rL285709
 Upstream commit: https://reviews.llvm.org/rL285730
+
+Includes additional relocation types submitted by Chih-Mao Chen,
+https://reviews.llvm.org/D36455 https://reviews.llvm.org/rL310914
 ---
- include/llvm/BinaryFormat/ELF.h               |  6 ++++
- include/llvm/BinaryFormat/ELFRelocs/RISCV.def | 50 +++++++++++++++++++++++++++
- include/llvm/Object/ELFObjectFile.h           | 13 +++++++
+ include/llvm/BinaryFormat/ELF.h               |  6 +++
+ include/llvm/BinaryFormat/ELFRelocs/RISCV.def | 59 +++++++++++++++++++++++++++
+ include/llvm/Object/ELFObjectFile.h           | 13 ++++++
  include/llvm/module.modulemap                 |  1 +
  lib/Object/ELF.cpp                            |  7 ++++
- lib/ObjectYAML/ELFYAML.cpp                    |  4 +++
+ lib/ObjectYAML/ELFYAML.cpp                    |  4 ++
  tools/llvm-objdump/llvm-objdump.cpp           |  1 +
  tools/llvm-readobj/ELFDumper.cpp              |  1 +
- 8 files changed, 83 insertions(+)
+ 8 files changed, 92 insertions(+)
  create mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
@@ -48,10 +51,10 @@ index 6d0d0398277..a4450ee13b4 100644
  #include "ELFRelocs/SystemZ.def"
 diff --git a/include/llvm/BinaryFormat/ELFRelocs/RISCV.def b/include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 new file mode 100644
-index 00000000000..9ec4955d26d
+index 00000000000..5cc4c0ec302
 --- /dev/null
 +++ b/include/llvm/BinaryFormat/ELFRelocs/RISCV.def
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,59 @@
 +
 +#ifndef ELF_RELOC
 +#error "ELF_RELOC must be defined"
@@ -102,6 +105,15 @@ index 00000000000..9ec4955d26d
 +ELF_RELOC(R_RISCV_RVC_LUI,           46)
 +ELF_RELOC(R_RISCV_GPREL_I,           47)
 +ELF_RELOC(R_RISCV_GPREL_S,           48)
++ELF_RELOC(R_RISCV_TPREL_I,           49)
++ELF_RELOC(R_RISCV_TPREL_S,           50)
++ELF_RELOC(R_RISCV_RELAX,             51)
++ELF_RELOC(R_RISCV_SUB6,              52)
++ELF_RELOC(R_RISCV_SET6,              53)
++ELF_RELOC(R_RISCV_SET8,              54)
++ELF_RELOC(R_RISCV_SET16,             55)
++ELF_RELOC(R_RISCV_SET32,             56)
++ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
 index 5b5b175005a..73011f6f9fe 100644
 --- a/include/llvm/Object/ELFObjectFile.h

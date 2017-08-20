@@ -12,7 +12,6 @@ Upstream commit: https://reviews.llvm.org/rL285712
 
 NOTE: This patch has been updated since being committed upstream.
 ---
- CMakeLists.txt                                  |  1 +
  docs/CompilerWriterInfo.rst                     |  4 ++
  lib/Target/LLVMBuild.txt                        |  1 +
  lib/Target/RISCV/CMakeLists.txt                 |  5 ++
@@ -22,7 +21,7 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
  lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 +++++++++
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++
- 10 files changed, 211 insertions(+)
+ 9 files changed, 210 insertions(+)
  create mode 100644 lib/Target/RISCV/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
@@ -31,18 +30,6 @@ NOTE: This patch has been updated since being committed upstream.
  create mode 100644 lib/Target/RISCV/TargetInfo/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 5148a0df4e8..fe5343bcadd 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -320,6 +320,7 @@ set(LLVM_ALL_TARGETS
-   MSP430
-   NVPTX
-   PowerPC
-+  RISCV
-   Sparc
-   SystemZ
-   X86
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
 index f1002308137..24375fb70d4 100644
 --- a/docs/CompilerWriterInfo.rst
