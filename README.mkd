@@ -38,3 +38,13 @@ developed in a separate branch.
 ## License
 All patches are under the [LLVM 
 license](http://llvm.org/docs/DeveloperPolicy.html#license).
+
+## Credits
+This RISC-V LLVM effort is led by Alex Bradbury at lowRISC CIC. Please email
+asb@lowrisc.org if your company would like to support this work.
+
+Thank you to everyone who has contributed review comments, suggestions, or
+code to this patchset and related support patches: Chandler Carruth, David
+Chisnall, David Craven, Hal Finkel, James Y Knight, David Majnemer, Ed Maste,
+Krzysztof Parzyszek, Jordy Portman, Philip Reames, Tim Northover, Eugene
+Zalenko, Florian Zeitz.
