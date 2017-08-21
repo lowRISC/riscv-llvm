@@ -2,6 +2,8 @@
 ## About
 This repository hosts a series of patches implementing a RISC-V backend for 
 LLVM. For more information, see:
+* The [most recent status update to the LLVM mailing 
+list](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116709.html)
 * [The lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status)
 * The [initial 
 RFC](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html) for 
