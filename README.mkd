@@ -1,7 +1,9 @@
 # RISC-V LLVM
 ## About
-This repository hosts a series of patches implementing a (currently 
-incomplete) RISC-V backend for LLVM. See the [initial 
+This repository hosts a series of patches implementing a RISC-V backend for 
+LLVM. For more information, see:
+* [The lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status)
+* The [initial 
 RFC](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html) for 
 more about the implementation approach being taken with this port.
 
@@ -13,14 +15,30 @@ new LLVM backend or who wants to better understand backend implementation.
 
 ## Status
 Patches are being submitted for review and eventual merging in to upstream
-LLVM. A number of patches laying the foundation for basic code generation have
-recently been published.
+LLVM. Our intent is to encourage potential contributors to engage directly 
+with upstream LLVM development, rather than creating a new 'downstream'.
+Unfortunately, collaboration in this way remains somewhat difficult while a 
+large portion of this patchset remains unreviewed and uncommitted upstream.
+Helping to review [patches submitted 
+upstream](https://reviews.llvm.org/differential/?authors=asb&order=updated) is 
+a fantastic way to help out.
+
+The current patchset allows the vast majority of the GCC torture suite to 
+compile and run for RV32I at O0 (1315 out of 1352 compile and run, 32 
+compile-time failures, 5 run-time failures). See the [lowRISC RISC-V LLVM 
+status page](http://www.lowrisc.org/llvm/status) for more details.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 
-this patchset with copious documentation. The primary author (Alex Bradbury, 
-lowRISC CIC) has detailed notes that need to be cleaned up to form the basis 
-of this.
+this patchset with copious documentation. The initial draft of this 
+documentation for the MC layer will be published by early September.
+
+A number of TODO items are described in this repo's [issues 
+page](https://github.com/lowrisc/riscv-llvm/issues). These issues should help 
+to co-ordinate efforts between different interested parties.
+
+A RISC-V Birds of a Feather proposal has been submitted for the upcoming [LLVM 
+Dev Meeting](http://llvm.org/devmtg/2017-10/).
 
 Our aim is that RISC-V is the cleanest and most documented LLVM backend. As 
 well as benefiting the wider LLVM community, this will make it substantially 
@@ -40,11 +58,15 @@ All patches are under the [LLVM
 license](http://llvm.org/docs/DeveloperPolicy.html#license).
 
 ## Credits
-This RISC-V LLVM effort is led by Alex Bradbury at lowRISC CIC. Please email
-asb@lowrisc.org if your company would like to support this work.
+This work has been led by Alex Bradbury at the not-for-profit lowRISC CIC. If 
+you would like to see my work on RISC-V LLVM to be sustained or to accelerate, 
+contributing sponsorship and/or development time is the best way to do that.
+Please contact asb@lowrisc.org if you would like to discuss sponsorship, or 
+have questions about code contributions that you can't discuss on the LLVM 
+mailing list.
 
 Thank you to everyone who has contributed review comments, suggestions, or
-code to this patchset and related support patches: Chandler Carruth, David
-Chisnall, David Craven, Hal Finkel, James Y Knight, David Majnemer, Ed Maste,
-Krzysztof Parzyszek, Jordy Portman, Philip Reames, Tim Northover, Eugene
-Zalenko, Florian Zeitz.
+code to this patchset and related support patches: Chandler Carruth, Chih-Mao 
+Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, James Y Knight, 
+David Majnemer, Ed Maste, Krzysztof Parzyszek, Jordy Portman, Philip Reames, 
+Tim Northover, Eugene Zalenko, Florian Zeitz.
