@@ -50,10 +50,10 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 30f3540e47c..7c4de5a5475 100644
+index d1080ccafc3..81c58d45d3c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -284,6 +284,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -285,6 +285,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation
@@ -163,7 +163,7 @@ index 30f3540e47c..7c4de5a5475 100644
  #include "RISCVGenCallingConv.inc"
  
  // Transform physical registers into virtual registers
-@@ -300,7 +403,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -301,7 +404,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -173,7 +173,7 @@ index 30f3540e47c..7c4de5a5475 100644
  
    if (IsVarArg) {
      report_fatal_error("VarArg not supported");
-@@ -311,27 +416,60 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -312,27 +417,60 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -242,7 +242,7 @@ index 30f3540e47c..7c4de5a5475 100644
      }
    }
    return Chain;
-@@ -367,39 +505,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -368,39 +506,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  

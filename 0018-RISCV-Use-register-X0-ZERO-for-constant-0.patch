@@ -16,10 +16,10 @@ physical register being used where a virtual register is expected.
  3 files changed, 27 insertions(+), 17 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 0daad5c6a96..94b6ce76be2 100644
+index 84f27d9681f..e6515b511c8 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -43,6 +43,8 @@ public:
+@@ -42,6 +42,8 @@ public:
  }
  
  void RISCVDAGToDAGISel::Select(SDNode *Node) {
@@ -28,7 +28,7 @@ index 0daad5c6a96..94b6ce76be2 100644
    // Dump information about the Node being selected.
    DEBUG(errs() << "Selecting: "; Node->dump(CurDAG); errs() << "\n");
  
-@@ -53,6 +55,26 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
+@@ -52,6 +54,26 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
      return;
    }
  

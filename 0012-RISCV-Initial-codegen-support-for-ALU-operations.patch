@@ -22,7 +22,7 @@ target-specific generation of libc functions like strcmp.
  lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  64 ++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 +++++++++++
  lib/Target/RISCV/RISCVISelLowering.cpp  | 178 ++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
@@ -38,7 +38,7 @@ target-specific generation of libc functions like strcmp.
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1068 insertions(+), 34 deletions(-)
+ 24 files changed, 1067 insertions(+), 34 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -336,10 +336,10 @@ index 00000000000..3048fa75e3f
 +#endif
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 new file mode 100644
-index 00000000000..0daad5c6a96
+index 00000000000..84f27d9681f
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,63 @@
 +//===-- RISCVISelDAGToDAG.cpp - A dag to dag inst selector for RISCV ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -357,7 +357,6 @@ index 00000000000..0daad5c6a96
 +#include "MCTargetDesc/RISCVMCTargetDesc.h"
 +#include "RISCVTargetMachine.h"
 +#include "llvm/CodeGen/SelectionDAGISel.h"
-+#include "llvm/IR/Function.h" // To access function attributes.
 +#include "llvm/Support/Debug.h"
 +#include "llvm/Support/MathExtras.h"
 +#include "llvm/Support/raw_ostream.h"
@@ -1049,7 +1048,7 @@ index f04de217bf0..df707746d04 100644
  )>;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
 new file mode 100644
-index 00000000000..865c243b96f
+index 00000000000..344c4c1116f
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.cpp
 @@ -0,0 +1,32 @@
@@ -1066,9 +1065,9 @@ index 00000000000..865c243b96f
 +//
 +//===----------------------------------------------------------------------===//
 +
++#include "RISCVSubtarget.h"
 +#include "RISCV.h"
 +#include "RISCVFrameLowering.h"
-+#include "RISCVSubtarget.h"
 +#include "llvm/Support/TargetRegistry.h"
 +
 +using namespace llvm;

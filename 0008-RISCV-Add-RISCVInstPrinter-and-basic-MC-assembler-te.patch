@@ -229,17 +229,17 @@ index e48f04963ff..92daae30e3f 100644
 +required_libraries = MC RISCVAsmPrinter RISCVInfo Support
  add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 41be0a2084b..0e7d4d61f48 100644
+index 41be0a2084b..0f68dd7aa05 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-@@ -13,6 +13,7 @@
+@@ -12,6 +12,7 @@
+ //===----------------------------------------------------------------------===//
  
  #include "RISCVMCTargetDesc.h"
- #include "RISCVMCAsmInfo.h"
 +#include "InstPrinter/RISCVInstPrinter.h"
+ #include "RISCVMCAsmInfo.h"
  #include "llvm/ADT/STLExtras.h"
  #include "llvm/MC/MCAsmInfo.h"
- #include "llvm/MC/MCInstrInfo.h"
 @@ -47,6 +48,14 @@ static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
    return new RISCVMCAsmInfo(TT);
  }

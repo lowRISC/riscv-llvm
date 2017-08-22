@@ -14,13 +14,13 @@ aligned fixups.
 
 Differential Revision: https://reviews.llvm.org/D23568
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 146 ++++++++++++++++++++-
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 145 ++++++++++++++++++++-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 ++++++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 +++++++++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   1 +
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 +++-
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  61 ++++++++-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  58 ++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  96 ++++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++++
  lib/Target/RISCV/RISCVInstrFormats.td              |  36 +++--
@@ -30,7 +30,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  test/MC/RISCV/hilo-constaddr.s                     |  39 ++++++
  test/MC/RISCV/relocations.s                        |  65 +++++++++
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 16 files changed, 764 insertions(+), 25 deletions(-)
+ 16 files changed, 760 insertions(+), 25 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -40,17 +40,17 @@ Differential Revision: https://reviews.llvm.org/D23568
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index bb015569666..c9b94d59149 100644
+index b476013c9ea..2a4d31b8319 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -9,6 +9,7 @@
+@@ -8,6 +8,7 @@
+ //===----------------------------------------------------------------------===//
  
  #include "MCTargetDesc/RISCVBaseInfo.h"
- #include "MCTargetDesc/RISCVMCTargetDesc.h"
 +#include "MCTargetDesc/RISCVMCExpr.h"
- #include "llvm/MC/MCParser/MCAsmLexer.h"
- #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
- #include "llvm/MC/MCParser/MCTargetAsmParser.h"
+ #include "MCTargetDesc/RISCVMCTargetDesc.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/StringSwitch.h"
 @@ -53,6 +54,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
    OperandMatchResultTy parseImmediate(OperandVector &Operands);
    OperandMatchResultTy parseRegister(OperandVector &Operands);
@@ -145,16 +145,14 @@ index bb015569666..c9b94d59149 100644
      Op->Imm.Val = Val;
      Op->StartLoc = S;
      Op->EndLoc = E;
-@@ -407,9 +450,52 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -407,9 +450,51 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
      break;
    }
 +  case AsmToken::Percent:
 +    return parseOperandWithModifier(Operands);
-+    break;
-   }
- 
--  Operands.push_back(RISCVOperand::createImm(Res, S, E));
++  }
++
 +  Operands.push_back(RISCVOperand::createImm(Res, S, E, getContext()));
 +  return MatchOperand_Success;
 +}
@@ -192,14 +190,15 @@ index bb015569666..c9b94d59149 100644
 +  const MCExpr *SubExpr;
 +  if (getParser().parseParenExpression(SubExpr, E)) {
 +    return MatchOperand_ParseFail;
-+  }
-+
+   }
+ 
+-  Operands.push_back(RISCVOperand::createImm(Res, S, E));
 +  const MCExpr *ModExpr = RISCVMCExpr::create(SubExpr, VK, getContext());
 +  Operands.push_back(RISCVOperand::createImm(ModExpr, S, E, getContext()));
    return MatchOperand_Success;
  }
  
-@@ -494,6 +580,54 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -494,6 +579,54 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
  
@@ -463,7 +462,7 @@ index 93c981e2a2a..95d4242e404 100644
  MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
 new file mode 100644
-index 00000000000..a4a3af6e2b1
+index 00000000000..115229414d5
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
 @@ -0,0 +1,46 @@
@@ -505,16 +504,16 @@ index 00000000000..a4a3af6e2b1
 +  // instructions
 +  fixup_riscv_branch,
 +
-+  // Marker
-+  LastTargetFixupKind,
-+  NumTargetFixupKinds = LastTargetFixupKind - FirstTargetFixupKind
++  // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
++  fixup_riscv_invalid,
++  NumTargetFixupKinds = fixup_riscv_invalid - FirstTargetFixupKind
 +};
 +} // end namespace RISCV
 +} // end namespace llvm
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..e4bba0ff08a 100644
+index f4eaf06f622..d3810480bfa 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -586,7 +585,7 @@ index f4eaf06f622..e4bba0ff08a 100644
  }
  
  unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
-@@ -118,11 +125,53 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+@@ -118,11 +125,50 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
  
    const MCOperand &MO = MI.getOperand(OpNo);
  
@@ -602,7 +601,7 @@ index f4eaf06f622..e4bba0ff08a 100644
 +         "getImmOpValue expects only expressions or immediates");
 +  const MCExpr *Expr = MO.getExpr();
 +  MCExpr::ExprKind Kind = Expr->getKind();
-+  RISCV::Fixups FixupKind;
++  RISCV::Fixups FixupKind = RISCV::fixup_riscv_invalid;
 +  if (Kind == MCExpr::Target) {
 +    const RISCVMCExpr *RVExpr = cast<RISCVMCExpr>(Expr);
 +
@@ -610,7 +609,6 @@ index f4eaf06f622..e4bba0ff08a 100644
 +    case RISCVMCExpr::VK_RISCV_None:
 +    case RISCVMCExpr::VK_RISCV_Invalid:
 +      llvm_unreachable("Unhandled fixup kind!");
-+      break;
 +    case RISCVMCExpr::VK_RISCV_LO:
 +      FixupKind = MIFrm == RISCVII::FrmI ? RISCV::fixup_riscv_lo12_i
 +                                         : RISCV::fixup_riscv_lo12_s;
@@ -628,12 +626,10 @@ index f4eaf06f622..e4bba0ff08a 100644
 +      FixupKind = RISCV::fixup_riscv_jal;
 +    } else if (MIFrm == RISCVII::FrmSB) {
 +      FixupKind = RISCV::fixup_riscv_branch;
-+    } else {
-+      llvm_unreachable("Unhandled expression!");
 +    }
-+  } else {
-+    llvm_unreachable("Unhandled expression!");
 +  }
++
++  assert(FixupKind != RISCV::fixup_riscv_invalid && "Unhandled expression!");
 +
 +  Fixups.push_back(
 +      MCFixup::create(0, Expr, MCFixupKind(FixupKind), MI.getLoc()));

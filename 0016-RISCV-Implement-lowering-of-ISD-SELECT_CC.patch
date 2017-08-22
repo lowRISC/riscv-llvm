@@ -3,15 +3,15 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Implement lowering of ISD::SELECT_CC
 
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp | 124 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 125 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   8 ++-
  lib/Target/RISCV/RISCVInstrInfo.td     |  11 +++
  test/CodeGen/RISCV/select-cc.ll        |  56 +++++++++++++++
- 4 files changed, 198 insertions(+), 1 deletion(-)
+ 4 files changed, 199 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4f427a17e45..17889176dfc 100644
+index 4f427a17e45..c66381a03dc 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -31,11 +31,12 @@ index 4f427a17e45..17889176dfc 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -96,6 +99,125 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -96,6 +99,126 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
-+SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const {
++SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
++                                            SelectionDAG &DAG) const {
 +  SDValue LHS = Op.getOperand(0);
 +  SDValue RHS = Op.getOperand(1);
 +  SDValue TrueV = Op.getOperand(2);
@@ -157,7 +158,7 @@ index 4f427a17e45..17889176dfc 100644
  // Calling Convention Implementation
  #include "RISCVGenCallingConv.inc"
  
-@@ -331,6 +453,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -331,6 +454,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";

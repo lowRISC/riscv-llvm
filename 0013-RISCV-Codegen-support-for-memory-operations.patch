@@ -22,7 +22,7 @@ in turn enabled code generation for `ret i32 <CONST>`.
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
-index 1b6140203c8..44ca4f9b29a 100644
+index 1b6140203c8..a6bf14f9a7d 100644
 --- a/lib/Target/RISCV/RISCV.h
 +++ b/lib/Target/RISCV/RISCV.h
 @@ -15,15 +15,22 @@
@@ -36,8 +36,8 @@ index 1b6140203c8..44ca4f9b29a 100644
  #include "llvm/Target/TargetMachine.h"
  
  namespace llvm {
-+class AsmPrinter;
  class RISCVTargetMachine;
++class AsmPrinter;
  class MCInst;
  class MachineInstr;
  

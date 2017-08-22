@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 17889176dfc..7d776580176 100644
+index c66381a03dc..808151a7c65 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,17 +49,57 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -139,10 +139,10 @@ index 17889176dfc..7d776580176 100644
 +  }
 +}
 +
- SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const {
+ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
+                                             SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-   SDValue RHS = Op.getOperand(1);
-@@ -346,8 +407,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -347,8 +408,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {

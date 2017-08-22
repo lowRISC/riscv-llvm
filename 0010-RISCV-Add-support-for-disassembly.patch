@@ -284,7 +284,7 @@ index eb0beb028ad..f4eaf06f622 100644
  
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 0e7d4d61f48..0c582d0a48c 100644
+index 0f68dd7aa05..2b35eab577b 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -29,6 +29,9 @@

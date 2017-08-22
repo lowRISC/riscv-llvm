@@ -9,20 +9,20 @@ Subject: [RISCV] Codegen for conditional branches
  lib/Target/RISCV/RISCVInstrInfo.cpp    | 33 ++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h      | 11 +++++
  lib/Target/RISCV/RISCVInstrInfo.td     | 40 ++++++++++++----
- lib/Target/RISCV/RISCVRegisterInfo.cpp | 30 +++++++++++-
+ lib/Target/RISCV/RISCVRegisterInfo.cpp | 31 ++++++++++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |  2 +
  test/CodeGen/RISCV/branch.ll           | 83 ++++++++++++++++++++++++++++++++++
- 9 files changed, 195 insertions(+), 11 deletions(-)
+ 9 files changed, 196 insertions(+), 11 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
-index 44ca4f9b29a..96eacb5325a 100644
+index a6bf14f9a7d..56c0abdab32 100644
 --- a/lib/Target/RISCV/RISCV.h
 +++ b/lib/Target/RISCV/RISCV.h
 @@ -24,8 +24,11 @@
  namespace llvm {
- class AsmPrinter;
  class RISCVTargetMachine;
+ class AsmPrinter;
 +class MCContext;
  class MCInst;
 +class MCOperand;
@@ -96,7 +96,7 @@ index 77206a80640..b756c69124b 100644
 +    llvm_unreachable("Can't load this register from stack slot");
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 27492c869db..7c0564ff99e 100644
+index 27492c869db..3fee03252f2 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -33,6 +33,17 @@ public:
@@ -106,7 +106,7 @@ index 27492c869db..7c0564ff99e 100644
 +
 +  void storeRegToStackSlot(MachineBasicBlock &MBB,
 +                           MachineBasicBlock::iterator MBBI, unsigned SrcReg,
-+                           bool isKill, int FrameIndex,
++                           bool IsKill, int FrameIndex,
 +                           const TargetRegisterClass *RC,
 +                           const TargetRegisterInfo *TRI) const override;
 +
@@ -193,10 +193,10 @@ index 9a768ba6308..504ce2d9bd2 100644
  class LD_ri<bits<3> funct3, string OpcodeStr> :
        FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 6cc5af12ad5..53428e99a8a 100644
+index 6cc5af12ad5..cfe6b7d76b6 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -49,10 +49,38 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+@@ -49,10 +49,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
    return Reserved;
  }
  
@@ -208,7 +208,10 @@ index 6cc5af12ad5..53428e99a8a 100644
                                              int SPAdj, unsigned FIOperandNum,
                                              RegScavenger *RS) const {
 -  report_fatal_error("Subroutines not supported yet");
-+  assert(SPAdj == 0 && "Unexpected");
++  // TODO: this implementation is a temporary placeholder which does just
++  // enough to allow other aspects of code generation to be tested
++
++  assert(SPAdj == 0 && "Unexpected non-zero SPAdj value");
 +
 +  MachineInstr &MI = *II;
 +  MachineFunction &MF = *MI.getParent()->getParent();
@@ -220,19 +223,17 @@ index 6cc5af12ad5..53428e99a8a 100644
 +  int Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg);
 +  Offset += MI.getOperand(FIOperandNum + 1).getImm();
 +
-+  if (!TFI->hasFP(MF)) {
-+    report_fatal_error("eliminateFrameIndex currently requires hasFP");
-+  }
++  assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
 +
-+  // If the offset fits in an immediate, then directly encode it
-+  if (isInt<12>(Offset)) {
-+    MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
-+    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
-+    return;
-+  } else {
++  // Offsets must be directly encoded in a 12-bit immediate field
++  if (!isInt<12>(Offset)) {
 +    report_fatal_error(
 +        "Frame offsets outside of the signed 12-bit range not supported");
 +  }
++
++  MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
++  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
++  return;
  }
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {

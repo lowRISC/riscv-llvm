@@ -23,9 +23,9 @@ NOTE: This patch has been updated since being committed upstream.
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 +++++++++++++++++++++
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 ++++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 58 ++++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.h              |  5 +-
+ lib/Target/RISCV/RISCVTargetMachine.h              |  3 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
- 13 files changed, 438 insertions(+), 9 deletions(-)
+ 13 files changed, 437 insertions(+), 8 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
@@ -554,21 +554,17 @@ index 00000000000..7c98b1c8f32
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
-index 6402a5f652d..5c2ec956ee2 100644
+index 6969db2cda3..5c2ec956ee2 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.h
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
-@@ -14,9 +14,10 @@
+@@ -14,6 +14,7 @@
  #ifndef LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
  #define LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
  
 +#include "MCTargetDesc/RISCVMCTargetDesc.h"
  #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
--#include "llvm/Target/TargetMachine.h"
  #include "llvm/IR/DataLayout.h"
-+#include "llvm/Target/TargetMachine.h"
- 
- namespace llvm {
- class RISCVTargetMachine : public LLVMTargetMachine {
+ #include "llvm/Target/TargetMachine.h"
 @@ -34,8 +35,6 @@ public:
      return TLOF.get();
    }

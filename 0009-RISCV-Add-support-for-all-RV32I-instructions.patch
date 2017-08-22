@@ -20,7 +20,7 @@ Differential Revision: https://reviews.llvm.org/D23566
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 63b21058461..bb015569666 100644
+index cb820379bbb..b476013c9ea 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -7,6 +7,7 @@
@@ -29,8 +29,8 @@ index 63b21058461..bb015569666 100644
  
 +#include "MCTargetDesc/RISCVBaseInfo.h"
  #include "MCTargetDesc/RISCVMCTargetDesc.h"
- #include "llvm/MC/MCParser/MCAsmLexer.h"
- #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/StringSwitch.h"
 @@ -30,6 +31,9 @@ struct RISCVOperand;
  class RISCVAsmParser : public MCTargetAsmParser {
    SMLoc getLoc() const { return getParser().getTok().getLoc(); }

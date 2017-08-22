@@ -180,7 +180,7 @@ index 00000000000..78d9cf53b5d
 +}
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.h b/lib/Target/RISCV/RISCVTargetMachine.h
 new file mode 100644
-index 00000000000..6402a5f652d
+index 00000000000..6969db2cda3
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.h
 @@ -0,0 +1,41 @@
@@ -201,8 +201,8 @@ index 00000000000..6402a5f652d
 +#define LLVM_LIB_TARGET_RISCV_RISCVTARGETMACHINE_H
 +
 +#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
-+#include "llvm/Target/TargetMachine.h"
 +#include "llvm/IR/DataLayout.h"
++#include "llvm/Target/TargetMachine.h"
 +
 +namespace llvm {
 +class RISCVTargetMachine : public LLVMTargetMachine {
