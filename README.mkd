@@ -73,11 +73,53 @@ backend](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html)
 All patches are under the [LLVM 
 license](http://llvm.org/docs/DeveloperPolicy.html#license).
 
+## How to build
+There are two things to note:
+
+1. This repository currently serves a dual purpose - providing a clean and 
+constantly rebased "perfect" history of the full RISC-V patchset, as well as 
+being a way to grab all patches in one go, including those that haven't yet 
+been committed upstream. As more and more patches are committed upstream, this 
+repository will become mainly interesting as a reference on how to implement 
+an LLVM backend, and aid in understanding the RISC-V backend. In the near 
+future, the answer to "how can I test out the latest RISC-V LLVM support?" 
+will be "check out the latest upstream LLVM repository and build it".
+2. This LLVM and Clang work is not quite at a stage where end-users are likely 
+to find it useful. However, building and trying it out is a great first step 
+towards contributing to the development effort.
+
+You might build LLVM and Clang with these patches applied by doing something 
+like the below. See the [LLVM 
+documentation](http://llvm.org/docs/GettingStarted.html) for more general 
+guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
+
+    export REV=311271 # Check the most recent commit on this repo to ensure this is correct
+    svn co http://llvm.org/svn/llvm-project/llvm/trunk@$REV llvm
+    cd tools
+    svn co http://llvm.org/svn/llvm-project/cfe/trunk@$REV clang
+    cd ..
+    for P in /path/to/riscv-llvm/*.patch; do patch -p1 < $P; done
+    for P in /patch/to/riscv-llvm/clang/*.patch; do patch -d tools/clang -p1 < $P; done
+    mkdir build
+    cd build
+    cmake -G Ninja -DCMAKE_BUILD_TYPE="Debug" \
+      -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+      -DLLVM_OPTIMIZED_TABLEGEN=True \
+      -DLLVM_BUILD_TESTS=True \
+      -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../
+    cmake --build .
+
+You may then want to run tests:
+
+    ./bin/llvm-lit -s -i -v test/MC/RISCV       # RISC-V MC-layer tests
+    ./bin/llvm-lit -s -i -v test/CodeGen/RISCV  # RISC-V CodeGen tests
+    ./bin/llvm-lit -s -i -v test                # All tests
+
 ## Credits
 This work has been led by [Alex Bradbury](https://twitter.com/asbradbury) at 
-the not-for-profit lowRISC CIC. If you would like to see my work on RISC-V 
-LLVM to be sustained or to accelerate, contributing sponsorship and/or 
-development time is the best way to do that.
+lowRISC CIC, a not for profit company. If your employer would like to see my 
+work on RISC-V LLVM to be sustained or to accelerate, contributing sponsorship 
+and/or development time is the best way to do that.
 Please contact asb@lowrisc.org if you would like to discuss sponsorship, or 
 have questions about code contributions that you can't discuss on the LLVM 
 mailing list.
