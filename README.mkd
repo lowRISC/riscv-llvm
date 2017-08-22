@@ -55,20 +55,35 @@ repository will eventually host compiler support for that feature, although
 this may need time to mature before being ready to upstream and so may be 
 developed in a separate branch.
 
+## RFCs
+This work has so far produced a number of request for comment (RFC) threads on 
+the LLVM mailing list:
+* [RFC/bikeshedding: Separation of instruction and pattern definitions in LLVM 
+backends](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116635.html)
+* [[RFC] The future of the `va_arg`
+instruction](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116337.html)
+* [RFC: Setting MachineInstr flags through 
+storeRegToStackSlot](http://lists.llvm.org/pipermail/llvm-dev/2017-February/110281.html)
+* [RFC: Improving the experience of first-time 
+contributors](http://lists.llvm.org/pipermail/llvm-dev/2016-November/106696.html)
+* [[RFC] RISC-V 
+backend](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html)
+
 ## License
 All patches are under the [LLVM 
 license](http://llvm.org/docs/DeveloperPolicy.html#license).
 
 ## Credits
-This work has been led by Alex Bradbury at the not-for-profit lowRISC CIC. If 
-you would like to see my work on RISC-V LLVM to be sustained or to accelerate, 
-contributing sponsorship and/or development time is the best way to do that.
+This work has been led by [Alex Bradbury](https://twitter.com/asbradbury) at 
+the not-for-profit lowRISC CIC. If you would like to see my work on RISC-V 
+LLVM to be sustained or to accelerate, contributing sponsorship and/or 
+development time is the best way to do that.
 Please contact asb@lowrisc.org if you would like to discuss sponsorship, or 
 have questions about code contributions that you can't discuss on the LLVM 
 mailing list.
 
-Thank you to everyone who has contributed review comments, suggestions, or
+Thank you to everyone who has contributed review comments, suggestions, or 
 code to this patchset and related support patches: Chandler Carruth, Chih-Mao 
 Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, James Y Knight, 
-David Majnemer, Ed Maste, Krzysztof Parzyszek, Jordy Portman, Philip Reames, 
-Tim Northover, Eugene Zalenko, Florian Zeitz.
+David Majnemer, Ed Maste, Dylan McKay, Krzysztof Parzyszek, Jordy Portman, 
+Philip Reames, Tim Northover, Eugene Zalenko, Florian Zeitz.
