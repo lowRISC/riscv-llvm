@@ -50,7 +50,7 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d1080ccafc3..81c58d45d3c 100644
+index 39f67801931..860ef64f365 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -285,6 +285,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,

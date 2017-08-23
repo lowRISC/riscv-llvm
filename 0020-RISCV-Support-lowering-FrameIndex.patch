@@ -5,10 +5,10 @@ Subject: [RISCV] Support lowering FrameIndex
 ---
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 24 ++++++++++++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  4 ++--
- lib/Target/RISCV/RISCVInstrInfo.td     | 18 ++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td     | 19 +++++++++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp | 33 ++++++++++++++++++++++++++++-----
  test/CodeGen/RISCV/frame.ll            | 33 +++++++++++++++++++++++++++++++++
- 5 files changed, 105 insertions(+), 7 deletions(-)
+ 5 files changed, 106 insertions(+), 7 deletions(-)
  create mode 100644 test/CodeGen/RISCV/frame.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
@@ -76,7 +76,7 @@ index c5a0288259d..dca1dda9e15 100644
      llvm_unreachable("Can't load this register from stack slot");
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 45f703d5ca4..7a3265722dd 100644
+index 80a21d63f65..10030536abe 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -97,6 +97,14 @@ def simm21_lsb0 : Operand<OtherVT> {
@@ -94,37 +94,38 @@ index 45f703d5ca4..7a3265722dd 100644
  // Extract least significant 12 bits from an immediate value and sign extend
  // them.
  def LO12Sext : SDNodeXForm<imm, [{
-@@ -224,6 +232,9 @@ defm : LD_Pat<load, LW>;
- defm : LD_Pat<zextloadi8, LBU>;
- defm : LD_Pat<zextloadi16, LHU>;
+@@ -297,6 +305,10 @@ def : PatGprUimm5<srl, SRLI>;
+ def : PatGprGpr<sra, SRA>;
+ def : PatGprUimm5<sra, SRAI>;
+ 
++// Add with a frameindex, used to legalize frameindex copies and necessary to
++// keep tblgen happy
++def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr), [(set GPR:$dst, ADDRii:$addr)]>;
++
+ /// Setcc
+ 
+ def : PatGprGpr<setlt, SLT>;
+@@ -382,6 +394,10 @@ defm : LdPat<load, LW>;
+ defm : LdPat<zextloadi8, LBU>;
+ defm : LdPat<zextloadi16, LHU>;
  
 +def LW_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
-+                 [(set GPR:$dst, (load ADDRii:$addr))]>;
++                   [(set GPR:$dst, (load ADDRii:$addr))]>;
 +
- // Operands for stores are in the order srcreg, base, offset rather than
- // reflecting the order these fields are specified in the instruction
- // encoding.
-@@ -247,6 +258,9 @@ defm : ST_Pat<truncstorei8, SB>;
- defm : ST_Pat<truncstorei16, SH>;
- defm : ST_Pat<store, SW>;
++
+ /// Stores
+ 
+ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
+@@ -393,6 +409,9 @@ defm : StPat<truncstorei8, SB>;
+ defm : StPat<truncstorei16, SH>;
+ defm : StPat<store, SW>;
  
 +def SW_FI : Pseudo<(outs), (ins GPR:$src, MEMii:$addr),
 +                   [(store GPR:$src, ADDRii:$addr)]>;
 +
- class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
-       FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-          OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
-@@ -260,6 +274,10 @@ def XORI  : ALU_ri<0b100, "xori", xor>;
- def ORI   : ALU_ri<0b110, "ori", or>;
- def ANDI  : ALU_ri<0b111, "andi", and>;
+ /// Other pseudo-instructions
  
-+// Add with a frameindex, used to legalize frameindex copies and necessary to 
-+// keep tblgen happy
-+def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr), [(set GPR:$dst, ADDRii:$addr)]>;
-+
- class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
-       FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
-          OpcodeStr#"\t$rd, $rs1, $shamt", [(set GPR:$rd, (OpNode GPR:$rs1, uimm5:$shamt))]>
+ // Pessimistically assume the stack pointer will be clobbered
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 index 37157de882f..6fdfc1589ca 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp

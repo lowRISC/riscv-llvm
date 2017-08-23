@@ -6,6 +6,10 @@ This roughly constitutes the minimum necessary to get code generation for
 simple ALU operations to work. Frame handling, and generation of full function
 prologue/epilogues remains unimplemented until a future patch.
 
+Instruction and pattern definitions are separated from each other, as
+discussed in
+<http://lists.llvm.org/pipermail/llvm-dev/2017-August/116635.html>.
+
 Note that RISCVCallingConv.td does not implement the full details of the
 RISC-V calling convention at this stage. We also choose not to mark the stack
 pointer as a callee-saved register, as the function prologue and epilogue
@@ -13,11 +17,13 @@ inserter will manage it instead.
 
 A default SelectionDAGTargetInfo is needed in RISCVSubtarget to support
 target-specific generation of libc functions like strcmp.
+
+Differential Revision: https://reviews.llvm.org/D29933
 ---
  lib/Target/RISCV/CMakeLists.txt         |  11 ++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
  lib/Target/RISCV/RISCV.h                |  31 ++++++
- lib/Target/RISCV/RISCV.td               |   1 +
+ lib/Target/RISCV/RISCV.td               |   5 +-
  lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 ++++++++++++
  lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
@@ -27,7 +33,7 @@ target-specific generation of libc functions like strcmp.
  lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
  lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
- lib/Target/RISCV/RISCVInstrInfo.td      |  64 +++++++-----
+ lib/Target/RISCV/RISCVInstrInfo.td      | 105 ++++++++++++++-----
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  60 +++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 +++++++
@@ -38,7 +44,7 @@ target-specific generation of libc functions like strcmp.
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1067 insertions(+), 34 deletions(-)
+ 24 files changed, 1110 insertions(+), 36 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -137,10 +143,10 @@ index 00000000000..1b6140203c8
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index 19e11839ac3..8bdd4b19c4c 100644
+index 19e11839ac3..0cf06a7647b 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -10,6 +10,7 @@
+@@ -10,10 +10,13 @@
  include "llvm/Target/Target.td"
  
  include "RISCVRegisterInfo.td"
@@ -148,6 +154,13 @@ index 19e11839ac3..8bdd4b19c4c 100644
  include "RISCVInstrInfo.td"
  
  
+-def RISCVInstrInfo : InstrInfo;
++def RISCVInstrInfo : InstrInfo {
++  let guessInstructionProperties = 0;
++}
+ 
+ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+                                       "Implements RV64">;
 diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
 new file mode 100644
 index 00000000000..1c213b6c7e9
@@ -732,7 +745,7 @@ index 00000000000..a89198a157b
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 1a5f32ecabe..2d78e03344f 100644
+index 1a5f32ecabe..8efeed3f594 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,6 +13,11 @@
@@ -762,89 +775,190 @@ index 1a5f32ecabe..2d78e03344f 100644
    let ParserMatchClass = SImmAsmOperand<12>;
    let EncoderMethod = "getImmOpValue";
    let DecoderMethod = "decodeSImmOperand<12>";
-@@ -95,6 +100,11 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
+@@ -83,6 +88,7 @@ def simm21_lsb0 : Operand<i32> {
+ // like <http://lists.llvm.org/pipermail/llvm-dev/2016-September/105027.html>
+ // is adopted.
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
+ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
+              "lui\t$rd, $imm20", []>;
+ 
+@@ -94,11 +100,12 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
+ 
  def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
- 
-+let isReturn=1, isTerminator=1, isBarrier=1 in {
-+  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-+                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 +}
-+
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
  class Bcc<bits<3> funct3, string OpcodeStr> :
        FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
-          OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
-@@ -129,45 +139,45 @@ def SB  : ST_ri<0b000, "sb">;
+-         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
+-}
++         OpcodeStr#"\t$rs1, $rs2, $imm12", []>;
+ 
+ def BEQ   : Bcc<0b000, "beq">;
+ def BNE   : Bcc<0b001, "bne">;
+@@ -107,11 +114,10 @@ def BGE   : Bcc<0b101, "bge">;
+ def BLTU  : Bcc<0b110, "bltu">;
+ def BGEU  : Bcc<0b111, "bgeu">;
+ 
++let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+ class LD_ri<bits<3> funct3, string OpcodeStr> :
+       FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+-         OpcodeStr#"\t$rd, ${imm12}(${rs1})", []> {
+-  let mayLoad = 1;
+-}
++         OpcodeStr#"\t$rd, ${imm12}(${rs1})", []>;
+ 
+ def LB   : LD_ri<0b000, "lb">;
+ def LH   : LD_ri<0b001, "lh">;
+@@ -119,21 +125,19 @@ def LW   : LD_ri<0b010, "lw">;
+ def LBU  : LD_ri<0b100, "lbu">;
+ def LHU  : LD_ri<0b101, "lhu">;
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
+ class ST_ri<bits<3> funct3, string OpcodeStr> :
+       FS<funct3, 0b0100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm12:$imm12),
+-         OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []> {
+-  let mayStore = 1;
+-}
++         OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []>;
+ 
+ def SB  : ST_ri<0b000, "sb">;
  def SH  : ST_ri<0b001, "sh">;
  def SW  : ST_ri<0b010, "sw">;
  
--class ALU_ri<bits<3> funct3, string OpcodeStr> :
-+class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ class ALU_ri<bits<3> funct3, string OpcodeStr> :
        FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
 -         OpcodeStr#"\t$rd, $rs1, $imm12", []>
-+         OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
- {
- }
+-{
+-}
++         OpcodeStr#"\t$rd, $rs1, $imm12", []>;
  
--def ADDI  : ALU_ri<0b000, "addi">;
--def SLTI  : ALU_ri<0b010, "slti">;
--def SLTIU : ALU_ri<0b011, "sltiu">;
--def XORI  : ALU_ri<0b100, "xori">;
--def ORI   : ALU_ri<0b110, "ori">;
--def ANDI  : ALU_ri<0b111, "andi">;
-+def ADDI  : ALU_ri<0b000, "addi", add>;
-+def SLTI  : ALU_ri<0b010, "slti", setlt>;
-+def SLTIU : ALU_ri<0b011, "sltiu", setult>;
-+def XORI  : ALU_ri<0b100, "xori", xor>;
-+def ORI   : ALU_ri<0b110, "ori", or>;
-+def ANDI  : ALU_ri<0b111, "andi", and>;
+ def ADDI  : ALU_ri<0b000, "addi">;
+ def SLTI  : ALU_ri<0b010, "slti">;
+@@ -142,21 +146,19 @@ def XORI  : ALU_ri<0b100, "xori">;
+ def ORI   : ALU_ri<0b110, "ori">;
+ def ANDI  : ALU_ri<0b111, "andi">;
  
--class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr> :
-+class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr> :
        FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
 -         OpcodeStr#"\t$rd, $rs1, $shamt", []>
-+         OpcodeStr#"\t$rd, $rs1, $shamt", [(set GPR:$rd, (OpNode GPR:$rs1, uimm5:$shamt))]>
- {
- }
+-{
+-}
++         OpcodeStr#"\t$rd, $rs1, $shamt", []>;
  
--def SLLI : SHIFT32_ri<0, 0b001, "slli">;
--def SRLI : SHIFT32_ri<0, 0b101, "srli">;
--def SRAI : SHIFT32_ri<1, 0b101, "srai">;
-+def SLLI : SHIFT32_ri<0, 0b001, "slli", shl>;
-+def SRLI : SHIFT32_ri<0, 0b101, "srli", srl>;
-+def SRAI : SHIFT32_ri<1, 0b101, "srai", sra>;
+ def SLLI : SHIFT32_ri<0, 0b001, "slli">;
+ def SRLI : SHIFT32_ri<0, 0b101, "srli">;
+ def SRAI : SHIFT32_ri<1, 0b101, "srai">;
  
--class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
-+class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
        FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 -         OpcodeStr#"\t$rd, $rs1, $rs2", []>
-+         OpcodeStr#"\t$rd, $rs1, $rs2", [(set GPR:$rd, (OpNode GPR:$rs1, GPR:$rs2))]>
- {
- }
+-{
+-}
++         OpcodeStr#"\t$rd, $rs1, $rs2", []>;
  
--def ADD  : ALU_rr<0b0000000, 0b000, "add">;
--def SUB  : ALU_rr<0b0100000, 0b000, "sub">;
--def SLL  : ALU_rr<0b0000000, 0b001, "sll">;
--def SLT  : ALU_rr<0b0000000, 0b010, "slt">;
--def SLTU : ALU_rr<0b0000000, 0b011, "sltu">;
--def XOR  : ALU_rr<0b0000000, 0b100, "xor">;
--def SRL  : ALU_rr<0b0000000, 0b101, "srl">;
--def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
--def OR   : ALU_rr<0b0000000, 0b110, "or">;
--def AND  : ALU_rr<0b0000000, 0b111, "and">;
-+def ADD  : ALU_rr<0b0000000, 0b000, "add", add>;
-+def SUB  : ALU_rr<0b0100000, 0b000, "sub", sub>;
-+def SLL  : ALU_rr<0b0000000, 0b001, "sll", shl>;
-+def SLT  : ALU_rr<0b0000000, 0b010, "slt", setlt>;
-+def SLTU : ALU_rr<0b0000000, 0b011, "sltu", setult>;
-+def XOR  : ALU_rr<0b0000000, 0b100, "xor", xor>;
-+def SRL  : ALU_rr<0b0000000, 0b101, "srl", srl>;
-+def SRA  : ALU_rr<0b0100000, 0b101, "sra", sra>;
-+def OR   : ALU_rr<0b0000000, 0b110, "or", or>;
-+def AND  : ALU_rr<0b0000000, 0b111, "and", and>;
+ def ADD  : ALU_rr<0b0000000, 0b000, "add">;
+ def SUB  : ALU_rr<0b0100000, 0b000, "sub">;
+@@ -169,6 +171,7 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
+ def OR   : ALU_rr<0b0000000, 0b110, "or">;
+ def AND  : ALU_rr<0b0000000, 0b111, "and">;
  
++let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
  def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
                 "fence\t$pred, $succ", []> {
+   bits<4> pred;
+@@ -185,31 +188,77 @@ def FENCEI : FI<0b001, 0b0001111, (outs), (ins), "fence.i", []> {
+   let imm12 = 0;
+ }
+ 
+-let rs1=0, rd=0 in {
++let rs1 = 0, rd = 0 in {
+   def ECALL  : FI<0b000, 0b1110011, (outs), (ins), "ecall", []> {
+-    let imm12=0;
++    let imm12 = 0;
+   }
+   def EBREAK : FI<0b000, 0b1110011, (outs), (ins), "ebreak", []> {
+-    let imm12=1;
++    let imm12 = 1;
+   }
+ }
++}
+ 
++let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
+ class CSR_rr<bits<3> funct3, string OpcodeStr> :
+       FI<funct3, 0b1110011, (outs GPR:$rd), (ins uimm12:$imm12, GPR:$rs1),
+-         OpcodeStr#"\t$rd, $imm12, $rs1", []>
+-{
+-}
++         OpcodeStr#"\t$rd, $imm12, $rs1", []>;
+ 
+ def CSRRW : CSR_rr<0b001, "csrrw">;
+ def CSRRS : CSR_rr<0b010, "csrrs">;
+ def CSRRC : CSR_rr<0b011, "csrrc">;
+ 
++let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
+ class CSR_ri<bits<3> funct3, string OpcodeStr> :
+       FI<funct3, 0b1110011, (outs GPR:$rd), (ins uimm12:$imm12, uimm5:$rs1),
+-         OpcodeStr#"\t$rd, $imm12, $rs1", []>
+-{
+-}
++         OpcodeStr#"\t$rd, $imm12, $rs1", []>;
+ 
+ def CSRRWI : CSR_ri<0b101, "csrrwi">;
+ def CSRRSI : CSR_ri<0b110, "csrrsi">;
+ def CSRRCI : CSR_ri<0b111, "csrrci">;
++
++//===----------------------------------------------------------------------===//
++// Pseudo-instructions and codegen patterns
++//
++// Naming convention: For 'generic' pattern classes, we use the naming
++// convention PatTy1Ty2. For pattern classes which offer a more complex
++// expension, prefix the class name, e.g. BccPat.
++
++/// Generic pattern classes
++
++class PatGprGpr<SDPatternOperator OpNode, FR Inst> :
++      Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
++class PatGprSimm12<SDPatternOperator OpNode, FI Inst> :
++      Pat<(OpNode GPR:$rs1, simm12:$imm12), (Inst GPR:$rs1, simm12:$imm12)>;
++class PatGprUimm5<SDPatternOperator OpNode, FI32Shift Inst> :
++      Pat<(OpNode GPR:$rs1, uimm5:$shamt), (Inst GPR:$rs1, uimm5:$shamt)>;
++
++/// Simple arithmetic operations
++
++def : PatGprGpr<add, ADD>;
++def : PatGprSimm12<add, ADDI>;
++def : PatGprGpr<sub, SUB>;
++def : PatGprGpr<or, OR>;
++def : PatGprSimm12<or, ORI>;
++def : PatGprGpr<and, AND>;
++def : PatGprSimm12<and, ANDI>;
++def : PatGprGpr<xor, XOR>;
++def : PatGprSimm12<xor, XORI>;
++def : PatGprGpr<shl, SLL>;
++def : PatGprUimm5<shl, SLLI>;
++def : PatGprGpr<srl, SRL>;
++def : PatGprUimm5<srl, SRLI>;
++def : PatGprGpr<sra, SRA>;
++def : PatGprUimm5<sra, SRAI>;
++
++/// Setcc
++
++def : PatGprGpr<setlt, SLT>;
++def : PatGprSimm12<setlt, SLTI>;
++def : PatGprGpr<setult, SLTU>;
++def : PatGprSimm12<setult, SLTIU>;
++
++/// Branches and jumps
++
++let isBarrier = 1, isReturn = 1, isTerminator = 1 in
++def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
++                PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 new file mode 100644
 index 00000000000..9837b46532b

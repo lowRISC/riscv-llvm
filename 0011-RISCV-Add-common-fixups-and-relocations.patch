@@ -14,23 +14,24 @@ aligned fixups.
 
 Differential Revision: https://reviews.llvm.org/D23568
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 145 ++++++++++++++++++++-
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 182 ++++++++++++++++++---
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 +++++++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 +++++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   1 +
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 +++-
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  58 ++++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  96 ++++++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++++
- lib/Target/RISCV/RISCVInstrFormats.td              |  36 +++--
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
+ lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 ++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  58 ++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 +++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++
+ lib/Target/RISCV/RISCVInstrFormats.td              |  36 ++--
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- test/MC/RISCV/fixups-diagnostics.s                 |  18 +++
- test/MC/RISCV/fixups.s                             |  49 +++++++
- test/MC/RISCV/hilo-constaddr.s                     |  39 ++++++
- test/MC/RISCV/relocations.s                        |  65 +++++++++
+ test/MC/RISCV/fixups-diagnostics.s                 |  18 ++
+ test/MC/RISCV/fixups.s                             |  49 ++++++
+ test/MC/RISCV/hilo-constaddr.s                     |  39 +++++
+ test/MC/RISCV/relocations.s                        |  65 ++++++++
+ test/MC/RISCV/rv32i-invalid.s                      |  61 ++++++-
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 16 files changed, 760 insertions(+), 25 deletions(-)
+ 17 files changed, 843 insertions(+), 43 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -40,7 +41,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index b476013c9ea..2a4d31b8319 100644
+index b476013c9ea..e852cb92e7a 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -8,6 +8,7 @@
@@ -70,82 +71,135 @@ index b476013c9ea..2a4d31b8319 100644
    RISCVAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
                   const MCInstrInfo &MII, const MCTargetOptions &Options)
        : MCTargetAsmParser(Options, STI) {
-@@ -158,7 +164,16 @@ public:
+@@ -121,13 +127,32 @@ public:
+   bool isImm() const override { return Kind == Immediate; }
+   bool isMem() const override { return false; }
+ 
+-  bool isConstantImm() const {
+-    return isImm() && dyn_cast<MCConstantExpr>(getImm());
+-  }
+-
+-  int64_t getConstantImm() const {
++  bool evaluateConstantImm(int64_t &Imm, RISCVMCExpr::VariantKind &VK) const {
+     const MCExpr *Val = getImm();
+-    return static_cast<const MCConstantExpr *>(Val)->getValue();
++    bool Ret = false;
++    if (auto *RE = dyn_cast<RISCVMCExpr>(Val)) {
++      Ret = RE->evaluateAsConstant(Imm);
++      VK = RE->getKind();
++    } else if (auto CE = dyn_cast<MCConstantExpr>(Val)) {
++      Ret = true;
++      VK = RISCVMCExpr::VK_RISCV_None;
++      Imm = CE->getValue();
++    }
++    return Ret;
++  }
++
++  // True if operand is a symbol with no modifiers, or a constant with no
++  // modifiers and isShiftedInt<N-1, 1>(Op).
++  template <int N> bool isBareSimmNLsb0() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    bool IsValid;
++    if (!IsConstantImm)
++      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
++    else
++      IsValid = isShiftedInt<N - 1, 1>(Imm);
++    return IsValid && VK == RISCVMCExpr::VK_RISCV_None;
+   }
+ 
+   // Predicate methods for AsmOperands defined in RISCVInstrInfo.td
+@@ -154,28 +179,49 @@ public:
+   }
+ 
+   bool isUImm5() const {
+-    return (isConstantImm() && isUInt<5>(getConstantImm()));
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isUInt<5>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
    }
  
    bool isSImm12() const {
 -    return (isConstantImm() && isInt<12>(getConstantImm()));
-+    if (isConstantImm()) {
-+      return isInt<12>(getConstantImm());
-+    } else if (isImm()) {
-+      RISCVMCExpr::VariantKind VK;
-+      int64_t Addend;
-+      if (!RISCVAsmParser::classifySymbolRef(getImm(), VK, Addend))
-+        return false;
-+      return VK == RISCVMCExpr::VK_RISCV_LO;
-+    }
-+    return false;
++    RISCVMCExpr::VariantKind VK;
++    int64_t Imm;
++    bool IsValid;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    if (!IsConstantImm)
++      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
++    else
++      IsValid = isInt<12>(Imm);
++    return IsValid &&
++           (VK == RISCVMCExpr::VK_RISCV_None || VK == RISCVMCExpr::VK_RISCV_LO);
    }
  
    bool isUImm12() const {
-@@ -166,15 +181,38 @@ public:
+-    return (isConstantImm() && isUInt<12>(getConstantImm()));
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isUInt<12>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
    }
  
-   bool isSImm13Lsb0() const {
+-  bool isSImm13Lsb0() const {
 -    return (isConstantImm() && isShiftedInt<12, 1>(getConstantImm()));
-+    if (isConstantImm()) {
-+      return isShiftedInt<12, 1>(getConstantImm());
-+    } else if (isImm()) {
-+      RISCVMCExpr::VariantKind VK;
-+      int64_t Addend;
-+      return RISCVAsmParser::classifySymbolRef(getImm(), VK, Addend);
-+    }
-+    return false;
-   }
+-  }
++  bool isSImm13Lsb0() const { return isBareSimmNLsb0<13>(); }
  
    bool isUImm20() const {
 -    return (isConstantImm() && isUInt<20>(getConstantImm()));
-+    if (isConstantImm()) {
-+      return isUInt<20>(getConstantImm());
-+    } else if (isImm()) {
-+      RISCVMCExpr::VariantKind VK;
-+      int64_t Addend;
-+      if (!RISCVAsmParser::classifySymbolRef(getImm(), VK, Addend))
-+        return false;
-+      return VK == RISCVMCExpr::VK_RISCV_HI || VK == RISCVMCExpr::VK_RISCV_PCREL_HI;
-+    }
-+    return false;
++    RISCVMCExpr::VariantKind VK;
++    int64_t Imm;
++    bool IsValid;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    if (!IsConstantImm)
++      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
++    else
++      IsValid = isUInt<20>(Imm);
++    return IsValid && (VK == RISCVMCExpr::VK_RISCV_None ||
++                       VK == RISCVMCExpr::VK_RISCV_HI ||
++                       VK == RISCVMCExpr::VK_RISCV_PCREL_HI);
    }
  
-   bool isSImm21Lsb0() const {
+-  bool isSImm21Lsb0() const {
 -    return (isConstantImm() && isShiftedInt<20, 1>(getConstantImm()));
-+    if (isConstantImm()) {
-+      return isShiftedInt<20, 1>(getConstantImm());
-+    } else if (isImm()) {
-+      RISCVMCExpr::VariantKind VK;
-+      int64_t Addend;
-+      return RISCVAsmParser::classifySymbolRef(getImm(), VK, Addend);
-+    }
-+    return false;
-   }
+-  }
++  bool isSImm21Lsb0() const { return isBareSimmNLsb0<21>(); }
  
    /// getStartLoc - Gets location of the first token of this operand
-@@ -230,8 +268,13 @@ public:
+   SMLoc getStartLoc() const override { return StartLoc; }
+@@ -230,7 +276,7 @@ public:
    }
  
    static std::unique_ptr<RISCVOperand> createImm(const MCExpr *Val, SMLoc S,
 -                                                 SMLoc E) {
 +                                                 SMLoc E, MCContext &Ctx) {
      auto Op = make_unique<RISCVOperand>(Immediate);
-+    if (const RISCVMCExpr *RE = dyn_cast<RISCVMCExpr>(Val)) {
-+      int64_t Res;
-+      if (RE->evaluateAsConstant(Res))
-+        Val = MCConstantExpr::create(Res, Ctx);
-+    }
      Op->Imm.Val = Val;
      Op->StartLoc = S;
-     Op->EndLoc = E;
-@@ -407,9 +450,51 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -240,8 +286,17 @@ public:
+ 
+   void addExpr(MCInst &Inst, const MCExpr *Expr) const {
+     assert(Expr && "Expr shouldn't be null!");
+-    if (auto *CE = dyn_cast<MCConstantExpr>(Expr))
+-      Inst.addOperand(MCOperand::createImm(CE->getValue()));
++    int64_t Imm = 0;
++    bool IsConstant = false;
++    if (auto *RE = dyn_cast<RISCVMCExpr>(Expr)) {
++      IsConstant = RE->evaluateAsConstant(Imm);
++    } else if (auto *CE = dyn_cast<MCConstantExpr>(Expr)) {
++      IsConstant = true;
++      Imm = CE->getValue();
++    }
++
++    if (IsConstant)
++      Inst.addOperand(MCOperand::createImm(Imm));
+     else
+       Inst.addOperand(MCOperand::createExpr(Expr));
+   }
+@@ -407,9 +462,51 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
      break;
    }
@@ -173,9 +227,9 @@ index b476013c9ea..2a4d31b8319 100644
 +    Error(getLoc(), "expected valid identifier for operand modifier");
 +    return MatchOperand_ParseFail;
 +  }
-+  StringRef Identifier = getParser().getTok().getString();
++  StringRef Identifier = getParser().getTok().getIdentifier();
 +  RISCVMCExpr::VariantKind VK = RISCVMCExpr::getVariantKindForName(Identifier);
-+  if (VK == RISCVMCExpr::VK_RISCV_None) {
++  if (VK == RISCVMCExpr::VK_RISCV_Invalid) {
 +    Error(getLoc(), "unrecognized operand modifier");
 +    return MatchOperand_ParseFail;
 +  }
@@ -198,7 +252,7 @@ index b476013c9ea..2a4d31b8319 100644
    return MatchOperand_Success;
  }
  
-@@ -494,6 +579,54 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -494,6 +591,51 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
  
@@ -213,11 +267,8 @@ index b476013c9ea..2a4d31b8319 100644
 +    Expr = RE->getSubExpr();
 +  }
 +
-+  assert(!isa<MCConstantExpr>(Expr) &&
-+         "simple constants should have been evaluated already");
-+
-+  // It's a simple symbol reference with no addend.
-+  if (isa<MCSymbolRefExpr>(Expr))
++  // It's a simple symbol reference or constant with no addend.
++  if (isa<MCConstantExpr>(Expr) || isa<MCSymbolRefExpr>(Expr))
 +    return true;
 +
 +  const MCBinaryExpr *BE = dyn_cast<MCBinaryExpr>(Expr);
@@ -513,7 +564,7 @@ index 00000000000..115229414d5
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..d3810480bfa 100644
+index f4eaf06f622..596dfc0ef8a 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -541,7 +592,7 @@ index f4eaf06f622..d3810480bfa 100644
  #define DEBUG_TYPE "mccodeemitter"
  
  STATISTIC(MCNumEmitted, "Number of MC instructions emitted");
-+STATISTIC(MCNumFixups, "Number of MC fixups created.");
++STATISTIC(MCNumFixups, "Number of MC fixups created");
  
  namespace {
  class RISCVMCCodeEmitter : public MCCodeEmitter {
@@ -639,10 +690,10 @@ index f4eaf06f622..d3810480bfa 100644
  }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
 new file mode 100644
-index 00000000000..d63e3e1d3f8
+index 00000000000..64cfd2ba98f
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,99 @@
 +//===-- RISCVMCExpr.cpp - RISCV specific MC expression classes ------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -699,7 +750,7 @@ index 00000000000..d63e3e1d3f8
 +      .Case("lo", VK_RISCV_LO)
 +      .Case("hi", VK_RISCV_HI)
 +      .Case("pcrel_hi", VK_RISCV_PCREL_HI)
-+      .Default(VK_RISCV_None);
++      .Default(VK_RISCV_Invalid);
 +}
 +
 +StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
@@ -717,6 +768,9 @@ index 00000000000..d63e3e1d3f8
 +
 +bool RISCVMCExpr::evaluateAsConstant(int64_t &Res) const {
 +  MCValue Value;
++
++  if (Kind == VK_RISCV_PCREL_HI)
++    return false;
 +
 +  if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))
 +    return false;
@@ -1131,6 +1185,92 @@ index 00000000000..c11e2f38dfc
 +# RELOC: R_RISCV_BRANCH
 +# INSTR: bgeu a0, a1, foo
 +# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_branch
+diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
+index faafbfb3ebc..da49b93bb62 100644
+--- a/test/MC/RISCV/rv32i-invalid.s
++++ b/test/MC/RISCV/rv32i-invalid.s
+@@ -15,6 +15,10 @@ csrrwi a1, 0x1, -1 # CHECK: :[[@LINE]]:17: error: immediate must be an integer i
+ csrrsi t1, 999, 32 # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
+ csrrci x0, 43, -90 # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
+ 
++## simm12
++ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
++andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
++
+ ## uimm12
+ csrrw a0, -1, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+ csrrs a0, 4096, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+@@ -24,10 +28,6 @@ csrrwi a0, -50, 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in
+ csrrsi a0, 4097, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+ csrrci a0, 0xffff, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+ 
+-## simm12
+-ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+-andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+-
+ ## simm13_lsb0
+ beq t0, t1, -4098 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+ bne t0, t1, -4097 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+@@ -48,6 +48,59 @@ jal gp, 1048575 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2
+ jal gp, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+ jal gp, 1 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+ 
++# Illegal operand modifier
++## fencearg
++fence %hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++fence %lo(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++fence %pcrel_hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++
++## uimm5
++slli a0, a0, %lo(1) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
++srli a0, a0, %lo(a) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
++srai a0, a0, %hi(2) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
++csrrwi a1, 0x1, %hi(b) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
++csrrsi t1, 999, %pcrel_hi(3) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
++csrrci x0, 43, %pcrel_hi(c) # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
++
++## simm12
++ori a0, a1, %hi(foo) # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
++andi ra, sp, %pcrel_hi(123) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
++xori a2, a3, %hi(345) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
++
++## uimm12
++csrrw a0, %lo(1), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
++csrrs a0, %lo(a), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
++csrrs a0, %hi(2), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
++csrrc a0, %hi(b), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
++csrrwi a0, %pcrel_hi(3), 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
++csrrsi a0, %pcrel_hi(c), a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
++
++## simm13_lsb0
++beq t0, t1, %lo(1) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bne t0, t1, %lo(a) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++blt t0, t1, %hi(2) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bge t0, t1, %hi(b) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bltu t0, t1, %pcrel_hi(3) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bgeu t0, t1, %pcrel_hi(c) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++
++## uimm20
++lui a0, %lo(1) # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
++auipc a1, %lo(foo) # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 1048575]
++
++## simm21_lsb0
++jal gp, %lo(1) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %lo(a) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %hi(2) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %hi(b) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %pcrel_hi(3) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %pcrel_hi(c) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++
++# Unrecognized operand modifier
++addi t0, sp, %modifer(255) # CHECK: :[[@LINE]]:15: error: unrecognized operand modifier
++
++# Use of operand modifier on register name
++addi t1, %lo(t2), 1 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++
+ # Invalid mnemonics
+ subs t0, t2, t1 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
+ nandi t0, zero, 0 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
 index 95d9da4bb51..be6560062bb 100644
 --- a/test/MC/RISCV/rv32i-valid.s

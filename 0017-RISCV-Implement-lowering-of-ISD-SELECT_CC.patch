@@ -5,13 +5,13 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp | 125 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   8 ++-
- lib/Target/RISCV/RISCVInstrInfo.td     |  11 +++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  10 +++
  test/CodeGen/RISCV/select-cc.ll        |  56 +++++++++++++++
- 4 files changed, 199 insertions(+), 1 deletion(-)
+ 4 files changed, 198 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4f427a17e45..c66381a03dc 100644
+index 6d1d01bc7b6..eca8f6fa9e0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -201,7 +201,7 @@ index 5c90d00ab53..515c646c2fe 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 2ecdf092e35..d891a61ee22 100644
+index 349d6b2813f..a0ed38bf325 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -18,6 +18,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
@@ -222,20 +222,19 @@ index 2ecdf092e35..d891a61ee22 100644
  
  // Operands
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -183,6 +187,13 @@ def : Bcc_SwapPat<setule, BGEU>;
+@@ -300,6 +304,12 @@ def : PatGprSimm12<setlt, SLTI>;
+ def : PatGprGpr<setult, SLTU>;
+ def : PatGprSimm12<setult, SLTIU>;
  
- def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
- 
-+let usesCustomInserter = 1 in {
-+  def Select : Pseudo<(outs GPR:$dst),
-+                      (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
-+                      [(set i32:$dst,
-+                       (SelectCC GPR:$lhs, GPR:$rhs, (i32 imm:$imm), GPR:$src, GPR:$src2))]>;
-+}
++let usesCustomInserter = 1 in
++def Select : Pseudo<(outs GPR:$dst),
++                    (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
++                    [(set i32:$dst,
++                     (SelectCC GPR:$lhs, GPR:$rhs, (i32 imm:$imm), GPR:$src, GPR:$src2))]>;
 +
- class LD_ri<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-          OpcodeStr#"\t$rd, ${imm12}(${rs1})", []> {
+ /// Branches and jumps
+ 
+ // Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
 diff --git a/test/CodeGen/RISCV/select-cc.ll b/test/CodeGen/RISCV/select-cc.ll
 new file mode 100644
 index 00000000000..bb7ad950a90

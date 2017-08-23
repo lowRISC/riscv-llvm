@@ -33,14 +33,14 @@ index 3048fa75e3f..ae2ed99f82d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b904062d183..4f427a17e45 100644
+index b904062d183..6d1d01bc7b6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -150,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
-+// Lower a call to a callseq_start + CALL + callseq_end chain, and add input 
++// Lower a call to a callseq_start + CALL + callseq_end chain, and add input
 +// and output parameter nodes.
 +SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
 +                                       SmallVectorImpl<SDValue> &InVals) const {
@@ -218,7 +218,7 @@ index b756c69124b..c5a0288259d 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 504ce2d9bd2..2ecdf092e35 100644
+index e7aa078a94d..349d6b2813f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,8 +13,22 @@
@@ -244,35 +244,37 @@ index 504ce2d9bd2..2ecdf092e35 100644
  
  // Operands
  class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -109,22 +123,39 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
+@@ -110,9 +124,11 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
  def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
               "auipc\t$rd, $imm20", []>;
  
-+let isCall=1 in {
++let isCall = 1 in
  def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
                "jal\t$rd, $imm20", []>;
-+}
  
- let isTerminator=1, isBarrier=1 in {
- def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
-                PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
- }
- 
-+let isCall=1 in {
++let isCall = 1 in
  def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
-+}
-+
-+let isCall=1, Defs=[X1_32] in {
-+  def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-+                   PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
-+}
- 
- let isReturn=1, isTerminator=1, isBarrier=1 in {
-   def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                   PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
  }
+@@ -318,6 +334,11 @@ let isBarrier = 1, isTerminator = 1 in
+ def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
+                PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
  
++let isCall = 1, Defs=[X1_32] in
++def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
++                 PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
++
++
+ let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+@@ -347,3 +368,13 @@ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
+ defm : StPat<truncstorei8, SB>;
+ defm : StPat<truncstorei16, SH>;
+ defm : StPat<store, SW>;
++
++/// Other pseudo-instructions
++
 +// Pessimistically assume the stack pointer will be clobbered
 +let Defs = [X2_32], Uses = [X2_32] in {
 +  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
@@ -280,10 +282,6 @@ index 504ce2d9bd2..2ecdf092e35 100644
 +  def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 +                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
 +}
-+
- class Bcc<bits<3> funct3, string OpcodeStr, PatFrag CondOp> :
-       FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
-          OpcodeStr#"\t$rs1, $rs2, $imm12", [(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12)]> {
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 index df49f816b9a..eaaa841df00 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp

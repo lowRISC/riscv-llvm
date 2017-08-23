@@ -21,7 +21,7 @@ for a number of these cases:
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp      |  68 +++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
- lib/Target/RISCV/RISCVInstrInfo.td          |  17 ++
+ lib/Target/RISCV/RISCVInstrInfo.td          |  18 ++-
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   4 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  26 ++++
  test/CodeGen/RISCV/alu.ll                   |   4 +
@@ -36,7 +36,7 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll                 |  91 +++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 233 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  28 ++++
- 17 files changed, 805 insertions(+), 4 deletions(-)
+ 17 files changed, 804 insertions(+), 6 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c66381a03dc..808151a7c65 100644
+index eca8f6fa9e0..d6298171299 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,17 +49,57 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -165,28 +165,15 @@ index 515c646c2fe..806fa678b40 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index d891a61ee22..45f703d5ca4 100644
+index a0ed38bf325..80a21d63f65 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -142,6 +142,11 @@ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-               "jalr\t$rd, $rs1, $imm12", []>;
- }
- 
-+let isBranch = 1, isBarrier = 1, isTerminator = 1, isIndirectBranch = 1 in {
-+  def PseudoBRIND : Pseudo<(outs), (ins GPR:$rs1), [(brind GPR:$rs1)]>,
-+                    PseudoInstExpansion<(JALR X0_32, GPR:$rs1, 0)>;
-+}
-+
- let isCall=1, Defs=[X1_32] in {
-   def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-                    PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
-@@ -282,6 +287,18 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra", sra>;
- def OR   : ALU_rr<0b0000000, 0b110, "or", or>;
- def AND  : ALU_rr<0b0000000, 0b111, "and", and>;
+@@ -304,6 +304,17 @@ def : PatGprSimm12<setlt, SLTI>;
+ def : PatGprGpr<setult, SLTU>;
+ def : PatGprSimm12<setult, SLTIU>;
  
 +// Define pattern expansions for setcc operations that aren't directly
 +// handled by a RISC-V instruction
-+
 +def : Pat<(seteq GPR:$rs1, GPR:$rs2), (SLTIU (XOR GPR:$rs1, GPR:$rs2), 1)>;
 +def : Pat<(setne GPR:$rs1, GPR:$rs2), (SLTU X0_32, (XOR GPR:$rs1, GPR:$rs2))>;
 +def : Pat<(setugt GPR:$rs1, GPR:$rs2), (SLTU GPR:$rs2, GPR:$rs1)>;
@@ -196,9 +183,26 @@ index d891a61ee22..45f703d5ca4 100644
 +def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;
 +def : Pat<(setle GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs2, GPR:$rs1), 1)>;
 +
- def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
-                "fence\t$pred, $succ", []> {
-   bits<4> pred;
+ let usesCustomInserter = 1 in
+ def Select : Pseudo<(outs GPR:$dst),
+                     (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
+@@ -344,11 +355,14 @@ let isBarrier = 1, isTerminator = 1 in
+ def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
+                PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
+ 
+-let isCall = 1, Defs=[X1_32] in
++let isBranch = 1, isBarrier = 1, isTerminator = 1, isIndirectBranch = 1 in
++def PseudoBRIND : Pseudo<(outs), (ins GPR:$rs1), [(brind GPR:$rs1)]>,
++                  PseudoInstExpansion<(JALR X0_32, GPR:$rs1, 0)>;
++
++let isCall = 1, Defs = [X1_32] in
+ def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
+                  PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
+ 
+-
+ let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 index eaaa841df00..bd2c884f2d8 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp

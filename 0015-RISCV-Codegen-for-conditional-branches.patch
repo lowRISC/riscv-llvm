@@ -8,11 +8,11 @@ Subject: [RISCV] Codegen for conditional branches
  lib/Target/RISCV/RISCVISelLowering.cpp |  1 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    | 33 ++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h      | 11 +++++
- lib/Target/RISCV/RISCVInstrInfo.td     | 40 ++++++++++++----
+ lib/Target/RISCV/RISCVInstrInfo.td     | 41 +++++++++++++++--
  lib/Target/RISCV/RISCVRegisterInfo.cpp | 31 ++++++++++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |  2 +
  test/CodeGen/RISCV/branch.ll           | 83 ++++++++++++++++++++++++++++++++++
- 9 files changed, 196 insertions(+), 11 deletions(-)
+ 9 files changed, 204 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
@@ -118,7 +118,7 @@ index 27492c869db..3fee03252f2 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9a768ba6308..504ce2d9bd2 100644
+index 288aa2968ed..e7aa078a94d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -60,7 +60,7 @@ def uimm12 : Operand<i32> {
@@ -139,59 +139,57 @@ index 9a768ba6308..504ce2d9bd2 100644
    let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
-@@ -112,6 +112,11 @@ def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
- def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
-               "jal\t$rd, $imm20", []>;
- 
-+let isTerminator=1, isBarrier=1 in {
-+def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
-+               PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
-+}
-+
- def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-               "jalr\t$rd, $rs1, $imm12", []>;
- 
-@@ -120,17 +125,32 @@ let isReturn=1, isTerminator=1, isBarrier=1 in {
-                   PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
- }
- 
--class Bcc<bits<3> funct3, string OpcodeStr> :
-+class Bcc<bits<3> funct3, string OpcodeStr, PatFrag CondOp> :
+@@ -120,7 +120,10 @@ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ class Bcc<bits<3> funct3, string OpcodeStr> :
        FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
--         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
-+         OpcodeStr#"\t$rs1, $rs2, $imm12", [(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12)]> {
+-         OpcodeStr#"\t$rs1, $rs2, $imm12", []>;
++         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
 +  let isBranch = 1;
 +  let isTerminator = 1;
- }
++}
  
--def BEQ   : Bcc<0b000, "beq">;
--def BNE   : Bcc<0b001, "bne">;
--def BLT   : Bcc<0b100, "blt">;
--def BGE   : Bcc<0b101, "bge">;
--def BLTU  : Bcc<0b110, "bltu">;
--def BGEU  : Bcc<0b111, "bgeu">;
-+def BEQ   : Bcc<0b000, "beq", seteq>;
-+def BNE   : Bcc<0b001, "bne", setne>;
-+def BLT   : Bcc<0b100, "blt", setlt>;
-+def BGE   : Bcc<0b101, "bge", setge>;
-+def BLTU  : Bcc<0b110, "bltu", setult>;
-+def BGEU  : Bcc<0b111, "bgeu", setuge>;
+ def BEQ   : Bcc<0b000, "beq">;
+ def BNE   : Bcc<0b001, "bne">;
+@@ -283,6 +286,38 @@ def : PatGprSimm12<setult, SLTIU>;
+ 
+ /// Branches and jumps
+ 
++// Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
++// instruction.
++class BccPat<PatFrag CondOp, FSB Inst> :
++      Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
++          (Inst GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12)>;
 +
-+class Bcc_SwapPat<PatFrag CondOp, RISCVInst InstBcc> : Pat<
++def : BccPat<seteq, BEQ>;
++def : BccPat<setne, BNE>;
++def : BccPat<setlt, BLT>;
++def : BccPat<setge, BGE>;
++def : BccPat<setult, BLTU>;
++def : BccPat<setuge, BGEU>;
++
++class BccSwapPat<PatFrag CondOp, RISCVInst InstBcc> : Pat<
 +  (brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
 +  (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
 +
 +// Condition codes that don't have matching RISC-V branch instructions, but
 +// are trivially supported by swapping the two input operands
-+def : Bcc_SwapPat<setgt, BLT>;
-+def : Bcc_SwapPat<setle, BGE>;
-+def : Bcc_SwapPat<setugt, BLTU>;
-+def : Bcc_SwapPat<setule, BGEU>;
++def : BccSwapPat<setgt, BLT>;
++def : BccSwapPat<setle, BGE>;
++def : BccSwapPat<setugt, BLTU>;
++def : BccSwapPat<setule, BGEU>;
 +
++// An extra pattern is needed for a brcond without a setcc (i.e. where the
++// condition was calculated elsewhere).
 +def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
- 
- class LD_ri<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
++
++let isBarrier = 1, isTerminator = 1 in
++def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
++               PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
++
+ let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 index 6cc5af12ad5..cfe6b7d76b6 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp

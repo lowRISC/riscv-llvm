@@ -592,38 +592,20 @@ index 93d13f79390..78b1c907f33 100644
 +def CSRRSI : CSR_ri<0b110, "csrrsi">;
 +def CSRRCI : CSR_ri<0b111, "csrrci">;
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
-index d6a6de7a278..1be0594c706 100644
+index d6a6de7a278..faafbfb3ebc 100644
 --- a/test/MC/RISCV/rv32i-invalid.s
 +++ b/test/MC/RISCV/rv32i-invalid.s
 @@ -1,17 +1,61 @@
  # RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
  
  # Out of range immediates
-+## simm12
- ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
- andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
- 
-+## imm20
-+lui a0, -1 # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
-+lui s0, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
-+auipc zero, -0xf # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [0, 1048575]
++## fencearg
++fence iorw, iore # CHECK: :[[@LINE]]:13: error: operand must be formed of letters selected in-order from 'iorw'
++fence wr, wr # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++fence rw, rr # CHECK: :[[@LINE]]:11: error: operand must be formed of letters selected in-order from 'iorw'
++fence 1, rw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
 +
-+## simm21_mask1
-+jal gp, -1048578 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
-+jal gp, -1048577 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
-+jal gp, 1048575 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
-+jal gp, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
-+jal gp, 1 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
-+
-+## simm13_mask1
-+beq t0, t1, -4098 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+bne t0, t1, -4097 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+blt t0, t1, 4095 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+bge t0, t1, 4096 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+bltu t0, t1, 13 # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+bgeu t0, t1, -13 # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
-+
-+## imm5
++## uimm5
 +slli a0, a0, 32 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
 +srli a0, a0, -1 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
 +srai a0, a0, -19 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
@@ -631,7 +613,7 @@ index d6a6de7a278..1be0594c706 100644
 +csrrsi t1, 999, 32 # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
 +csrrci x0, 43, -90 # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
 +
-+## imm12
++## uimm12
 +csrrw a0, -1, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
 +csrrs a0, 4096, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
 +csrrs a0, -0xf, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
@@ -640,11 +622,29 @@ index d6a6de7a278..1be0594c706 100644
 +csrrsi a0, 4097, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 +csrrci a0, 0xffff, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 +
-+## fencearg
-+fence iorw, iore # CHECK: :[[@LINE]]:13: error: operand must be formed of letters selected in-order from 'iorw'
-+fence wr, wr # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
-+fence rw, rr # CHECK: :[[@LINE]]:11: error: operand must be formed of letters selected in-order from 'iorw'
-+fence 1, rw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++## simm12
+ ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+ andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+ 
++## simm13_lsb0
++beq t0, t1, -4098 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bne t0, t1, -4097 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++blt t0, t1, 4095 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bge t0, t1, 4096 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bltu t0, t1, 13 # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bgeu t0, t1, -13 # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++
++## uimm20
++lui a0, -1 # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
++lui s0, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
++auipc zero, -0xf # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [0, 1048575]
++
++## simm21_lsb0
++jal gp, -1048578 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, -1048577 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, 1048575 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, 1 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
 +
  # Invalid mnemonics
  subs t0, t2, t1 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic

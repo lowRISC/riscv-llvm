@@ -11,13 +11,13 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVISelLowering.h   |   3 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |  52 ++++++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td     |  54 +++++++++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  59 +++++++++++++--
  lib/Target/RISCV/RISCVSubtarget.h      |   1 +
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++++
  test/CodeGen/RISCV/mem.ll              | 131 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++++
- 12 files changed, 360 insertions(+), 13 deletions(-)
+ 12 files changed, 362 insertions(+), 13 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -192,7 +192,7 @@ index a89198a157b..27492c869db 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 2d78e03344f..9a768ba6308 100644
+index 8efeed3f594..288aa2968ed 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,7 +13,6 @@
@@ -226,61 +226,63 @@ index 2d78e03344f..9a768ba6308 100644
  // As noted in RISCVRegisterInfo.td, the hope is that support for
  // variable-sized register classes will mean that instruction definitions do
  // not need to be duplicated for 32-bit and 64-bit register classes. For now
-@@ -129,16 +144,42 @@ def LW   : LD_ri<0b010, "lw">;
+@@ -125,9 +140,13 @@ def LW   : LD_ri<0b010, "lw">;
  def LBU  : LD_ri<0b100, "lbu">;
  def LHU  : LD_ri<0b101, "lhu">;
  
-+multiclass LD_Pat<PatFrag LoadOp, RISCVInst Inst> {
-+  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
-+  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)), (Inst GPR:$rs1, simm12:$imm12)>;
-+}
-+
-+defm : LD_Pat<sextloadi8, LB>;
-+defm : LD_Pat<extloadi8, LB>;
-+defm : LD_Pat<sextloadi16, LH>;
-+defm : LD_Pat<extloadi16, LH>;
-+defm : LD_Pat<load, LW>;
-+defm : LD_Pat<zextloadi8, LBU>;
-+defm : LD_Pat<zextloadi16, LHU>;
-+
 +// Operands for stores are in the order srcreg, base, offset rather than
 +// reflecting the order these fields are specified in the instruction
 +// encoding.
 +
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
  class ST_ri<bits<3> funct3, string OpcodeStr> :
 -      FS<funct3, 0b0100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm12:$imm12),
 +      FS<funct3, 0b0100011, (outs), (ins GPR:$rs2, GPR:$rs1, simm12:$imm12),
-          OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []> {
-   let mayStore = 1;
- }
+          OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []>;
  
-+multiclass ST_Pat<PatFrag StoreOp, RISCVInst Inst> {
+ def SB  : ST_ri<0b000, "sb">;
+@@ -232,6 +251,11 @@ class PatGprSimm12<SDPatternOperator OpNode, FI Inst> :
+ class PatGprUimm5<SDPatternOperator OpNode, FI32Shift Inst> :
+       Pat<(OpNode GPR:$rs1, uimm5:$shamt), (Inst GPR:$rs1, uimm5:$shamt)>;
+ 
++/// Immediates
++
++def : Pat<(simm12:$imm), (ADDI X0_32, simm12:$imm)>;
++def : Pat<(i32 imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
++
+ /// Simple arithmetic operations
+ 
+ def : PatGprGpr<add, ADD>;
+@@ -262,3 +286,29 @@ def : PatGprSimm12<setult, SLTIU>;
+ let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
++
++/// Loads
++
++multiclass LdPat<PatFrag LoadOp, RISCVInst Inst> {
++  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
++  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)), (Inst GPR:$rs1, simm12:$imm12)>;
++}
++
++defm : LdPat<sextloadi8, LB>;
++defm : LdPat<extloadi8, LB>;
++defm : LdPat<sextloadi16, LH>;
++defm : LdPat<extloadi16, LH>;
++defm : LdPat<load, LW>;
++defm : LdPat<zextloadi8, LBU>;
++defm : LdPat<zextloadi16, LHU>;
++
++/// Stores
++
++multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
 +  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
 +  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)), (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;
 +}
 +
- def SB  : ST_ri<0b000, "sb">;
- def SH  : ST_ri<0b001, "sh">;
- def SW  : ST_ri<0b010, "sw">;
- 
-+defm : ST_Pat<truncstorei8, SB>;
-+defm : ST_Pat<truncstorei16, SH>;
-+defm : ST_Pat<store, SW>;
-+
- class ALU_ri<bits<3> funct3, string OpcodeStr, SDPatternOperator OpNode> :
-       FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-          OpcodeStr#"\t$rd, $rs1, $imm12", [(set GPR:$rd, (OpNode GPR:$rs1, simm12:$imm12))]>
-@@ -223,3 +264,10 @@ class CSR_ri<bits<3> funct3, string OpcodeStr> :
- def CSRRWI : CSR_ri<0b101, "csrrwi">;
- def CSRRSI : CSR_ri<0b110, "csrrsi">;
- def CSRRCI : CSR_ri<0b111, "csrrci">;
-+
-+
-+// signed 12-bit immediate
-+def : Pat<(simm12:$imm), (ADDI X0_32, simm12:$imm)>;
-+
-+// 32-bit immediate
-+def : Pat<(i32 imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
++defm : StPat<truncstorei8, SB>;
++defm : StPat<truncstorei16, SH>;
++defm : StPat<store, SW>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 index 9837b46532b..df49f816b9a 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
