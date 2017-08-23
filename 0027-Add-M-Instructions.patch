@@ -1,0 +1,222 @@
+From 529fb6b8fc2635a1039a7efc7cc10b1b27fd7683 Mon Sep 17 00:00:00 2001
+From: David Craven <david@craven.ch>
+Date: Wed, 9 Aug 2017 10:06:52 +0200
+Subject: [PATCH 4/4] Add M Instructions.
+
+---
+ lib/Target/RISCV/RISCV.td              |  3 ++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 26 +++++++++++-----
+ lib/Target/RISCV/RISCVInstrInfo.td     | 11 +++++++
+ lib/Target/RISCV/RISCVSubtarget.h      |  2 ++
+ test/CodeGen/RISCV/m-extension.ll      | 54 ++++++++++++++++++++++++++++++++++
+ test/MC/RISCV/rv32im-valid.s           | 41 ++++++++++++++++++++++++++
+ 6 files changed, 129 insertions(+), 8 deletions(-)
+ create mode 100644 test/CodeGen/RISCV/m-extension.ll
+ create mode 100644 test/MC/RISCV/rv32im-valid.s
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 8bdd4b19c4c..9e046ca8c3f 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -19,6 +19,9 @@ def RISCVInstrInfo : InstrInfo;
+ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+                                       "Implements RV64">;
+ 
++def FeatureM       : SubtargetFeature<"m", "HasM", "true",
++                                      "Implements M extension">;
++
+ def : ProcessorModel<"generic-rv32", NoSchedModel, []>;
+ 
+ def : ProcessorModel<"generic-rv64", NoSchedModel, [Feature64Bit]>;
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 13db2a1d9df..fb6812ab704 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -68,18 +68,28 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::SUBC, MVT::i32, Expand);
+   setOperationAction(ISD::SUBE, MVT::i32, Expand);
+ 
+-  setOperationAction(ISD::SREM, MVT::i32, Expand);
++  if (!Subtarget->hasM()) {
++    setOperationAction(ISD::MUL, MVT::i32, Expand);
++    setOperationAction(ISD::MULHS, MVT::i32, Expand);
++    setOperationAction(ISD::MULHU, MVT::i32, Expand);
++    setOperationAction(ISD::SDIV, MVT::i32, Expand);
++    setOperationAction(ISD::UDIV, MVT::i32, Expand);
++    setOperationAction(ISD::SREM, MVT::i32, Expand);
++    setOperationAction(ISD::UREM, MVT::i32, Expand);
++  } else {
++    setOperationAction(ISD::MUL, MVT::i32, Legal);
++    setOperationAction(ISD::MULHS, MVT::i32, Legal);
++    setOperationAction(ISD::MULHU, MVT::i32, Legal);
++    setOperationAction(ISD::SDIV, MVT::i32, Legal);
++    setOperationAction(ISD::UDIV, MVT::i32, Legal);
++    setOperationAction(ISD::SREM, MVT::i32, Legal);
++    setOperationAction(ISD::UREM, MVT::i32, Legal);
++  }
++
+   setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
+-  setOperationAction(ISD::SDIV, MVT::i32, Expand);
+-  setOperationAction(ISD::UREM, MVT::i32, Expand);
+   setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+-  setOperationAction(ISD::UDIV, MVT::i32, Expand);
+-
+-  setOperationAction(ISD::MUL, MVT::i32, Expand);
+   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
+   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
+-  setOperationAction(ISD::MULHS, MVT::i32, Expand);
+-  setOperationAction(ISD::MULHU, MVT::i32, Expand);
+ 
+   setOperationAction(ISD::SHL_PARTS, MVT::i32, Expand);
+   setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 7d8670dc6ae..2bef1684464 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -361,3 +361,14 @@ def : Pat<(simm12:$imm), (ADDI X0_32, simm12:$imm)>;
+ 
+ // 32-bit immediate
+ def : Pat<(i32 imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
++
++
++def MUL     : ALU_rr<0b0000001, 0b000, "mul", mul>;
++def MULH    : ALU_rr<0b0000001, 0b001, "mulh", mulhs>;
++// NOTE: no corresponding llvm ir instruction
++def MULHSU  : ALU_rr<0b0000001, 0b010, "mulhsu", mulhs>;
++def MULHU   : ALU_rr<0b0000001, 0b011, "mulhu", mulhu>;
++def DIV     : ALU_rr<0b0000001, 0b100, "div", sdiv>;
++def DIVU    : ALU_rr<0b0000001, 0b101, "divu", udiv>;
++def REM     : ALU_rr<0b0000001, 0b110, "rem", srem>;
++def REMU    : ALU_rr<0b0000001, 0b111, "remu", urem>;
+\ No newline at end of file
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index 3db2ef9742f..65806bb1e1b 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -35,6 +35,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   RISCVTargetLowering TLInfo;
+   SelectionDAGTargetInfo TSInfo;
+   bool HasRV64;
++  bool HasM;
+ 
+ public:
+   // Initializes the data members to match that of the specified triple.
+@@ -59,6 +60,7 @@ public:
+     return &TSInfo;
+   }
+   bool is64Bit() const { return HasRV64; }
++  bool hasM() const { return HasM; }
+ };
+ } // End llvm namespace
+ 
+diff --git a/test/CodeGen/RISCV/m-extension.ll b/test/CodeGen/RISCV/m-extension.ll
+new file mode 100644
+index 00000000000..40abe135589
+--- /dev/null
++++ b/test/CodeGen/RISCV/m-extension.ll
+@@ -0,0 +1,54 @@
++; RUN: llc -mtriple=riscv32 -mattr=m -verify-machineinstrs < %s | FileCheck %s
++
++define i32 @square(i32 %a) {
++; CHECK-LABEL: square:
++; CHECK: mul a0, a0, a0
++; CHECK: jalr zero, ra, 0
++  %1 = mul i32 %a, %a
++  ret i32 %1
++}
++
++define i32 @mul(i32 %a, i32 %b) {
++; CHECK-LABEL: mul:
++; CHECK: mul a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = mul i32 %a, %b
++  ret i32 %1
++}
++
++define i32 @mul_constant(i32 %a) {
++; CHECK-LABEL: mul_constant:
++; CHECK: addi a1, zero, 5
++; CHECK: mul a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = mul i32 %a, 5
++  ret i32 %1
++}
++
++define i32 @mul_pow2(i32 %a) {
++; CHECK-LABEL: mul_pow2:
++; CHECK: slli a0, a0, 3
++; CHECK: jalr zero, ra, 0
++  %1 = mul i32 %a, 8
++  ret i32 %1
++}
++
++define i64 @mul64(i64 %a, i64 %b) {
++; CHECK-LABEL: mul64:
++; CHECK: lui a4, %hi(__muldi3)
++; CHECK: addi a4, a4, %lo(__muldi3)
++; CHECK: jalr ra, a4, 0
++  %1 = mul i64 %a, %b
++  ret i64 %1
++}
++
++define i64 @mul64_constant(i64 %a) {
++; CHECK-LABEL: mul64_constant:
++; CHECK: lui a2, %hi(__muldi3)
++; CHECK: addi a4, a2, %lo(__muldi3)
++; CHECK: addi a2, zero, 5
++; CHECK: addi a3, zero, 0
++; CHECK: jalr ra, a4, 0
++  %1 = mul i64 %a, 5
++  ret i64 %1
++}
+\ No newline at end of file
+diff --git a/test/MC/RISCV/rv32im-valid.s b/test/MC/RISCV/rv32im-valid.s
+new file mode 100644
+index 00000000000..2fe7ed725e2
+--- /dev/null
++++ b/test/MC/RISCV/rv32im-valid.s
+@@ -0,0 +1,41 @@
++# RUN: llvm-mc %s -triple=riscv32 -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
++
++
++# CHECK-INST: mul ra, zero, zero
++# CHECK: encoding: [0xb3,0x00,0x00,0x02]
++mul x1, x0, x0
++
++# CHECK-INST: mulh ra, zero, zero
++# CHECK: encoding: [0xb3,0x10,0x00,0x02]
++mulh x1, x0, x0
++
++# CHECK-INST: mulhsu ra, zero, zero
++# CHECK: encoding: [0xb3,0x20,0x00,0x02]
++mulhsu x1, x0, x0
++
++# CHECK-INST: mulhu ra, zero, zero
++# CHECK: encoding: [0xb3,0x30,0x00,0x02]
++mulhu x1, x0, x0
++
++# CHECK-INST: div ra, zero, zero
++# CHECK: encoding: [0xb3,0x40,0x00,0x02]
++div x1, x0, x0
++
++# CHECK-INST: divu ra, zero, zero
++# CHECK: encoding: [0xb3,0x50,0x00,0x02]
++divu x1, x0, x0
++
++# CHECK-INST: rem ra, zero, zero
++# CHECK: encoding: [0xb3,0x60,0x00,0x02]
++rem x1, x0, x0
++
++# CHECK-INST: remu ra, zero, zero
++# CHECK: encoding: [0xb3,0x70,0x00,0x02]
++remu x1, x0, x0
+-- 
+2.11.1
+

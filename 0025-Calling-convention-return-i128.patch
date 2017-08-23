@@ -1,0 +1,39 @@
+From 209e7b4f26524540c49cc268a870864a47a15887 Mon Sep 17 00:00:00 2001
+From: David Craven <david@craven.ch>
+Date: Mon, 14 Aug 2017 08:43:51 +0200
+Subject: [PATCH 2/4] Calling convention return i128.
+
+---
+ lib/Target/RISCV/RISCVCallingConv.td | 2 +-
+ test/CodeGen/RISCV/calling-conv.ll   | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
+index 51a4470f5ca..3a07c8f86ee 100644
+--- a/lib/Target/RISCV/RISCVCallingConv.td
++++ b/lib/Target/RISCV/RISCVCallingConv.td
+@@ -12,7 +12,7 @@
+ //===----------------------------------------------------------------------===//
+ 
+ // RISCV 32-bit C return-value convention.
+-def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10_32, X11_32]>>]>;
++def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10_32, X11_32, X12_32, X13_32]>>]>;
+ 
+ // RISCV 32-bit C Calling convention.
+ def CC_RISCV32 : CustomCallingConv;
+diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
+index 274993dd690..03bad378e52 100644
+--- a/test/CodeGen/RISCV/calling-conv.ll
++++ b/test/CodeGen/RISCV/calling-conv.ll
+@@ -360,3 +360,8 @@ define i32 @caller_large_struct_ret() {
+   %6 = add i32 %3, %5
+   ret i32 %6
+ }
++
++define i128 @caller_i128_ret() {
++; CHECK-LABEL: caller_i128_ret:
++  ret i128 0
++}
+-- 
+2.11.1
+

@@ -1,0 +1,56 @@
+From ea62d7c2a72d71b88caa45298e18ad9280ebfe04 Mon Sep 17 00:00:00 2001
+From: David Craven <david@craven.ch>
+Date: Wed, 9 Aug 2017 16:07:26 +0200
+Subject: [PATCH 1/4] Add support for BSWAP intrinsic.
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp |  1 +
+ test/CodeGen/RISCV/bswap.ll            | 23 +++++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/bswap.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index c755d2ae321..13db2a1d9df 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -90,6 +90,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::CTTZ, MVT::i32, Expand);
+   setOperationAction(ISD::CTLZ, MVT::i32, Expand);
+   setOperationAction(ISD::CTPOP, MVT::i32, Expand);
++  setOperationAction(ISD::BSWAP, MVT::i32, Expand);
+ 
+   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+ 
+diff --git a/test/CodeGen/RISCV/bswap.ll b/test/CodeGen/RISCV/bswap.ll
+new file mode 100644
+index 00000000000..467176cc42b
+--- /dev/null
++++ b/test/CodeGen/RISCV/bswap.ll
+@@ -0,0 +1,23 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++declare i16 @llvm.bswap.i16(i16)
++declare i32 @llvm.bswap.i32(i32)
++declare i64 @llvm.bswap.i64(i64)
++
++define i16 @test_bswap_i16(i16 %a) {
++; CHECK-LABEL: test_bswap_i16:
++  %tmp = call i16 @llvm.bswap.i16(i16 %a)
++  ret i16 %tmp
++}
++
++define i32 @test_bswap_i32(i32 %a) {
++; CHECK-LABEL: test_bswap_i32:
++  %tmp = call i32 @llvm.bswap.i32(i32 %a)
++  ret i32 %tmp
++}
++
++define i64 @test_bswap_i64(i64 %a) {
++; CHECK-LABEL: test_bswap_i64:
++  %tmp = call i64 @llvm.bswap.i64(i64 %a)
++  ret i64 %tmp
++}
+\ No newline at end of file
+-- 
+2.11.1
+
