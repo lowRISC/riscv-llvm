@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index eca8f6fa9e0..d6298171299 100644
+index 4d7bdbc96fb..3ff5534110c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,17 +49,57 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -114,7 +114,7 @@ index eca8f6fa9e0..d6298171299 100644
    MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
    MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
    MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
-@@ -99,6 +139,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -138,6 +178,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -142,7 +142,7 @@ index eca8f6fa9e0..d6298171299 100644
  SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
                                              SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-@@ -347,8 +408,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -350,8 +411,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {

@@ -58,6 +58,8 @@ developed in a separate branch.
 ## RFCs
 This work has so far produced a number of request for comment (RFC) threads on 
 the LLVM mailing list:
+* [[RFC] 'Review corner' section in LLVM
+Weekly](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116898.html)
 * [RFC/bikeshedding: Separation of instruction and pattern definitions in LLVM 
 backends](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116635.html)
 * [[RFC] The future of the `va_arg`
@@ -124,8 +126,8 @@ Please contact asb@lowrisc.org if you would like to discuss sponsorship, or
 have questions about code contributions that you can't discuss on the LLVM 
 mailing list.
 
-Thank you to everyone who has contributed review comments, suggestions, or 
-code to this patchset and related support patches: Chandler Carruth, Chih-Mao 
-Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, James Y Knight, 
-David Majnemer, Ed Maste, Dylan McKay, Krzysztof Parzyszek, Jordy Portman, 
-Philip Reames, Tim Northover, Eugene Zalenko, Florian Zeitz.
+Thank you to everyone who has contributed review comments, suggestions, or
+code to this patchset and related support patches: Chandler Carruth, Chih-Mao
+Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, James Y Knight,
+David Majnemer, Ed Maste, Dylan McKay, Krzysztof Parzyszek, Ana Pazaos, Jordy
+Portman, Philip Reames, Tim Northover, Eugene Zalenko, Florian Zeitz.

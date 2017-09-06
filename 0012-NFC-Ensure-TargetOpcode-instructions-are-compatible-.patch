@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [NFC] Ensure instructions TargetOpcode::* are compatible with
+Subject: [NFC] Ensure TargetOpcode::* instructions are compatible with
  guessInstructionProperties=0
 
 rL162640 introduced CodeGenTarget::guessInstructionProperties. If a target
@@ -20,7 +20,7 @@ Differential Revision: https://reviews.llvm.org/D37065
  1 file changed, 13 insertions(+), 2 deletions(-)
 
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index 6f44292c47e..5e02b28675b 100644
+index 6f44292c47e..eae18b74260 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
 @@ -806,12 +806,16 @@ class InstrInfo {
@@ -30,7 +30,7 @@ index 6f44292c47e..5e02b28675b 100644
 -let isCodeGenOnly = 1, isPseudo = 1, hasNoSchedulingInfo = 1,
 -    Namespace = "TargetOpcode" in {
 +// Ensure mayLoad and mayStore have a default value, so as not to break
-+// targets that set guessInstructionProperties=1. Any local definition of
++// targets that set guessInstructionProperties=0. Any local definition of
 +// mayLoad/mayStore takes precedence over these default values.
 +let mayLoad = 0, mayStore = 0, isCodeGenOnly = 1, isPseudo = 1,
 +    hasNoSchedulingInfo = 1, Namespace = "TargetOpcode" in {
