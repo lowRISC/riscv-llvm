@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4d7bdbc96fb..3ff5534110c 100644
+index 4fddff7b7c4..50ed43926c9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,17 +49,57 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

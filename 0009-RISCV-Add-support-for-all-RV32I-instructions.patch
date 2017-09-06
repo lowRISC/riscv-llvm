@@ -20,7 +20,7 @@ Differential Revision: https://reviews.llvm.org/D23566
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index cb820379bbb..b476013c9ea 100644
+index cb820379bbb..2fda01338d4 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -7,6 +7,7 @@
@@ -116,11 +116,11 @@ index cb820379bbb..b476013c9ea 100644
 +    unsigned Imm = 0;
 +    for (char c : SE->getSymbol().getName()) {
 +      switch (c) {
++        default: llvm_unreachable("FenceArg must contain only [iorw]");
 +        case 'i': Imm |= RISCVFenceField::I; break;
 +        case 'o': Imm |= RISCVFenceField::O; break;
 +        case 'r': Imm |= RISCVFenceField::R; break;
 +        case 'w': Imm |= RISCVFenceField::W; break;
-+        default: llvm_unreachable("FenceArg must contain only [iorw]");
 +      }
 +    }
 +    Inst.addOperand(MCOperand::createImm(Imm));
@@ -204,7 +204,7 @@ index cb820379bbb..b476013c9ea 100644
    switch (getLexer().getKind()) {
    default:
      return MatchOperand_NoMatch;
-@@ -300,16 +396,45 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -300,16 +396,46 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
    case AsmToken::Plus:
    case AsmToken::Integer:
    case AsmToken::String:
@@ -228,8 +228,9 @@ index cb820379bbb..b476013c9ea 100644
 +  return MatchOperand_Success;
 +}
 +
-+OperandMatchResultTy RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
-+  if (getLexer().getKind() != AsmToken::LParen) {
++OperandMatchResultTy
++RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
++  if (getLexer().isNot(AsmToken::LParen)) {
 +    Error(getLoc(), "expected '('");
      return MatchOperand_ParseFail;
 +  }
@@ -242,7 +243,7 @@ index cb820379bbb..b476013c9ea 100644
 +    return MatchOperand_ParseFail;
 +  }
 +
-+  if (getLexer().getKind() != AsmToken::RParen) {
++  if (getLexer().isNot(AsmToken::RParen)) {
 +    Error(getLoc(), "expected ')'");
 +    return MatchOperand_ParseFail;
 +  }
@@ -255,16 +256,15 @@ index cb820379bbb..b476013c9ea 100644
    return MatchOperand_Success;
  }
  
-@@ -322,8 +447,13 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+@@ -322,8 +448,12 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
      return false;
  
    // Attempt to parse token as an immediate
 -  if (parseImmediate(Operands) == MatchOperand_Success)
 +  if (parseImmediate(Operands) == MatchOperand_Success) {
 +    // Parse memory base register if present
-+    if (getLexer().getKind() == AsmToken::LParen) {
++    if (getLexer().is(AsmToken::LParen))
 +      return parseMemOpBaseReg(Operands) != MatchOperand_Success;
-+    }
      return false;
 +  }
  
@@ -313,7 +313,7 @@ index f378c6f18da..3bb4fa37f15 100644
    void printInstruction(const MCInst *MI, raw_ostream &O);
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 new file mode 100644
-index 00000000000..5d1e490f0f0
+index 00000000000..fbdc9353c73
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -0,0 +1,54 @@
@@ -357,7 +357,7 @@ index 00000000000..5d1e490f0f0
 +  MO_HI,
 +  MO_PCREL_HI,
 +};
-+}
++} // namespace RISCVII
 +
 +// Describes the predecessor/successor bits used in the FENCE instruction.
 +namespace RISCVFenceField {
@@ -368,7 +368,7 @@ index 00000000000..5d1e490f0f0
 +  W = 1
 +};
 +}
-+}
++} // namespace llvm
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp

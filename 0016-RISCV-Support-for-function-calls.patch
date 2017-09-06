@@ -6,13 +6,13 @@ Subject: [RISCV] Support for function calls
  lib/Target/RISCV/RISCVFrameLowering.h  |   6 ++
  lib/Target/RISCV/RISCVISelLowering.cpp | 131 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   5 +-
- lib/Target/RISCV/RISCVInstrInfo.cpp    |   2 +-
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |   3 +-
  lib/Target/RISCV/RISCVInstrInfo.td     |  31 ++++++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |   6 ++
  lib/Target/RISCV/RISCVRegisterInfo.h   |   3 +
  test/CodeGen/RISCV/calls.ll            |  35 +++++++++
- 9 files changed, 220 insertions(+), 2 deletions(-)
+ 9 files changed, 221 insertions(+), 2 deletions(-)
  create mode 100644 test/CodeGen/RISCV/calls.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
@@ -205,15 +205,16 @@ index 9fe8853ed27..5c90d00ab53 100644
                                           Type *Ty) const override {
      return true;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index b756c69124b..c5a0288259d 100644
+index b756c69124b..265cb609c63 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -28,7 +28,7 @@
+@@ -28,7 +28,8 @@
  
  using namespace llvm;
  
 -RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
-+RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo(RISCV::ADJCALLSTACKDOWN, RISCV::ADJCALLSTACKUP) {}
++RISCVInstrInfo::RISCVInstrInfo()
++    : RISCVGenInstrInfo(RISCV::ADJCALLSTACKDOWN, RISCV::ADJCALLSTACKUP) {}
  
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,

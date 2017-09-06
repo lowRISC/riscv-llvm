@@ -11,7 +11,7 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 6d1d01bc7b6..4d7bdbc96fb 100644
+index 6d1d01bc7b6..4fddff7b7c4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -48,6 +48,8 @@ index 6d1d01bc7b6..4d7bdbc96fb 100644
 +// ISA (see normaliseSetCC).
 +static unsigned getBranchOpcodeForIntCondCode(ISD::CondCode CC) {
 +  switch (CC) {
++  default:
++    llvm_unreachable("Unsupported CondCode");
 +  case ISD::SETEQ:
 +    return RISCV::BEQ;
 +  case ISD::SETNE:
@@ -60,8 +62,6 @@ index 6d1d01bc7b6..4d7bdbc96fb 100644
 +    return RISCV::BLTU;
 +  case ISD::SETUGE:
 +    return RISCV::BGEU;
-+  default:
-+    llvm_unreachable("Unsupported CondCode");
 +  }
 +}
 +

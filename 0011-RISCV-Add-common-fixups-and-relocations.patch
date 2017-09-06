@@ -41,7 +41,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index b476013c9ea..e852cb92e7a 100644
+index 2fda01338d4..7ed83188fbf 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -8,6 +8,7 @@
@@ -459,7 +459,7 @@ index 4896c38dbb0..3e10cdbc1ec 100644
  }
  
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-index 5d1e490f0f0..d1de601b186 100644
+index fbdc9353c73..d3434272b27 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -32,6 +32,7 @@ enum {

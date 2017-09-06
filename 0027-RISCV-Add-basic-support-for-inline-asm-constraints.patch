@@ -122,7 +122,7 @@ index 22bc2b322ca..b094f9a7b76 100644
                                       SDValue &Offset) {
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b7677e89ca7..003dd06399c 100644
+index 40b2527f99d..a8aa9d5fcfa 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -844,3 +844,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
