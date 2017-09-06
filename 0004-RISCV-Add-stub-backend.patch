@@ -46,10 +46,10 @@ index f1002308137..24375fb70d4 100644
  -----
  
 diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
-index c6794ab8114..34b966df776 100644
+index 87d5ce11751..0d899a9c782 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
-@@ -31,6 +31,7 @@ subdirectories =
+@@ -32,6 +32,7 @@ subdirectories =
   Mips
   Nios2
   PowerPC

@@ -97,10 +97,10 @@ index 24375fb70d4..f1002308137 100644
  -----
  
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index a4cdeb89458..efafca65d3f 100644
+index 91ab8554d13..6306f20cd8b 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
-@@ -65,8 +65,6 @@ public:
+@@ -66,8 +66,6 @@ public:
      ppc64le,        // PPC64LE: powerpc64le
      r600,           // R600: AMD GPUs HD2XXX - HD6XXX
      amdgcn,         // AMDGCN: AMD GCN GPUs
@@ -199,10 +199,10 @@ index 5cc4c0ec302..00000000000
 -ELF_RELOC(R_RISCV_SET32,             56)
 -ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 73011f6f9fe..5b5b175005a 100644
+index f436e4534ce..13fe4a2ec46 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -958,8 +958,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -962,8 +962,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return "ELF32-mips";
      case ELF::EM_PPC:
        return "ELF32-ppc";
@@ -211,7 +211,7 @@ index 73011f6f9fe..5b5b175005a 100644
      case ELF::EM_SPARC:
      case ELF::EM_SPARC32PLUS:
        return "ELF32-sparc";
-@@ -980,8 +978,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -984,8 +982,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
      case ELF::EM_PPC64:
        return "ELF64-ppc64";
@@ -220,7 +220,7 @@ index 73011f6f9fe..5b5b175005a 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -1037,15 +1033,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1041,15 +1037,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
@@ -237,7 +237,7 @@ index 73011f6f9fe..5b5b175005a 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index e95d0fcd565..11038578b81 100644
+index ada05aa14cd..10bbe2db0df 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -57,7 +57,6 @@ module LLVM_BinaryFormat {
@@ -267,7 +267,7 @@ index 448fb1bd6b5..1603d4165ce 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index fd0aa49445f..8db7cb9e85b 100644
+index cf0a943a880..692be997025 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -289,10 +289,10 @@ index fd0aa49445f..8db7cb9e85b 100644
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index b2d2d43e400..75f15e11906 100644
+index 73dc59ce41b..ae667c4f9f0 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
-@@ -40,8 +40,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
+@@ -41,8 +41,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
    case ppc:            return "powerpc";
    case r600:           return "r600";
    case amdgcn:         return "amdgcn";
@@ -301,7 +301,7 @@ index b2d2d43e400..75f15e11906 100644
    case sparc:          return "sparc";
    case sparcv9:        return "sparcv9";
    case sparcel:        return "sparcel";
-@@ -140,9 +138,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
+@@ -143,9 +141,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
    case shave:       return "shave";
    case wasm32:
    case wasm64:      return "wasm";
@@ -311,7 +311,7 @@ index b2d2d43e400..75f15e11906 100644
    }
  }
  
-@@ -272,8 +267,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -276,8 +271,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -320,7 +320,7 @@ index b2d2d43e400..75f15e11906 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -398,8 +391,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -403,8 +396,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -329,7 +329,7 @@ index b2d2d43e400..75f15e11906 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -646,8 +637,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -652,8 +643,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -338,7 +338,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1183,7 +1172,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1190,7 +1179,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -346,7 +346,7 @@ index b2d2d43e400..75f15e11906 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1213,7 +1201,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1220,7 +1208,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -354,7 +354,7 @@ index b2d2d43e400..75f15e11906 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1267,7 +1254,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1275,7 +1262,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -362,7 +362,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1291,7 +1277,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1299,7 +1285,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -370,7 +370,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1335,7 +1320,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1344,7 +1329,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -378,7 +378,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1352,7 +1336,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1361,7 +1345,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -386,7 +386,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1387,8 +1370,6 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1396,8 +1379,6 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -395,7 +395,7 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1475,8 +1456,6 @@ bool Triple::isLittleEndian() const {
+@@ -1484,8 +1465,6 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -405,10 +405,10 @@ index b2d2d43e400..75f15e11906 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/lib/Target/LLVMBuild.txt b/lib/Target/LLVMBuild.txt
-index 34b966df776..c6794ab8114 100644
+index 0d899a9c782..87d5ce11751 100644
 --- a/lib/Target/LLVMBuild.txt
 +++ b/lib/Target/LLVMBuild.txt
-@@ -31,7 +31,6 @@ subdirectories =
+@@ -32,7 +32,6 @@ subdirectories =
   Mips
   Nios2
   PowerPC
@@ -896,7 +896,7 @@ index 5f4545e3d67..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 deleted file mode 100644
-index 23f3352c00c..00000000000
+index e55658e3968..00000000000
 --- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 +++ /dev/null
 @@ -1,55 +0,0 @@
@@ -938,7 +938,7 @@ index 23f3352c00c..00000000000
 -}
 -
 -void RISCVInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
--                                  raw_ostream &O, const char *Modifier) {
+-                                    raw_ostream &O, const char *Modifier) {
 -  assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
 -  const MCOperand &MO = MI->getOperand(OpNo);
 -
@@ -1087,7 +1087,7 @@ index 92daae30e3f..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 deleted file mode 100644
-index be83efc02d2..00000000000
+index 4896c38dbb0..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ /dev/null
 @@ -1,93 +0,0 @@
@@ -1144,7 +1144,7 @@ index be83efc02d2..00000000000
 -  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
 -                        MCInst &Res) const override {
 -
--    llvm_unreachable("RISCVAsmBackend::relaxInstruction() unimplemented");
+-    report_fatal_error("RISCVAsmBackend::relaxInstruction() unimplemented");
 -  }
 -
 -  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
@@ -1186,7 +1186,7 @@ index be83efc02d2..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 deleted file mode 100644
-index 4f085d31a26..00000000000
+index 93c981e2a2a..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ /dev/null
 @@ -1,47 +0,0 @@
@@ -1221,7 +1221,7 @@ index 4f085d31a26..00000000000
 -
 -RISCVELFObjectWriter::RISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit)
 -    : MCELFObjectTargetWriter(Is64Bit, OSABI, ELF::EM_RISCV,
--                              /*HasRelocationAddend*/ false) {}
+-                              /*HasRelocationAddend*/ true) {}
 -
 -RISCVELFObjectWriter::~RISCVELFObjectWriter() {}
 -
@@ -1229,7 +1229,7 @@ index 4f085d31a26..00000000000
 -                                            const MCValue &Target,
 -                                            const MCFixup &Fixup,
 -                                            bool IsPCRel) const {
--  llvm_unreachable("invalid fixup kind!");
+-  report_fatal_error("invalid fixup kind!");
 -}
 -
 -MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,

@@ -115,10 +115,10 @@ index 00000000000..5cc4c0ec302
 +ELF_RELOC(R_RISCV_SET32,             56)
 +ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 5b5b175005a..73011f6f9fe 100644
+index 13fe4a2ec46..f436e4534ce 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -958,6 +958,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -962,6 +962,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return "ELF32-mips";
      case ELF::EM_PPC:
        return "ELF32-ppc";
@@ -127,7 +127,7 @@ index 5b5b175005a..73011f6f9fe 100644
      case ELF::EM_SPARC:
      case ELF::EM_SPARC32PLUS:
        return "ELF32-sparc";
-@@ -978,6 +980,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -982,6 +984,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
      case ELF::EM_PPC64:
        return "ELF64-ppc64";
@@ -136,7 +136,7 @@ index 5b5b175005a..73011f6f9fe 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -1033,6 +1037,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1037,6 +1041,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
@@ -153,7 +153,7 @@ index 5b5b175005a..73011f6f9fe 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 11038578b81..e95d0fcd565 100644
+index 10bbe2db0df..ada05aa14cd 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -57,6 +57,7 @@ module LLVM_BinaryFormat {
@@ -183,7 +183,7 @@ index 1603d4165ce..448fb1bd6b5 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 8db7cb9e85b..fd0aa49445f 100644
+index 692be997025..cf0a943a880 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(

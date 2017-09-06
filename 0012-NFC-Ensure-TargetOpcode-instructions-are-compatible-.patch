@@ -16,11 +16,11 @@ to those instructions where it is currently inferred.
 
 Differential Revision: https://reviews.llvm.org/D37065
 ---
- include/llvm/Target/Target.td | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ include/llvm/Target/Target.td | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index 6f44292c47e..eae18b74260 100644
+index 6941236729b..b5ad1d874c5 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
 @@ -806,12 +806,16 @@ class InstrInfo {
@@ -65,8 +65,16 @@ index 6f44292c47e..eae18b74260 100644
 +  let hasSideEffects = 1;
    let isNotDuplicable = 1;
  }
+ def ANNOTATION_LABEL : Instruction {
+@@ -845,6 +852,7 @@ def ANNOTATION_LABEL : Instruction {
+   let InOperandList = (ins i32imm:$id);
+   let AsmString = "";
+   let hasCtrlDep = 1;
++  let hasSideEffects = 1;
+   let isNotDuplicable = 1;
+ }
  def KILL : Instruction {
-@@ -905,6 +912,7 @@ def BUNDLE : Instruction {
+@@ -912,6 +920,7 @@ def BUNDLE : Instruction {
    let OutOperandList = (outs);
    let InOperandList = (ins variable_ops);
    let AsmString = "BUNDLE";
@@ -74,7 +82,7 @@ index 6f44292c47e..eae18b74260 100644
  }
  def LIFETIME_START : Instruction {
    let OutOperandList = (outs);
-@@ -921,6 +929,7 @@ def LIFETIME_END : Instruction {
+@@ -928,6 +937,7 @@ def LIFETIME_END : Instruction {
  def STACKMAP : Instruction {
    let OutOperandList = (outs);
    let InOperandList = (ins i64imm:$id, i32imm:$nbytes, variable_ops);
@@ -82,7 +90,7 @@ index 6f44292c47e..eae18b74260 100644
    let isCall = 1;
    let mayLoad = 1;
    let usesCustomInserter = 1;
-@@ -929,6 +938,7 @@ def PATCHPOINT : Instruction {
+@@ -936,6 +946,7 @@ def PATCHPOINT : Instruction {
    let OutOperandList = (outs unknown:$dst);
    let InOperandList = (ins i64imm:$id, i32imm:$nbytes, unknown:$callee,
                         i32imm:$nargs, i32imm:$cc, variable_ops);
@@ -90,7 +98,7 @@ index 6f44292c47e..eae18b74260 100644
    let isCall = 1;
    let mayLoad = 1;
    let usesCustomInserter = 1;
-@@ -963,6 +973,7 @@ def FAULTING_OP : Instruction {
+@@ -970,6 +981,7 @@ def FAULTING_OP : Instruction {
    let OutOperandList = (outs unknown:$dst);
    let InOperandList = (ins variable_ops);
    let usesCustomInserter = 1;

@@ -187,7 +187,7 @@ index 5bf91f2be9..1c123b8d1b 100644
    ToolChains/TCE.cpp
    ToolChains/WebAssembly.cpp
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index b11629aace..c41c580b4d 100644
+index 765b006e90..a948d3e582 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
 @@ -36,6 +36,7 @@
@@ -198,7 +198,7 @@ index b11629aace..c41c580b4d 100644
  #include "ToolChains/Solaris.h"
  #include "ToolChains/TCE.h"
  #include "ToolChains/WebAssembly.h"
-@@ -3909,6 +3910,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+@@ -3917,6 +3918,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
        case llvm::Triple::avr:
          TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
          break;
