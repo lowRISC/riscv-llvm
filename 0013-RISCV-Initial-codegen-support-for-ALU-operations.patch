@@ -28,15 +28,15 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 +++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 178 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 ++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 177 ++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
  lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
  lib/Target/RISCV/RISCVInstrInfo.td      | 105 ++++++++++++++-----
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  60 +++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.h    |  40 +++++++
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
  lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
  lib/Target/RISCV/RISCVSubtarget.h       |  64 ++++++++++++
@@ -44,7 +44,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1110 insertions(+), 36 deletions(-)
+ 24 files changed, 1109 insertions(+), 36 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -418,10 +418,10 @@ index 00000000000..84f27d9681f
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..3665e14795b
+index 00000000000..47d12ae8af2
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -0,0 +1,178 @@
+@@ -0,0 +1,177 @@
 +//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -466,20 +466,20 @@ index 00000000000..3665e14795b
 +  // Set up the register classes.
 +  addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
 +
-+  // Compute derived properties from the register classes
++  // Compute derived properties from the register classes.
 +  computeRegisterProperties(STI.getRegisterInfo());
 +
 +  setStackPointerRegisterToSaveRestore(RISCV::X2_32);
 +
-+  // TODO: add all necessary setOperationAction calls
++  // TODO: add all necessary setOperationAction calls.
 +
 +  setBooleanContents(ZeroOrOneBooleanContent);
 +
-+  // Function alignments (log2)
++  // Function alignments (log2).
 +  setMinFunctionAlignment(3);
 +  setPrefFunctionAlignment(3);
 +
-+  // inline memcpy() for kernel to see explicit copy
++  // inline memcpy().
 +  MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
 +  MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
 +  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
@@ -493,10 +493,10 @@ index 00000000000..3665e14795b
 +  }
 +}
 +
-+// Calling Convention Implementation
++// Calling Convention Implementation.
 +#include "RISCVGenCallingConv.inc"
 +
-+// Transform physical registers into virtual registers
++// Transform physical registers into virtual registers.
 +SDValue RISCVTargetLowering::LowerFormalArguments(
 +    SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
 +    const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
@@ -512,9 +512,8 @@ index 00000000000..3665e14795b
 +  MachineFunction &MF = DAG.getMachineFunction();
 +  MachineRegisterInfo &RegInfo = MF.getRegInfo();
 +
-+  if (IsVarArg) {
++  if (IsVarArg)
 +    report_fatal_error("VarArg not supported");
-+  }
 +
 +  // Assign locations to all of the incoming arguments.
 +  SmallVector<CCValAssign, 16> ArgLocs;
@@ -523,7 +522,7 @@ index 00000000000..3665e14795b
 +
 +  for (auto &VA : ArgLocs) {
 +    if (VA.isRegLoc()) {
-+      // Arguments passed in registers
++      // Arguments passed in registers.
 +      EVT RegVT = VA.getLocVT();
 +      switch (RegVT.getSimpleVT().SimpleTy) {
 +      case MVT::i32: {
@@ -557,10 +556,10 @@ index 00000000000..3665e14795b
 +    report_fatal_error("VarArg not supported");
 +  }
 +
-+  // Stores the assignment of the return value to a location
++  // Stores the assignment of the return value to a location.
 +  SmallVector<CCValAssign, 16> RVLocs;
 +
-+  // Info about the registers and stack slot
++  // Info about the registers and stack slot.
 +  CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
 +                 *DAG.getContext());
 +
@@ -576,7 +575,7 @@ index 00000000000..3665e14795b
 +
 +    Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), OutVals[i], Flag);
 +
-+    // Guarantee that all emitted copies are stuck together
++    // Guarantee that all emitted copies are stuck together.
 +    Flag = Chain.getValue(1);
 +    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
 +  }

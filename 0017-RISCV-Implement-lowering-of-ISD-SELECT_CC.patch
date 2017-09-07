@@ -11,11 +11,11 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 6d1d01bc7b6..4fddff7b7c4 100644
+index 78484ca80cd..9c9ce43a150 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   // TODO: add all necessary setOperationAction calls
+   // TODO: add all necessary setOperationAction calls.
  
    setOperationAction(ISD::BR_CC, MVT::i32, Expand);
 +  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
@@ -28,7 +28,7 @@ index 6d1d01bc7b6..4fddff7b7c4 100644
  
 +// Changes the condition code and swaps operands if necessary, so the SetCC
 +// operation matches one of the comparisons supported directly in the RISC-V
-+// ISA
++// ISA.
 +static void normaliseSetCC(SDValue &LHS, SDValue &RHS, ISD::CondCode &CC) {
 +  switch (CC) {
 +  default:
@@ -127,17 +127,17 @@ index 6d1d01bc7b6..4fddff7b7c4 100644
 +
 +  F->insert(I, IfFalseMBB);
 +  F->insert(I, TailMBB);
-+  // Move all remaining instructions to TailMBB
++  // Move all remaining instructions to TailMBB.
 +  TailMBB->splice(TailMBB->begin(), HeadMBB,
 +                  std::next(MachineBasicBlock::iterator(MI)), HeadMBB->end());
 +  // Update machine-CFG edges by transferring all successors of the current
 +  // block to the new block which will contain the Phi node for the select.
 +  TailMBB->transferSuccessorsAndUpdatePHIs(HeadMBB);
-+  // Set the successors for HeadMBB
++  // Set the successors for HeadMBB.
 +  HeadMBB->addSuccessor(IfFalseMBB);
 +  HeadMBB->addSuccessor(TailMBB);
 +
-+  // Insert appropriate branch
++  // Insert appropriate branch.
 +  unsigned LHS = MI.getOperand(1).getReg();
 +  unsigned RHS = MI.getOperand(2).getReg();
 +  auto CC = static_cast<ISD::CondCode>(MI.getOperand(3).getImm());
@@ -148,7 +148,7 @@ index 6d1d01bc7b6..4fddff7b7c4 100644
 +    .addReg(RHS)
 +    .addMBB(TailMBB);
 +
-+  // IfFalseMBB just falls through to TailMBB
++  // IfFalseMBB just falls through to TailMBB.
 +  IfFalseMBB->addSuccessor(TailMBB);
 +
 +  // %Result = phi [ %TrueValue, HeadMBB ], [ %FalseValue, IfFalseMBB ]
@@ -163,10 +163,10 @@ index 6d1d01bc7b6..4fddff7b7c4 100644
 +  return TailMBB;
 +}
 +
- // Calling Convention Implementation
+ // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -331,6 +457,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -330,6 +456,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";

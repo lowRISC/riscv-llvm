@@ -128,6 +128,7 @@ mailing list.
 
 Thank you to everyone who has contributed review comments, suggestions, or
 code to this patchset and related support patches: Chandler Carruth, Chih-Mao
-Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, James Y Knight,
-David Majnemer, Ed Maste, Dylan McKay, Krzysztof Parzyszek, Ana Pazaos, Jordy
-Portman, Philip Reames, Tim Northover, Eugene Zalenko, Florian Zeitz.
+Chen, David Chisnall, Simon Cook, David Craven, Hal Finkel, Mandeep Singh
+Grang, James Y Knight, David Majnemer, Ed Maste, Dylan McKay, Krzysztof
+Parzyszek, Ana Pazaos, Jordy Portman, Philip Reames, Tim Northover, Eugene
+Zalenko, Florian Zeitz.

@@ -9,12 +9,12 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 168 +++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 166 +++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 ++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp      |   3 +
  test/CodeGen/RISCV/vararg.ll                | 361 ++++++++++++++++++++++++++++
- 6 files changed, 557 insertions(+), 27 deletions(-)
+ 6 files changed, 557 insertions(+), 25 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
@@ -65,7 +65,7 @@ index d91eb1b150e..cd1c33059d5 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b846c134ec4..40b2527f99d 100644
+index 0d500e230b3..bf14aad15f9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -127,7 +127,7 @@ index b846c134ec4..40b2527f99d 100644
 +    RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
 +    RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32};
 +
- // Calling Convention Implementation
+ // Calling Convention Implementation.
  // The expectations for frontend ABI lowering vary from target to target.
  // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
 @@ -310,13 +337,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
@@ -193,7 +193,7 @@ index b846c134ec4..40b2527f99d 100644
    unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
  
    // If we reach this point and PendingMembers is non-empty, we must be at the
-@@ -407,18 +447,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -407,17 +447,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -202,9 +202,8 @@ index b846c134ec4..40b2527f99d 100644
    MachineRegisterInfo &RegInfo = MF.getRegInfo();
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
 -
--  if (IsVarArg) {
+-  if (IsVarArg)
 -    report_fatal_error("VarArg not supported");
--  }
 +  // Used with vargs to acumulate store chains.
 +  std::vector<SDValue> OutChains;
  
@@ -233,11 +232,8 @@ index b846c134ec4..40b2527f99d 100644
  
    for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
      CCValAssign &VA = ArgLocs[I];
-@@ -473,9 +529,64 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
-       }
-     } else {
+@@ -474,6 +531,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
        InVals.push_back(ArgValue);
-->>>>>>> bb4419f... [RISCV] Add custom CC_RISCV32 calling convention and improved call support
      }
    }
 +
@@ -299,7 +295,7 @@ index b846c134ec4..40b2527f99d 100644
    return Chain;
  }
  
-@@ -495,16 +606,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -493,16 +606,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
@@ -332,7 +328,7 @@ index b846c134ec4..40b2527f99d 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -675,10 +797,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -673,10 +797,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -340,7 +336,7 @@ index b846c134ec4..40b2527f99d 100644
 -    report_fatal_error("VarArg not supported");
 -  }
 -
-   // Stores the assignment of the return value to a location
+   // Stores the assignment of the return value to a location.
    SmallVector<CCValAssign, 16> RVLocs;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h

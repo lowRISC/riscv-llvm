@@ -16,12 +16,12 @@ perform. I would like to drastically simplify these requirements over time,
 but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/RISCVCallingConv.td   |  12 +-
- lib/Target/RISCV/RISCVISelLowering.cpp | 228 +++++++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp | 227 +++++++++++++++++++--
  test/CodeGen/RISCV/byval.ll            |  27 +++
  test/CodeGen/RISCV/calling-conv.ll     | 362 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll            |  27 +++
  test/CodeGen/RISCV/fp128.ll            |  14 ++
- 6 files changed, 645 insertions(+), 25 deletions(-)
+ 6 files changed, 644 insertions(+), 25 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
  create mode 100644 test/CodeGen/RISCV/fp128.ll
@@ -50,13 +50,13 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index f57efde9d75..b846c134ec4 100644
+index 242bcfc8efd..0d500e230b3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -288,6 +288,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
- // Calling Convention Implementation
+ // Calling Convention Implementation.
 +// The expectations for frontend ABI lowering vary from target to target.
 +// Ideally, an LLVM frontend would be able to avoid worrying about many ABI
 +// details, but this is a longer term goal. For now, we simply try to keep the
@@ -162,7 +162,7 @@ index f57efde9d75..b846c134ec4 100644
 +
  #include "RISCVGenCallingConv.inc"
  
- // Transform physical registers into virtual registers
+ // Transform physical registers into virtual registers.
 @@ -304,7 +407,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
@@ -171,9 +171,9 @@ index f57efde9d75..b846c134ec4 100644
    MachineRegisterInfo &RegInfo = MF.getRegInfo();
 +  EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
-   if (IsVarArg) {
+   if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -315,27 +420,60 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -314,27 +419,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -183,7 +183,7 @@ index f57efde9d75..b846c134ec4 100644
 +    EVT LocVT = VA.getLocVT();
 +    SDValue ArgValue;
      if (VA.isRegLoc()) {
-       // Arguments passed in registers
+       // Arguments passed in registers.
 -      EVT RegVT = VA.getLocVT();
 -      switch (RegVT.getSimpleVT().SimpleTy) {
 +      switch (LocVT.getSimpleVT().SimpleTy) {
@@ -238,11 +238,10 @@ index f57efde9d75..b846c134ec4 100644
 +      }
 +    } else {
 +      InVals.push_back(ArgValue);
-+>>>>>>> bb4419f... [RISCV] Add custom CC_RISCV32 calling convention and improved call support
      }
    }
    return Chain;
-@@ -371,39 +509,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -370,39 +507,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  

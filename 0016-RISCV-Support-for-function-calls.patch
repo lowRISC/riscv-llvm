@@ -33,10 +33,10 @@ index 3048fa75e3f..ae2ed99f82d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b904062d183..6d1d01bc7b6 100644
+index b4a402cf241..78484ca80cd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -150,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -149,6 +149,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
@@ -172,7 +172,7 @@ index b904062d183..6d1d01bc7b6 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -200,6 +329,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -199,6 +328,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      break;
    case RISCVISD::RET_FLAG:
      return "RISCVISD::RET_FLAG";
@@ -284,19 +284,19 @@ index e7aa078a94d..349d6b2813f 100644
 +                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
 +}
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index df49f816b9a..eaaa841df00 100644
+index 9c890c76bee..a6f103e8f57 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -69,6 +69,9 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
-         return false;
-       MCOp = MCOperand::createReg(MO.getReg());
-       break;
-+    case MachineOperand::MO_RegisterMask:
-+      // Regmasks are like implicit defs.
-+      return false;
-     case MachineOperand::MO_Immediate:
-       MCOp = MCOperand::createImm(MO.getImm());
-       break;
+@@ -68,6 +68,9 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+       return false;
+     MCOp = MCOperand::createReg(MO.getReg());
+     break;
++  case MachineOperand::MO_RegisterMask:
++    // Regmasks are like implicit defs.
++    return false;
+   case MachineOperand::MO_Immediate:
+     MCOp = MCOperand::createImm(MO.getImm());
+     break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 index cfe6b7d76b6..37157de882f 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp

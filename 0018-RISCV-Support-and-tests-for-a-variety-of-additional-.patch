@@ -19,7 +19,7 @@ for a number of these cases:
 * bswap, ctlz, cttz, ctpop
 * rotl, rotr
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  68 +++++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      |  66 +++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  18 ++-
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   4 +
@@ -36,7 +36,7 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll                 |  91 +++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 233 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  28 ++++
- 17 files changed, 804 insertions(+), 6 deletions(-)
+ 17 files changed, 803 insertions(+), 5 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
@@ -51,12 +51,12 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4fddff7b7c4..50ed43926c9 100644
+index 9c9ce43a150..66986e7de06 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -49,17 +49,57 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -49,16 +49,56 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  
-   // TODO: add all necessary setOperationAction calls
+   // TODO: add all necessary setOperationAction calls.
  
 +  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
    setOperationAction(ISD::BR_CC, MVT::i32, Expand);
@@ -102,18 +102,16 @@ index 4fddff7b7c4..50ed43926c9 100644
  
 +  setBooleanContents(ZeroOrOneBooleanContent);
 +
-   // Function alignments (log2)
+   // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
  
--  // inline memcpy() for kernel to see explicit copy
-+  // Effectively disable jump table generation
++  // Effectively disable jump table generation.
 +  setMinimumJumpTableEntries(INT_MAX);
 +
-+  // inline memcpy()
+   // inline memcpy().
    MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
    MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
-   MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
 @@ -138,6 +178,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
@@ -142,7 +140,7 @@ index 4fddff7b7c4..50ed43926c9 100644
  SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
                                              SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-@@ -350,8 +411,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -349,8 +410,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
@@ -204,19 +202,19 @@ index a0ed38bf325..80a21d63f65 100644
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index eaaa841df00..bd2c884f2d8 100644
+index a6f103e8f57..bed4627feb8 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -82,6 +82,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
-     case MachineOperand::MO_GlobalAddress:
-       MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
-       break;
-+    case MachineOperand::MO_ExternalSymbol:
-+      MCOp = lowerSymbolOperand(
-+          MO, AP.GetExternalSymbolSymbol(MO.getSymbolName()), AP);
-+      break;
-     }
-     return true;
+@@ -81,6 +81,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+   case MachineOperand::MO_GlobalAddress:
+     MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
+     break;
++  case MachineOperand::MO_ExternalSymbol:
++    MCOp = lowerSymbolOperand(
++        MO, AP.GetExternalSymbolSymbol(MO.getSymbolName()), AP);
++    break;
+   }
+   return true;
  }
 diff --git a/test/CodeGen/RISCV/addc-adde-sube-subc.ll b/test/CodeGen/RISCV/addc-adde-sube-subc.ll
 new file mode 100644

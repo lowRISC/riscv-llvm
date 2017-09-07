@@ -12,12 +12,12 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
  lib/Target/RISCV/RISCVInstrInfo.td     |  54 +++++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp  |  59 +++++++++++++--
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 +++++++++++++++------
  lib/Target/RISCV/RISCVSubtarget.h      |   1 +
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++++
  test/CodeGen/RISCV/mem.ll              | 131 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++++
- 12 files changed, 362 insertions(+), 13 deletions(-)
+ 12 files changed, 374 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -75,7 +75,7 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 3665e14795b..71156d076dd 100644
+index 47d12ae8af2..f81bae8d644 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -37,7 +37,7 @@ using namespace llvm;
@@ -93,7 +93,7 @@ index 3665e14795b..71156d076dd 100644
  
 +  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
 +
-   // Function alignments (log2)
+   // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
 @@ -64,11 +66,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -129,7 +129,7 @@ index 3665e14795b..71156d076dd 100644
 +  }
 +}
 +
- // Calling Convention Implementation
+ // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
@@ -284,7 +284,7 @@ index 8efeed3f594..288aa2968ed 100644
 +defm : StPat<truncstorei16, SH>;
 +defm : StPat<store, SW>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index 9837b46532b..df49f816b9a 100644
+index 9837b46532b..9c890c76bee 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
 @@ -13,6 +13,8 @@
@@ -296,7 +296,7 @@ index 9837b46532b..df49f816b9a 100644
  #include "llvm/CodeGen/MachineBasicBlock.h"
  #include "llvm/CodeGen/MachineInstr.h"
  #include "llvm/MC/MCAsmInfo.h"
-@@ -24,14 +26,39 @@
+@@ -24,29 +26,69 @@
  
  using namespace llvm;
  
@@ -326,8 +326,7 @@ index 9837b46532b..df49f816b9a 100644
 -    const MachineOperand &MO = MI->getOperand(i);
 +  const MCExpr *ME =
 +      MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
- 
--    MCOperand MCOp;
++
 +  if (!MO.isJTI() && MO.getOffset())
 +    ME = MCBinaryExpr::createAdd(
 +        ME, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
@@ -339,38 +338,51 @@ index 9837b46532b..df49f816b9a 100644
 +bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
 +                                               MCOperand &MCOp,
 +                                               const AsmPrinter &AP) {
-     switch (MO.getType()) {
-     default:
-       report_fatal_error(
-@@ -39,14 +66,30 @@ void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI,
-     case MachineOperand::MO_Register:
-       // Ignore all implicit register operands.
-       if (MO.isImplicit())
--        continue;
-+        return false;
-       MCOp = MCOperand::createReg(MO.getReg());
-       break;
-     case MachineOperand::MO_Immediate:
-       MCOp = MCOperand::createImm(MO.getImm());
-       break;
-+    case MachineOperand::MO_MachineBasicBlock:
-+      MCOp = MCOperand::createExpr(
-+          MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), AP.OutContext));
-+      break;
-+    case MachineOperand::MO_GlobalAddress:
-+      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
-+      break;
-     }
-+    return true;
++  switch (MO.getType()) {
++  default:
++    report_fatal_error("LowerRISCVMachineInstrToMCInst: unknown operand type");
++  case MachineOperand::MO_Register:
++    // Ignore all implicit register operands.
++    if (MO.isImplicit())
++      return false;
++    MCOp = MCOperand::createReg(MO.getReg());
++    break;
++  case MachineOperand::MO_Immediate:
++    MCOp = MCOperand::createImm(MO.getImm());
++    break;
++  case MachineOperand::MO_MachineBasicBlock:
++    MCOp = MCOperand::createExpr(
++        MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), AP.OutContext));
++    break;
++  case MachineOperand::MO_GlobalAddress:
++    MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
++    break;
++  }
++  return true;
 +}
- 
--    OutMI.addOperand(MCOp);
++
 +void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
 +                                          const AsmPrinter &AP) {
 +  OutMI.setOpcode(MI->getOpcode());
-+
+ 
 +  for (const MachineOperand &MO : MI->operands()) {
-+    MCOperand MCOp;
+     MCOperand MCOp;
+-    switch (MO.getType()) {
+-    default:
+-      report_fatal_error(
+-          "LowerRISCVMachineInstrToMCInst: unknown operand type");
+-    case MachineOperand::MO_Register:
+-      // Ignore all implicit register operands.
+-      if (MO.isImplicit())
+-        continue;
+-      MCOp = MCOperand::createReg(MO.getReg());
+-      break;
+-    case MachineOperand::MO_Immediate:
+-      MCOp = MCOperand::createImm(MO.getImm());
+-      break;
+-    }
+-
+-    OutMI.addOperand(MCOp);
 +    if (LowerRISCVMachineOperandToMCOperand(MO, MCOp, AP))
 +      OutMI.addOperand(MCOp);
    }

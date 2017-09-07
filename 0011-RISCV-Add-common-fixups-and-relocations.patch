@@ -16,7 +16,7 @@ Differential Revision: https://reviews.llvm.org/D23568
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 182 ++++++++++++++++++---
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 109 +++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 107 +++++++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   1 +
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 ++++++
@@ -31,7 +31,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  test/MC/RISCV/relocations.s                        |  65 ++++++++
  test/MC/RISCV/rv32i-invalid.s                      |  61 ++++++-
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 17 files changed, 843 insertions(+), 43 deletions(-)
+ 17 files changed, 841 insertions(+), 43 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -318,7 +318,7 @@ index d79de74f7cf..60429647edd 100644
 +  RISCVMCTargetDesc.cpp
  )
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index 4896c38dbb0..3e10cdbc1ec 100644
+index 4896c38dbb0..692a179e927 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -7,9 +7,12 @@
@@ -334,7 +334,7 @@ index 4896c38dbb0..3e10cdbc1ec 100644
  #include "llvm/MC/MCDirectives.h"
  #include "llvm/MC/MCELFObjectWriter.h"
  #include "llvm/MC/MCExpr.h"
-@@ -44,7 +47,32 @@ public:
+@@ -44,7 +47,31 @@ public:
      return false;
    }
  
@@ -357,7 +357,6 @@ index 4896c38dbb0..3e10cdbc1ec 100644
 +      { "fixup_riscv_branch",      0,     32,  MCFixupKindInfo::FKF_IsPCRel }
 +    };
 +
-+
 +    if (Kind < FirstTargetFixupKind)
 +      return MCAsmBackend::getFixupKindInfo(Kind);
 +
@@ -368,7 +367,7 @@ index 4896c38dbb0..3e10cdbc1ec 100644
  
    bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
  
-@@ -70,10 +98,89 @@ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+@@ -70,10 +97,88 @@ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
    return true;
  }
  
@@ -452,8 +451,7 @@ index 4896c38dbb0..3e10cdbc1ec 100644
 +  // For each byte of the fragment that the fixup touches, mask in the
 +  // bits from the fixup value.
 +  for (unsigned i = 0; i != 4; ++i) {
-+    unsigned Idx = i;
-+    Data[Offset + i] |= uint8_t((Value >> (Idx * 8)) & 0xff);
++    Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
 +  }
    return;
  }
@@ -690,7 +688,7 @@ index f4eaf06f622..596dfc0ef8a 100644
  }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
 new file mode 100644
-index 00000000000..64cfd2ba98f
+index 00000000000..b36236ea155
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
 @@ -0,0 +1,99 @@
@@ -755,14 +753,14 @@ index 00000000000..64cfd2ba98f
 +
 +StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
 +  switch (Kind) {
++  default:
++    llvm_unreachable("Invalid ELF symbol kind");
 +  case VK_RISCV_LO:
 +    return "lo";
 +  case VK_RISCV_HI:
 +    return "hi";
 +  case VK_RISCV_PCREL_HI:
 +    return "pcrel_hi";
-+  default:
-+    llvm_unreachable("Invalid ELF symbol kind");
 +  }
 +}
 +
@@ -784,13 +782,13 @@ index 00000000000..64cfd2ba98f
 +
 +int64_t RISCVMCExpr::evaluateAsInt64(int64_t Value) const {
 +  switch (Kind) {
++  default:
++    llvm_unreachable("Invalid kind");
 +  case VK_RISCV_LO:
 +    return SignExtend64<12>(Value);
 +  case VK_RISCV_HI:
 +    // Add 1 if bit 11 is 1, to compensate for low 12 bits being negative.
 +    return ((Value + 0x800) >> 12) & 0xfffff;
-+  default:
-+    llvm_unreachable("Invalid kind");
 +  }
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
