@@ -46,7 +46,7 @@ pr71494.c
 20020107-1.c
 930526-1.c
 961223-1.c
-880608-1.c
+980608-1.c
 bcp-1.c
 loop-2c.c
 p18298.c
@@ -119,6 +119,18 @@ fprintf-chk-1.c
 gofast.c
 vfprintf-1.c
 vfprintf-chk-1.c
+
+# 64-bit Multiply-with-overflow expands to a __mulodi4, which is present in
+# compiler-rt but not libgcc
+pr71554.c
+
+# __assert_fail is not defined in newlib
+pr58831.c
+
+# No support for __builtin_longjmp/__builtin_setjmp. Also true of clang for
+# AArch64.
+built-in-setjmp.c
+pr60003.c
 EOF
 )
 
