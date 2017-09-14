@@ -98,7 +98,7 @@ float-floor.c
 # Unsupported builtins, even on x86 clang
 builtin-bitops-1.c
 pr39228.c
-pr47327.c
+pr47237.c
 pr78586.c
 pr79327.c
 va-arg-pack-1.c
