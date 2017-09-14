@@ -1,0 +1,115 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add support for lowering BlockAddress operands
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 23 +++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  1 +
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  4 ++++
+ test/CodeGen/RISCV/blockaddress.ll     | 19 +++++++++++++++++++
+ 4 files changed, 47 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/blockaddress.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 1a14e33abe5..13fd33e2d68 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -99,6 +99,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::CTPOP, MVT::i32, Expand);
+ 
+   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
++  setOperationAction(ISD::BlockAddress, MVT::i32, Custom);
+ 
+   setBooleanContents(ZeroOrOneBooleanContent);
+ 
+@@ -159,6 +160,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+   switch (Op.getOpcode()) {
+   case ISD::GlobalAddress:
+     return lowerGlobalAddress(Op, DAG);
++  case ISD::BlockAddress:
++    return lowerBlockAddress(Op, DAG);
+   case ISD::SELECT_CC:
+     return lowerSELECT_CC(Op, DAG);
+   case ISD::VASTART:
+@@ -194,6 +197,26 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+   }
+ }
+ 
++SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
++                                               SelectionDAG &DAG) const {
++  SDLoc DL(Op);
++  EVT Ty = Op.getValueType();
++  BlockAddressSDNode *N = cast<BlockAddressSDNode>(Op);
++  const BlockAddress *BA = N->getBlockAddress();
++  int64_t Offset = N->getOffset();
++
++  if (!isPositionIndependent() && !Subtarget->is64Bit()) {
++    SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
++    SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
++    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
++    SDValue MNLo =
++        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
++    return MNLo;
++  } else {
++    report_fatal_error("Unable to lowerBlockAddress");
++  }
++}
++
+ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
+                                                  SelectionDAG &DAG) const {
+   SDLoc DL(Op);
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 4522dcf553d..2f6caa9acb2 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -73,6 +73,7 @@ private:
+     return true;
+   }
+   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
++  SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
+index 5dc36228253..b413ee4079a 100644
+--- a/lib/Target/RISCV/RISCVMCInstLower.cpp
++++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
+@@ -81,6 +81,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+   case MachineOperand::MO_GlobalAddress:
+     MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
+     break;
++  case MachineOperand::MO_BlockAddress:
++    MCOp = lowerSymbolOperand(
++        MO, AP.GetBlockAddressSymbol(MO.getBlockAddress()), AP);
++    break;
+   case MachineOperand::MO_ExternalSymbol:
+     MCOp = lowerSymbolOperand(
+         MO, AP.GetExternalSymbolSymbol(MO.getSymbolName()), AP);
+diff --git a/test/CodeGen/RISCV/blockaddress.ll b/test/CodeGen/RISCV/blockaddress.ll
+new file mode 100644
+index 00000000000..263be932279
+--- /dev/null
++++ b/test/CodeGen/RISCV/blockaddress.ll
+@@ -0,0 +1,19 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++@addr = global i8* null
++
++define void @test_blockaddress() {
++; CHECK-LABEL: test_blockaddress:
++; CHECK: lui a0, %hi(addr)
++; CHECK: addi a0, a0, %lo(addr)
++; CHECK: lui a1, %hi(.Ltmp0)
++; CHECK: addi a1, a1, %lo(.Ltmp0)
++; CHECK: sw a1, 0(a0)
++; CHECK: lw a0, 0(a0)
++; CHECK: jalr zero, a0, 0
++  store volatile i8* blockaddress(@test_blockaddress, %block), i8** @addr
++  %val = load volatile i8*, i8** @addr
++  indirectbr i8* %val, [label %block]
++
++block:
++  ret void
++}
+-- 
+2.14.1
+

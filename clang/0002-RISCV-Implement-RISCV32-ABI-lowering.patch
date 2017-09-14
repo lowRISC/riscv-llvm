@@ -6,16 +6,16 @@ There are several TODOs in the implementation, and this has not been
 thoroughly tested for compatibility with GCC's implementation of the RISC-V
 calling convention and ABI.
 ---
- lib/CodeGen/TargetInfo.cpp | 120 ++++++++++++++++++
- test/CodeGen/riscv32-abi.c | 295 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 415 insertions(+)
+ lib/CodeGen/TargetInfo.cpp | 121 ++++++++++++++++
+ test/CodeGen/riscv32-abi.c | 354 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 475 insertions(+)
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 10fa2ea322..06eab66da9 100644
+index 10fa2ea322..17177df836 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8748,6 +8748,123 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8748,6 +8748,124 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -48,6 +48,7 @@ index 10fa2ea322..06eab66da9 100644
 +} // end anonymous namespace
 +
 +ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty) const {
++
 +  // TODO: do we want this on RISC-V?
 +  Ty = useFirstFieldIfTransparentUnion(Ty);
 +
@@ -60,7 +61,7 @@ index 10fa2ea322..06eab66da9 100644
 +
 +  uint64_t Size = getContext().getTypeSize(Ty);
 +
-+  if (!isAggregateTypeForABI(Ty)) {
++  if (!isAggregateTypeForABI(Ty) && !Ty->isVectorType()) {
 +    // Treat an enum type as its underlying type.
 +    if (const EnumType *EnumTy = Ty->getAs<EnumType>())
 +      Ty = EnumTy->getDecl()->getIntegerType();
@@ -139,7 +140,7 @@ index 10fa2ea322..06eab66da9 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8862,6 +8979,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8862,6 +8980,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  
@@ -151,10 +152,10 @@ index 10fa2ea322..06eab66da9 100644
      return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 new file mode 100644
-index 0000000000..91311d2a37
+index 0000000000..dbed942173
 --- /dev/null
 +++ b/test/CodeGen/riscv32-abi.c
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,354 @@
 +// RUN: %clang_cc1 -triple riscv32 -emit-llvm %s -o - | FileCheck %s
 +
 +// CHECK-LABEL: define void @f_void()
@@ -211,6 +212,30 @@ index 0000000000..91311d2a37
 +  return (struct tiny){1, 2, 3, 4};
 +}
 +
++typedef unsigned char v4i8 __attribute__((vector_size(4)));
++typedef int v1i32 __attribute__((vector_size(4)));
++
++// CHECK-LABEL: define void @f_vec_tiny_v4i8(i32 %x.coerce)
++void f_vec_tiny_v4i8(v4i8 x) {
++  x[0] = x[1];
++  x[2] = x[3];
++}
++
++// CHECK-LABEL: define i32 @f_vec_tiny_v4i8_ret()
++v4i8 f_vec_tiny_v4i8_ret() {
++  return (v4i8){ 1, 2, 3, 4 };
++}
++
++// CHECK-LABEL: define void @f_vec_tiny_v1i32(i32 %x.coerce)
++void f_vec_tiny_v1i32(v1i32 x) {
++  x[0] = 114;
++}
++
++// CHECK-LABEL: define i32 @f_vec_tiny_v1i32_ret()
++v1i32 f_vec_tiny_v1i32_ret() {
++  return (v1i32){ 1 };
++}
++
 +struct small {
 +  int a, *b;
 +};
@@ -224,6 +249,29 @@ index 0000000000..91311d2a37
 +// CHECK-LABEL: define [2 x i32] @f_agg_small_ret()
 +struct small f_agg_small_ret() {
 +  return (struct small){1, 0};
++}
++
++typedef unsigned char v8i8 __attribute__((vector_size(8)));
++typedef long long v1i64 __attribute__((vector_size(8)));
++
++// CHECK-LABEL: define void @f_vec_small_v8i8(i64 %x.coerce)
++void f_vec_small_v8i8(v8i8 x) {
++  x[0] = x[7];
++}
++
++// CHECK-LABEL: define i64 @f_vec_small_v8i8_ret()
++v8i8 f_vec_small_v8i8_ret() {
++  return (v8i8){ 1, 2, 3, 4, 5, 6, 7, 8 };
++}
++
++// CHECK-LABEL: define void @f_vec_small_v1i64(i64 %x.coerce)
++void f_vec_small_v1i64(v1i64 x) {
++  x[0] = 114;
++}
++
++// CHECK-LABEL: define i64 @f_vec_small_v1i64_ret()
++v1i64 f_vec_small_v1i64_ret() {
++  return (v1i64){ 1 };
 +}
 +
 +// Aggregates of 2*xlen size and 2*xlen alignment should be coerced to a
@@ -260,6 +308,18 @@ index 0000000000..91311d2a37
 +// CHECK-LABEL: define void @f_agg_large_ret(%struct.large* noalias sret %agg.result, i32 %i, i8 signext %j)
 +struct large f_agg_large_ret(int i, char j) {
 +  return (struct large){1, 2, 3, 4};
++}
++
++typedef unsigned char v16i8 __attribute__((vector_size(16)));
++
++// CHECK-LABEL: define void @f_vec_large_v16i8(<16 x i8>* byval align 16)
++void f_vec_large_v16i8(v16i8 x) {
++  x[0] = x[7];
++}
++
++// CHECK-LABEL: define void @f_vec_large_v16i8_ret(<16 x i8>* noalias sret %agg.result)
++v16i8 f_vec_large_v16i8_ret() {
++  return (v16i8){ 1, 2, 3, 4, 5, 6, 7, 8 };
 +}
 +
 +// CHECK-LABEL: define i32 @f_va_1(i8* %fmt, ...) {{.*}} {
