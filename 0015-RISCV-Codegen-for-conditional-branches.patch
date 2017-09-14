@@ -118,7 +118,7 @@ index 27492c869db..3fee03252f2 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 288aa2968ed..e7aa078a94d 100644
+index 288aa2968ed..a0be4894956 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -60,7 +60,7 @@ def uimm12 : Operand<i32> {
@@ -183,7 +183,7 @@ index 288aa2968ed..e7aa078a94d 100644
 +// condition was calculated elsewhere).
 +def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
 +
-+let isBarrier = 1, isTerminator = 1 in
++let isBarrier = 1, isBranch = 1, isTerminator = 1 in
 +def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
 +               PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
 +

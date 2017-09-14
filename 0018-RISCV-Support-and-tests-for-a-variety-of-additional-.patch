@@ -21,14 +21,14 @@ for a number of these cases:
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp      |  66 +++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
- lib/Target/RISCV/RISCVInstrInfo.td          |  18 ++-
+ lib/Target/RISCV/RISCVInstrInfo.td          |  21 ++-
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   4 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  26 ++++
  test/CodeGen/RISCV/alu.ll                   |   4 +
  test/CodeGen/RISCV/bare-select.ll           |  13 ++
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  89 +++++++++++
  test/CodeGen/RISCV/div.ll                   |  96 ++++++++++++
- test/CodeGen/RISCV/indirectbr.ll            |  14 ++
+ test/CodeGen/RISCV/indirectbr.ll            |  28 ++++
  test/CodeGen/RISCV/jumptable.ll             |  26 ++++
  test/CodeGen/RISCV/mul.ll                   |  58 +++++++
  test/CodeGen/RISCV/rem.ll                   |  19 +++
@@ -36,7 +36,7 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll                 |  91 +++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 233 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  28 ++++
- 17 files changed, 803 insertions(+), 5 deletions(-)
+ 17 files changed, 820 insertions(+), 5 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
@@ -163,7 +163,7 @@ index 515c646c2fe..806fa678b40 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index a0ed38bf325..80a21d63f65 100644
+index d4e4e972aa6..821fec2e17d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -304,6 +304,17 @@ def : PatGprSimm12<setlt, SLTI>;
@@ -184,14 +184,17 @@ index a0ed38bf325..80a21d63f65 100644
  let usesCustomInserter = 1 in
  def Select : Pseudo<(outs GPR:$dst),
                      (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
-@@ -344,11 +355,14 @@ let isBarrier = 1, isTerminator = 1 in
+@@ -344,11 +355,17 @@ let isBarrier = 1, isBranch = 1, isTerminator = 1 in
  def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
                 PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
  
 -let isCall = 1, Defs=[X1_32] in
-+let isBranch = 1, isBarrier = 1, isTerminator = 1, isIndirectBranch = 1 in
-+def PseudoBRIND : Pseudo<(outs), (ins GPR:$rs1), [(brind GPR:$rs1)]>,
-+                  PseudoInstExpansion<(JALR X0_32, GPR:$rs1, 0)>;
++let isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in
++def PseudoBRIND : Pseudo<(outs), (ins GPR:$rs1, simm12:$imm12), []>,
++                  PseudoInstExpansion<(JALR X0_32, GPR:$rs1, simm12:$imm12)>;
++
++def : Pat<(brind GPR:$rs1), (PseudoBRIND GPR:$rs1, 0)>;
++def : Pat<(brind (add GPR:$rs1, simm12:$imm12)), (PseudoBRIND GPR:$rs1, simm12:$imm12)>;
 +
 +let isCall = 1, Defs = [X1_32] in
  def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
@@ -480,18 +483,32 @@ index 00000000000..845e89d327d
 +}
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
 new file mode 100644
-index 00000000000..886428353ac
+index 00000000000..ed00255ce5d
 --- /dev/null
 +++ b/test/CodeGen/RISCV/indirectbr.ll
-@@ -0,0 +1,14 @@
+@@ -0,0 +1,28 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +define i32 @indirectbr(i8* %target) nounwind {
 +; CHECK-LABEL: indirectbr:
 +; CHECK: jalr zero, a0, 0
-+; CHECK: .LBB0_1:
++; CHECK: .LBB{{[0-9]+}}_1
 +; CHECK: addi a0, zero, 0
 +; CHECK: jalr zero, ra, 0
++  indirectbr i8* %target, [label %test_label]
++test_label:
++  br label %ret
++ret:
++  ret i32 0
++}
++
++define i32 @indirectbr_with_offset(i8* %a) nounwind {
++; CHECK-LABEL: indirectbr_with_offset:
++; CHECK: jalr zero, a0, 1380
++; CHECK: .LBB{{[0-9]+}}_1
++; CHECK: addi a0, zero, 0
++; CHECK: jalr zero, ra, 0
++  %target = getelementptr inbounds i8, i8* %a, i32 1380
 +  indirectbr i8* %target, [label %test_label]
 +test_label:
 +  br label %ret

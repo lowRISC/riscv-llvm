@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp     | 55 ++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h       |  2 +
+ test/CodeGen/RISCV/frameaddr-returnaddr.ll | 63 ++++++++++++++++++++++++++++++
+ 3 files changed, 120 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 2492ea458b7..1a14e33abe5 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -163,6 +163,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+     return lowerSELECT_CC(Op, DAG);
+   case ISD::VASTART:
+     return lowerVASTART(Op, DAG);
++  case ISD::FRAMEADDR:
++    return LowerFRAMEADDR(Op, DAG);
++  case ISD::RETURNADDR:
++    return LowerRETURNADDR(Op, DAG);
+   default:
+     report_fatal_error("unimplemented operand");
+   }
+@@ -245,6 +249,57 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+                       MachinePointerInfo(SV));
+ }
+ 
++SDValue RISCVTargetLowering::LowerFRAMEADDR(SDValue Op,
++                                            SelectionDAG &DAG) const {
++  const RISCVRegisterInfo &RI = *Subtarget->getRegisterInfo();
++  MachineFunction &MF = DAG.getMachineFunction();
++  MachineFrameInfo &MFI = MF.getFrameInfo();
++  MFI.setFrameAddressIsTaken(true);
++  unsigned FrameReg = RI.getFrameRegister(MF);
++
++  EVT VT = Op.getValueType();
++  SDLoc DL(Op);
++  SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), DL, FrameReg, VT);
++  unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
++  while (Depth--) {
++    // TODO: adjust for RV64
++    const unsigned Offset = -8;
++    SDValue Ptr = DAG.getNode(ISD::ADD, DL, VT, FrameAddr,
++                              DAG.getIntPtrConstant(Offset, DL));
++    FrameAddr =
++        DAG.getLoad(VT, DL, DAG.getEntryNode(), Ptr, MachinePointerInfo());
++  }
++  return FrameAddr;
++}
++
++SDValue RISCVTargetLowering::LowerRETURNADDR(SDValue Op,
++                                             SelectionDAG &DAG) const {
++  const RISCVRegisterInfo &RI = *Subtarget->getRegisterInfo();
++  MachineFunction &MF = DAG.getMachineFunction();
++  MachineFrameInfo &MFI = MF.getFrameInfo();
++  MFI.setReturnAddressIsTaken(true);
++
++  if (verifyReturnAddressArgumentIsConstant(Op, DAG))
++    return SDValue();
++
++  EVT VT = Op.getValueType();
++  SDLoc DL(Op);
++  unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
++  if (Depth) {
++    SDValue FrameAddr = LowerFRAMEADDR(Op, DAG);
++    // TODO: adjust for RV64
++    SDValue Offset = DAG.getConstant(-4, DL, MVT::i32);
++    return DAG.getLoad(VT, DL, DAG.getEntryNode(),
++                       DAG.getNode(ISD::ADD, DL, VT, FrameAddr, Offset),
++                       MachinePointerInfo());
++  }
++
++  // Return the value of the return address register, marking it an implicit
++  // live-in.
++  unsigned Reg = MF.addLiveIn(RI.getRARegister(), getRegClassFor(MVT::i32));
++  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, VT);
++}
++
+ MachineBasicBlock *
+ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+                                                  MachineBasicBlock *BB) const {
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 78b11198c18..4522dcf553d 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -76,6 +76,8 @@ private:
+   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
++  SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
++  SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+ };
+ }
+ 
+diff --git a/test/CodeGen/RISCV/frameaddr-returnaddr.ll b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
+new file mode 100644
+index 00000000000..704b01bc10a
+--- /dev/null
++++ b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
+@@ -0,0 +1,63 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++declare void @notdead(i8*)
++declare i8* @llvm.frameaddress(i32)
++declare i8* @llvm.returnaddress(i32)
++
++define i8* @test_frameaddress_0() {
++; CHECK-LABEL: test_frameaddress_0:
++; CHECK: addi sp, sp, -8
++; CHECK: addi s0, sp, 8
++; CHECK: addi a0, s0, 0
++; CHECK: jalr zero, ra, 0
++  %1 = call i8* @llvm.frameaddress(i32 0)
++  ret i8* %1
++}
++
++define i8* @test_frameaddress_2() {
++; CHECK-LABEL: test_frameaddress_2:
++; CHECK: addi sp, sp, -8
++; CHECK: addi s0, sp, 8
++; CHECK: lw a0, -8(s0)
++; CHECK: lw a0, -8(a0)
++; CHECK: jalr zero, ra, 0
++  %1 = call i8* @llvm.frameaddress(i32 2)
++  ret i8* %1
++}
++
++define i8* @test_frameaddress_3_alloca() {
++; CHECK-LABEL: test_frameaddress_3_alloca:
++; CHECK: addi sp, sp, -112
++; CHECK: sw ra, 108(sp)
++; CHECK: sw s0, 104(sp)
++; CHECK: addi s0, sp, 112
++; CHECK: lw a0, -8(s0)
++; CHECK: lw a0, -8(a0)
++; CHECK: lw a0, -8(a0)
++; CHECK: jalr zero, ra, 0
++  %1 = alloca [100 x i8]
++  %2 = bitcast [100 x i8]* %1 to i8*
++  call void @notdead(i8* %2)
++  %3 = call i8* @llvm.frameaddress(i32 3)
++  ret i8* %3
++}
++
++define i8* @test_returnaddress_0() {
++; CHECK-LABEL: test_returnaddress_0:
++; CHECK: addi a0, ra, 0
++; CHECK: jalr zero, ra, 0
++  %1 = call i8* @llvm.returnaddress(i32 0)
++  ret i8* %1
++}
++
++define i8* @test_returnaddress_2() {
++; CHECK-LABEL: test_returnaddress_2:
++; CHECK: addi sp, sp, -8
++; CHECK: addi s0, sp, 8
++; CHECK: lw a0, -8(s0)
++; CHECK: lw a0, -8(a0)
++; CHECK: lw a0, -4(a0)
++; CHECK: jalr zero, ra, 0
++  %1 = call i8* @llvm.returnaddress(i32 2)
++  ret i8* %1
++}
+-- 
+2.14.1
+

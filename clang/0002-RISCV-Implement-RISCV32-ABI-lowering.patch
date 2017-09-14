@@ -6,16 +6,16 @@ There are several TODOs in the implementation, and this has not been
 thoroughly tested for compatibility with GCC's implementation of the RISC-V
 calling convention and ABI.
 ---
- lib/CodeGen/TargetInfo.cpp | 125 +++++++++++++++++++
- test/CodeGen/riscv32-abi.c | 293 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 418 insertions(+)
+ lib/CodeGen/TargetInfo.cpp | 120 ++++++++++++++++++
+ test/CodeGen/riscv32-abi.c | 295 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 415 insertions(+)
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 10fa2ea322..c886d4b4d6 100644
+index 10fa2ea322..06eab66da9 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8748,6 +8748,128 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8748,6 +8748,123 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -64,11 +64,6 @@ index 10fa2ea322..c886d4b4d6 100644
 +    // Treat an enum type as its underlying type.
 +    if (const EnumType *EnumTy = Ty->getAs<EnumType>())
 +      Ty = EnumTy->getDecl()->getIntegerType();
-+
-+    // Scalars larger than 2*xlen are passed indirect
-+    if (Size > 64) {
-+      return getNaturalAlignIndirect(Ty, /*ByVal=*/true);
-+    }
 +
 +    return (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
 +                                          : ABIArgInfo::getDirect());
@@ -144,7 +139,7 @@ index 10fa2ea322..c886d4b4d6 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8862,6 +8984,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8862,6 +8979,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  
@@ -156,10 +151,10 @@ index 10fa2ea322..c886d4b4d6 100644
      return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 new file mode 100644
-index 0000000000..c799ac3a5e
+index 0000000000..91311d2a37
 --- /dev/null
 +++ b/test/CodeGen/riscv32-abi.c
-@@ -0,0 +1,293 @@
+@@ -0,0 +1,295 @@
 +// RUN: %clang_cc1 -triple riscv32 -emit-llvm %s -o - | FileCheck %s
 +
 +// CHECK-LABEL: define void @f_void()
@@ -191,9 +186,11 @@ index 0000000000..c799ac3a5e
 +// CHECK-LABEL: define double @f_fp_scalar_2(double %x)
 +double f_fp_scalar_2(double x) { return x; }
 +
-+// Scalars larger than 2*xlen are passed/returned indirect
++// Scalars larger than 2*xlen are passed/returned indirect. However, the
++// RISC-V LLVM backend can handle this fine, so the function doesn't need to
++// be modified.
 +
-+// CHECK-LABEL: define void @f_fp_scalar_3(fp128* noalias sret %agg.result, fp128* byval align 16)
++// CHECK-LABEL: define fp128 @f_fp_scalar_3(fp128 %x)
 +long double f_fp_scalar_3(long double x) { return x; }
 +
 +// Aggregates <= 2*xlen may be passed in registers, so will be coerced to

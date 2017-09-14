@@ -16,12 +16,13 @@ perform. I would like to drastically simplify these requirements over time,
 but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/RISCVCallingConv.td   |  12 +-
- lib/Target/RISCV/RISCVISelLowering.cpp | 227 +++++++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp | 236 +++++++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.h   |   4 +
  test/CodeGen/RISCV/byval.ll            |  27 +++
- test/CodeGen/RISCV/calling-conv.ll     | 362 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/calling-conv.ll     | 361 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll            |  27 +++
- test/CodeGen/RISCV/fp128.ll            |  14 ++
- 6 files changed, 644 insertions(+), 25 deletions(-)
+ test/CodeGen/RISCV/fp128.ll            |  40 ++++
+ 7 files changed, 682 insertions(+), 25 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
  create mode 100644 test/CodeGen/RISCV/fp128.ll
@@ -50,10 +51,10 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 242bcfc8efd..0d500e230b3 100644
+index 242bcfc8efd..c39cd6486bf 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -288,6 +288,109 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -288,6 +288,110 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -72,10 +73,11 @@ index 242bcfc8efd..0d500e230b3 100644
 +// apply), then pass it using a pointer with the byval attribute
 +// * If a struct is less than 2x xlen, then coerce to either a two-element
 +// word-sized array or a 2x xlen scalar (depending on alignment).
-+// * The frontend can determine whether a struct or scalar is returned by
-+// reference or not based on its size and fields. If it will be returned by
-+// reference, the frontend must modify the prototype so a pointer with the
-+// sret annotation is passed as the first argument.
++// * The frontend can determine whether a struct is returned by reference or
++// not based on its size and fields. If it will be returned by reference, the
++// frontend must modify the prototype so a pointer with the sret annotation is
++// passed as the first argument. This is not necessary for large scalar
++// returns.
 +// * Struct return values and varargs should be coerced to structs containing
 +// register-size fields in the same situations they would be for fixed
 +// arguments.
@@ -163,7 +165,7 @@ index 242bcfc8efd..0d500e230b3 100644
  #include "RISCVGenCallingConv.inc"
  
  // Transform physical registers into virtual registers.
-@@ -304,7 +407,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -304,7 +408,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -173,7 +175,7 @@ index 242bcfc8efd..0d500e230b3 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -314,27 +419,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -314,27 +420,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -241,7 +243,7 @@ index 242bcfc8efd..0d500e230b3 100644
      }
    }
    return Chain;
-@@ -370,39 +507,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -370,39 +508,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -349,6 +351,36 @@ index 242bcfc8efd..0d500e230b3 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
+@@ -468,6 +668,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   return Chain;
+ }
+ 
++bool RISCVTargetLowering::CanLowerReturn(
++    CallingConv::ID CallConv, MachineFunction &MF, bool IsVarArg,
++    const SmallVectorImpl<ISD::OutputArg> &Outs, LLVMContext &Context) const {
++  SmallVector<CCValAssign, 16> RVLocs;
++  CCState CCInfo(CallConv, IsVarArg, MF, RVLocs, Context);
++  return CCInfo.CheckReturn(Outs, RetCC_RISCV32);
++}
++
+ SDValue
+ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+                                  bool IsVarArg,
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 806fa678b40..ea9e7c88e90 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -54,6 +54,10 @@ private:
+                                const SmallVectorImpl<ISD::InputArg> &Ins,
+                                const SDLoc &DL, SelectionDAG &DAG,
+                                SmallVectorImpl<SDValue> &InVals) const override;
++  bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
++                      bool IsVarArg,
++                      const SmallVectorImpl<ISD::OutputArg> &Outs,
++                      LLVMContext &Context) const override;
+   SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
+                       const SmallVectorImpl<ISD::OutputArg> &Outs,
+                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
 new file mode 100644
 index 00000000000..bef084f8376
@@ -384,10 +416,10 @@ index 00000000000..bef084f8376
 +}
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
-index 00000000000..0f504c2bf91
+index 00000000000..4ff774bba51
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv.ll
-@@ -0,0 +1,362 @@
+@@ -0,0 +1,361 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +; Check that on RV32, i64 and double are passed in a pair of registers. Unlike
@@ -674,16 +706,16 @@ index 00000000000..0f504c2bf91
 +
 +; Check return of >2x xlen scalars
 +
-+define void @callee_large_scalar_ret(fp128* noalias nocapture sret %agg.result) {
++define fp128 @callee_large_scalar_ret() {
 +; CHECK-LABEL: callee_large_scalar_ret:
-+; CHECK: sw zero, 8(a0)
-+; CHECK: sw zero, 4(a0)
-+; CHECK: sw zero, 0(a0)
 +; CHECK: lui a1, 524272
 +; CHECK: addi a1, a1, 0
 +; CHECK: sw a1, 12(a0)
-+  store fp128 0xL00000000000000007FFF000000000000, fp128* %agg.result, align 16
-+  ret void
++; CHECK: sw zero, 8(a0)
++; CHECK: sw zero, 4(a0)
++; CHECK: sw zero, 0(a0)
++; CHECK: jalr zero, ra, 0
++  ret fp128 0xL00000000000000007FFF000000000000
 +}
 +
 +define void @caller_large_scalar_ret() {
@@ -696,8 +728,7 @@ index 00000000000..0f504c2bf91
 +; CHECK: addi a1, a0, %lo(callee_large_scalar_ret)
 +; CHECK: addi a0, s0, -32
 +; CHECK: jalr ra, a1, 0
-+  %1 = alloca fp128, align 16
-+  call void @callee_large_scalar_ret(fp128* sret %1)
++  %1 = call fp128 @callee_large_scalar_ret()
 +  ret void
 +}
 +
@@ -787,23 +818,49 @@ index 04113f8b854..f56f8b2d13c 100644
 +}
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
 new file mode 100644
-index 00000000000..0a3dca3c4d4
+index 00000000000..8c0f72996e6
 --- /dev/null
 +++ b/test/CodeGen/RISCV/fp128.ll
-@@ -0,0 +1,14 @@
+@@ -0,0 +1,40 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +@x = local_unnamed_addr global fp128 0xL00000000000000007FFF000000000000, align 16
 +@y = local_unnamed_addr global fp128 0xL00000000000000007FFF000000000000, align 16
 +
-+define i32 @foo() {
-+; CHECK-LABEL: foo:
-+; TODO: add proper tests for the outpu
++; Besides anything else, these tests help verify that libcall ABI lowering
++; works correctly
++
++define i32 @test_load_and_cmp() {
++; CHECK-LABEL: test_load_and_cmp:
++; CHECK: lui a0, %hi(__netf2)
++; CHECK: addi a2, a0, %lo(__netf2)
++; CHECK: addi a0, s0, -24
++; CHECK: addi a1, s0, -40
++; CHECK: jalr ra, a2, 0
 +  %1 = load fp128, fp128* @x, align 16
 +  %2 = load fp128, fp128* @y, align 16
 +  %cmp = fcmp une fp128 %1, %2
 +  %3 = zext i1 %cmp to i32
 +  ret i32 %3
++}
++
++define i32 @test_add_and_fptosi() {
++; CHECK-LABEL: test_add_and_fptosi:
++; CHECK: lui a0, %hi(__addtf3)
++; CHECK: addi a3, a0, %lo(__addtf3)
++; CHECK: addi a0, s0, -24
++; CHECK: addi a1, s0, -40
++; CHECK: addi a2, s0, -56
++; CHECK: jalr ra, a3, 0
++; CHECK: lui a0, %hi(__fixtfsi)
++; CHECK: addi a1, a0, %lo(__fixtfsi)
++; CHECK: addi a0, s0, -72
++; CHECK: jalr ra, a1, 0
++  %1 = load fp128, fp128* @x, align 16
++  %2 = load fp128, fp128* @y, align 16
++  %3 = fadd fp128 %1, %2
++  %4 = fptosi fp128 %3 to i32
++  ret i32 %4
 +}
 -- 
 2.14.1

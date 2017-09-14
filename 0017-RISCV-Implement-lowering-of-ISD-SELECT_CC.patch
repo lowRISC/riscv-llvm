@@ -209,7 +209,7 @@ index 5c90d00ab53..515c646c2fe 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 349d6b2813f..a0ed38bf325 100644
+index 63f1e31b1a3..d4e4e972aa6 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -18,6 +18,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,

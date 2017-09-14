@@ -219,7 +219,7 @@ index b756c69124b..265cb609c63 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index e7aa078a94d..349d6b2813f 100644
+index a0be4894956..63f1e31b1a3 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,8 +13,22 @@
@@ -257,7 +257,7 @@ index e7aa078a94d..349d6b2813f 100644
  def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                "jalr\t$rd, $rs1, $imm12", []>;
  }
-@@ -318,6 +334,11 @@ let isBarrier = 1, isTerminator = 1 in
+@@ -318,6 +334,11 @@ let isBarrier = 1, isBranch = 1, isTerminator = 1 in
  def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
                 PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
  

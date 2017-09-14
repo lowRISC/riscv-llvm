@@ -122,10 +122,10 @@ index 22bc2b322ca..b094f9a7b76 100644
                                       SDValue &Offset) {
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index bf14aad15f9..0ac1564dc42 100644
+index ec07c5226a8..2492ea458b7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -844,3 +844,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -853,3 +853,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
    }
    return nullptr;
  }
@@ -148,7 +148,7 @@ index bf14aad15f9..0ac1564dc42 100644
 +  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 8d7d0cd4912..5cc6efc8ecb 100644
+index 6dfb52667f7..78b11198c18 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -43,6 +43,10 @@ public:

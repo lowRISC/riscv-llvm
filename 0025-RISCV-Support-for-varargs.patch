@@ -65,7 +65,7 @@ index d91eb1b150e..cd1c33059d5 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0d500e230b3..bf14aad15f9 100644
+index c39cd6486bf..ec07c5226a8 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -130,7 +130,7 @@ index 0d500e230b3..bf14aad15f9 100644
  // Calling Convention Implementation.
  // The expectations for frontend ABI lowering vary from target to target.
  // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
-@@ -310,13 +337,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -311,13 +338,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  // * Struct return values and varargs should be coerced to structs containing
  // register-size fields in the same situations they would be for fixed
  // arguments.
@@ -148,7 +148,7 @@ index 0d500e230b3..bf14aad15f9 100644
    // Promote i8 and i16
    if (LocVT == MVT::i8 || LocVT == MVT::i16) {
      LocVT = MVT::i32;
-@@ -328,6 +352,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -329,6 +353,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
        LocInfo = CCValAssign::AExt;
    }
  
@@ -170,7 +170,7 @@ index 0d500e230b3..bf14aad15f9 100644
    SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
  
    // Split arguments might be passed indirectly, so keep track of the pending
-@@ -346,18 +385,19 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -347,18 +386,19 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
    // in registers or on the stack
    if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
      assert(PendingMembers.size() == 2);
@@ -193,7 +193,7 @@ index 0d500e230b3..bf14aad15f9 100644
    unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
  
    // If we reach this point and PendingMembers is non-empty, we must be at the
-@@ -407,17 +447,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -408,17 +448,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -232,7 +232,7 @@ index 0d500e230b3..bf14aad15f9 100644
  
    for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
      CCValAssign &VA = ArgLocs[I];
-@@ -474,6 +531,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -475,6 +532,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
        InVals.push_back(ArgValue);
      }
    }
@@ -295,7 +295,7 @@ index 0d500e230b3..bf14aad15f9 100644
    return Chain;
  }
  
-@@ -493,16 +606,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -494,16 +607,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
@@ -328,7 +328,7 @@ index 0d500e230b3..bf14aad15f9 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -673,10 +797,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -682,10 +806,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -340,10 +340,10 @@ index 0d500e230b3..bf14aad15f9 100644
    SmallVector<CCValAssign, 16> RVLocs;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 806fa678b40..8d7d0cd4912 100644
+index ea9e7c88e90..6dfb52667f7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -67,6 +67,7 @@ private:
+@@ -71,6 +71,7 @@ private:
    SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;

@@ -76,7 +76,7 @@ index 265cb609c63..4aad0a54954 100644
      llvm_unreachable("Can't load this register from stack slot");
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 80a21d63f65..10030536abe 100644
+index 821fec2e17d..083ca4d05a1 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -97,6 +97,14 @@ def simm21_lsb0 : Operand<OtherVT> {
@@ -105,7 +105,7 @@ index 80a21d63f65..10030536abe 100644
  /// Setcc
  
  def : PatGprGpr<setlt, SLT>;
-@@ -382,6 +394,10 @@ defm : LdPat<load, LW>;
+@@ -385,6 +397,10 @@ defm : LdPat<load, LW>;
  defm : LdPat<zextloadi8, LBU>;
  defm : LdPat<zextloadi16, LHU>;
  
@@ -116,7 +116,7 @@ index 80a21d63f65..10030536abe 100644
  /// Stores
  
  multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
-@@ -393,6 +409,9 @@ defm : StPat<truncstorei8, SB>;
+@@ -396,6 +412,9 @@ defm : StPat<truncstorei8, SB>;
  defm : StPat<truncstorei16, SH>;
  defm : StPat<store, SW>;
  
