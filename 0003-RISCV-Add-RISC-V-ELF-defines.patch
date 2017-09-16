@@ -26,7 +26,7 @@ https://reviews.llvm.org/D36455 https://reviews.llvm.org/rL310914
  create mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index 6d0d0398277..a4450ee13b4 100644
+index 8bc376c3024..c22cb19391d 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -37,7 +37,7 @@ index 6d0d0398277..a4450ee13b4 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -590,6 +591,11 @@ enum {
+@@ -611,6 +612,11 @@ enum {
  #include "ELFRelocs/Lanai.def"
  };
  
@@ -153,10 +153,10 @@ index 13fe4a2ec46..f436e4534ce 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 10bbe2db0df..ada05aa14cd 100644
+index e7dbcfcc7df..4b177540a50 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -57,6 +57,7 @@ module LLVM_BinaryFormat {
+@@ -58,6 +58,7 @@ module LLVM_BinaryFormat {
      textual header "BinaryFormat/ELFRelocs/Mips.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC.def"
@@ -165,10 +165,10 @@ index 10bbe2db0df..ada05aa14cd 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 1603d4165ce..448fb1bd6b5 100644
+index 258842c35a7..130fb2d9ecc 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
-@@ -93,6 +93,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
+@@ -101,6 +101,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
        break;
      }
      break;
@@ -183,7 +183,7 @@ index 1603d4165ce..448fb1bd6b5 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 692be997025..cf0a943a880 100644
+index 0f777addb7b..d6123499a22 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -194,9 +194,9 @@ index 692be997025..cf0a943a880 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -554,6 +555,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
-   case ELF::EM_ARM:
- #include "llvm/BinaryFormat/ELFRelocs/ARM.def"
+@@ -579,6 +580,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+   case ELF::EM_ARC:
+ #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
 +  case ELF::EM_RISCV:
 +#include "llvm/BinaryFormat/ELFRelocs/RISCV.def"
@@ -205,7 +205,7 @@ index 692be997025..cf0a943a880 100644
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index fc8c29a1067..579917550fa 100644
+index 3cc95c1f760..266b556360b 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
 @@ -768,6 +768,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
@@ -217,10 +217,10 @@ index fc8c29a1067..579917550fa 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index efaf389c60a..5698420bbcc 100644
+index a43e988e387..a826e041ecd 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -983,6 +983,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -984,6 +984,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),

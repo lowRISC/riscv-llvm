@@ -31,7 +31,7 @@ NOTE: This patch has been updated since being committed upstream.
  create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index f1002308137..24375fb70d4 100644
+index 4e5d8dc2026..60f102472c6 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
 @@ -74,6 +74,10 @@ AMDGPU

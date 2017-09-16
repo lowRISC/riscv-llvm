@@ -82,7 +82,7 @@ basis.
  delete mode 100644 test/MC/RISCV/rv32i-valid.s
 
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index 24375fb70d4..f1002308137 100644
+index 60f102472c6..4e5d8dc2026 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
 @@ -74,10 +74,6 @@ AMDGPU
@@ -97,7 +97,7 @@ index 24375fb70d4..f1002308137 100644
  -----
  
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 91ab8554d13..6306f20cd8b 100644
+index 4e1e218da78..786587397fe 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,8 +66,6 @@ public:
@@ -110,7 +110,7 @@ index 91ab8554d13..6306f20cd8b 100644
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index a4450ee13b4..6d0d0398277 100644
+index c22cb19391d..8bc376c3024 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,7 +309,6 @@ enum {
@@ -121,7 +121,7 @@ index a4450ee13b4..6d0d0398277 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -591,11 +590,6 @@ enum {
+@@ -612,11 +611,6 @@ enum {
  #include "ELFRelocs/Lanai.def"
  };
  
@@ -237,10 +237,10 @@ index f436e4534ce..13fe4a2ec46 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index ada05aa14cd..10bbe2db0df 100644
+index 4b177540a50..e7dbcfcc7df 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -57,7 +57,6 @@ module LLVM_BinaryFormat {
+@@ -58,7 +58,6 @@ module LLVM_BinaryFormat {
      textual header "BinaryFormat/ELFRelocs/Mips.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC.def"
@@ -249,10 +249,10 @@ index ada05aa14cd..10bbe2db0df 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 448fb1bd6b5..1603d4165ce 100644
+index 130fb2d9ecc..258842c35a7 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
-@@ -93,13 +93,6 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
+@@ -101,13 +101,6 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
        break;
      }
      break;
@@ -267,7 +267,7 @@ index 448fb1bd6b5..1603d4165ce 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index cf0a943a880..692be997025 100644
+index d6123499a22..0f777addb7b 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -278,9 +278,9 @@ index cf0a943a880..692be997025 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -555,9 +554,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
-   case ELF::EM_ARM:
- #include "llvm/BinaryFormat/ELFRelocs/ARM.def"
+@@ -580,9 +579,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+   case ELF::EM_ARC:
+ #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
 -  case ELF::EM_RISCV:
 -#include "llvm/BinaryFormat/ELFRelocs/RISCV.def"
@@ -289,7 +289,7 @@ index cf0a943a880..692be997025 100644
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 73dc59ce41b..ae667c4f9f0 100644
+index 8dc582ab95a..706473eb9f5 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -41,8 +41,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -311,7 +311,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    }
  }
  
-@@ -276,8 +271,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -277,8 +272,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -320,7 +320,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -403,8 +396,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -404,8 +397,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -329,7 +329,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -652,8 +643,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -654,8 +645,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -338,7 +338,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1190,7 +1179,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1192,7 +1181,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -346,7 +346,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1220,7 +1208,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1222,7 +1210,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -354,7 +354,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1275,7 +1262,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1277,7 +1264,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -362,7 +362,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1299,7 +1285,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1301,7 +1287,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -370,7 +370,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1344,7 +1329,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1346,7 +1331,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -378,7 +378,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1361,7 +1345,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1363,7 +1347,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -386,7 +386,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1396,8 +1379,6 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1398,8 +1381,6 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -395,7 +395,7 @@ index 73dc59ce41b..ae667c4f9f0 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1484,8 +1465,6 @@ bool Triple::isLittleEndian() const {
+@@ -1486,8 +1467,6 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -456,7 +456,7 @@ index a9ad92c872e..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 deleted file mode 100644
-index 63b21058461..00000000000
+index cb820379bbb..00000000000
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ /dev/null
 @@ -1,372 +0,0 @@
@@ -470,17 +470,17 @@ index 63b21058461..00000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/ADT/STLExtras.h"
+-#include "llvm/ADT/StringSwitch.h"
+-#include "llvm/MC/MCContext.h"
+-#include "llvm/MC/MCExpr.h"
+-#include "llvm/MC/MCInst.h"
 -#include "llvm/MC/MCParser/MCAsmLexer.h"
 -#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 -#include "llvm/MC/MCParser/MCTargetAsmParser.h"
--#include "llvm/MC/MCContext.h"
 -#include "llvm/MC/MCRegisterInfo.h"
 -#include "llvm/MC/MCStreamer.h"
 -#include "llvm/MC/MCSubtargetInfo.h"
--#include "llvm/MC/MCExpr.h"
--#include "llvm/MC/MCInst.h"
--#include "llvm/ADT/STLExtras.h"
--#include "llvm/ADT/StringSwitch.h"
 -#include "llvm/Support/Casting.h"
 -#include "llvm/Support/TargetRegistry.h"
 -
@@ -1404,7 +1404,7 @@ index 9309d493cef..00000000000
 -#include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 deleted file mode 100644
-index 0e7d4d61f48..00000000000
+index 0f68dd7aa05..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ /dev/null
 @@ -1,68 +0,0 @@
@@ -1422,8 +1422,8 @@ index 0e7d4d61f48..00000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "RISCVMCTargetDesc.h"
--#include "RISCVMCAsmInfo.h"
 -#include "InstPrinter/RISCVInstPrinter.h"
+-#include "RISCVMCAsmInfo.h"
 -#include "llvm/ADT/STLExtras.h"
 -#include "llvm/MC/MCAsmInfo.h"
 -#include "llvm/MC/MCInstrInfo.h"
@@ -2211,7 +2211,7 @@ index fc89cd42016..00000000000
 -# CHECK: encoding: [0x33,0x75,0x39,0x01]
 -and a0, s2, s3
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index 579917550fa..fc8c29a1067 100644
+index 266b556360b..3cc95c1f760 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
 @@ -768,7 +768,6 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
@@ -2223,10 +2223,10 @@ index 579917550fa..fc8c29a1067 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 5698420bbcc..efaf389c60a 100644
+index a826e041ecd..a43e988e387 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -983,7 +983,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -984,7 +984,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -2235,7 +2235,7 @@ index 5698420bbcc..efaf389c60a 100644
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index c16a332de0a..c9fa448d72c 100644
+index db11f426490..970e1cc3a99 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
 @@ -272,24 +272,6 @@ TEST(TripleTest, ParsedIDs) {
@@ -2263,7 +2263,7 @@ index c16a332de0a..c9fa448d72c 100644
    T = Triple("armv7hl-suse-linux-gnueabi");
    EXPECT_EQ(Triple::arm, T.getArch());
    EXPECT_EQ(Triple::SUSE, T.getVendor());
-@@ -601,16 +583,6 @@ TEST(TripleTest, BitWidthPredicates) {
+@@ -637,16 +619,6 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -2280,7 +2280,7 @@ index c16a332de0a..c9fa448d72c 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -702,14 +674,6 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -738,14 +710,6 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  

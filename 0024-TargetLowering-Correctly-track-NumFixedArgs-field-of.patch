@@ -46,10 +46,10 @@ index 30f60fa0b0a..7bce5e9127b 100644
        return *this;
      }
 diff --git a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
-index da0a9516fd1..727af13243d 100644
+index fb32487ac42..116208fa7dc 100644
 --- a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
 +++ b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
-@@ -8042,6 +8042,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
+@@ -8046,6 +8046,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
      Entry.IsSwiftError = false;
      Entry.Alignment = Align;
      CLI.getArgs().insert(CLI.getArgs().begin(), Entry);

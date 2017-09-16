@@ -22,10 +22,10 @@ been removed in favour of `__riscv`.
  create mode 100644 test/Driver/riscv32-toolchain.c
 
 diff --git a/lib/Basic/CMakeLists.txt b/lib/Basic/CMakeLists.txt
-index c9f8898cec..83c4a6ff2d 100644
+index 2bec0e83ae..b8a2973fee 100644
 --- a/lib/Basic/CMakeLists.txt
 +++ b/lib/Basic/CMakeLists.txt
-@@ -115,6 +115,7 @@ add_clang_library(clangBasic
+@@ -82,6 +82,7 @@ add_clang_library(clangBasic
    Targets/OSTargets.cpp
    Targets/PNaCl.cpp
    Targets/PPC.cpp
