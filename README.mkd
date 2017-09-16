@@ -25,10 +25,10 @@ Helping to review [patches submitted
 upstream](https://reviews.llvm.org/differential/?authors=asb&order=updated) is 
 a fantastic way to help out.
 
-The current patchset allows the vast majority of the GCC torture suite to 
-compile and run for RV32I at O0 (1315 out of 1352 compile and run, 32 
-compile-time failures, 5 run-time failures). See the [lowRISC RISC-V LLVM 
-status page](http://www.lowrisc.org/llvm/status) for more details.
+The current patchset allows the entirety of the GCC torture suite to compile
+and run for RV32I at O0 (1401/1401 compile and run without error). See the
+[lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
+details.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 

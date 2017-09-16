@@ -6,8 +6,8 @@ RUNSUCC=0
 RUNFAIL=0
 rm -f comppass compfail runpass runfail
 touch comppass compfail runpass runfail
-mkdir -p output
-rm output/*
+mkdir -p output output/ieee
+rm -f output/* output/ieee/*
 
 TESTS_TO_SKIP=$(cat <<EOF
 # Nested functions, unsupported in clang
@@ -91,6 +91,8 @@ pr43008.c
 # Must link with libm
 980709-1.c
 float-floor.c
+ieee/20041213-1.c
+ieee/mzero4.c
 
 # x86 only
 990413-2.c
@@ -131,6 +133,10 @@ pr58831.c
 # AArch64.
 built-in-setjmp.c
 pr60003.c
+
+# Clang at O0 does not work out the code referencing the undefined symbol can
+# never be executed
+ieee/fp-cmp-7.c
 EOF
 )
 
@@ -141,13 +147,13 @@ EOF
 )
 
 TESTS=$(comm -23 - <<EOF skip.txt
-$(ls *.c)
+$(ls *.c ieee/*.c)
 EOF
 )
 
 for FILE in $TESTS; do
   echo "Compiling $FILE"
-  BASEFILE=$(basename $FILE .c)
+  BASEFILE="${FILE%.*}"
   timelimit -s1 -t 4 ./rvcc.sh $FILE
   if [ -e output/$BASEFILE ]; then
     echo ":)";
