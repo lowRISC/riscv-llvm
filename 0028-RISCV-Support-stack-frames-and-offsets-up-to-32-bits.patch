@@ -9,8 +9,8 @@ function.
  lib/Target/RISCV/RISCVFrameLowering.h   |  3 ++
  lib/Target/RISCV/RISCVRegisterInfo.cpp  | 32 +++++++++++---
  lib/Target/RISCV/RISCVRegisterInfo.h    |  8 ++++
- test/CodeGen/RISCV/large-stack.ll       | 27 ++++++++++++
- 5 files changed, 114 insertions(+), 34 deletions(-)
+ test/CodeGen/RISCV/large-stack.ll       | 31 +++++++++++++
+ 5 files changed, 118 insertions(+), 34 deletions(-)
  create mode 100644 test/CodeGen/RISCV/large-stack.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
@@ -156,10 +156,10 @@ index 3bd8d0ffd84..e608a5e7d53 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index e57e7066abe..439c3bffa62 100644
+index b3b4390a0b7..df36af7170c 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -63,6 +63,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -65,6 +65,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
    MachineFunction &MF = *MI.getParent()->getParent();
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -167,7 +167,7 @@ index e57e7066abe..439c3bffa62 100644
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
-@@ -97,28 +98,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -99,28 +100,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
  
@@ -242,10 +242,10 @@ index 159b9d5bd9b..d01b61ee936 100644
  
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
 new file mode 100644
-index 00000000000..18b357c25c7
+index 00000000000..8c85cd5c137
 --- /dev/null
 +++ b/test/CodeGen/RISCV/large-stack.ll
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,31 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +; TODO: the quality of the generated code is poor
@@ -263,9 +263,13 @@ index 00000000000..18b357c25c7
 +; CHECK: addi a0, a0, 1664
 +; CHECK: add s0, sp, a0
 +; CHECK: lui a0, 74565
-+; CHECK: addi a0, a0, 1660
++; CHECK: addi a0, a0, 1656
 +; CHECK: add a0, sp, a0
 +; CHECK: lw s0, 0(a0)
++; CHECK: lui a0, 74565
++; CHECK: addi a0, a0, 1660
++; CHECK: add a0, sp, a0
++; CHECK: lw ra, 0(a0)
 +; CHECK: lui a0, 74565
 +; CHECK: addi a0, a0, 1664
 +; CHECK: add sp, sp, a0

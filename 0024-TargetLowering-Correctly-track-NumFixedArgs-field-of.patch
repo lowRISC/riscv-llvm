@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [TargetLowering] Correctly track NumFixedArgs field of
+ CallLoweringInfo
+
+The NumFixedArgs field of CallLoweringInfo is used by
+TargetLowering::LowerCallTo to determine whether a given argument is passed
+using the vararg calling convention or not (specifically, to set IsFixed for
+each ISD::OutputArg).
+
+Firstly, CallLoweringInfo::setLibCallee and CallLoweringInfo::setCallee both
+incorrectly set NumFixedArgs based on the _previous_ args list. Secondly,
+TargetLowering::LowerCallTo failed to increment NumFixedArgs when modifying
+the argument list so a pointer is passed for the return value.
+
+If your backend uses the IsFixed property, it is possible this change could
+result in codegen changes (although the previous behaviour would have been
+incorrect). This codepath is primarily exercised when lowering libcalls.
+
+Differential Revision: https://reviews.llvm.org/D37898
+---
+ include/llvm/Target/TargetLowering.h             | 4 ++--
+ lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/llvm/Target/TargetLowering.h b/include/llvm/Target/TargetLowering.h
+index 30f60fa0b0a..7bce5e9127b 100644
+--- a/include/llvm/Target/TargetLowering.h
++++ b/include/llvm/Target/TargetLowering.h
+@@ -2906,7 +2906,7 @@ public:
+       RetTy = ResultType;
+       Callee = Target;
+       CallConv = CC;
+-      NumFixedArgs = Args.size();
++      NumFixedArgs = ArgsList.size();
+       Args = std::move(ArgsList);
+ 
+       DAG.getTargetLoweringInfo().markLibCallAttributes(
+@@ -2919,7 +2919,7 @@ public:
+       RetTy = ResultType;
+       Callee = Target;
+       CallConv = CC;
+-      NumFixedArgs = Args.size();
++      NumFixedArgs = ArgsList.size();
+       Args = std::move(ArgsList);
+       return *this;
+     }
+diff --git a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
+index da0a9516fd1..727af13243d 100644
+--- a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
++++ b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
+@@ -8042,6 +8042,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
+     Entry.IsSwiftError = false;
+     Entry.Alignment = Align;
+     CLI.getArgs().insert(CLI.getArgs().begin(), Entry);
++    CLI.NumFixedArgs += 1;
+     CLI.RetTy = Type::getVoidTy(CLI.RetTy->getContext());
+ 
+     // sret demotion isn't compatible with tail-calls, since the sret argument
+-- 
+2.14.1
+

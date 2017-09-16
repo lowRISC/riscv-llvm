@@ -16,13 +16,14 @@ perform. I would like to drastically simplify these requirements over time,
 but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/RISCVCallingConv.td   |  12 +-
- lib/Target/RISCV/RISCVISelLowering.cpp | 236 +++++++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp | 277 +++++++++++++++++-
  lib/Target/RISCV/RISCVISelLowering.h   |   4 +
- test/CodeGen/RISCV/byval.ll            |  27 +++
- test/CodeGen/RISCV/calling-conv.ll     | 361 +++++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/calls.ll            |  27 +++
- test/CodeGen/RISCV/fp128.ll            |  40 ++++
- 7 files changed, 682 insertions(+), 25 deletions(-)
+ lib/Target/RISCV/RISCVInstrInfo.td     |   5 +-
+ test/CodeGen/RISCV/byval.ll            |  27 ++
+ test/CodeGen/RISCV/calling-conv.ll     | 513 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/calls.ll            |  27 ++
+ test/CodeGen/RISCV/fp128.ll            |  40 +++
+ 8 files changed, 879 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
  create mode 100644 test/CodeGen/RISCV/fp128.ll
@@ -51,10 +52,10 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 242bcfc8efd..c39cd6486bf 100644
+index 242bcfc8efd..30211549230 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -288,6 +288,110 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -288,6 +288,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -81,13 +82,49 @@ index 242bcfc8efd..c39cd6486bf 100644
 +// * Struct return values and varargs should be coerced to structs containing
 +// register-size fields in the same situations they would be for fixed
 +// arguments.
++
++static const MCPhysReg ArgGPRs[] = {
++  RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
++  RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32
++};
++
++// Pass a 2xlen argument that has been split in to two xlen values through
++// registers or the stack as necessary.
++static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
++                                  ISD::ArgFlagsTy ArgFlags1, unsigned ValNo2,
++                                  MVT ValVT2, MVT LocVT2,
++                                  ISD::ArgFlagsTy ArgFlags2) {
++  if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
++    // At least one half can be passed via register
++    State.addLoc(CCValAssign::getReg(VA1.getValNo(), VA1.getValVT(), Reg,
++                                     VA1.getLocVT(), CCValAssign::Full));
++  } else {
++    // Both halves must be passed on the stack, with proper alignment
++    unsigned StackAlign = std::max(4u, ArgFlags1.getOrigAlign());
++    State.addLoc(CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
++                                     State.AllocateStack(4, StackAlign),
++                                     VA1.getLocVT(), CCValAssign::Full));
++    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
++                                     LocVT2, CCValAssign::Full));
++    return false;
++  }
++
++  if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
++    // The second half can also be passed via register
++    State.addLoc(
++        CCValAssign::getReg(ValNo2, ValVT2, Reg, LocVT2, CCValAssign::Full));
++  } else {
++    // The second half is passed via the stack, without additional alignment
++    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
++                                     LocVT2, CCValAssign::Full));
++  }
++
++  return false;
++}
++
 +static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
 +                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
 +                       CCState &State) {
-+  static const MCPhysReg ArgGPRs[] = {
-+      RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
-+      RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32};
-+
 +  // Promote i8 and i16
 +  if (LocVT == MVT::i8 || LocVT == MVT::i16) {
 +    LocVT = MVT::i32;
@@ -100,6 +137,10 @@ index 242bcfc8efd..c39cd6486bf 100644
 +  }
 +
 +  SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
++  SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
++      State.getPendingArgFlags();
++
++  assert(PendingMembers.size() == PendingArgFlags.size());
 +
 +  // Split arguments might be passed indirectly, so keep track of the pending
 +  // values.
@@ -108,6 +149,7 @@ index 242bcfc8efd..c39cd6486bf 100644
 +    LocInfo = CCValAssign::Indirect;
 +    PendingMembers.push_back(
 +        CCValAssign::getPending(ValNo, ValVT, LocVT, LocInfo));
++    PendingArgFlags.push_back(ArgFlags);
 +    if (!ArgFlags.isSplitEnd()) {
 +      return false;
 +    }
@@ -120,11 +162,10 @@ index 242bcfc8efd..c39cd6486bf 100644
 +    // Apply the normal calling convention rules to the first half of the
 +    // split argument
 +    CCValAssign VA = PendingMembers[0];
++    ISD::ArgFlagsTy AF = PendingArgFlags[0];
 +    PendingMembers.clear();
-+    CC_RISCV32(VA.getValNo(), VA.getValVT(), VA.getLocVT(), CCValAssign::Full,
-+               ISD::ArgFlagsTy(), State);
-+    // Continue with this second half of the argument as normal
-+    LocInfo = CCValAssign::Full;
++    PendingArgFlags.clear();
++    return CC_RISCV32Assign2XLEN(State, VA, AF, ValNo, ValVT, LocVT, ArgFlags);
 +  }
 +
 +  // Allocate to a register if possible, or else a stack slot
@@ -145,6 +186,7 @@ index 242bcfc8efd..c39cd6486bf 100644
 +      State.addLoc(It);
 +    }
 +    PendingMembers.clear();
++    PendingArgFlags.clear();
 +    return false;
 +  }
 +
@@ -165,7 +207,7 @@ index 242bcfc8efd..c39cd6486bf 100644
  #include "RISCVGenCallingConv.inc"
  
  // Transform physical registers into virtual registers.
-@@ -304,7 +408,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -304,7 +449,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -175,7 +217,7 @@ index 242bcfc8efd..c39cd6486bf 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -314,27 +420,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -314,27 +461,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -243,7 +285,7 @@ index 242bcfc8efd..c39cd6486bf 100644
      }
    }
    return Chain;
-@@ -370,39 +508,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -370,39 +549,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -351,7 +393,7 @@ index 242bcfc8efd..c39cd6486bf 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -468,6 +668,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -468,6 +709,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    return Chain;
  }
  
@@ -381,6 +423,22 @@ index 806fa678b40..ea9e7c88e90 100644
    SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 083ca4d05a1..146f0ab4910 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -378,7 +378,10 @@ let isCall = 1, Defs = [X1_32] in
+ def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
+                  PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
+ 
+-let isBarrier = 1, isReturn = 1, isTerminator = 1 in
++// FIXME: PseudoRET doesn't really modify X1_32 (RA), however marking it as
++// such does ensure the the return address is always given a stack slot.
++
++let Defs = [X1_32], isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+ 
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
 new file mode 100644
 index 00000000000..bef084f8376
@@ -416,17 +474,24 @@ index 00000000000..bef084f8376
 +}
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
-index 00000000000..4ff774bba51
+index 00000000000..7b890a872e8
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv.ll
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,513 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
++; As well as calling convention details, we check that ra and fp are
++; consistently stored to fp-4 and fp-8.
++
 +; Check that on RV32, i64 and double are passed in a pair of registers. Unlike
-+; the convention for varargs, this need not be an aligned pair
++; the convention for varargs, this need not be an aligned pair.
 +
 +define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) {
 +; CHECK-LABEL: callee_scalars:
++; CHECK: addi sp, sp, -24
++; CHECK: sw ra, 20(sp)
++; CHECK: sw s0, 16(sp)
++; CHECK: addi s0, sp, 24
 +; CHECK: addi s1, a4, 0
 +; CHECK: addi s2, a3, 0
 +; CHECK: addi s3, a1, 0
@@ -451,6 +516,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_scalars() {
 +; CHECK-LABEL: caller_scalars:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lui a0, 262464
 +; CHECK: addi a6, a0, 0
 +; CHECK: lui a0, %hi(callee_scalars)
@@ -470,6 +539,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @callee_large_scalars(i128 %a, fp128 %b) {
 +; CHECK-LABEL: callee_large_scalars:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi  s0, sp, 8
 +; CHECK: lw a2, 12(a1)
 +; CHECK: lw a3, 12(a0)
 +; CHECK: xor a2, a3, a2
@@ -495,6 +568,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_large_scalars() {
 +; CHECK-LABEL: caller_large_scalars:
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 44(sp)
++; CHECK: sw s0, 40(sp)
++; CHECK: addi  s0, sp, 48
 +; CHECK: sw zero, -40(s0)
 +; CHECK: sw zero, -44(s0)
 +; CHECK: sw zero, -48(s0)
@@ -515,10 +592,39 @@ index 00000000000..4ff774bba51
 +  ret i32 %1
 +}
 +
++; Ensure that libcalls generated in the middle-end obey the calling convention
++
++define i32 @caller_mixed_scalar_libcalls(i64 %a) {
++; CHECK-LABEL: caller_mixed_scalar_libcalls:
++; CHECK: addi sp, sp, -24
++; CHECK: sw ra, 20(sp)
++; CHECK: sw s0, 16(sp)
++; CHECK: addi s0, sp, 24
++; CHECK: addi a2, a1, 0
++; CHECK: addi a1, a0, 0
++; CHECK: lui a0, %hi(__floatditf)
++; CHECK: addi a3, a0, %lo(__floatditf)
++; CHECK: addi a0, s0, -24
++; CHECK: jalr ra, a3, 0
++; CHECK: lw a0, -24(s0)
++; CHECK: lw s0, 16(sp)
++; CHECK: lw ra, 20(sp)
++; CHECK: addi sp, sp, 24
++; CHECK: jalr zero, ra, 0
++  %1 = sitofp i64 %a to fp128
++  %2 = bitcast fp128 %1 to i128
++  %3 = trunc i128 %2 to i32
++  ret i32 %3
++}
++
 +; Check that the stack is used once the GPRs are exhausted
 +
 +define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i64 %g, i32 %h) {
 +; CHECK-LABEL: callee_many_scalars:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lw t0, 0(s0)
 +; CHECK: xor a4, a4, t0
 +; CHECK: xor a3, a3, a7
@@ -551,6 +657,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_many_scalars() {
 +; CHECK-LABEL: caller_many_scalars:
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: addi a0, zero, 8
 +; CHECK: sw a0, 4(sp)
 +; CHECK: sw zero, 0(sp)
@@ -575,6 +685,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) {
 +; CHECK-LABEL: callee_small_coerced_struct:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: xor a0, a0, a1
 +; CHECK: sltiu a0, a0, 1
 +  %1 = extractvalue [2 x i32] %a.coerce, 0
@@ -586,6 +700,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_small_coerced_struct() {
 +; CHECK-LABEL: caller_small_coerced_struct:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lui a0, %hi(callee_small_coerced_struct)
 +; CHECK: addi a2, a0, %lo(callee_small_coerced_struct)
 +; CHECK: addi a0, zero, 1
@@ -601,6 +719,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @callee_large_struct(%struct.large* byval align 4 %a) {
 +; CHECK-LABEL: callee_large_struct:
++; CHECK: addi  sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lw a1, 12(a0)
 +; CHECK: lw a0, 0(a0)
 +; CHECK: add a0, a0, a1
@@ -614,6 +736,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_large_struct() {
 +; CHECK-LABEL: caller_large_struct:
++; CHECK: addi sp, sp, -40
++; CHECK: sw ra, 36(sp)
++; CHECK: sw s0, 32(sp)
++; CHECK: addi s0, sp, 40
 +; CHECK: addi a0, zero, 1
 +; CHECK: sw a0, -24(s0)
 +; CHECK: sw a0, -40(s0)
@@ -644,10 +770,77 @@ index 00000000000..4ff774bba51
 +  ret i32 %2
 +}
 +
++; Check 2x*xlen values are aligned appropriately when passed on the stack
++define i32 @callee_aligned_stack(i32 %a, i32 %b, fp128 %c, i32 %d, i32 %e,
++    i64 %f, i32 %g, i32 %h, double %i, i32 %j, [2 x i32] %k) {
++; The double should be 8-byte aligned on the stack, but the two-element array
++; should only be 4-byte aligned
++; CHECK-LABEL: callee_aligned_stack:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
++; CHECK: lw a0, 0(a2)
++; CHECK: add a0, a0, a7
++; CHECK: lw a1, 0(s0)
++; CHECK: add a0, a0, a1
++; CHECK: lw a1, 8(s0)
++; CHECK: add a0, a0, a1
++; CHECK: lw a1, 16(s0)
++; CHECK: add a0, a0, a1
++; CHECK: lw a1, 20(s0)
++; CHECK: add a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  %1 = bitcast fp128 %c to i128
++  %2 = trunc i128 %1 to i32
++  %3 = add i32 %2, %g
++  %4 = add i32 %3, %h
++  %5 = bitcast double %i to i64
++  %6 = trunc i64 %5 to i32
++  %7 = add i32 %4, %6
++  %8 = add i32 %7, %j
++  %9 = extractvalue [2 x i32] %k, 0
++  %10 = add i32 %8, %9
++  ret i32 %10
++}
++
++define void @caller_aligned_stack() {
++; The double should be 8-byte aligned on the stack, but the two-element array
++; should only be 4-byte aligned
++; CHECK-LABEL: caller_aligned_stack:
++; CHECK: addi sp, sp, -64
++; CHECK: sw ra, 60(sp)
++; CHECK: sw s0, 56(sp)
++; CHECK: addi s0, sp, 64
++; CHECK: addi a0, zero, 18
++; CHECK: sw a0, 24(sp)
++; CHECK: addi a0, zero, 17
++; CHECK: sw a0, 20(sp)
++; CHECK: addi a0, zero, 16
++; CHECK: sw a0, 16(sp)
++; CHECK: lui a0, 262236
++; CHECK: addi a0, a0, 655
++; CHECK: sw a0, 12(sp)
++; CHECK: lui a0, 377487
++; CHECK: addi a0, a0, 1475
++; CHECK: sw a0, 8(sp)
++; CHECK: addi a0, zero, 15
++; CHECK: sw a0, 0(sp)
++  %1 = call i32 @callee_aligned_stack(i32 1, i32 11,
++    fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13,
++    i64 20000000000, i32 14, i32 15, double 2.720000e+00, i32 16,
++    [2 x i32] [i32 17, i32 18])
++  ret void
++}
++
 +; Check return of 2x xlen scalars
 +
 +define i64 @callee_small_scalar_ret() {
 +; CHECK-LABEL: callee_small_scalar_ret:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lui a0, 466866
 +; CHECK: addi a0, a0, 1677
 +; CHECK: addi a1, zero, 287
@@ -656,6 +849,10 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_small_scalar_ret() {
 +; CHECK-LABEL: caller_small_scalar_ret:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lui a0, %hi(callee_small_scalar_ret)
 +; CHECK: addi a0, a0, %lo(callee_small_scalar_ret)
 +; CHECK: jalr ra, a0, 0
@@ -678,6 +875,10 @@ index 00000000000..4ff774bba51
 +
 +define %struct.small @callee_small_struct_ret() {
 +; CHECK-LABEL: callee_small_struct_ret:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: addi a0, zero, 1
 +; CHECK: addi a1, zero, 0
 +  ret %struct.small { i32 1, i32* null }
@@ -685,6 +886,7 @@ index 00000000000..4ff774bba51
 +
 +define i32 @caller_small_struct_ret() {
 +; CHECK-LABEL: caller_small_struct_ret:
++; CHECK: addi sp, sp, -8
 +; CHECK: sw ra, 4(sp)
 +; CHECK: sw s0, 0(sp)
 +; CHECK: addi s0, sp, 8
@@ -708,6 +910,10 @@ index 00000000000..4ff774bba51
 +
 +define fp128 @callee_large_scalar_ret() {
 +; CHECK-LABEL: callee_large_scalar_ret:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: lui a1, 524272
 +; CHECK: addi a1, a1, 0
 +; CHECK: sw a1, 12(a0)
@@ -736,6 +942,10 @@ index 00000000000..4ff774bba51
 +
 +define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) {
 +; CHECK-LABEL: callee_large_struct_ret:
++; CHECK: addi sp, sp, -8
++; CHECK: sw ra, 4(sp)
++; CHECK: sw s0, 0(sp)
++; CHECK: addi s0, sp, 8
 +; CHECK: addi a1, zero, 2
 +; CHECK: sw a1, 4(a0)
 +; CHECK: addi a1, zero, 1

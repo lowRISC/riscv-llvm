@@ -35,7 +35,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
  lib/Target/RISCV/RISCVInstrInfo.td      | 105 ++++++++++++++-----
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  |  60 +++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  62 +++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
  lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
@@ -44,7 +44,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1109 insertions(+), 36 deletions(-)
+ 24 files changed, 1111 insertions(+), 36 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -1018,10 +1018,10 @@ index 00000000000..9837b46532b
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 new file mode 100644
-index 00000000000..6cc5af12ad5
+index 00000000000..40adf918c86
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,62 @@
 +//===-- RISCVRegisterInfo.cpp - RISCV Register Information ------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1062,6 +1062,8 @@ index 00000000000..6cc5af12ad5
 +  BitVector Reserved(getNumRegs());
 +  Reserved.set(RISCV::X0_64); // zero
 +  Reserved.set(RISCV::X0_32); // zero
++  Reserved.set(RISCV::X1_64); // ra
++  Reserved.set(RISCV::X1_32); // ra
 +  Reserved.set(RISCV::X2_64); // sp
 +  Reserved.set(RISCV::X2_32); // sp
 +  Reserved.set(RISCV::X3_64); // gp

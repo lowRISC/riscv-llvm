@@ -11,7 +11,7 @@ Subject: [RISCV] Add support for lowering BlockAddress operands
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 1a14e33abe5..13fd33e2d68 100644
+index e336a22c6ba..f4b9662d93e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -99,6 +99,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

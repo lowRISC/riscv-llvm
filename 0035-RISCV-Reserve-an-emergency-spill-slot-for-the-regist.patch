@@ -4,10 +4,10 @@ Subject: [RISCV] Reserve an emergency spill slot for the register scavenger
  when necessary
 
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp | 19 +++++++++++++++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp | 19 ++++++++++++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  3 +++
- test/CodeGen/RISCV/large-stack.ll       | 27 +++++++++++++++++++++++++++
- 3 files changed, 49 insertions(+)
+ test/CodeGen/RISCV/large-stack.ll       | 39 ++++++++++++++++++++++++++++-----
+ 3 files changed, 55 insertions(+), 6 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index bc7b0dda836..0877cf538f0 100644
@@ -58,10 +58,40 @@ index e608a5e7d53..7d35ce38b0a 100644
  
    MachineBasicBlock::iterator
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index 18b357c25c7..46f1bc68d57 100644
+index 8c85cd5c137..17fb61e7b33 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
-@@ -25,3 +25,30 @@ define void @test() {
+@@ -5,27 +5,54 @@
+ define void @test() {
+ ; CHECK-LABEL: test:
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1664
++; CHECK: addi a0, a0, 1672
+ ; CHECK: sub sp, sp, a0
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1660
++; CHECK: addi a0, a0, 1668
+ ; CHECK: add a0, sp, a0
+ ; CHECK: sw s0, 0(a0)
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1664
++; CHECK: addi a0, a0, 1672
+ ; CHECK: add s0, sp, a0
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1656
++; CHECK: addi a0, a0, 1664
+ ; CHECK: add a0, sp, a0
+ ; CHECK: lw s0, 0(a0)
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1660
++; CHECK: addi a0, a0, 1668
+ ; CHECK: add a0, sp, a0
+ ; CHECK: lw ra, 0(a0)
+ ; CHECK: lui a0, 74565
+-; CHECK: addi a0, a0, 1664
++; CHECK: addi a0, a0, 1672
+ ; CHECK: add sp, sp, a0
+ ; CHECK: jalr zero, ra, 0
    %tmp = alloca [ 305419896 x i8 ] , align 4
    ret void
  }

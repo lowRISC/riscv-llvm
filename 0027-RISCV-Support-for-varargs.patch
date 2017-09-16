@@ -9,12 +9,12 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 166 +++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 166 +++++++++--
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
- lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 ++++
+ lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
  lib/Target/RISCV/RISCVRegisterInfo.cpp      |   3 +
- test/CodeGen/RISCV/vararg.ll                | 361 ++++++++++++++++++++++++++++
- 6 files changed, 557 insertions(+), 25 deletions(-)
+ test/CodeGen/RISCV/vararg.ll                | 436 ++++++++++++++++++++++++++++
+ 6 files changed, 638 insertions(+), 19 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
@@ -65,7 +65,7 @@ index d91eb1b150e..cd1c33059d5 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c39cd6486bf..ec07c5226a8 100644
+index 30211549230..29fbb1cdda7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -130,17 +130,13 @@ index c39cd6486bf..ec07c5226a8 100644
  // Calling Convention Implementation.
  // The expectations for frontend ABI lowering vary from target to target.
  // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
-@@ -311,13 +338,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
- // * Struct return values and varargs should be coerced to structs containing
- // register-size fields in the same situations they would be for fixed
- // arguments.
+@@ -351,9 +378,10 @@ static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
+   return false;
+ }
+ 
 -static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
 -                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
 -                       CCState &State) {
--  static const MCPhysReg ArgGPRs[] = {
--      RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
--      RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32};
--
 +static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
 +                       MVT LocVT, CCValAssign::LocInfo LocInfo,
 +                       ISD::ArgFlagsTy ArgFlags, CCState &State, bool IsFixed,
@@ -148,7 +144,7 @@ index c39cd6486bf..ec07c5226a8 100644
    // Promote i8 and i16
    if (LocVT == MVT::i8 || LocVT == MVT::i16) {
      LocVT = MVT::i32;
-@@ -329,6 +353,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -365,6 +393,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
        LocInfo = CCValAssign::AExt;
    }
  
@@ -168,9 +164,9 @@ index c39cd6486bf..ec07c5226a8 100644
 +  }
 +
    SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
- 
-   // Split arguments might be passed indirectly, so keep track of the pending
-@@ -347,18 +386,19 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+   SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
+       State.getPendingArgFlags();
+@@ -388,6 +431,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
    // in registers or on the stack
    if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
      assert(PendingMembers.size() == 2);
@@ -178,13 +174,7 @@ index c39cd6486bf..ec07c5226a8 100644
      // Apply the normal calling convention rules to the first half of the
      // split argument
      CCValAssign VA = PendingMembers[0];
-     PendingMembers.clear();
--    CC_RISCV32(VA.getValNo(), VA.getValVT(), VA.getLocVT(), CCValAssign::Full,
--               ISD::ArgFlagsTy(), State);
-+    CC_RISCV32(DL, VA.getValNo(), VA.getValVT(), VA.getLocVT(),
-+               CCValAssign::Full, ISD::ArgFlagsTy(), State, IsFixed, OrigTy);
-     // Continue with this second half of the argument as normal
-     LocInfo = CCValAssign::Full;
+@@ -398,7 +442,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
    }
  
    // Allocate to a register if possible, or else a stack slot
@@ -193,7 +183,7 @@ index c39cd6486bf..ec07c5226a8 100644
    unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
  
    // If we reach this point and PendingMembers is non-empty, we must be at the
-@@ -408,17 +448,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -449,17 +493,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -232,7 +222,7 @@ index c39cd6486bf..ec07c5226a8 100644
  
    for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
      CCValAssign &VA = ArgLocs[I];
-@@ -475,6 +532,62 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -516,6 +577,70 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
        InVals.push_back(ArgValue);
      }
    }
@@ -257,14 +247,22 @@ index c39cd6486bf..ec07c5226a8 100644
 +      VaArgOffset = CCInfo.getNextStackOffset();
 +      VarArgsSaveSize = 0;
 +    } else {
-+      VarArgsSaveSize = RegSizeInBytes * ArgRegs.size();
-+      VaArgOffset = -VarArgsSaveSize + Idx*RegSizeInBytes;
++      VarArgsSaveSize = RegSizeInBytes * (ArgRegs.size() - Idx);
++      VaArgOffset = -VarArgsSaveSize;
 +    }
 +
 +    // Record the frame index of the first variable argument
 +    // which is a value necessary to VASTART.
 +    int FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
 +    RVFI->setVarArgsFrameIndex(FI);
++
++    // If saving an odd-number of registers, create an extra stack slot to
++    // ensure even-numbered registers are always 2xlen-aligned
++    if (Idx % 2) {
++      FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset - RegSizeInBytes,
++                                 true);
++      VarArgsSaveSize += RegSizeInBytes;
++    }
 +
 +    // Copy the integer registers that may have been used for passing varargs
 +    // to the vararg save area.
@@ -295,7 +293,7 @@ index c39cd6486bf..ec07c5226a8 100644
    return Chain;
  }
  
-@@ -494,16 +607,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -535,16 +660,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
@@ -328,7 +326,7 @@ index c39cd6486bf..ec07c5226a8 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -682,10 +806,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -723,10 +859,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -402,7 +400,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index f5cd8fac730..e57e7066abe 100644
+index a2754444eb0..b3b4390a0b7 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -13,6 +13,7 @@
@@ -413,7 +411,7 @@ index f5cd8fac730..e57e7066abe 100644
  #include "RISCVSubtarget.h"
  #include "llvm/CodeGen/MachineFrameInfo.h"
  #include "llvm/CodeGen/MachineFunction.h"
-@@ -60,6 +61,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -62,6 +63,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
@@ -421,7 +419,7 @@ index f5cd8fac730..e57e7066abe 100644
    MachineFrameInfo &MFI = MF.getFrameInfo();
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-@@ -87,6 +89,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -89,6 +91,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      Offset += MF.getFrameInfo().getStackSize();
    } else {
      FrameReg = getFrameRegister(MF);
@@ -431,10 +429,10 @@ index f5cd8fac730..e57e7066abe 100644
    unsigned Reg = MI.getOperand(0).getReg();
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
 new file mode 100644
-index 00000000000..3758aef0d82
+index 00000000000..32d9699bd47
 --- /dev/null
 +++ b/test/CodeGen/RISCV/vararg.ll
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,436 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +declare void @llvm.va_start(i8*)
@@ -448,9 +446,10 @@ index 00000000000..3758aef0d82
 +
 + define i32 @va1(i8* %fmt, ...) {
 +; CHECK-LABEL: va1
-+; CHECK: addi sp, sp, -40
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 12(sp)
 +; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi s0, sp, 16
 +; CHECK: sw a1, 4(s0)
 +; CHECK: sw a7, 28(s0)
 +; CHECK: sw a6, 24(s0)
@@ -459,10 +458,11 @@ index 00000000000..3758aef0d82
 +; CHECK: sw a3, 12(s0)
 +; CHECK: sw a2, 8(s0)
 +; CHECK: addi a0, s0, 8
-+; CHECK: sw a0, -4(s0)
++; CHECK: sw a0, -12(s0)
 +; CHECK: lw a0, 4(s0)
 +; CHECK: lw s0, 8(sp)
-+; CHECK: addi sp, sp, 40
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 48
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -478,9 +478,10 @@ index 00000000000..3758aef0d82
 +
 +define i32 @va1_va_arg(i8* %fmt, ...) {
 +; CHECK-LABEL: va1_va_arg
-+; CHECK: addi sp, sp, -40
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 12(sp)
 +; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi s0, sp, 16
 +; CHECK: sw a1, 4(s0)
 +; CHECK: sw a7, 28(s0)
 +; CHECK: sw a6, 24(s0)
@@ -489,10 +490,10 @@ index 00000000000..3758aef0d82
 +; CHECK: sw a3, 12(s0)
 +; CHECK: sw a2, 8(s0)
 +; CHECK: addi a0, s0, 8
-+; CHECK: sw a0, -4(s0)
-+; CHECK: lw a0, 4(s0)
++; CHECK: sw a0, -12(s0)
 +; CHECK: lw s0, 8(sp)
-+; CHECK: addi sp, sp, 40
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 48
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -507,10 +508,13 @@ index 00000000000..3758aef0d82
 +define i32 @va1_va_arg_alloca(i8* %fmt, ...) {
 +; CHECK-LABEL: va1_va_arg_alloca:
 +; CHECK: addi sp, sp, -48
-+; CHECK: sw s0, 12(sp)
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: sw s1, 4(sp)
 +; CHECK: addi s0, sp, 16
 +; CHECK: addi sp, s0, -16
-+; CHECK: lw s0, 12(sp)
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
 +; CHECK: addi sp, sp, 48
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -541,9 +545,10 @@ index 00000000000..3758aef0d82
 +
 +define double @va2(i8 *%fmt, ...) {
 +; CHECK-LABEL: va2:
-+; CHECK: addi sp, sp, -40
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 12(sp)
 +; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi s0, sp, 16
 +; CHECK: sw a7, 28(s0)
 +; CHECK: sw a6, 24(s0)
 +; CHECK: sw a5, 20(s0)
@@ -552,14 +557,15 @@ index 00000000000..3758aef0d82
 +; CHECK: sw a2, 8(s0)
 +; CHECK: sw a1, 4(s0)
 +; CHECK: addi a0, s0, 19
-+; CHECK: sw a0, -4(s0)
++; CHECK: sw a0, -12(s0)
 +; CHECK: addi a0, s0, 11
 +; CHECK: andi a1, a0, -8
 +; CHECK: lw a0, 0(a1)
 +; CHECK: ori a1, a1, 4
 +; CHECK: lw a1, 0(a1)
 +; CHECK: lw s0, 8(sp)
-+; CHECK: addi sp, sp, 40
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 48
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -579,9 +585,10 @@ index 00000000000..3758aef0d82
 +
 +define double @va2_va_arg(i8 *%fmt, ...) {
 +; CHECK-LABEL: va2_va_arg:
-+; CHECK: addi sp, sp, -40
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 12(sp)
 +; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi s0, sp, 16
 +; CHECK: sw a7, 28(s0)
 +; CHECK: sw a6, 24(s0)
 +; CHECK: sw a5, 20(s0)
@@ -592,13 +599,14 @@ index 00000000000..3758aef0d82
 +; CHECK: addi a0, s0, 11
 +; CHECK: andi a0, a0, -8
 +; CHECK: ori a1, a0, 4
-+; CHECK: sw a1, -4(s0)
++; CHECK: sw a1, -12(s0)
 +; CHECK: lw a0, 0(a0)
 +; CHECK: addi a2, a1, 4
-+; CHECK: sw a2, -4(s0)
++; CHECK: sw a2, -12(s0)
 +; CHECK: lw a1, 0(a1)
-+; CHECK: lw s0, 8(sp)
-+; CHECK: addi sp, sp, 40
++; CHECK: lw  s0, 8(sp)
++; CHECK: lw  ra, 12(sp)
++; CHECK: addi  sp, sp, 48
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -625,20 +633,20 @@ index 00000000000..3758aef0d82
 +
 +define double @va3(i32 %a, double %b, ...) {
 +; CHECK-LABEL: va3:
-+; CHECK: addi sp, sp, -32
-+; CHECK: sw ra, 8(sp)
-+; CHECK: sw s0, 4(sp)
-+; CHECK: addi s0, sp, 0
-+; CHECK: sw a7, 28(s0)
-+; CHECK: sw a6, 24(s0)
-+; CHECK: sw a5, 20(s0)
-+; CHECK: sw a4, 16(s0)
-+; CHECK: sw a3, 12(s0)
-+; CHECK: addi a0, s0, 27
-+; CHECK: sw a0, 0(s0)
++; CHECK: addi sp, sp, -40
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: sw a7, 20(s0)
++; CHECK: sw a6, 16(s0)
++; CHECK: sw a5, 12(s0)
++; CHECK: sw a4, 8(s0)
++; CHECK: sw a3, 4(s0)
++; CHECK: addi a0, s0, 19
++; CHECK: sw a0, -12(s0)
 +; CHECK: lui a0, %hi(__adddf3)
 +; CHECK: addi a5, a0, %lo(__adddf3)
-+; CHECK: addi a0, s0, 19
++; CHECK: addi a0, s0, 11
 +; CHECK: andi a0, a0, -8
 +; CHECK: lw a4, 0(a0)
 +; CHECK: ori a0, a0, 4
@@ -647,9 +655,9 @@ index 00000000000..3758aef0d82
 +; CHECK: addi a1, a2, 0
 +; CHECK: addi a2, a4, 0
 +; CHECK: jalr ra, a5, 0
-+; CHECK: lw s0, 4(sp)
-+; CHECK: lw ra, 8(sp)
-+; CHECK: addi sp, sp, 32
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 40
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -670,22 +678,22 @@ index 00000000000..3758aef0d82
 +
 +define double @va3_va_arg(i32 %a, double %b, ...) {
 +; CHECK-LABEL: va3_va_arg:
-+; CHECK: addi sp, sp, -32
-+; CHECK: sw ra, 8(sp)
-+; CHECK: sw s0, 4(sp)
-+; CHECK: addi s0, sp, 0
-+; CHECK: sw a7, 28(s0)
-+; CHECK: sw a6, 24(s0)
-+; CHECK: sw a5, 20(s0)
-+; CHECK: sw a4, 16(s0)
-+; CHECK: sw a3, 12(s0)
-+; CHECK: addi a0, s0, 19
++; CHECK: addi sp, sp, -40
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: sw a7, 20(s0)
++; CHECK: sw a6, 16(s0)
++; CHECK: sw a5, 12(s0)
++; CHECK: sw a4, 8(s0)
++; CHECK: sw a3, 4(s0)
++; CHECK: addi a0, s0, 11
 +; CHECK: andi a0, a0, -8
 +; CHECK: ori a3, a0, 4
-+; CHECK: sw a3, 0(s0)
++; CHECK: sw a3, -12(s0)
 +; CHECK: lw a4, 0(a0)
 +; CHECK: addi a0, a3, 4
-+; CHECK: sw a0, 0(s0)
++; CHECK: sw a0, -12(s0)
 +; CHECK: lui a0, %hi(__adddf3)
 +; CHECK: addi a5, a0, %lo(__adddf3)
 +; CHECK: lw a3, 0(a3)
@@ -693,9 +701,9 @@ index 00000000000..3758aef0d82
 +; CHECK: addi a1, a2, 0
 +; CHECK: addi a2, a4, 0
 +; CHECK: jalr ra, a5, 0
-+; CHECK: lw s0, 4(sp)
-+; CHECK: lw ra, 8(sp)
-+; CHECK: addi sp, sp, 32
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 40
 +; CHECK: jalr zero, ra, 0
 +  %va = alloca i8*, align 4
 +  %1 = bitcast i8** %va to i8*
@@ -734,11 +742,11 @@ index 00000000000..3758aef0d82
 +
 +define i32 @va4_va_copy(i32 %argno, ...) {
 +; CHECK-LABEL: va4_va_copy:
-+; CHECK: addi sp, sp, -48
-+; CHECK: sw ra, 16(sp)
-+; CHECK: sw s0, 12(sp)
-+; CHECK: sw s1, 8(sp)
-+; CHECK: addi s0, sp, 16
++; CHECK: addi  sp, sp, -56
++; CHECK: sw ra, 20(sp)
++; CHECK: sw s0, 16(sp)
++; CHECK: sw s1, 12(sp)
++; CHECK: addi s0, sp, 24
 +; CHECK: sw a1, 4(s0)
 +; CHECK: sw a7, 28(s0)
 +; CHECK: sw a6, 24(s0)
@@ -747,35 +755,35 @@ index 00000000000..3758aef0d82
 +; CHECK: sw a3, 12(s0)
 +; CHECK: sw a2, 8(s0)
 +; CHECK: addi a0, s0, 8
-+; CHECK: sw a0, -12(s0)
 +; CHECK: sw a0, -16(s0)
++; CHECK: sw a0, -20(s0)
 +; CHECK: lw s1, 4(s0)
 +; CHECK: lui a1, %hi(notdead)
 +; CHECK: addi a1, a1, %lo(notdead)
 +; CHECK: jalr ra, a1, 0
-+; CHECK: lw a0, -12(s0)
++; CHECK: lw a0, -16(s0)
 +; CHECK: addi a0, a0, 3
 +; CHECK: andi a0, a0, -4
 +; CHECK: addi a1, a0, 4
-+; CHECK: sw a1, -12(s0)
++; CHECK: sw a1, -16(s0)
 +; CHECK: lw a1, 0(a0)
 +; CHECK: addi a0, a0, 7
 +; CHECK: andi a0, a0, -4
 +; CHECK: addi a2, a0, 4
-+; CHECK: sw a2, -12(s0)
++; CHECK: sw a2, -16(s0)
 +; CHECK: lw a2, 0(a0)
 +; CHECK: addi a0, a0, 7
 +; CHECK: andi a0, a0, -4
 +; CHECK: addi a3, a0, 4
-+; CHECK: sw a3, -12(s0)
++; CHECK: sw a3, -16(s0)
 +; CHECK: add a1, a1, s1
 +; CHECK: add a1, a1, a2
 +; CHECK: lw a0, 0(a0)
 +; CHECK: add a0, a1, a0
-+; CHECK: lw s1, 8(sp)
-+; CHECK: lw s0, 12(sp)
-+; CHECK: lw ra, 16(sp)
-+; CHECK: addi sp, sp, 48
++; CHECK: lw s1, 12(sp)
++; CHECK: lw s0, 16(sp)
++; CHECK: lw ra, 20(sp)
++; CHECK: addi sp, sp, 56
 +; CHECK: jalr zero, ra, 0
 +  %vargs = alloca i8*, align 4
 +  %wargs = alloca i8*, align 4
@@ -795,6 +803,71 @@ index 00000000000..3758aef0d82
 +  %add2 = add i32 %add1, %6
 +  %add3 = add i32 %add2, %7
 +  ret i32 %add3
++}
++
++; Check 2x*xlen values are aligned appropriately when passed on the stack in a vararg call
++
++define i32 @va5_aligned_stack_callee(i32 %a, ...) {
++; CHECK-LABEL: va5_aligned_stack_callee:
++  ret i32 1
++}
++
++define void @va5_aligned_stack_caller() {
++; The double should be 8-byte aligned on the stack, but the two-element array
++; should only be 4-byte aligned
++; CHECK-LABEL: va5_aligned_stack_caller:
++; CHECK: addi a0, zero, 17
++; CHECK: sw a0, 24(sp)
++; CHECK: addi a0, zero, 16
++; CHECK: sw a0, 20(sp)
++; CHECK: addi a0, zero, 15
++; CHECK: sw a0, 16(sp)
++; CHECK: lui a0, 262236
++; CHECK: addi a0, a0, 655
++; CHECK: sw a0, 12(sp)
++; CHECK: lui a0, 377487
++; CHECK: addi a0, a0, 1475
++; CHECK: sw a0, 8(sp)
++; CHECK: addi a0, zero, 14
++; CHECK: sw a0, 0(sp)
++  %1 = call i32 (i32, ...) @va5_aligned_stack_callee(i32 1, i32 11,
++    fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13, i64 20000000000,
++    i32 14, double 2.720000e+00, i32 15, [2 x i32] [i32 16, i32 17])
++  ret void
++}
++
++; A function with no fixed arguments is not valid C, but can be
++; specified in LLVM IR. We must ensure the vararg save area is
++; still set up correctly.
++
++define i32 @va6_no_fixed_args(...) {
++; CHECK-LABEL: va6_no_fixed_args:
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: sw a0, 0(s0)
++; CHECK: sw a7, 28(s0)
++; CHECK: sw a6, 24(s0)
++; CHECK: sw a5, 20(s0)
++; CHECK: sw a4, 16(s0)
++; CHECK: sw a3, 12(s0)
++; CHECK: sw a2, 8(s0)
++; CHECK: sw a1, 4(s0)
++; CHECK: addi a0, s0, 0
++; CHECK: ori a0, a0, 4
++; CHECK: sw a0, -12(s0)
++; CHECK: lw a0, 0(s0)
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 48
++; CHECK: jalr zero, ra, 0
++  %va = alloca i8*, align 4
++  %1 = bitcast i8** %va to i8*
++  call void @llvm.va_start(i8* %1)
++  %2 = va_arg i8** %va, i32
++  call void @llvm.va_end(i8* %1)
++  ret i32 %2
 +}
 -- 
 2.14.1

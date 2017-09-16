@@ -191,10 +191,10 @@ index 288aa2968ed..a0be4894956 100644
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 6cc5af12ad5..cfe6b7d76b6 100644
+index 40adf918c86..d250b832a73 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -49,10 +49,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+@@ -51,10 +51,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
    return Reserved;
  }
  
