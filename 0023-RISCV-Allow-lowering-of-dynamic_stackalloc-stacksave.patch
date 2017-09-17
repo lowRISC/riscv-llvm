@@ -3,21 +3,21 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Allow lowering of dynamic_stackalloc, stacksave, stackrestore
 
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp |  4 +++
+ lib/Target/RISCV/RISCVISelLowering.cpp |  5 +++
  test/CodeGen/RISCV/alloca.ll           | 61 ++++++++++++++++++++++++++++++++++
- 2 files changed, 65 insertions(+)
+ 2 files changed, 66 insertions(+)
  create mode 100644 test/CodeGen/RISCV/alloca.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 66986e7de06..242bcfc8efd 100644
+index 899a93e873f..1ee33f69cbe 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -48,12 +48,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   setStackPointerRegisterToSaveRestore(RISCV::X2_32);
+@@ -51,11 +51,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+     setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
 +  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
- 
++
    setOperationAction(ISD::BR_JT, MVT::Other, Expand);
    setOperationAction(ISD::BR_CC, MVT::i32, Expand);
    setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
@@ -26,12 +26,12 @@ index 66986e7de06..242bcfc8efd 100644
 +  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
 +  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
 +
-   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
-   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8, Expand);
-   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Expand);
+   for (auto VT : {MVT::i1, MVT::i8, MVT::i16, MVT::i32})
+     setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
+ 
 diff --git a/test/CodeGen/RISCV/alloca.ll b/test/CodeGen/RISCV/alloca.ll
 new file mode 100644
-index 00000000000..f9fc4fd4b28
+index 00000000000..3515e2dd8de
 --- /dev/null
 +++ b/test/CodeGen/RISCV/alloca.ll
 @@ -0,0 +1,61 @@
@@ -44,21 +44,21 @@ index 00000000000..f9fc4fd4b28
 +
 +define void @simple_alloca(i32 %n) {
 +; CHECK-LABEL: simple_alloca:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
-+; CHECK: addi a0, a0, 7
-+; CHECK: andi a0, a0, -8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: addi a0, a0, 15
++; CHECK: andi a0, a0, -16
 +; CHECK: sub a0, sp, a0
 +; CHECK: addi sp, a0, 0
 +; CHECK: lui a1, %hi(notdead)
 +; CHECK: addi a1, a1, %lo(notdead)
 +; CHECK: jalr ra, a1, 0
-+; CHECK: addi sp, s0, -8
-+; CHECK: lw s0, 0(sp)
-+; CHECK: lw ra, 4(sp)
-+; CHECK: addi sp, sp, 8
++; CHECK: addi sp, s0, -16
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 16
 +; CHECK: jalr zero, ra, 0
 +  %1 = alloca i8, i32 %n
 +  call void @notdead(i8* %1)
@@ -76,8 +76,8 @@ index 00000000000..f9fc4fd4b28
 +; CHECK: sw s1, 4(sp)
 +; CHECK: addi s0, sp, 16
 +; CHECK: addi s1, sp, 0
-+; CHECK: addi a0, a0, 7
-+; CHECK: andi a0, a0, -8
++; CHECK: addi a0, a0, 15
++; CHECK: andi a0, a0, -16
 +; CHECK: sub a0, sp, a0
 +; CHECK: addi sp, a0, 0
 +; CHECK: lui a1, %hi(notdead)

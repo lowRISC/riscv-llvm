@@ -308,7 +308,7 @@ index 00000000000..fd3b258e26c
 +                                      MachineBasicBlock &MBB) const {}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
 new file mode 100644
-index 00000000000..3048fa75e3f
+index 00000000000..14772ddac4a
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -0,0 +1,35 @@
@@ -337,7 +337,7 @@ index 00000000000..3048fa75e3f
 +public:
 +  explicit RISCVFrameLowering(const RISCVSubtarget &STI)
 +      : TargetFrameLowering(StackGrowsDown,
-+                            /*StackAlignment=*/8,
++                            /*StackAlignment=*/16,
 +                            /*LocalAreaOffset=*/0) {}
 +
 +  void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;

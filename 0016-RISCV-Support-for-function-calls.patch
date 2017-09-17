@@ -4,19 +4,19 @@ Subject: [RISCV] Support for function calls
 
 ---
  lib/Target/RISCV/RISCVFrameLowering.h  |   6 ++
- lib/Target/RISCV/RISCVISelLowering.cpp | 131 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 132 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   5 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp    |   3 +-
  lib/Target/RISCV/RISCVInstrInfo.td     |  31 ++++++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |   6 ++
  lib/Target/RISCV/RISCVRegisterInfo.h   |   3 +
- test/CodeGen/RISCV/calls.ll            |  35 +++++++++
- 9 files changed, 221 insertions(+), 2 deletions(-)
+ test/CodeGen/RISCV/calls.ll            |  49 ++++++++++++
+ 9 files changed, 236 insertions(+), 2 deletions(-)
  create mode 100644 test/CodeGen/RISCV/calls.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 3048fa75e3f..ae2ed99f82d 100644
+index 14772ddac4a..da4f266c931 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -30,6 +30,12 @@ public:
@@ -33,10 +33,18 @@ index 3048fa75e3f..ae2ed99f82d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b4a402cf241..78484ca80cd 100644
+index 755b33ad924..f46f661c692 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -149,6 +149,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -114,6 +114,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   default:
+     report_fatal_error("Unsupported calling convention");
+   case CallingConv::C:
++  case CallingConv::Fast:
+     break;
+   }
+ 
+@@ -154,6 +155,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
@@ -172,7 +180,7 @@ index b4a402cf241..78484ca80cd 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -199,6 +328,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -204,6 +334,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      break;
    case RISCVISD::RET_FLAG:
      return "RISCVISD::RET_FLAG";
@@ -327,10 +335,10 @@ index 4e179c22cdd..159b9d5bd9b 100644
    BitVector getReservedRegs(const MachineFunction &MF) const override;
 diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
 new file mode 100644
-index 00000000000..04113f8b854
+index 00000000000..ec490696ccc
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calls.ll
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,49 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +declare i32 @external_function(i32) nounwind
@@ -365,6 +373,20 @@ index 00000000000..04113f8b854
 +; CHECK: jalr ra, a2, 0
 +  %1 = call i32 %a(i32 %b)
 +  ret i32 %1
++}
++
++; Ensure that calls to fastcc functions aren't rejected. Such calls may be
++; introduced when compiling with optimisation.
++
++define fastcc i32 @fastcc_function(i32 %a, i32 %b) {
++ %1 = add i32 %a, %b
++ ret i32 %1
++}
++
++define i32 @test_call_fastcc(i32 %a, i32 %b) {
++; CHECK-LABEL: test_call_fastcc:
++  %1 = call fastcc i32 @fastcc_function(i32 %a, i32 %b)
++  ret i32 %a
 +}
 -- 
 2.14.1

@@ -142,7 +142,7 @@ index cd1c33059d5..bc7b0dda836 100644
  
  void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 3bd8d0ffd84..e608a5e7d53 100644
+index 98325ffd571..f4c9c6e6540 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -46,6 +46,9 @@ protected:

@@ -43,17 +43,17 @@ index 7eb48c8f177..05a515e7b76 100644
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index f81bae8d644..b4a402cf241 100644
+index 34ec14b8e0e..755b33ad924 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -49,6 +49,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -55,6 +55,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  
-   // TODO: add all necessary setOperationAction calls.
+   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
  
 +  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
    setBooleanContents(ZeroOrOneBooleanContent);
  
-   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+ 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
 index 77206a80640..b756c69124b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp

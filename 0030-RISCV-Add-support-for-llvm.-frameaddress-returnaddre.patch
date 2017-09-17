@@ -10,10 +10,10 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 746dd1c31b3..e336a22c6ba 100644
+index 967e98f9051..efadbbbc285 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -163,6 +163,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -164,6 +164,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerSELECT_CC(Op, DAG);
    case ISD::VASTART:
      return lowerVASTART(Op, DAG);
@@ -24,7 +24,7 @@ index 746dd1c31b3..e336a22c6ba 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -245,6 +249,57 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+@@ -246,6 +250,57 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
                        MachinePointerInfo(SV));
  }
  
@@ -97,7 +97,7 @@ index 78b11198c18..4522dcf553d 100644
  
 diff --git a/test/CodeGen/RISCV/frameaddr-returnaddr.ll b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
 new file mode 100644
-index 00000000000..704b01bc10a
+index 00000000000..0570242883a
 --- /dev/null
 +++ b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
 @@ -0,0 +1,63 @@
@@ -109,8 +109,8 @@ index 00000000000..704b01bc10a
 +
 +define i8* @test_frameaddress_0() {
 +; CHECK-LABEL: test_frameaddress_0:
-+; CHECK: addi sp, sp, -8
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: addi s0, sp, 16
 +; CHECK: addi a0, s0, 0
 +; CHECK: jalr zero, ra, 0
 +  %1 = call i8* @llvm.frameaddress(i32 0)
@@ -119,8 +119,8 @@ index 00000000000..704b01bc10a
 +
 +define i8* @test_frameaddress_2() {
 +; CHECK-LABEL: test_frameaddress_2:
-+; CHECK: addi sp, sp, -8
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: addi s0, sp, 16
 +; CHECK: lw a0, -8(s0)
 +; CHECK: lw a0, -8(a0)
 +; CHECK: jalr zero, ra, 0
@@ -155,8 +155,8 @@ index 00000000000..704b01bc10a
 +
 +define i8* @test_returnaddress_2() {
 +; CHECK-LABEL: test_returnaddress_2:
-+; CHECK: addi sp, sp, -8
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: addi s0, sp, 16
 +; CHECK: lw a0, -8(s0)
 +; CHECK: lw a0, -8(a0)
 +; CHECK: lw a0, -4(a0)

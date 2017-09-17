@@ -11,10 +11,10 @@ Subject: [RISCV] Add support for lowering BlockAddress operands
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index e336a22c6ba..f4b9662d93e 100644
+index efadbbbc285..f78336b32d5 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -99,6 +99,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -100,6 +100,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setOperationAction(ISD::CTPOP, MVT::i32, Expand);
  
    setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
@@ -22,7 +22,7 @@ index e336a22c6ba..f4b9662d93e 100644
  
    setBooleanContents(ZeroOrOneBooleanContent);
  
-@@ -159,6 +160,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -160,6 +161,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
    switch (Op.getOpcode()) {
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
@@ -31,7 +31,7 @@ index e336a22c6ba..f4b9662d93e 100644
    case ISD::SELECT_CC:
      return lowerSELECT_CC(Op, DAG);
    case ISD::VASTART:
-@@ -194,6 +197,26 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -195,6 +198,26 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  

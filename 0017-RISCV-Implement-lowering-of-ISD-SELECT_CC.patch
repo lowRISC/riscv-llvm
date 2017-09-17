@@ -11,18 +11,18 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 78484ca80cd..9c9ce43a150 100644
+index f46f661c692..676b451d1b4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -50,6 +50,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   // TODO: add all necessary setOperationAction calls.
+@@ -56,6 +56,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
  
    setOperationAction(ISD::BR_CC, MVT::i32, Expand);
 +  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
    setBooleanContents(ZeroOrOneBooleanContent);
  
-   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
-@@ -64,11 +65,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+@@ -69,11 +70,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
  }
  
@@ -75,7 +75,7 @@ index 78484ca80cd..9c9ce43a150 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -96,6 +138,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -101,6 +143,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -166,7 +166,7 @@ index 78484ca80cd..9c9ce43a150 100644
  // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -330,6 +456,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -336,6 +462,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";

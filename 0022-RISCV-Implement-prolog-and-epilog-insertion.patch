@@ -171,13 +171,13 @@ index fd3b258e26c..d91eb1b150e 100644
 +  return;
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index ae2ed99f82d..3bd8d0ffd84 100644
+index da4f266c931..98325ffd571 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -24,11 +24,15 @@ public:
    explicit RISCVFrameLowering(const RISCVSubtarget &STI)
        : TargetFrameLowering(StackGrowsDown,
-                             /*StackAlignment=*/8,
+                             /*StackAlignment=*/16,
 -                            /*LocalAreaOffset=*/0) {}
 +                            /*LocalAreaOffset=*/0),
 +        STI(STI) {}
@@ -260,7 +260,7 @@ index b9c83921a9a..3db2ef9742f 100644
    }
    const RISCVTargetLowering *getTargetLowering() const override {
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
-index ae6c4aa5e12..2451567b5fe 100644
+index 701a972b842..2451567b5fe 100644
 --- a/test/CodeGen/RISCV/frame.ll
 +++ b/test/CodeGen/RISCV/frame.ll
 @@ -2,23 +2,28 @@
@@ -273,13 +273,13 @@ index ae6c4aa5e12..2451567b5fe 100644
  ; Function Attrs: nounwind uwtable
  define i32 @test() {
  ; CHECK-LABEL: test:
--; CHECK: sw ra, 20(s0)
+-; CHECK: sw ra, 28(s0)
+-; CHECK: sw zero, 24(s0)
+-; CHECK: sw zero, 20(s0)
 -; CHECK: sw zero, 16(s0)
 -; CHECK: sw zero, 12(s0)
 -; CHECK: sw zero, 8(s0)
--; CHECK: sw zero, 4(s0)
--; CHECK: sw zero, 0(s0)
--; CHECK: addi a0, s0, 0
+-; CHECK: addi a0, s0, 8
 +; CHECK: addi sp, sp, -32
 +; CHECK: sw ra, 28(sp)
 +; CHECK: sw s0, 24(sp)

@@ -191,7 +191,7 @@ index 78d353df208..644cddefc48 100644
  
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
 new file mode 100644
-index 00000000000..ae6c4aa5e12
+index 00000000000..701a972b842
 --- /dev/null
 +++ b/test/CodeGen/RISCV/frame.ll
 @@ -0,0 +1,33 @@
@@ -205,13 +205,13 @@ index 00000000000..ae6c4aa5e12
 +; Function Attrs: nounwind uwtable
 +define i32 @test() {
 +; CHECK-LABEL: test:
-+; CHECK: sw ra, 20(s0)
++; CHECK: sw ra, 28(s0)
++; CHECK: sw zero, 24(s0)
++; CHECK: sw zero, 20(s0)
 +; CHECK: sw zero, 16(s0)
 +; CHECK: sw zero, 12(s0)
 +; CHECK: sw zero, 8(s0)
-+; CHECK: sw zero, 4(s0)
-+; CHECK: sw zero, 0(s0)
-+; CHECK: addi a0, s0, 0
++; CHECK: addi a0, s0, 8
 +; CHECK: ori a0, a0, 4
 +; CHECK: lui a1, %hi(test1)
 +; CHECK: addi a1, a1, %lo(test1)

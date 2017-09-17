@@ -52,10 +52,10 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 242bcfc8efd..30211549230 100644
+index 1ee33f69cbe..0594b57d560 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -288,6 +288,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -289,6 +289,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -207,7 +207,7 @@ index 242bcfc8efd..30211549230 100644
  #include "RISCVGenCallingConv.inc"
  
  // Transform physical registers into virtual registers.
-@@ -304,7 +449,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -306,7 +451,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -217,7 +217,7 @@ index 242bcfc8efd..30211549230 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -314,27 +461,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -316,27 +463,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -285,7 +285,7 @@ index 242bcfc8efd..30211549230 100644
      }
    }
    return Chain;
-@@ -370,39 +549,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -372,39 +551,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -393,7 +393,7 @@ index 242bcfc8efd..30211549230 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -468,6 +709,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -470,6 +711,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    return Chain;
  }
  
@@ -474,7 +474,7 @@ index 00000000000..bef084f8376
 +}
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
-index 00000000000..7b890a872e8
+index 00000000000..289c033b196
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -0,0 +1,513 @@
@@ -488,10 +488,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) {
 +; CHECK-LABEL: callee_scalars:
-+; CHECK: addi sp, sp, -24
-+; CHECK: sw ra, 20(sp)
-+; CHECK: sw s0, 16(sp)
-+; CHECK: addi s0, sp, 24
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 28(sp)
++; CHECK: sw s0, 24(sp)
++; CHECK: addi s0, sp, 32
 +; CHECK: addi s1, a4, 0
 +; CHECK: addi s2, a3, 0
 +; CHECK: addi s3, a1, 0
@@ -516,10 +516,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_scalars() {
 +; CHECK-LABEL: caller_scalars:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a0, 262464
 +; CHECK: addi a6, a0, 0
 +; CHECK: lui a0, %hi(callee_scalars)
@@ -539,10 +539,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @callee_large_scalars(i128 %a, fp128 %b) {
 +; CHECK-LABEL: callee_large_scalars:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi  s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi  s0, sp, 16
 +; CHECK: lw a2, 12(a1)
 +; CHECK: lw a3, 12(a0)
 +; CHECK: xor a2, a3, a2
@@ -596,10 +596,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_mixed_scalar_libcalls(i64 %a) {
 +; CHECK-LABEL: caller_mixed_scalar_libcalls:
-+; CHECK: addi sp, sp, -24
-+; CHECK: sw ra, 20(sp)
-+; CHECK: sw s0, 16(sp)
-+; CHECK: addi s0, sp, 24
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 28(sp)
++; CHECK: sw s0, 24(sp)
++; CHECK: addi s0, sp, 32
 +; CHECK: addi a2, a1, 0
 +; CHECK: addi a1, a0, 0
 +; CHECK: lui a0, %hi(__floatditf)
@@ -607,9 +607,9 @@ index 00000000000..7b890a872e8
 +; CHECK: addi a0, s0, -24
 +; CHECK: jalr ra, a3, 0
 +; CHECK: lw a0, -24(s0)
-+; CHECK: lw s0, 16(sp)
-+; CHECK: lw ra, 20(sp)
-+; CHECK: addi sp, sp, 24
++; CHECK: lw s0, 24(sp)
++; CHECK: lw ra, 28(sp)
++; CHECK: addi sp, sp, 32
 +; CHECK: jalr zero, ra, 0
 +  %1 = sitofp i64 %a to fp128
 +  %2 = bitcast fp128 %1 to i128
@@ -621,10 +621,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i64 %g, i32 %h) {
 +; CHECK-LABEL: callee_many_scalars:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lw t0, 0(s0)
 +; CHECK: xor a4, a4, t0
 +; CHECK: xor a3, a3, a7
@@ -657,10 +657,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_many_scalars() {
 +; CHECK-LABEL: caller_many_scalars:
-+; CHECK: addi sp, sp, -16
-+; CHECK: sw ra, 12(sp)
-+; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 16
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 28(sp)
++; CHECK: sw s0, 24(sp)
++; CHECK: addi s0, sp, 32
 +; CHECK: addi a0, zero, 8
 +; CHECK: sw a0, 4(sp)
 +; CHECK: sw zero, 0(sp)
@@ -685,10 +685,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) {
 +; CHECK-LABEL: callee_small_coerced_struct:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: xor a0, a0, a1
 +; CHECK: sltiu a0, a0, 1
 +  %1 = extractvalue [2 x i32] %a.coerce, 0
@@ -700,10 +700,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_small_coerced_struct() {
 +; CHECK-LABEL: caller_small_coerced_struct:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a0, %hi(callee_small_coerced_struct)
 +; CHECK: addi a2, a0, %lo(callee_small_coerced_struct)
 +; CHECK: addi a0, zero, 1
@@ -719,10 +719,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @callee_large_struct(%struct.large* byval align 4 %a) {
 +; CHECK-LABEL: callee_large_struct:
-+; CHECK: addi  sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi  sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lw a1, 12(a0)
 +; CHECK: lw a0, 0(a0)
 +; CHECK: add a0, a0, a1
@@ -736,10 +736,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_large_struct() {
 +; CHECK-LABEL: caller_large_struct:
-+; CHECK: addi sp, sp, -40
-+; CHECK: sw ra, 36(sp)
-+; CHECK: sw s0, 32(sp)
-+; CHECK: addi s0, sp, 40
++; CHECK: addi sp, sp, -48
++; CHECK: sw ra, 44(sp)
++; CHECK: sw s0, 40(sp)
++; CHECK: addi s0, sp, 48
 +; CHECK: addi a0, zero, 1
 +; CHECK: sw a0, -24(s0)
 +; CHECK: sw a0, -40(s0)
@@ -776,10 +776,10 @@ index 00000000000..7b890a872e8
 +; The double should be 8-byte aligned on the stack, but the two-element array
 +; should only be 4-byte aligned
 +; CHECK-LABEL: callee_aligned_stack:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lw a0, 0(a2)
 +; CHECK: add a0, a0, a7
 +; CHECK: lw a1, 0(s0)
@@ -837,10 +837,10 @@ index 00000000000..7b890a872e8
 +
 +define i64 @callee_small_scalar_ret() {
 +; CHECK-LABEL: callee_small_scalar_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a0, 466866
 +; CHECK: addi a0, a0, 1677
 +; CHECK: addi a1, zero, 287
@@ -849,10 +849,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_small_scalar_ret() {
 +; CHECK-LABEL: caller_small_scalar_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a0, %hi(callee_small_scalar_ret)
 +; CHECK: addi a0, a0, %lo(callee_small_scalar_ret)
 +; CHECK: jalr ra, a0, 0
@@ -875,10 +875,10 @@ index 00000000000..7b890a872e8
 +
 +define %struct.small @callee_small_struct_ret() {
 +; CHECK-LABEL: callee_small_struct_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: addi a0, zero, 1
 +; CHECK: addi a1, zero, 0
 +  ret %struct.small { i32 1, i32* null }
@@ -886,17 +886,17 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_small_struct_ret() {
 +; CHECK-LABEL: caller_small_struct_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a0, %hi(callee_small_struct_ret)
 +; CHECK: addi a0, a0, %lo(callee_small_struct_ret)
 +; CHECK: jalr ra, a0, 0
 +; CHECK: add a0, a0, a1
-+; CHECK: lw s0, 0(sp)
-+; CHECK: lw ra, 4(sp)
-+; CHECK: addi sp, sp, 8
++; CHECK: lw s0, 8(sp)
++; CHECK: lw ra, 12(sp)
++; CHECK: addi sp, sp, 16
 +; CHECK: jalr zero, ra, 0
 +  %1 = call %struct.small @callee_small_struct_ret()
 +  %2 = extractvalue %struct.small %1, 0
@@ -910,10 +910,10 @@ index 00000000000..7b890a872e8
 +
 +define fp128 @callee_large_scalar_ret() {
 +; CHECK-LABEL: callee_large_scalar_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: lui a1, 524272
 +; CHECK: addi a1, a1, 0
 +; CHECK: sw a1, 12(a0)
@@ -942,10 +942,10 @@ index 00000000000..7b890a872e8
 +
 +define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) {
 +; CHECK-LABEL: callee_large_struct_ret:
-+; CHECK: addi sp, sp, -8
-+; CHECK: sw ra, 4(sp)
-+; CHECK: sw s0, 0(sp)
-+; CHECK: addi s0, sp, 8
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
 +; CHECK: addi a1, zero, 2
 +; CHECK: sw a1, 4(a0)
 +; CHECK: addi a1, zero, 1
@@ -967,10 +967,10 @@ index 00000000000..7b890a872e8
 +
 +define i32 @caller_large_struct_ret() {
 +; CHECK-LABEL: caller_large_struct_ret:
-+; CHECK: addi sp, sp, -24
-+; CHECK: sw ra, 20(sp)
-+; CHECK: sw s0, 16(sp)
-+; CHECK: addi s0, sp, 24
++; CHECK: addi sp, sp, -32
++; CHECK: sw ra, 28(sp)
++; CHECK: sw s0, 24(sp)
++; CHECK: addi s0, sp, 32
 +; CHECK: lui a0, %hi(callee_large_struct_ret)
 +; CHECK: addi a1, a0, %lo(callee_large_struct_ret)
 +; CHECK: addi a0, s0, -24
@@ -978,9 +978,9 @@ index 00000000000..7b890a872e8
 +; CHECK: lw a0, -12(s0)
 +; CHECK: lw a1, -24(s0)
 +; CHECK: add a0, a1, a0
-+; CHECK: lw s0, 16(sp)
-+; CHECK: lw ra, 20(sp)
-+; CHECK: addi sp, sp, 24
++; CHECK: lw s0, 24(sp)
++; CHECK: lw ra, 28(sp)
++; CHECK: addi sp, sp, 32
 +; CHECK: jalr zero, ra, 0
 +  %1 = alloca %struct.large
 +  call void @callee_large_struct_ret(%struct.large* sret %1)
@@ -992,12 +992,12 @@ index 00000000000..7b890a872e8
 +  ret i32 %6
 +}
 diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
-index 04113f8b854..f56f8b2d13c 100644
+index ec490696ccc..20f7381064d 100644
 --- a/test/CodeGen/RISCV/calls.ll
 +++ b/test/CodeGen/RISCV/calls.ll
-@@ -33,3 +33,30 @@ define i32 @test_call_indirect(i32 (i32)* %a, i32 %b) {
-   %1 = call i32 %a(i32 %b)
-   ret i32 %1
+@@ -47,3 +47,30 @@ define i32 @test_call_fastcc(i32 %a, i32 %b) {
+   %1 = call fastcc i32 @fastcc_function(i32 %a, i32 %b)
+   ret i32 %a
  }
 +
 +declare i32 @external_many_args(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) nounwind

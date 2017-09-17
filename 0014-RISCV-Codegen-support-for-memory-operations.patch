@@ -5,19 +5,19 @@ Subject: [RISCV] Codegen support for memory operations
 This required the implementation of RISCVTargetInstrInfo::copyPhysReg, which
 in turn enabled code generation for `ret i32 <CONST>`.
 ---
- lib/Target/RISCV/RISCV.h               |   9 ++-
+ lib/Target/RISCV/RISCV.h               |   9 +-
  lib/Target/RISCV/RISCVAsmPrinter.cpp   |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp |  28 ++++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp |  33 ++++++-
  lib/Target/RISCV/RISCVISelLowering.h   |   3 +
- lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 +++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |  54 +++++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 +++++++++++++++------
+ lib/Target/RISCV/RISCVInstrInfo.td     |  54 +++++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 ++++++++++++----
  lib/Target/RISCV/RISCVSubtarget.h      |   1 +
- test/CodeGen/RISCV/alu.ll              |  39 ++++++++++
- test/CodeGen/RISCV/mem.ll              | 131 +++++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/wide-mem.ll         |  25 +++++++
- 12 files changed, 374 insertions(+), 26 deletions(-)
+ test/CodeGen/RISCV/alu.ll              |  39 ++++++++
+ test/CodeGen/RISCV/mem.ll              | 174 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/wide-mem.ll         |  25 +++++
+ 12 files changed, 422 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -75,7 +75,7 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 47d12ae8af2..f81bae8d644 100644
+index 47d12ae8af2..34ec14b8e0e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -37,7 +37,7 @@ using namespace llvm;
@@ -87,16 +87,25 @@ index 47d12ae8af2..f81bae8d644 100644
  
    // Set up the register classes.
    addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
-@@ -51,6 +51,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -47,10 +47,17 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+   setStackPointerRegisterToSaveRestore(RISCV::X2_32);
+ 
++  for (auto N : {ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD})
++    setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
++
+   // TODO: add all necessary setOperationAction calls.
++  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
++
++  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
  
    setBooleanContents(ZeroOrOneBooleanContent);
  
-+  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
 +
    // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
-@@ -64,11 +66,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -64,11 +71,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
    switch (Op.getOpcode()) {
@@ -448,10 +457,10 @@ index 01cdf2eaacf..f99d67b9c05 100644
 +}
 diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
 new file mode 100644
-index 00000000000..e7128c1e1c3
+index 00000000000..1dae7642c3f
 --- /dev/null
 +++ b/test/CodeGen/RISCV/mem.ll
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,174 @@
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
 +
 +; Check indexed and unindexed, sext, zext and anyext loads
@@ -546,6 +555,49 @@ index 00000000000..e7128c1e1c3
 +  %1 = getelementptr i32, i32* %a, i32 8
 +  store i32 %b, i32* %1
 +  ret void
++}
++
++; Check load and store to an i1 location
++define i32 @load_sext_zext_anyext_i1(i1 *%a) nounwind {
++; CHECK-LABEL: load_sext_zext_anyext_i1:
++; CHECK: lb a1, 0(a0)
++; CHECK: lbu a1, 1(a0)
++; CHECK: lbu a0, 2(a0)
++; CHECK: sub a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  ; sextload i1
++  %1 = getelementptr i1, i1* %a, i32 1
++  %2 = load i1, i1* %1
++  %3 = sext i1 %2 to i32
++  ; zextload i1
++  %4 = getelementptr i1, i1* %a, i32 2
++  %5 = load i1, i1* %4
++  %6 = zext i1 %5 to i32
++  %7 = add i32 %3, %6
++  ; extload i1 (anyext). Produced as the load is unused.
++  %8 = load volatile i1, i1* %a
++  ret i32 %7
++}
++
++define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
++; CHECK-LABEL: load_sext_zext_anyext_i1_i16:
++; CHECK: lb a1, 0(a0)
++; CHECK: lbu a1, 1(a0)
++; CHECK: lbu a0, 2(a0)
++; CHECK: sub a0, a0, a1
++; CHECK: jalr zero, ra, 0
++  ; sextload i1
++  %1 = getelementptr i1, i1* %a, i32 1
++  %2 = load i1, i1* %1
++  %3 = sext i1 %2 to i16
++  ; zextload i1
++  %4 = getelementptr i1, i1* %a, i32 2
++  %5 = load i1, i1* %4
++  %6 = zext i1 %5 to i16
++  %7 = add i16 %3, %6
++  ; extload i1 (anyext). Produced as the load is unused.
++  %8 = load volatile i1, i1* %a
++  ret i16 %7
 +}
 +
 +; Check load and store to a global
