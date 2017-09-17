@@ -137,6 +137,27 @@ pr60003.c
 # Clang at O0 does not work out the code referencing the undefined symbol can
 # never be executed
 ieee/fp-cmp-7.c
+
+# Test depends on Clang having the same __builtin_constant_p(x) behaviour as gcc.
+# Fails on Clang x86-64 with optimisation enabled
+builtin-constant.c
+
+# pragma optimize("-option") is ignored by Clang
+alias-1.c
+pr79043.c
+
+# Expects that function is always inlined
+990208-1.c
+
+# Checks optimiser-specific behaviour, also fails on Clang x86 with O1
+printf-chk-1.c
+vprintf-chk-1.c
+
+# Test relies on undefined signed overflow behaviour (int foo - INT_MIN).
+# Should really require -fwrapv
+20040409-1.c
+20040409-2.c
+20040409-3.c
 EOF
 )
 
@@ -151,10 +172,18 @@ $(ls *.c ieee/*.c)
 EOF
 )
 
+CFLAGS=${CFLAGS:-}
+
+printf "Compiling with CFLAGS: %s\n" "$CFLAGS"
+
 for FILE in $TESTS; do
+  head -1 $FILE | grep -q fwrapv
+  if [ $? -eq 0 ]; then
+    CFLAGS="$CFLAGS -fwrapv"
+  fi
   echo "Compiling $FILE"
   BASEFILE="${FILE%.*}"
-  timelimit -s1 -t 4 ./rvcc.sh $FILE
+  timelimit -s1 -t 8 ./rvcc.sh $FILE $CFLAGS
   if [ -e output/$BASEFILE ]; then
     echo ":)";
     echo $BASEFILE >> comppass
