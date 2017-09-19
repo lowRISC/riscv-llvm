@@ -317,7 +317,7 @@ index f378c6f18da..3bb4fa37f15 100644
    void printInstruction(const MCInst *MI, raw_ostream &O);
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 new file mode 100644
-index 00000000000..c3bf3213a98
+index 00000000000..4fe604316de
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -0,0 +1,54 @@
@@ -349,7 +349,7 @@ index 00000000000..c3bf3213a98
 +  InstFormatR = 1,
 +  InstFormatI = 2,
 +  InstFormatS = 3,
-+  InstFormatSB = 4,
++  InstFormatB = 4,
 +  InstFormatU = 5,
 +  InstFormatOther = 6,
 +

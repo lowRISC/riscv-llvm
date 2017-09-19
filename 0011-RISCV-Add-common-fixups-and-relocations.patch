@@ -457,7 +457,7 @@ index 4896c38dbb0..692a179e927 100644
  }
  
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-index c3bf3213a98..cfb124262c6 100644
+index 4fe604316de..59a41bd7072 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -32,6 +32,7 @@ enum {
@@ -562,7 +562,7 @@ index 00000000000..115229414d5
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..f8212159331 100644
+index f4eaf06f622..f94c37aae8f 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -673,7 +673,7 @@ index f4eaf06f622..f8212159331 100644
 +             cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
 +    if (Desc.getOpcode() == RISCV::JAL) {
 +      FixupKind = RISCV::fixup_riscv_jal;
-+    } else if (MIFrm == RISCVII::InstFormatSB) {
++    } else if (MIFrm == RISCVII::InstFormatB) {
 +      FixupKind = RISCV::fixup_riscv_branch;
 +    }
 +  }
@@ -873,7 +873,7 @@ index 00000000000..69b55ca6f7c
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
-index d77f3874c7d..383b73cf4e0 100644
+index d77f3874c7d..5acd35c5ef7 100644
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ b/lib/Target/RISCV/RISCVInstrFormats.td
 @@ -25,7 +25,22 @@
@@ -891,7 +891,7 @@ index d77f3874c7d..383b73cf4e0 100644
 +def InstFormatR      : InstFormat<1>;
 +def InstFormatI      : InstFormat<2>;
 +def InstFormatS      : InstFormat<3>;
-+def InstFormatSB     : InstFormat<4>;
++def InstFormatB     : InstFormat<4>;
 +def InstFormatU      : InstFormat<5>;
 +def InstFormatOther  : InstFormat<6>;
 +
@@ -955,7 +955,7 @@ index d77f3874c7d..383b73cf4e0 100644
  
  class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, InstFormatSB>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatB>
  {
    bits<12> imm12;
    bits<5> rs2;
