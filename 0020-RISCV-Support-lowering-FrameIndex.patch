@@ -12,7 +12,7 @@ Subject: [RISCV] Support lowering FrameIndex
  create mode 100644 test/CodeGen/RISCV/frame.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index e6515b511c8..22bc2b322ca 100644
+index 40a117e29b7..4bc463841f3 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -36,6 +36,8 @@ public:
@@ -76,7 +76,7 @@ index 265cb609c63..4aad0a54954 100644
      llvm_unreachable("Can't load this register from stack slot");
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 821fec2e17d..083ca4d05a1 100644
+index c181974e2a6..b8cc83a5d3e 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -97,6 +97,14 @@ def simm21_lsb0 : Operand<OtherVT> {
@@ -105,7 +105,7 @@ index 821fec2e17d..083ca4d05a1 100644
  /// Setcc
  
  def : PatGprGpr<setlt, SLT>;
-@@ -385,6 +397,10 @@ defm : LdPat<load, LW>;
+@@ -386,6 +398,10 @@ defm : LdPat<load, LW>;
  defm : LdPat<zextloadi8, LBU>;
  defm : LdPat<zextloadi16, LHU>;
  
@@ -116,7 +116,7 @@ index 821fec2e17d..083ca4d05a1 100644
  /// Stores
  
  multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
-@@ -396,6 +412,9 @@ defm : StPat<truncstorei8, SB>;
+@@ -398,6 +414,9 @@ defm : StPat<truncstorei8, SB>;
  defm : StPat<truncstorei16, SH>;
  defm : StPat<store, SW>;
  
@@ -127,10 +127,10 @@ index 821fec2e17d..083ca4d05a1 100644
  
  // Pessimistically assume the stack pointer will be clobbered
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 78d353df208..644cddefc48 100644
+index a46105bacd7..52cd45235c1 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -58,14 +58,12 @@ const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
+@@ -61,14 +61,12 @@ const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
  void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                              int SPAdj, unsigned FIOperandNum,
                                              RegScavenger *RS) const {
@@ -146,7 +146,7 @@ index 78d353df208..644cddefc48 100644
    DebugLoc DL = MI.getDebugLoc();
  
    unsigned FrameReg = getFrameRegister(MF);
-@@ -73,6 +71,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -76,6 +74,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
    int Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg);
    Offset += MI.getOperand(FIOperandNum + 1).getImm();
  
@@ -156,7 +156,7 @@ index 78d353df208..644cddefc48 100644
    assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
  
    // Offsets must be directly encoded in a 12-bit immediate field
-@@ -81,8 +82,30 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -84,8 +85,30 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          "Frame offsets outside of the signed 12-bit range not supported");
    }
  

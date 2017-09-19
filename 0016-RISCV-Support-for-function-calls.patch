@@ -33,10 +33,10 @@ index 14772ddac4a..da4f266c931 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 755b33ad924..f46f661c692 100644
+index ad75e173457..2b27c12eeae 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -114,6 +114,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -109,6 +109,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    default:
      report_fatal_error("Unsupported calling convention");
    case CallingConv::C:
@@ -44,7 +44,7 @@ index 755b33ad924..f46f661c692 100644
      break;
    }
  
-@@ -154,6 +155,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -149,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
@@ -137,7 +137,7 @@ index 755b33ad924..f46f661c692 100644
 +    Ops.push_back(DAG.getRegister(Reg.first, Reg.second.getValueType()));
 +
 +  // Add a register mask operand representing the call-preserved registers.
-+  const TargetRegisterInfo *TRI = Subtarget->getRegisterInfo();
++  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 +  const uint32_t *Mask = TRI->getCallPreservedMask(MF, CallConv);
 +  assert(Mask && "Missing call preserved mask for calling convention");
 +  Ops.push_back(DAG.getRegisterMask(Mask));
@@ -180,7 +180,7 @@ index 755b33ad924..f46f661c692 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -204,6 +334,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -199,6 +329,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      break;
    case RISCVISD::RET_FLAG:
      return "RISCVISD::RET_FLAG";
@@ -190,7 +190,7 @@ index 755b33ad924..f46f661c692 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 9fe8853ed27..5c90d00ab53 100644
+index 2bd5717ca0c..dfb4824cc18 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -24,7 +24,8 @@ class RISCVSubtarget;
@@ -227,7 +227,7 @@ index b756c69124b..265cb609c63 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index a0be4894956..63f1e31b1a3 100644
+index 07a32bb0254..e0f2d1a5266 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,8 +13,22 @@
@@ -277,7 +277,7 @@ index a0be4894956..63f1e31b1a3 100644
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
-@@ -347,3 +368,13 @@ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
+@@ -349,3 +370,13 @@ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
  defm : StPat<truncstorei8, SB>;
  defm : StPat<truncstorei16, SH>;
  defm : StPat<store, SW>;
@@ -306,10 +306,10 @@ index 9c890c76bee..a6f103e8f57 100644
      MCOp = MCOperand::createImm(MO.getImm());
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index d250b832a73..78d353df208 100644
+index e9b81a2446f..a46105bacd7 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -89,3 +89,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -92,3 +92,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
    return RISCV::X8_32;
  }

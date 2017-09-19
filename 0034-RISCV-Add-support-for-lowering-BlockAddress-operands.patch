@@ -11,7 +11,7 @@ Subject: [RISCV] Add support for lowering BlockAddress operands
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index efadbbbc285..f78336b32d5 100644
+index 4cb0cf59240..03d12c22799 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -100,6 +100,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -22,7 +22,7 @@ index efadbbbc285..f78336b32d5 100644
  
    setBooleanContents(ZeroOrOneBooleanContent);
  
-@@ -160,6 +161,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -155,6 +156,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
    switch (Op.getOpcode()) {
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
@@ -31,7 +31,7 @@ index efadbbbc285..f78336b32d5 100644
    case ISD::SELECT_CC:
      return lowerSELECT_CC(Op, DAG);
    case ISD::VASTART:
-@@ -195,6 +198,26 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -190,6 +193,26 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -43,7 +43,7 @@ index efadbbbc285..f78336b32d5 100644
 +  const BlockAddress *BA = N->getBlockAddress();
 +  int64_t Offset = N->getOffset();
 +
-+  if (!isPositionIndependent() && !Subtarget->is64Bit()) {
++  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
 +    SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
 +    SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
 +    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
@@ -59,7 +59,7 @@ index efadbbbc285..f78336b32d5 100644
                                                   SelectionDAG &DAG) const {
    SDLoc DL(Op);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 4522dcf553d..2f6caa9acb2 100644
+index 80cade10a4c..3329c322685 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -73,6 +73,7 @@ private:

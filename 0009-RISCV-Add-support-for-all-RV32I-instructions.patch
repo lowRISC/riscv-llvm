@@ -8,19 +8,19 @@ expansions (e.g. 0-arg fence -> fence iorw, iorw).
 
 Differential Revision: https://reviews.llvm.org/D23566
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 152 +++++++++++++++++++--
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 156 +++++++++++++++++++--
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  14 ++
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   1 +
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 ++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 +++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  19 +++
- lib/Target/RISCV/RISCVInstrInfo.td                 | 148 +++++++++++++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td                 | 148 ++++++++++++++++++-
  test/MC/RISCV/rv32i-invalid.s                      |  50 ++++++-
  test/MC/RISCV/rv32i-valid.s                        | 150 ++++++++++++++++++++
- 8 files changed, 571 insertions(+), 17 deletions(-)
+ 8 files changed, 575 insertions(+), 17 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index cb820379bbb..2fda01338d4 100644
+index cb820379bbb..4b1eec9ec86 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -7,6 +7,7 @@
@@ -49,13 +49,17 @@ index cb820379bbb..2fda01338d4 100644
  
    bool parseOperand(OperandVector &Operands);
  
-@@ -125,10 +130,53 @@ public:
+@@ -125,10 +130,57 @@ public:
      return static_cast<const MCConstantExpr *>(Val)->getValue();
    }
  
 +  // Predicate methods for AsmOperands defined in RISCVInstrInfo.td
 +
++  /// Return true if the operand is a valid for the fence instruction e.g.
++  /// ('iorw').
 +  bool isFenceArg() const {
++    if (!isImm())
++      return false;
 +    const MCExpr *Val = getImm();
 +    auto *SVal = dyn_cast<MCSymbolRefExpr>(Val);
 +    if (!SVal || SVal->getKind() != MCSymbolRefExpr::VK_None)
@@ -103,15 +107,15 @@ index cb820379bbb..2fda01338d4 100644
    /// getStartLoc - Gets location of the first token of this operand
    SMLoc getStartLoc() const override { return StartLoc; }
    /// getEndLoc - Gets location of the last token of this operand
-@@ -208,6 +256,24 @@ public:
+@@ -208,6 +260,24 @@ public:
      assert(N == 1 && "Invalid number of operands!");
      addExpr(Inst, getImm());
    }
 +
 +  void addFenceArgOperands(MCInst &Inst, unsigned N) const {
 +    assert(N == 1 && "Invalid number of operands!");
-+    auto SE = dyn_cast<MCSymbolRefExpr>(getImm());
-+    assert(SE && "FenceArg should have been validated by isFenceArg");
++    // isFenceArg has validated the operand, meaning this cast is safe
++    auto SE = cast<MCSymbolRefExpr>(getImm());
 +
 +    unsigned Imm = 0;
 +    for (char c : SE->getSymbol().getName()) {
@@ -128,7 +132,7 @@ index cb820379bbb..2fda01338d4 100644
  };
  } // end anonymous namespace.
  
-@@ -215,13 +281,19 @@ public:
+@@ -215,13 +285,19 @@ public:
  #define GET_MATCHER_IMPLEMENTATION
  #include "RISCVGenAsmMatcher.inc"
  
@@ -149,7 +153,7 @@ index cb820379bbb..2fda01338d4 100644
  
    switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
    default:
-@@ -234,8 +306,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -234,8 +310,8 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      return Error(IDLoc, "instruction use requires an option to be enabled");
    case Match_MnemonicFail:
      return Error(IDLoc, "unrecognized instruction mnemonic");
@@ -160,7 +164,7 @@ index cb820379bbb..2fda01338d4 100644
      if (ErrorInfo != ~0U) {
        if (ErrorInfo >= Operands.size())
          return Error(ErrorLoc, "too few operands for instruction");
-@@ -245,10 +317,30 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -245,10 +321,30 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc = IDLoc;
      }
      return Error(ErrorLoc, "invalid operand for instruction");
@@ -193,7 +197,7 @@ index cb820379bbb..2fda01338d4 100644
    }
  
    llvm_unreachable("Unknown match type detected!");
-@@ -292,6 +384,10 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
+@@ -292,6 +388,10 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
  }
  
  OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
@@ -204,7 +208,7 @@ index cb820379bbb..2fda01338d4 100644
    switch (getLexer().getKind()) {
    default:
      return MatchOperand_NoMatch;
-@@ -300,16 +396,46 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -300,16 +400,46 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
    case AsmToken::Plus:
    case AsmToken::Integer:
    case AsmToken::String:
@@ -256,7 +260,7 @@ index cb820379bbb..2fda01338d4 100644
    return MatchOperand_Success;
  }
  
-@@ -322,8 +448,12 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+@@ -322,8 +452,12 @@ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
      return false;
  
    // Attempt to parse token as an immediate
@@ -313,7 +317,7 @@ index f378c6f18da..3bb4fa37f15 100644
    void printInstruction(const MCInst *MI, raw_ostream &O);
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 new file mode 100644
-index 00000000000..fbdc9353c73
+index 00000000000..c3bf3213a98
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -0,0 +1,54 @@
@@ -341,15 +345,15 @@ index 00000000000..fbdc9353c73
 +// instruction info tracks. All definitions must match RISCVInstrFormats.td.
 +namespace RISCVII {
 +enum {
-+  Pseudo = 0,
-+  FrmR = 1,
-+  FrmI = 2,
-+  FrmS = 3,
-+  FrmSB = 4,
-+  FrmU = 5,
-+  FrmOther = 6,
++  InstFormatPseudo = 0,
++  InstFormatR = 1,
++  InstFormatI = 2,
++  InstFormatS = 3,
++  InstFormatSB = 4,
++  InstFormatU = 5,
++  InstFormatOther = 6,
 +
-+  FormMask = 15
++  InstFormatMask = 15
 +};
 +enum {
 +  MO_None,

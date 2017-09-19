@@ -43,7 +43,7 @@ index 7eb48c8f177..05a515e7b76 100644
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 34ec14b8e0e..755b33ad924 100644
+index 10a09fc9ca5..ad75e173457 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -55,6 +55,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -118,7 +118,7 @@ index 27492c869db..3fee03252f2 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 288aa2968ed..a0be4894956 100644
+index 93a6bd46587..07a32bb0254 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -60,7 +60,7 @@ def uimm12 : Operand<i32> {
@@ -191,10 +191,10 @@ index 288aa2968ed..a0be4894956 100644
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 40adf918c86..d250b832a73 100644
+index cf0a31df9cf..e9b81a2446f 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -51,10 +51,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+@@ -54,10 +54,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
    return Reserved;
  }
  

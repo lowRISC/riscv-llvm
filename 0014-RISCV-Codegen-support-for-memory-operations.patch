@@ -11,13 +11,13 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVISelLowering.h   |   3 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 +++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |  54 +++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td     |  56 ++++++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 ++++++++++++----
  lib/Target/RISCV/RISCVSubtarget.h      |   1 +
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++
  test/CodeGen/RISCV/mem.ll              | 174 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++
- 12 files changed, 422 insertions(+), 26 deletions(-)
+ 12 files changed, 424 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -75,7 +75,7 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 47d12ae8af2..34ec14b8e0e 100644
+index 58ee1a55799..10a09fc9ca5 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -37,7 +37,7 @@ using namespace llvm;
@@ -83,7 +83,7 @@ index 47d12ae8af2..34ec14b8e0e 100644
  RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
                                           const RISCVSubtarget &STI)
 -    : TargetLowering(TM) {
-+    : TargetLowering(TM), Subtarget(&STI) {
++    : TargetLowering(TM), Subtarget(STI) {
  
    // Set up the register classes.
    addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
@@ -105,7 +105,7 @@ index 47d12ae8af2..34ec14b8e0e 100644
    // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
-@@ -64,11 +71,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -59,11 +66,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
    switch (Op.getOpcode()) {
@@ -124,7 +124,7 @@ index 47d12ae8af2..34ec14b8e0e 100644
 +  const GlobalValue *GV = N->getGlobal();
 +  int64_t Offset = N->getOffset();
 +
-+  if (!isPositionIndependent() && !Subtarget->is64Bit()) {
++  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
 +    SDValue GAHi =
 +        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
 +    SDValue GALo =
@@ -142,14 +142,14 @@ index 47d12ae8af2..34ec14b8e0e 100644
  #include "RISCVGenCallingConv.inc"
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index fc4ab2b9c4c..9fe8853ed27 100644
+index fc4ab2b9c4c..2bd5717ca0c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -29,6 +29,8 @@ enum NodeType : unsigned {
  }
  
  class RISCVTargetLowering : public TargetLowering {
-+  const RISCVSubtarget *Subtarget;
++  const RISCVSubtarget &Subtarget;
 +
  public:
    explicit RISCVTargetLowering(const TargetMachine &TM,
@@ -201,7 +201,7 @@ index a89198a157b..27492c869db 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 8efeed3f594..288aa2968ed 100644
+index 8efeed3f594..93a6bd46587 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,7 +13,6 @@
@@ -262,7 +262,7 @@ index 8efeed3f594..288aa2968ed 100644
  /// Simple arithmetic operations
  
  def : PatGprGpr<add, ADD>;
-@@ -262,3 +286,29 @@ def : PatGprSimm12<setult, SLTIU>;
+@@ -262,3 +286,31 @@ def : PatGprSimm12<setult, SLTIU>;
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
@@ -271,7 +271,8 @@ index 8efeed3f594..288aa2968ed 100644
 +
 +multiclass LdPat<PatFrag LoadOp, RISCVInst Inst> {
 +  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
-+  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)), (Inst GPR:$rs1, simm12:$imm12)>;
++  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)),
++            (Inst GPR:$rs1, simm12:$imm12)>;
 +}
 +
 +defm : LdPat<sextloadi8, LB>;
@@ -286,7 +287,8 @@ index 8efeed3f594..288aa2968ed 100644
 +
 +multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
 +  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
-+  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)), (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;
++  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)),
++            (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;
 +}
 +
 +defm : StPat<truncstorei8, SB>;

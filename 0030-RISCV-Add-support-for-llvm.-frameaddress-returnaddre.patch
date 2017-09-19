@@ -10,10 +10,10 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 967e98f9051..efadbbbc285 100644
+index 01bae15857f..4cb0cf59240 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -164,6 +164,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -159,6 +159,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerSELECT_CC(Op, DAG);
    case ISD::VASTART:
      return lowerVASTART(Op, DAG);
@@ -24,13 +24,13 @@ index 967e98f9051..efadbbbc285 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -246,6 +250,57 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+@@ -241,6 +245,57 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
                        MachinePointerInfo(SV));
  }
  
 +SDValue RISCVTargetLowering::LowerFRAMEADDR(SDValue Op,
 +                                            SelectionDAG &DAG) const {
-+  const RISCVRegisterInfo &RI = *Subtarget->getRegisterInfo();
++  const RISCVRegisterInfo &RI = *Subtarget.getRegisterInfo();
 +  MachineFunction &MF = DAG.getMachineFunction();
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  MFI.setFrameAddressIsTaken(true);
@@ -53,7 +53,7 @@ index 967e98f9051..efadbbbc285 100644
 +
 +SDValue RISCVTargetLowering::LowerRETURNADDR(SDValue Op,
 +                                             SelectionDAG &DAG) const {
-+  const RISCVRegisterInfo &RI = *Subtarget->getRegisterInfo();
++  const RISCVRegisterInfo &RI = *Subtarget.getRegisterInfo();
 +  MachineFunction &MF = DAG.getMachineFunction();
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  MFI.setReturnAddressIsTaken(true);
@@ -83,7 +83,7 @@ index 967e98f9051..efadbbbc285 100644
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 78b11198c18..4522dcf553d 100644
+index dbb8911a3df..80cade10a4c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -76,6 +76,8 @@ private:

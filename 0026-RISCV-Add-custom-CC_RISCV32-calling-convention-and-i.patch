@@ -52,10 +52,10 @@ index 05a515e7b76..51a4470f5ca 100644
  def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
                            (sequence "X%u_32", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 1ee33f69cbe..0594b57d560 100644
+index 39c83f3c758..0f334718cf0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -289,6 +289,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -284,6 +284,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -207,7 +207,7 @@ index 1ee33f69cbe..0594b57d560 100644
  #include "RISCVGenCallingConv.inc"
  
  // Transform physical registers into virtual registers.
-@@ -306,7 +451,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -301,7 +446,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -217,7 +217,7 @@ index 1ee33f69cbe..0594b57d560 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -316,27 +463,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -311,27 +458,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
  
@@ -285,7 +285,7 @@ index 1ee33f69cbe..0594b57d560 100644
      }
    }
    return Chain;
-@@ -372,39 +551,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -367,39 +546,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -393,7 +393,7 @@ index 1ee33f69cbe..0594b57d560 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -470,6 +711,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -465,6 +706,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    return Chain;
  }
  
@@ -409,7 +409,7 @@ index 1ee33f69cbe..0594b57d560 100644
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 806fa678b40..ea9e7c88e90 100644
+index 77d5f16ee7c..5e3fb118df6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -54,6 +54,10 @@ private:
@@ -424,7 +424,7 @@ index 806fa678b40..ea9e7c88e90 100644
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 083ca4d05a1..146f0ab4910 100644
+index b8cc83a5d3e..ccdc7c60868 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -378,7 +378,10 @@ let isCall = 1, Defs = [X1_32] in

@@ -85,7 +85,7 @@ index 4808e6c73c5..bbaa8ec454f 100644
  extern "C" void LLVMInitializeRISCVAsmPrinter() {
    RegisterAsmPrinter<RISCVAsmPrinter> X(getTheRISCV32Target());
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 22bc2b322ca..b094f9a7b76 100644
+index 4bc463841f3..69dbce95212 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -36,6 +36,9 @@ public:
@@ -122,10 +122,10 @@ index 22bc2b322ca..b094f9a7b76 100644
                                       SDValue &Offset) {
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0519c34b83c..967e98f9051 100644
+index b07425fa3ec..01bae15857f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -908,3 +908,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -903,3 +903,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
    }
    return nullptr;
  }
@@ -148,7 +148,7 @@ index 0519c34b83c..967e98f9051 100644
 +  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 6dfb52667f7..78b11198c18 100644
+index d265ba6bdb0..dbb8911a3df 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -43,6 +43,10 @@ public:

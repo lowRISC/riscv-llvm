@@ -11,7 +11,7 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index f46f661c692..676b451d1b4 100644
+index 2b27c12eeae..4180b84336b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -56,6 +56,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -22,8 +22,8 @@ index f46f661c692..676b451d1b4 100644
    setBooleanContents(ZeroOrOneBooleanContent);
  
  
-@@ -69,11 +70,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
+@@ -64,11 +65,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setPrefFunctionAlignment(3);
  }
  
 +// Changes the condition code and swaps operands if necessary, so the SetCC
@@ -75,7 +75,7 @@ index f46f661c692..676b451d1b4 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -101,6 +143,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -96,6 +138,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -166,7 +166,7 @@ index f46f661c692..676b451d1b4 100644
  // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -336,6 +462,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -331,6 +457,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";
@@ -176,7 +176,7 @@ index f46f661c692..676b451d1b4 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 5c90d00ab53..515c646c2fe 100644
+index dfb4824cc18..f2e6c96044c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -25,7 +25,8 @@ namespace RISCVISD {
@@ -209,7 +209,7 @@ index 5c90d00ab53..515c646c2fe 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 63f1e31b1a3..d4e4e972aa6 100644
+index e0f2d1a5266..287881a9b5f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -18,6 +18,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,

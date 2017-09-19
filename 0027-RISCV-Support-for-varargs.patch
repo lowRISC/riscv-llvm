@@ -65,7 +65,7 @@ index d91eb1b150e..cd1c33059d5 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0594b57d560..0519c34b83c 100644
+index 0f334718cf0..b07425fa3ec 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -88,7 +88,7 @@ index 0594b57d560..0519c34b83c 100644
    for (auto VT : {MVT::i1, MVT::i8, MVT::i16, MVT::i32})
      setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
  
-@@ -156,6 +162,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -151,6 +157,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerGlobalAddress(Op, DAG);
    case ISD::SELECT_CC:
      return lowerSELECT_CC(Op, DAG);
@@ -97,7 +97,7 @@ index 0594b57d560..0519c34b83c 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -223,6 +231,21 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
+@@ -218,6 +226,21 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
    return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
  }
  
@@ -119,7 +119,7 @@ index 0594b57d560..0519c34b83c 100644
  MachineBasicBlock *
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
-@@ -288,6 +311,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -283,6 +306,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
    return TailMBB;
  }
  
@@ -130,7 +130,7 @@ index 0594b57d560..0519c34b83c 100644
  // Calling Convention Implementation.
  // The expectations for frontend ABI lowering vary from target to target.
  // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
-@@ -352,9 +379,10 @@ static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
+@@ -347,9 +374,10 @@ static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
    return false;
  }
  
@@ -144,7 +144,7 @@ index 0594b57d560..0519c34b83c 100644
    // Promote i8 and i16
    if (LocVT == MVT::i8 || LocVT == MVT::i16) {
      LocVT = MVT::i32;
-@@ -366,6 +394,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -361,6 +389,21 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
        LocInfo = CCValAssign::AExt;
    }
  
@@ -166,7 +166,7 @@ index 0594b57d560..0519c34b83c 100644
    SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
    SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
        State.getPendingArgFlags();
-@@ -389,6 +432,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -384,6 +427,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
    // in registers or on the stack
    if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
      assert(PendingMembers.size() == 2);
@@ -174,7 +174,7 @@ index 0594b57d560..0519c34b83c 100644
      // Apply the normal calling convention rules to the first half of the
      // split argument
      CCValAssign VA = PendingMembers[0];
-@@ -399,7 +443,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -394,7 +438,7 @@ static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
    }
  
    // Allocate to a register if possible, or else a stack slot
@@ -183,7 +183,7 @@ index 0594b57d560..0519c34b83c 100644
    unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
  
    // If we reach this point and PendingMembers is non-empty, we must be at the
-@@ -451,17 +495,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -446,17 +490,34 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -222,7 +222,7 @@ index 0594b57d560..0519c34b83c 100644
  
    for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
      CCValAssign &VA = ArgLocs[I];
-@@ -518,6 +579,70 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -513,6 +574,70 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
        InVals.push_back(ArgValue);
      }
    }
@@ -293,7 +293,7 @@ index 0594b57d560..0519c34b83c 100644
    return Chain;
  }
  
-@@ -537,16 +662,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -532,16 +657,27 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
@@ -326,7 +326,7 @@ index 0594b57d560..0519c34b83c 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -725,10 +861,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -720,10 +856,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -338,7 +338,7 @@ index 0594b57d560..0519c34b83c 100644
    SmallVector<CCValAssign, 16> RVLocs;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index ea9e7c88e90..6dfb52667f7 100644
+index 5e3fb118df6..d265ba6bdb0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -71,6 +71,7 @@ private:
@@ -400,7 +400,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index a2754444eb0..b3b4390a0b7 100644
+index d1bb5455811..8ae5fe794cf 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -13,6 +13,7 @@
@@ -411,7 +411,7 @@ index a2754444eb0..b3b4390a0b7 100644
  #include "RISCVSubtarget.h"
  #include "llvm/CodeGen/MachineFrameInfo.h"
  #include "llvm/CodeGen/MachineFunction.h"
-@@ -62,6 +63,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -65,6 +66,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
@@ -419,7 +419,7 @@ index a2754444eb0..b3b4390a0b7 100644
    MachineFrameInfo &MFI = MF.getFrameInfo();
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-@@ -89,6 +91,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -92,6 +94,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      Offset += MF.getFrameInfo().getStackSize();
    } else {
      FrameReg = getFrameRegister(MF);

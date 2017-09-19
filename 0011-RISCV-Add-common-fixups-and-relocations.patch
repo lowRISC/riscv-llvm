@@ -23,7 +23,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  58 ++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 +++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++
- lib/Target/RISCV/RISCVInstrFormats.td              |  36 ++--
+ lib/Target/RISCV/RISCVInstrFormats.td              |  37 +++--
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  test/MC/RISCV/fixups-diagnostics.s                 |  18 ++
  test/MC/RISCV/fixups.s                             |  49 ++++++
@@ -31,7 +31,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  test/MC/RISCV/relocations.s                        |  65 ++++++++
  test/MC/RISCV/rv32i-invalid.s                      |  61 ++++++-
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 17 files changed, 841 insertions(+), 43 deletions(-)
+ 17 files changed, 842 insertions(+), 43 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -41,7 +41,7 @@ Differential Revision: https://reviews.llvm.org/D23568
  create mode 100644 test/MC/RISCV/relocations.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 2fda01338d4..7ed83188fbf 100644
+index 4b1eec9ec86..b0db5f4d8fb 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -8,6 +8,7 @@
@@ -110,7 +110,7 @@ index 2fda01338d4..7ed83188fbf 100644
    }
  
    // Predicate methods for AsmOperands defined in RISCVInstrInfo.td
-@@ -154,28 +179,49 @@ public:
+@@ -158,28 +183,49 @@ public:
    }
  
    bool isUImm5() const {
@@ -170,7 +170,7 @@ index 2fda01338d4..7ed83188fbf 100644
  
    /// getStartLoc - Gets location of the first token of this operand
    SMLoc getStartLoc() const override { return StartLoc; }
-@@ -230,7 +276,7 @@ public:
+@@ -234,7 +280,7 @@ public:
    }
  
    static std::unique_ptr<RISCVOperand> createImm(const MCExpr *Val, SMLoc S,
@@ -179,7 +179,7 @@ index 2fda01338d4..7ed83188fbf 100644
      auto Op = make_unique<RISCVOperand>(Immediate);
      Op->Imm.Val = Val;
      Op->StartLoc = S;
-@@ -240,8 +286,17 @@ public:
+@@ -244,8 +290,17 @@ public:
  
    void addExpr(MCInst &Inst, const MCExpr *Expr) const {
      assert(Expr && "Expr shouldn't be null!");
@@ -199,7 +199,7 @@ index 2fda01338d4..7ed83188fbf 100644
      else
        Inst.addOperand(MCOperand::createExpr(Expr));
    }
-@@ -407,9 +462,51 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -411,9 +466,51 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
      break;
    }
@@ -252,7 +252,7 @@ index 2fda01338d4..7ed83188fbf 100644
    return MatchOperand_Success;
  }
  
-@@ -494,6 +591,51 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -498,6 +595,51 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
  
@@ -457,12 +457,12 @@ index 4896c38dbb0..692a179e927 100644
  }
  
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-index fbdc9353c73..d3434272b27 100644
+index c3bf3213a98..cfb124262c6 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 @@ -32,6 +32,7 @@ enum {
  
-   FormMask = 15
+   InstFormatMask = 15
  };
 +
  enum {
@@ -562,7 +562,7 @@ index 00000000000..115229414d5
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..596dfc0ef8a 100644
+index f4eaf06f622..f8212159331 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -639,7 +639,7 @@ index f4eaf06f622..596dfc0ef8a 100644
    const MCOperand &MO = MI.getOperand(OpNo);
  
 +  MCInstrDesc const &Desc = MCII.get(MI.getOpcode());
-+  unsigned MIFrm = Desc.TSFlags & RISCVII::FormMask;
++  unsigned MIFrm = Desc.TSFlags & RISCVII::InstFormatMask;
 +
    // If the destination is an immediate, there is nothing to do
    if (MO.isImm())
@@ -659,8 +659,8 @@ index f4eaf06f622..596dfc0ef8a 100644
 +    case RISCVMCExpr::VK_RISCV_Invalid:
 +      llvm_unreachable("Unhandled fixup kind!");
 +    case RISCVMCExpr::VK_RISCV_LO:
-+      FixupKind = MIFrm == RISCVII::FrmI ? RISCV::fixup_riscv_lo12_i
-+                                         : RISCV::fixup_riscv_lo12_s;
++      FixupKind = MIFrm == RISCVII::InstFormatI ? RISCV::fixup_riscv_lo12_i
++                                                : RISCV::fixup_riscv_lo12_s;
 +      break;
 +    case RISCVMCExpr::VK_RISCV_HI:
 +      FixupKind = RISCV::fixup_riscv_hi20;
@@ -673,7 +673,7 @@ index f4eaf06f622..596dfc0ef8a 100644
 +             cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
 +    if (Desc.getOpcode() == RISCV::JAL) {
 +      FixupKind = RISCV::fixup_riscv_jal;
-+    } else if (MIFrm == RISCVII::FrmSB) {
++    } else if (MIFrm == RISCVII::InstFormatSB) {
 +      FixupKind = RISCV::fixup_riscv_branch;
 +    }
 +  }
@@ -873,10 +873,10 @@ index 00000000000..69b55ca6f7c
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
-index d77f3874c7d..055ea498f3c 100644
+index d77f3874c7d..383b73cf4e0 100644
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ b/lib/Target/RISCV/RISCVInstrFormats.td
-@@ -25,7 +25,21 @@
+@@ -25,7 +25,22 @@
  //
  //===----------------------------------------------------------------------===//
  
@@ -884,22 +884,23 @@ index d77f3874c7d..055ea498f3c 100644
 +// Format specifies the encoding used by the instruction. This is used by
 +// RISCVMCCodeEmitter to determine which form of fixup to use. These
 +// definitions must be kept in-sync with RISCVBaseInfo.h.
-+class Format<bits<4> val> {
++class InstFormat<bits<4> val> {
 +  bits<4> Value = val;
 +}
-+def FrmPseudo : Format<0>;
-+def FrmR      : Format<1>;
-+def FrmI      : Format<2>;
-+def FrmS      : Format<3>;
-+def FrmSB     : Format<4>;
-+def FrmU      : Format<5>;
-+def FrmOther  : Format<6>;
++def InstFormatPseudo : InstFormat<0>;
++def InstFormatR      : InstFormat<1>;
++def InstFormatI      : InstFormat<2>;
++def InstFormatS      : InstFormat<3>;
++def InstFormatSB     : InstFormat<4>;
++def InstFormatU      : InstFormat<5>;
++def InstFormatOther  : InstFormat<6>;
 +
-+class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format format>
++class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern,
++                InstFormat format>
      : Instruction {
    field bits<32> Inst;
    // SoftFail is a field the disassembler can use to provide a way for
-@@ -45,17 +59,19 @@ class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+@@ -45,17 +60,19 @@ class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern>
    dag InOperandList = ins;
    let AsmString = asmstr;
    let Pattern = pattern;
@@ -911,68 +912,68 @@ index d77f3874c7d..055ea498f3c 100644
 -class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, "", pattern> {
 +class Pseudo<dag outs, dag ins, list<dag> pattern>
-+    : RISCVInst<outs, ins, "", pattern, FrmPseudo> {
++    : RISCVInst<outs, ins, "", pattern, InstFormatPseudo> {
    let isPseudo = 1;
    let isCodeGenOnly = 1;
  }
  
  class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
 -         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern>
-+         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern, FrmR>
++         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern, InstFormatR>
  {
    bits<5> rs2;
    bits<5> rs1;
-@@ -70,7 +86,7 @@ class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
+@@ -70,7 +87,7 @@ class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
  }
  
  class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmI>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatI>
  {
    bits<12> imm12;
    bits<5> rs1;
-@@ -84,7 +100,7 @@ class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<
+@@ -84,7 +101,7 @@ class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<
  }
  
  class FI32Shift<bit arithshift, bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmI>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatI>
  {
    bits<5> shamt;
    bits<5> rs1;
-@@ -101,7 +117,7 @@ class FI32Shift<bit arithshift, bits<3> funct3, bits<7> opcode, dag outs, dag in
+@@ -101,7 +118,7 @@ class FI32Shift<bit arithshift, bits<3> funct3, bits<7> opcode, dag outs, dag in
  }
  
  class FS<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmS>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatS>
  {
    bits<12> imm12;
    bits<5> rs2;
-@@ -116,7 +132,7 @@ class FS<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<
+@@ -116,7 +133,7 @@ class FS<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<
  }
  
  class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmSB>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatSB>
  {
    bits<12> imm12;
    bits<5> rs2;
-@@ -133,7 +149,7 @@ class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list
+@@ -133,7 +150,7 @@ class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list
  }
  
  class FU<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmU>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatU>
  {
    bits<20> imm20;
    bits<5> rd;
-@@ -144,7 +160,7 @@ class FU<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
+@@ -144,7 +161,7 @@ class FU<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
  }
  
  class FUJ<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
 -    : RISCVInst<outs, ins, asmstr, pattern>
-+    : RISCVInst<outs, ins, asmstr, pattern, FrmU>
++    : RISCVInst<outs, ins, asmstr, pattern, InstFormatU>
  {
    bits<20> imm20;
    bits<5> rd;

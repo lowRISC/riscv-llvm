@@ -51,10 +51,10 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 676b451d1b4..899a93e873f 100644
+index 4180b84336b..a11f69a8aa2 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -51,19 +51,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -51,18 +51,53 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
      setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
@@ -106,14 +106,13 @@ index 676b451d1b4..899a93e873f 100644
    // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
- 
++
 +  // Effectively disable jump table generation.
 +  setMinimumJumpTableEntries(INT_MAX);
-+
-   // inline memcpy().
-   MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
-   MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
-@@ -143,6 +178,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+ }
+ 
+ // Changes the condition code and swaps operands if necessary, so the SetCC
+@@ -138,6 +173,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -126,7 +125,7 @@ index 676b451d1b4..899a93e873f 100644
 +
 +  // TODO: should also handle gp-relative loads
 +
-+  if (!isPositionIndependent() && !Subtarget->is64Bit()) {
++  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
 +    SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
 +    SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
 +    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
@@ -141,7 +140,7 @@ index 676b451d1b4..899a93e873f 100644
  SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
                                              SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-@@ -355,8 +411,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -350,8 +406,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
@@ -152,7 +151,7 @@ index 676b451d1b4..899a93e873f 100644
  
    // The first call operand is the chain and the second is the target address.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 515c646c2fe..806fa678b40 100644
+index f2e6c96044c..77d5f16ee7c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -65,6 +65,7 @@ private:
@@ -164,7 +163,7 @@ index 515c646c2fe..806fa678b40 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index d4e4e972aa6..821fec2e17d 100644
+index 287881a9b5f..c181974e2a6 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -304,6 +304,17 @@ def : PatGprSimm12<setlt, SLTI>;

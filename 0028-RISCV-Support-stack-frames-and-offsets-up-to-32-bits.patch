@@ -156,10 +156,10 @@ index 98325ffd571..f4c9c6e6540 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index b3b4390a0b7..df36af7170c 100644
+index 8ae5fe794cf..b8fdc09c4c9 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -65,6 +65,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -68,6 +68,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
    MachineFunction &MF = *MI.getParent()->getParent();
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -167,7 +167,7 @@ index b3b4390a0b7..df36af7170c 100644
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
-@@ -99,28 +100,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -102,28 +103,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
  

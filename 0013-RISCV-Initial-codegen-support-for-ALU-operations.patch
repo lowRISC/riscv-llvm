@@ -24,27 +24,27 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
  lib/Target/RISCV/RISCV.h                |  31 ++++++
  lib/Target/RISCV/RISCV.td               |   5 +-
- lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 ++++++++++++
+ lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 +++++++++++++
  lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 ++++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 177 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 172 ++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
  lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
- lib/Target/RISCV/RISCVInstrInfo.td      | 105 ++++++++++++++-----
+ lib/Target/RISCV/RISCVInstrInfo.td      | 105 +++++++++++++------
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  |  62 +++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  65 ++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
  lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
  lib/Target/RISCV/RISCVSubtarget.h       |  64 ++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
- test/CodeGen/RISCV/alu.ll               | 162 +++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/alu.ll               | 162 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1111 insertions(+), 36 deletions(-)
+ 24 files changed, 1109 insertions(+), 36 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -349,7 +349,7 @@ index 00000000000..14772ddac4a
 +#endif
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 new file mode 100644
-index 00000000000..84f27d9681f
+index 00000000000..78f61fa4184
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -0,0 +1,63 @@
@@ -398,11 +398,11 @@ index 00000000000..84f27d9681f
 +
 +void RISCVDAGToDAGISel::Select(SDNode *Node) {
 +  // Dump information about the Node being selected.
-+  DEBUG(errs() << "Selecting: "; Node->dump(CurDAG); errs() << "\n");
++  DEBUG(dbgs() << "Selecting: "; Node->dump(CurDAG); dbgs() << "\n");
 +
 +  // If we have a custom node, we have already selected
 +  if (Node->isMachineOpcode()) {
-+    DEBUG(errs() << "== "; Node->dump(CurDAG); errs() << "\n");
++    DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
 +    Node->setNodeId(-1);
 +    return;
 +  }
@@ -418,10 +418,10 @@ index 00000000000..84f27d9681f
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..47d12ae8af2
+index 00000000000..58ee1a55799
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,172 @@
 +//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -478,11 +478,6 @@ index 00000000000..47d12ae8af2
 +  // Function alignments (log2).
 +  setMinFunctionAlignment(3);
 +  setPrefFunctionAlignment(3);
-+
-+  // inline memcpy().
-+  MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 128;
-+  MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 128;
-+  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 128;
 +}
 +
 +SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
@@ -1018,10 +1013,10 @@ index 00000000000..9837b46532b
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 new file mode 100644
-index 00000000000..40adf918c86
+index 00000000000..cf0a31df9cf
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,65 @@
 +//===-- RISCVRegisterInfo.cpp - RISCV Register Information ------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1060,18 +1055,21 @@ index 00000000000..40adf918c86
 +
 +BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 +  BitVector Reserved(getNumRegs());
-+  Reserved.set(RISCV::X0_64); // zero
-+  Reserved.set(RISCV::X0_32); // zero
-+  Reserved.set(RISCV::X1_64); // ra
-+  Reserved.set(RISCV::X1_32); // ra
-+  Reserved.set(RISCV::X2_64); // sp
-+  Reserved.set(RISCV::X2_32); // sp
-+  Reserved.set(RISCV::X3_64); // gp
-+  Reserved.set(RISCV::X3_32); // gp
-+  Reserved.set(RISCV::X4_64); // tp
-+  Reserved.set(RISCV::X4_32); // tp
-+  Reserved.set(RISCV::X8_64); // fp
-+  Reserved.set(RISCV::X8_32); // fp
++
++  // Use markSuperRegs to ensure any register aliases are also reserved
++  markSuperRegs(Reserved, RISCV::X0_64); // zero
++  markSuperRegs(Reserved, RISCV::X0_32); // zero
++  markSuperRegs(Reserved, RISCV::X1_64); // ra
++  markSuperRegs(Reserved, RISCV::X1_32); // ra
++  markSuperRegs(Reserved, RISCV::X2_64); // sp
++  markSuperRegs(Reserved, RISCV::X2_32); // sp
++  markSuperRegs(Reserved, RISCV::X3_64); // gp
++  markSuperRegs(Reserved, RISCV::X3_32); // gp
++  markSuperRegs(Reserved, RISCV::X4_64); // tp
++  markSuperRegs(Reserved, RISCV::X4_32); // tp
++  markSuperRegs(Reserved, RISCV::X8_64); // fp
++  markSuperRegs(Reserved, RISCV::X8_32); // fp
++  assert(checkAllSuperRegsMarked(Reserved));
 +  return Reserved;
 +}
 +
