@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV][NFC] Add delineating comments to RISCV.td
+
+---
+ lib/Target/RISCV/RISCV.td | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 0cf06a7647b..eda4d78ae8b 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -9,6 +9,10 @@
+ 
+ include "llvm/Target/Target.td"
+ 
++//===----------------------------------------------------------------------===//
++// Register File, Calling Conv, Instruction Descriptions
++//===----------------------------------------------------------------------===//
++
+ include "RISCVRegisterInfo.td"
+ include "RISCVCallingConv.td"
+ include "RISCVInstrInfo.td"
+@@ -18,9 +22,17 @@ def RISCVInstrInfo : InstrInfo {
+   let guessInstructionProperties = 0;
+ }
+ 
++//===----------------------------------------------------------------------===//
++// RISC-V Subtarget features.
++//===----------------------------------------------------------------------===//
++
+ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+                                       "Implements RV64">;
+ 
++//===----------------------------------------------------------------------===//
++// RISC-V processors supported.
++//===----------------------------------------------------------------------===//
++
+ def : ProcessorModel<"generic-rv32", NoSchedModel, []>;
+ 
+ def : ProcessorModel<"generic-rv64", NoSchedModel, [Feature64Bit]>;
+@@ -29,6 +41,10 @@ def RISCVAsmParser : AsmParser {
+   let ShouldEmitMatchRegisterAltName = 1;
+ }
+ 
++//===----------------------------------------------------------------------===//
++// Declare the target which we are implementing
++//===----------------------------------------------------------------------===//
++
+ def RISCV : Target {
+   let InstructionSet = RISCVInstrInfo;
+   let AssemblyParsers = [RISCVAsmParser];
+-- 
+2.14.1
+

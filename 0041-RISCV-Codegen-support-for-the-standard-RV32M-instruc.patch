@@ -1,0 +1,472 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Codegen support for the standard RV32M instruction set
+ extension
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp |  18 +++---
+ lib/Target/RISCV/RISCVInstrInfoM.td    |  13 ++++
+ lib/Target/RISCV/RISCVSubtarget.cpp    |  13 +++-
+ lib/Target/RISCV/RISCVSubtarget.h      |  12 ++--
+ test/CodeGen/RISCV/div.ll              | 115 ++++++++++++++++++++-------------
+ test/CodeGen/RISCV/mul.ll              | 106 ++++++++++++++++++++++--------
+ test/CodeGen/RISCV/rem.ll              |  27 +++++---
+ 7 files changed, 206 insertions(+), 98 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 03d12c22799..83c4ebf78b0 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -75,18 +75,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::SUBC, MVT::i32, Expand);
+   setOperationAction(ISD::SUBE, MVT::i32, Expand);
+ 
+-  setOperationAction(ISD::SREM, MVT::i32, Expand);
++  if (!Subtarget.hasStdExtM()) {
++    setOperationAction(ISD::MUL, MVT::i32, Expand);
++    setOperationAction(ISD::MULHS, MVT::i32, Expand);
++    setOperationAction(ISD::MULHU, MVT::i32, Expand);
++    setOperationAction(ISD::SDIV, MVT::i32, Expand);
++    setOperationAction(ISD::UDIV, MVT::i32, Expand);
++    setOperationAction(ISD::SREM, MVT::i32, Expand);
++    setOperationAction(ISD::UREM, MVT::i32, Expand);
++  }
++
+   setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
+-  setOperationAction(ISD::SDIV, MVT::i32, Expand);
+-  setOperationAction(ISD::UREM, MVT::i32, Expand);
+   setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+-  setOperationAction(ISD::UDIV, MVT::i32, Expand);
+-
+-  setOperationAction(ISD::MUL, MVT::i32, Expand);
+   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
+   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
+-  setOperationAction(ISD::MULHS, MVT::i32, Expand);
+-  setOperationAction(ISD::MULHU, MVT::i32, Expand);
+ 
+   setOperationAction(ISD::SHL_PARTS, MVT::i32, Expand);
+   setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
+diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
+index 25b5aa3c711..2e643e30026 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoM.td
++++ b/lib/Target/RISCV/RISCVInstrInfoM.td
+@@ -21,4 +21,17 @@ def DIV     : ALU_rr<0b0000001, 0b100, "div">;
+ def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
+ def REM     : ALU_rr<0b0000001, 0b110, "rem">;
+ def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
++
++//===----------------------------------------------------------------------===//
++// Pseudo-instructions and codegen patterns
++
+ }
++
++def : PatGprGpr<mul, MUL>;
++def : PatGprGpr<mulhs, MULH>;
++def : PatGprGpr<mulhu, MULHU>;
++// No ISDOpcode for mulhsu
++def : PatGprGpr<sdiv, DIV>;
++def : PatGprGpr<udiv, DIVU>;
++def : PatGprGpr<srem, REM>;
++def : PatGprGpr<urem, REMU>;
+diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
+index 2dfec6158fd..d8340e792be 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.cpp
++++ b/lib/Target/RISCV/RISCVSubtarget.cpp
+@@ -26,8 +26,15 @@ using namespace llvm;
+ 
+ void RISCVSubtarget::anchor() {}
+ 
++RISCVSubtarget &RISCVSubtarget::initializeSubtargetDependencies(StringRef CPU,
++                                                                StringRef FS) {
++  // Determine default and user-specified characteristics
++  ParseSubtargetFeatures(CPU, FS);
++  return *this;
++}
++
+ RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
+                                const std::string &FS, const TargetMachine &TM)
+-    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
+-      TLInfo(TM, *this), HasStdExtM(false), HasStdExtA(false),
+-      HasStdExtF(false), HasRV64(false) {}
++    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(),
++      FrameLowering(initializeSubtargetDependencies(CPU, FS)),
++      TLInfo(TM, *this) {}
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index daeaa34f877..5a4e31a8f69 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -34,10 +34,14 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   RISCVFrameLowering FrameLowering;
+   RISCVTargetLowering TLInfo;
+   SelectionDAGTargetInfo TSInfo;
+-  bool HasStdExtM;
+-  bool HasStdExtA;
+-  bool HasStdExtF;
+-  bool HasRV64;
++  bool HasStdExtM = false;
++  bool HasStdExtA = false;
++  bool HasStdExtF = false;
++  bool HasRV64 = false;
++
++  /// Initializes using the passed in CPU and feature strings so that we can
++  /// use initializer lists for subtarget initialization.
++  RISCVSubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);
+ 
+ public:
+   // Initializes the data members to match that of the specified triple.
+diff --git a/test/CodeGen/RISCV/div.ll b/test/CodeGen/RISCV/div.ll
+index 845e89d327d..ffce79b4967 100644
+--- a/test/CodeGen/RISCV/div.ll
++++ b/test/CodeGen/RISCV/div.ll
+@@ -1,96 +1,119 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-I %s
++; RUN: llc -mtriple=riscv32 -mattr=+m -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-M %s
+ 
+ define i32 @udiv(i32 %a, i32 %b) {
+-; CHECK-LABEL: udiv:
+-; CHECK: lui a2, %hi(__udivsi3)
+-; CHECK: addi a2, a2, %lo(__udivsi3)
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: udiv:
++; CHECK-I: lui a2, %hi(__udivsi3)
++; CHECK-I: addi a2, a2, %lo(__udivsi3)
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: divu a0, a0, a1
++
+   %1 = udiv i32 %a, %b
+   ret i32 %1
+ }
+ 
+ define i32 @udiv_constant(i32 %a) {
+-; CHECK-LABEL: udiv_constant:
+-; CHECK: lui a1, %hi(__udivsi3)
+-; CHECK: addi a2, a1, %lo(__udivsi3)
+-; CHECK: addi a1, zero, 5
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: udiv_constant:
++; CHECK-I: lui a1, %hi(__udivsi3)
++; CHECK-I: addi a2, a1, %lo(__udivsi3)
++; CHECK-I: addi a1, zero, 5
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: lui a1, 838861
++; CHECK-M: addi a1, a1, -819
++; CHECK-M: mulhu a0, a0, a1
++; CHECK-M: srli a0, a0, 2
++
+   %1 = udiv i32 %a, 5
+   ret i32 %1
+ }
+ 
+ define i32 @udiv_pow2(i32 %a) {
+-; CHECK-LABEL: udiv_pow2:
+-; CHECK: srli a0, a0, 3
++; CHECK-ALL-LABEL: udiv_pow2:
++; CHECK-ALL: srli a0, a0, 3
+   %1 = udiv i32 %a, 8
+   ret i32 %1
+ }
+ 
+ define i64 @udiv64(i64 %a, i64 %b) {
+-; CHECK-LABEL: udiv64:
+-; CHECK: lui a4, %hi(__udivdi3)
+-; CHECK: addi a4, a4, %lo(__udivdi3)
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: udiv64:
++; CHECK-ALL: lui a4, %hi(__udivdi3)
++; CHECK-ALL: addi a4, a4, %lo(__udivdi3)
++; CHECK-ALL: jalr ra, a4, 0
+   %1 = udiv i64 %a, %b
+   ret i64 %1
+ }
+ 
+ define i64 @udiv64_constant(i64 %a) {
+-; CHECK-LABEL: udiv64_constant:
+-; CHECK: lui a2, %hi(__udivdi3)
+-; CHECK: addi a4, a2, %lo(__udivdi3)
+-; CHECK: addi a2, zero, 5
+-; CHECK: addi a3, zero, 0
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: udiv64_constant:
++; CHECK-ALL: lui a2, %hi(__udivdi3)
++; CHECK-ALL: addi a4, a2, %lo(__udivdi3)
++; CHECK-ALL: addi a2, zero, 5
++; CHECK-ALL: addi a3, zero, 0
++; CHECK-ALL: jalr ra, a4, 0
+   %1 = udiv i64 %a, 5
+   ret i64 %1
+ }
+ 
+ define i32 @sdiv(i32 %a, i32 %b) {
+-; CHECK-LABEL: sdiv:
+-; CHECK: lui a2, %hi(__divsi3)
+-; CHECK: addi a2, a2, %lo(__divsi3)
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: sdiv:
++; CHECK-I: lui a2, %hi(__divsi3)
++; CHECK-I: addi a2, a2, %lo(__divsi3)
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: div a0, a0, a1
++
+   %1 = sdiv i32 %a, %b
+   ret i32 %1
+ }
+ 
+ define i32 @sdiv_constant(i32 %a) {
+-; CHECK-LABEL: sdiv_constant:
+-; CHECK: lui a1, %hi(__divsi3)
+-; CHECK: addi a2, a1, %lo(__divsi3)
+-; CHECK: addi a1, zero, 5
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: sdiv_constant:
++; CHECK-I: lui a1, %hi(__divsi3)
++; CHECK-I: addi a2, a1, %lo(__divsi3)
++; CHECK-I: addi a1, zero, 5
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: lui a1, 419430
++; CHECK-M: addi a1, a1, 1639
++; CHECK-M: mulh a0, a0, a1
++; CHECK-M: srli a1, a0, 31
++; CHECK-M: srai a0, a0, 1
++; CHECK-M: add a0, a0, a1
++
+   %1 = sdiv i32 %a, 5
+   ret i32 %1
+ }
+ 
+ define i32 @sdiv_pow2(i32 %a) {
+-; CHECK-LABEL: sdiv_pow2
+-; CHECK: srai a1, a0, 31
+-; CHECK: srli a1, a1, 29
+-; CHECK: add a0, a0, a1
+-; CHECK: srai a0, a0, 3
++; CHECK-ALL-LABEL: sdiv_pow2
++; CHECK-ALL: srai a1, a0, 31
++; CHECK-ALL: srli a1, a1, 29
++; CHECK-ALL: add a0, a0, a1
++; CHECK-ALL: srai a0, a0, 3
+   %1 = sdiv i32 %a, 8
+   ret i32 %1
+ }
+ 
+ define i64 @sdiv64(i64 %a, i64 %b) {
+-; CHECK-LABEL: sdiv64:
+-; CHECK: lui a4, %hi(__divdi3)
+-; CHECK: addi a4, a4, %lo(__divdi3)
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: sdiv64:
++; CHECK-ALL: lui a4, %hi(__divdi3)
++; CHECK-ALL: addi a4, a4, %lo(__divdi3)
++; CHECK-ALL: jalr ra, a4, 0
+   %1 = sdiv i64 %a, %b
+   ret i64 %1
+ }
+ 
+ define i64 @sdiv64_constant(i64 %a) {
+-; CHECK-LABEL: sdiv64_constant:
+-; CHECK: lui a2, %hi(__divdi3)
+-; CHECK: addi a4, a2, %lo(__divdi3)
+-; CHECK: addi a2, zero, 5
+-; CHECK: addi a3, zero, 0
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: sdiv64_constant:
++; CHECK-ALL: lui a2, %hi(__divdi3)
++; CHECK-ALL: addi a4, a2, %lo(__divdi3)
++; CHECK-ALL: addi a2, zero, 5
++; CHECK-ALL: addi a3, zero, 0
++; CHECK-ALL: jalr ra, a4, 0
+   %1 = sdiv i64 %a, 5
+   ret i64 %1
+ }
+diff --git a/test/CodeGen/RISCV/mul.ll b/test/CodeGen/RISCV/mul.ll
+index 77a7cfeab20..619977d88ed 100644
+--- a/test/CodeGen/RISCV/mul.ll
++++ b/test/CodeGen/RISCV/mul.ll
+@@ -1,58 +1,108 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-I %s
++; RUN: llc -mtriple=riscv32 -mattr=+m -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-M %s
+ 
+ define i32 @square(i32 %a) {
+-; CHECK-LABEL: square:
+-; CHECK: lui a1, %hi(__mulsi3)
+-; CHECK: addi a2, a1, %lo(__mulsi3)
+-; CHECK: addi a1, a0, 0
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: square:
++; CHECK-I: lui a1, %hi(__mulsi3)
++; CHECK-I: addi a2, a1, %lo(__mulsi3)
++; CHECK-I: addi a1, a0, 0
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: mul a0, a0, a0
++
+   %1 = mul i32 %a, %a
+   ret i32 %1
+ }
+ 
+ define i32 @mul(i32 %a, i32 %b) {
+-; CHECK-LABEL: mul:
+-; CHECK: lui a2, %hi(__mulsi3)
+-; CHECK: addi a2, a2, %lo(__mulsi3)
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: mul:
++; CHECK-I: lui a2, %hi(__mulsi3)
++; CHECK-I: addi a2, a2, %lo(__mulsi3)
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: mul a0, a0, a1
++
+   %1 = mul i32 %a, %b
+   ret i32 %1
+ }
+ 
+ define i32 @mul_constant(i32 %a) {
+-; CHECK-LABEL: mul_constant:
+-; CHECK: lui a1, %hi(__mulsi3)
+-; CHECK: addi a2, a1, %lo(__mulsi3)
+-; CHECK: addi a1, zero, 5
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: mul_constant:
++; CHECK-I: lui a1, %hi(__mulsi3)
++; CHECK-I: addi a2, a1, %lo(__mulsi3)
++; CHECK-ALL: addi a1, zero, 5
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: mul a0, a0, a1
++
+   %1 = mul i32 %a, 5
+   ret i32 %1
+ }
+ 
+ define i32 @mul_pow2(i32 %a) {
+-; CHECK-LABEL: mul_pow2:
+-; CHECK: slli a0, a0, 3
+-; CHECK: jalr zero, ra, 0
++; CHECK-ALL-LABEL: mul_pow2:
++; CHECK-ALL: slli a0, a0, 3
++; CHECK-ALL: jalr zero, ra, 0
+   %1 = mul i32 %a, 8
+   ret i32 %1
+ }
+ 
+ define i64 @mul64(i64 %a, i64 %b) {
+-; CHECK-LABEL: mul64:
+-; CHECK: lui a4, %hi(__muldi3)
+-; CHECK: addi a4, a4, %lo(__muldi3)
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: mul64:
++; CHECK-I: lui a4, %hi(__muldi3)
++; CHECK-I: addi a4, a4, %lo(__muldi3)
++; CHECK-I: jalr ra, a4, 0
++
++; CHECK-M: mul a3, a0, a3
++; CHECK-M: mulhu a4, a0, a2
++; CHECK-M: add a3, a4, a3
++; CHECK-M: mul a1, a1, a2
++; CHECK-M: add a1, a3, a1
++; CHECK-M: mul a0, a0, a2
++
+   %1 = mul i64 %a, %b
+   ret i64 %1
+ }
+ 
+ define i64 @mul64_constant(i64 %a) {
+-; CHECK-LABEL: mul64_constant:
+-; CHECK: lui a2, %hi(__muldi3)
+-; CHECK: addi a4, a2, %lo(__muldi3)
+-; CHECK: addi a2, zero, 5
+-; CHECK: addi a3, zero, 0
+-; CHECK: jalr ra, a4, 0
++; CHECK-ALL-LABEL: mul64_constant:
++; CHECK-I: lui a2, %hi(__muldi3)
++; CHECK-I: addi a4, a2, %lo(__muldi3)
++; CHECK-I: addi a2, zero, 5
++; CHECK-I: addi a3, zero, 0
++; CHECK-I: jalr ra, a4, 0
++
++; CHECK-M: addi  a2, zero, 5
++; CHECK-M: mul a1, a1, a2
++; CHECK-M: mulhu a3, a0, a2
++; CHECK-M: add a1, a3, a1
++; CHECK-M: mul a0, a0, a2
++
++
+   %1 = mul i64 %a, 5
+   ret i64 %1
+ }
++
++define i32 @mulhs(i32 %a, i32 %b) {
++; CHECK-ALL-LABEL: mulhs:
++; CHECK-M: mulh a0, a0, a1
++  %1 = sext i32 %a to i64
++  %2 = sext i32 %b to i64
++  %3 = mul i64 %1, %2
++  %4 = lshr i64 %3, 32
++  %5 = trunc i64 %4 to i32
++  ret i32 %5
++}
++
++define i32 @mulhu(i32 %a, i32 %b) {
++; CHECK-ALL-LABEL: mulhu:
++; CHECK-M: mulhu a0, a0, a1
++  %1 = zext i32 %a to i64
++  %2 = zext i32 %b to i64
++  %3 = mul i64 %1, %2
++  %4 = lshr i64 %3, 32
++  %5 = trunc i64 %4 to i32
++  ret i32 %5
++}
+diff --git a/test/CodeGen/RISCV/rem.ll b/test/CodeGen/RISCV/rem.ll
+index 0bd3a69f0d8..6b1acaaba07 100644
+--- a/test/CodeGen/RISCV/rem.ll
++++ b/test/CodeGen/RISCV/rem.ll
+@@ -1,19 +1,28 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-I %s
++; RUN: llc -mtriple=riscv32 -mattr=+m -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefixes=CHECK-ALL,CHECK-M %s
+ 
+ define i32 @urem(i32 %a, i32 %b) nounwind {
+-; CHECK-LABEL: urem:
+-; CHECK: lui a2, %hi(__umodsi3)
+-; CHECK: addi a2, a2, %lo(__umodsi3)
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: urem:
++; CHECK-I: lui a2, %hi(__umodsi3)
++; CHECK-I: addi a2, a2, %lo(__umodsi3)
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: remu a0, a0, a1
++
+   %1 = urem i32 %a, %b
+   ret i32 %1
+ }
+ 
+ define i32 @srem(i32 %a, i32 %b) nounwind {
+-; CHECK-LABEL: srem:
+-; CHECK: lui a2, %hi(__modsi3)
+-; CHECK: addi a2, a2, %lo(__modsi3)
+-; CHECK: jalr ra, a2, 0
++; CHECK-ALL-LABEL: srem:
++; CHECK-I: lui a2, %hi(__modsi3)
++; CHECK-I: addi a2, a2, %lo(__modsi3)
++; CHECK-I: jalr ra, a2, 0
++
++; CHECK-M: rem a0, a0, a1
++
+   %1 = srem i32 %a, %b
+   ret i32 %1
+ }
+-- 
+2.14.1
+

@@ -1,0 +1,180 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC-layer support for the standard RV32M instruction set
+ extension
+
+---
+ lib/Target/RISCV/RISCV.td           | 19 ++++++++++++-------
+ lib/Target/RISCV/RISCVInstrInfo.td  |  5 +++++
+ lib/Target/RISCV/RISCVInstrInfoM.td | 24 ++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVSubtarget.cpp |  2 +-
+ lib/Target/RISCV/RISCVSubtarget.h   |  2 ++
+ test/MC/RISCV/rv32i-invalid.s       |  3 +++
+ test/MC/RISCV/rv32m-valid.s         | 33 +++++++++++++++++++++++++++++++++
+ 7 files changed, 80 insertions(+), 8 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfoM.td
+ create mode 100644 test/MC/RISCV/rv32m-valid.s
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index eda4d78ae8b..bf9d6cdb340 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -9,6 +9,18 @@
+ 
+ include "llvm/Target/Target.td"
+ 
++//===----------------------------------------------------------------------===//
++// RISC-V Subtarget features and instruction predicates.
++//===----------------------------------------------------------------------===//
++
++def FeatureStdExtM : SubtargetFeature<"m", "HasStdExtM", "true",
++                           "'M' (Integer Multiplication and Division)">;
++def HasStdExtM     : Predicate<"Subtarget->hasStdExtM()">,
++                           AssemblerPredicate<"FeatureStdExtM">;
++
++def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
++                           "Implements RV64">;
++
+ //===----------------------------------------------------------------------===//
+ // Register File, Calling Conv, Instruction Descriptions
+ //===----------------------------------------------------------------------===//
+@@ -22,13 +34,6 @@ def RISCVInstrInfo : InstrInfo {
+   let guessInstructionProperties = 0;
+ }
+ 
+-//===----------------------------------------------------------------------===//
+-// RISC-V Subtarget features.
+-//===----------------------------------------------------------------------===//
+-
+-def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+-                                      "Implements RV64">;
+-
+ //===----------------------------------------------------------------------===//
+ // RISC-V processors supported.
+ //===----------------------------------------------------------------------===//
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index ccdc7c60868..af02c91a842 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -429,3 +429,8 @@ let Defs = [X2_32], Uses = [X2_32] in {
+   def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                                 [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
+ }
++
++//===----------------------------------------------------------------------===//
++// Standard extensions
++
++include "RISCVInstrInfoM.td"
+diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
+new file mode 100644
+index 00000000000..25b5aa3c711
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfoM.td
+@@ -0,0 +1,24 @@
++//===-- RISCVInstrInfoM.td - RISC-V 'M' instructions -------*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file describes the RISC-V instructions from the standard 'M', Integer
++// Multiplication and Division instruction set extension.
++//
++//===----------------------------------------------------------------------===//
++
++let Predicates = [HasStdExtM] in {
++def MUL     : ALU_rr<0b0000001, 0b000, "mul">;
++def MULH    : ALU_rr<0b0000001, 0b001, "mulh">;
++def MULHSU  : ALU_rr<0b0000001, 0b010, "mulhsu">;
++def MULHU   : ALU_rr<0b0000001, 0b011, "mulhu">;
++def DIV     : ALU_rr<0b0000001, 0b100, "div">;
++def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
++def REM     : ALU_rr<0b0000001, 0b110, "rem">;
++def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
++}
+diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
+index 344c4c1116f..0f19ad314be 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.cpp
++++ b/lib/Target/RISCV/RISCVSubtarget.cpp
+@@ -29,4 +29,4 @@ void RISCVSubtarget::anchor() {}
+ RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
+                                const std::string &FS, const TargetMachine &TM)
+     : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
+-      TLInfo(TM, *this), HasRV64(false) {}
++      TLInfo(TM, *this), HasStdExtM(false), HasRV64(false) {}
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index 3db2ef9742f..2f279f26d6a 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -34,6 +34,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   RISCVFrameLowering FrameLowering;
+   RISCVTargetLowering TLInfo;
+   SelectionDAGTargetInfo TSInfo;
++  bool HasStdExtM;
+   bool HasRV64;
+ 
+ public:
+@@ -58,6 +59,7 @@ public:
+   const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
+     return &TSInfo;
+   }
++  bool hasStdExtM() const { return HasStdExtM; }
+   bool is64Bit() const { return HasRV64; }
+ };
+ } // End llvm namespace
+diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
+index 3e4ac85ed60..763d4c547a2 100644
+--- a/test/MC/RISCV/rv32i-invalid.s
++++ b/test/MC/RISCV/rv32i-invalid.s
+@@ -128,3 +128,6 @@ lw a4, a5, 111 # CHECK: :[[@LINE]]:8: error: immediate must be an integer in the
+ # Too few operands
+ ori a0, a1 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
+ xor s2, s2 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
++
++# Instruction not in the base ISA
++mul a4, ra, s0 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
+diff --git a/test/MC/RISCV/rv32m-valid.s b/test/MC/RISCV/rv32m-valid.s
+new file mode 100644
+index 00000000000..70c1c29d3ad
+--- /dev/null
++++ b/test/MC/RISCV/rv32m-valid.s
+@@ -0,0 +1,33 @@
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+m -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+m -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+m < %s \
++# RUN:     | llvm-objdump -mattr=+m -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+m < %s \
++# RUN:     | llvm-objdump -mattr=+m -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# CHECK-INST: mul a4, ra, s0
++# CHECK: encoding: [0x33,0x87,0x80,0x02]
++mul a4, ra, s0
++# CHECK-INST: mulh ra, zero, zero
++# CHECK: encoding: [0xb3,0x10,0x00,0x02]
++mulh x1, x0, x0
++# CHECK-INST: mulhsu t0, t2, t1
++# CHECK: encoding: [0xb3,0xa2,0x63,0x02]
++mulhsu t0, t2, t1
++# CHECK-INST: mulhu a5, a4, a3
++# CHECK: encoding: [0xb3,0x37,0xd7,0x02]
++mulhu a5, a4, a3
++# CHECK-INST: div s0, s0, s0
++# CHECK: encoding: [0x33,0x44,0x84,0x02]
++div s0, s0, s0
++# CHECK-INST: divu gp, a0, a1
++# CHECK: encoding: [0xb3,0x51,0xb5,0x02]
++divu gp, a0, a1
++# CHECK-INST: rem s2, s2, s8
++# CHECK: encoding: [0x33,0x69,0x89,0x03]
++rem s2, s2, s8
++# CHECK-INST: remu s2, s2, s8
++# CHECK: encoding: [0x33,0x79,0x89,0x03]
++remu x18, x18, x24
+-- 
+2.14.1
+

@@ -30,6 +30,10 @@ and run for RV32I at O0 (1401/1401 compile and run without error). See the
 [lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
 details.
 
+MC-layer support is present for RV32IMAFD, and codegen support for RV32IM.
+Note that patches 0036-0042 are in an early form and will likely see further
+changes.
+
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 
 this patchset with copious documentation. The initial draft of this 
@@ -39,8 +43,8 @@ A number of TODO items are described in this repo's [issues
 page](https://github.com/lowrisc/riscv-llvm/issues). These issues should help 
 to co-ordinate efforts between different interested parties.
 
-A RISC-V Birds of a Feather proposal has been submitted for the upcoming [LLVM 
-Dev Meeting](http://llvm.org/devmtg/2017-10/).
+A RISC-V Birds of a Feather session will take place at the upcoming
+upcoming [LLVM Dev Meeting](http://llvm.org/devmtg/2017-10/#bof4).
 
 Our aim is that RISC-V is the cleanest and most documented LLVM backend. As 
 well as benefiting the wider LLVM community, this will make it substantially 
@@ -131,4 +135,4 @@ code to this patchset and related support patches: Chandler Carruth, Chih-Mao
 Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal Finkel,
 Mandeep Singh Grang, James Y Knight, David Majnemer, Ed Maste, Dylan McKay,
 Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy Portman, Philip Reames,
-Pavel Šnobl, Eugene Zalenko, Florian Zeitz.
+Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian Zeitz.
