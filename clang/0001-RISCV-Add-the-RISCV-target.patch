@@ -34,7 +34,7 @@ index 2bec0e83ae..b8a2973fee 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index 3c1c08bb05..768334aea4 100644
+index a9a5f4ddcf..2fe9a03a81 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -29,6 +29,7 @@

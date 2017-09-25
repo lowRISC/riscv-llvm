@@ -4,15 +4,42 @@ Subject: [RISCV] Codegen support for the standard RV32M instruction set
  extension
 
 ---
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp |   8 ++-
  lib/Target/RISCV/RISCVISelLowering.cpp |  18 +++---
  lib/Target/RISCV/RISCVInstrInfoM.td    |  13 ++++
  lib/Target/RISCV/RISCVSubtarget.cpp    |  13 +++-
- lib/Target/RISCV/RISCVSubtarget.h      |  12 ++--
+ lib/Target/RISCV/RISCVSubtarget.h      |  13 ++--
  test/CodeGen/RISCV/div.ll              | 115 ++++++++++++++++++++-------------
  test/CodeGen/RISCV/mul.ll              | 106 ++++++++++++++++++++++--------
  test/CodeGen/RISCV/rem.ll              |  27 +++++---
- 7 files changed, 206 insertions(+), 98 deletions(-)
+ 8 files changed, 214 insertions(+), 99 deletions(-)
 
+diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
+index 69dbce95212..076a0d0cbbe 100644
+--- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
++++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
+@@ -26,14 +26,20 @@ using namespace llvm;
+ // SelectionDAG operations.
+ namespace {
+ class RISCVDAGToDAGISel final : public SelectionDAGISel {
++  const RISCVSubtarget *Subtarget;
+ public:
+   explicit RISCVDAGToDAGISel(RISCVTargetMachine &TargetMachine)
+-      : SelectionDAGISel(TargetMachine) {}
++      : SelectionDAGISel(TargetMachine), Subtarget(nullptr) {}
+ 
+   StringRef getPassName() const override {
+     return "RISCV DAG->DAG Pattern Instruction Selection";
+   }
+ 
++  bool runOnMachineFunction(MachineFunction &MF) override {
++    Subtarget = &MF.getSubtarget<RISCVSubtarget>();
++    return SelectionDAGISel::runOnMachineFunction(MF);
++  }
++
+   void Select(SDNode *Node) override;
+ 
+   bool SelectInlineAsmMemoryOperand(const SDValue &Op, unsigned ConstraintID,
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 index 03d12c22799..83c4ebf78b0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
@@ -92,10 +119,19 @@ index 2dfec6158fd..d8340e792be 100644
 +      FrameLowering(initializeSubtargetDependencies(CPU, FS)),
 +      TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index daeaa34f877..5a4e31a8f69 100644
+index daeaa34f877..e5bb0546c8c 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -34,10 +34,14 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+@@ -30,14 +30,19 @@ class StringRef;
+ 
+ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   virtual void anchor();
++  bool HasStdExtM = false;
++  bool HasStdExtA = false;
++  bool HasStdExtF = false;
++  bool HasRV64 = false;
+   RISCVInstrInfo InstrInfo;
++  RISCVRegisterInfo RegInfo;
    RISCVFrameLowering FrameLowering;
    RISCVTargetLowering TLInfo;
    SelectionDAGTargetInfo TSInfo;
@@ -103,10 +139,6 @@ index daeaa34f877..5a4e31a8f69 100644
 -  bool HasStdExtA;
 -  bool HasStdExtF;
 -  bool HasRV64;
-+  bool HasStdExtM = false;
-+  bool HasStdExtA = false;
-+  bool HasStdExtF = false;
-+  bool HasRV64 = false;
 +
 +  /// Initializes using the passed in CPU and feature strings so that we can
 +  /// use initializer lists for subtarget initialization.

@@ -164,17 +164,17 @@ index 85ae1255d30..c325b58999f 100644
  
  def FADD_S    : FPALU_rr<0b0000000, 0b111, FPR32, FPR32, FPR32, "fadd.s">;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 5a4e31a8f69..cb366e7705e 100644
+index e5bb0546c8c..368cc592d0a 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -37,6 +37,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+@@ -33,6 +33,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
    bool HasStdExtM = false;
    bool HasStdExtA = false;
    bool HasStdExtF = false;
 +  bool HasStdExtD = false;
    bool HasRV64 = false;
- 
-   /// Initializes using the passed in CPU and feature strings so that we can
+   RISCVInstrInfo InstrInfo;
+   RISCVRegisterInfo RegInfo;
 diff --git a/test/MC/RISCV/rv32d-invalid.s b/test/MC/RISCV/rv32d-invalid.s
 new file mode 100644
 index 00000000000..3c3e265bd28

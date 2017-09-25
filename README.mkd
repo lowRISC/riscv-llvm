@@ -30,8 +30,9 @@ and run for RV32I at O0 (1401/1401 compile and run without error). See the
 [lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
 details.
 
-MC-layer support is present for RV32IMAFD, and codegen support for RV32IM.
-Note that patches 0036-0042 are in an early form and will likely see further
+MC-layer support is present for RV32IMAFD+RV64I, and codegen support for
+RV32IM. Codegen support for RV64I and beyond is in development.
+Note that patches 0036-0047 are in an early form and will likely see further
 changes.
 
 ## Future plans
@@ -99,7 +100,7 @@ like the below. See the [LLVM
 documentation](http://llvm.org/docs/GettingStarted.html) for more general 
 guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
 
-    export REV=313464 # Check the most recent commit on this repo to ensure this is correct
+    export REV=314102 # Check the most recent commit on this repo to ensure this is correct
     svn co http://llvm.org/svn/llvm-project/llvm/trunk@$REV llvm
     cd tools
     svn co http://llvm.org/svn/llvm-project/cfe/trunk@$REV clang

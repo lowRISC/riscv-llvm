@@ -1,0 +1,283 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Specify calling convention lowering in terms of XLEN
+
+This allows the same code paths to support both RV32 and RV64.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 106 ++++++++++++++-------------------
+ 1 file changed, 46 insertions(+), 60 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index b0860fecca6..f013a14d487 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -389,10 +389,6 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+   return TailMBB;
+ }
+ 
+-static const MCPhysReg RV32ArgGPRs[] = {
+-    RISCV::X10, RISCV::X11, RISCV::X12, RISCV::X13,
+-    RISCV::X14, RISCV::X15, RISCV::X16, RISCV::X17};
+-
+ // Calling Convention Implementation.
+ // The expectations for frontend ABI lowering vary from target to target.
+ // Ideally, an LLVM frontend would be able to avoid worrying about many ABI
+@@ -425,21 +421,22 @@ static const MCPhysReg ArgGPRs[] = {
+ 
+ // Pass a 2xlen argument that has been split in to two xlen values through
+ // registers or the stack as necessary.
+-static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
++static bool CC_RISCVAssign2XLEN(unsigned XLen, CCState &State, CCValAssign VA1,
+                                   ISD::ArgFlagsTy ArgFlags1, unsigned ValNo2,
+                                   MVT ValVT2, MVT LocVT2,
+                                   ISD::ArgFlagsTy ArgFlags2) {
++  unsigned XLenInBytes = XLen/8;
+   if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
+     // At least one half can be passed via register
+     State.addLoc(CCValAssign::getReg(VA1.getValNo(), VA1.getValVT(), Reg,
+                                      VA1.getLocVT(), CCValAssign::Full));
+   } else {
+     // Both halves must be passed on the stack, with proper alignment
+-    unsigned StackAlign = std::max(4u, ArgFlags1.getOrigAlign());
++    unsigned StackAlign = std::max(XLenInBytes, ArgFlags1.getOrigAlign());
+     State.addLoc(CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
+-                                     State.AllocateStack(4, StackAlign),
++                                     State.AllocateStack(XLenInBytes, StackAlign),
+                                      VA1.getLocVT(), CCValAssign::Full));
+-    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
++    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes),
+                                      LocVT2, CCValAssign::Full));
+     return false;
+   }
+@@ -450,44 +447,39 @@ static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
+         CCValAssign::getReg(ValNo2, ValVT2, Reg, LocVT2, CCValAssign::Full));
+   } else {
+     // The second half is passed via the stack, without additional alignment
+-    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
++    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes),
+                                      LocVT2, CCValAssign::Full));
+   }
+ 
+   return false;
+ }
+ 
+-static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
++static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT,
+                        MVT LocVT, CCValAssign::LocInfo LocInfo,
+                        ISD::ArgFlagsTy ArgFlags, CCState &State, bool IsFixed, bool IsRet, Type *OrigTy) {
++  unsigned XLen = DL.getLargestLegalIntTypeSizeInBits();
++  assert(XLen == 32 || XLen == 64);
++  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
++  assert(ValVT == XLenVT);
++  assert(LocVT == XLenVT);
++
+   // Any return value split in to more than two values can't be returned 
+   // directly.
+   if (IsRet && ValNo > 1)
+     return true;
+ 
+-  // Promote i8 and i16
+-  if (LocVT == MVT::i8 || LocVT == MVT::i16) {
+-    LocVT = MVT::i32;
+-    if (ArgFlags.isSExt())
+-      LocInfo = CCValAssign::SExt;
+-    else if (ArgFlags.isZExt())
+-      LocInfo = CCValAssign::ZExt;
+-    else
+-      LocInfo = CCValAssign::AExt;
+-  }
+-
+   // If this is a variadic argument, ensure it is assigned an even register
+   // if it has 8-byte alignment (RV32) or 16-byte alignment (RV64)
+   // An aligned register should be used regardless of
+   // whether the original argument is 'split' or not. The argument will not be
+   // passed by registers if the original type is larger than 2x xlen, so don't
+   // bother aligning for that case.
+-  // TODO: adjust for RV64.
+-  if (!IsFixed && ArgFlags.getOrigAlign() == 8 &&
+-      DL.getTypeAllocSize(OrigTy) == 8) {
+-    unsigned RegIdx = State.getFirstUnallocated(RV32ArgGPRs);
+-    if (RegIdx != array_lengthof(RV32ArgGPRs) && RegIdx % 2 == 1) {
+-      State.AllocateReg(RV32ArgGPRs);
++  unsigned TwoXLenInBytes = (2*XLen)/8;
++  if (!IsFixed && ArgFlags.getOrigAlign() == TwoXLenInBytes &&
++      DL.getTypeAllocSize(OrigTy) == TwoXLenInBytes) {
++    unsigned RegIdx = State.getFirstUnallocated(ArgGPRs);
++    if (RegIdx != array_lengthof(ArgGPRs) && RegIdx % 2 == 1) {
++      State.AllocateReg(ArgGPRs);
+     }
+   }
+ 
+@@ -500,7 +492,7 @@ static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
+   // Split arguments might be passed indirectly, so keep track of the pending
+   // values.
+   if (ArgFlags.isSplit() || !PendingMembers.empty()) {
+-    LocVT = MVT::i32;
++    LocVT = XLenVT;;
+     LocInfo = CCValAssign::Indirect;
+     PendingMembers.push_back(
+         CCValAssign::getPending(ValNo, ValVT, LocVT, LocInfo));
+@@ -521,12 +513,12 @@ static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
+     ISD::ArgFlagsTy AF = PendingArgFlags[0];
+     PendingMembers.clear();
+     PendingArgFlags.clear();
+-    return CC_RISCV32Assign2XLEN(State, VA, AF, ValNo, ValVT, LocVT, ArgFlags);
++    return CC_RISCVAssign2XLEN(XLen, State, VA, AF, ValNo, ValVT, LocVT, ArgFlags);
+   }
+ 
+   // Allocate to a register if possible, or else a stack slot
+-  unsigned Reg = State.AllocateReg(RV32ArgGPRs);
+-  unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
++  unsigned Reg = State.AllocateReg(ArgGPRs);
++  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen/8, XLen/8);
+ 
+   // If we reach this point and PendingMembers is non-empty, we must be at the
+   // end of a split argument that must be passed indirect
+@@ -546,10 +538,7 @@ static bool CC_RISCV32(const DataLayout &DL, unsigned ValNo, MVT ValVT,
+     return false;
+   }
+ 
+-  assert(LocVT.getSizeInBits() == 32 &&
+-         "Programming error: should have a 32-bit sized type at this point");
+-  // TODO: do I need to bit-convert f32?
+-  assert(LocVT == MVT::i32 && "Expected and i32 at this stage");
++  assert(LocVT == XLenVT && "Expected an XLenVT at this stage");
+ 
+   if (Reg) {
+     State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+@@ -576,7 +565,7 @@ void RISCVTargetLowering::analyzeInputArgs(
+     else if (Ins[i].isOrigArg())
+       ArgTy = FType->getParamType(Ins[i].getOrigArgIndex());
+ 
+-    if (CC_RISCV32(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++    if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
+                    ArgFlags, CCInfo, true, IsRet, ArgTy)) {
+       DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
+                    << EVT(ArgVT).getEVTString() << '\n');
+@@ -595,7 +584,7 @@ void RISCVTargetLowering::analyzeOutputArgs(
+     ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
+     Type *OrigTy = CLI ? CLI->getArgs()[Outs[i].OrigArgIndex].Ty : nullptr;
+ 
+-    if (CC_RISCV32(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++    if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
+                    ArgFlags, CCInfo, Outs[i].IsFixed, IsRet, OrigTy)) {
+       DEBUG(dbgs() << "OutputArg #" << i << " has unhandled type "
+                    << EVT(ArgVT).getEVTString() << "\n");
+@@ -622,6 +611,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   MachineRegisterInfo &RegInfo = MF.getRegInfo();
+   EVT PtrVT = getPointerTy(DAG.getDataLayout());
++  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
++  unsigned XLenInBytes = XLen/8;
++  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
+   // Used with vargs to acumulate store chains.
+   std::vector<SDValue> OutChains;
+ 
+@@ -637,19 +629,15 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+     SDValue ArgValue;
+     if (VA.isRegLoc()) {
+       // Arguments passed in registers.
+-      switch (LocVT.getSimpleVT().SimpleTy) {
+-      case MVT::i32: {
+-        const unsigned VReg =
+-            RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+-        RegInfo.addLiveIn(VA.getLocReg(), VReg);
+-        ArgValue = DAG.getCopyFromReg(Chain, DL, VReg, LocVT);
+-        break;
+-      }
+-      default:
++      if (LocVT != XLenVT) {
+         DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
+                      << LocVT.getEVTString() << "\n");
+         report_fatal_error("unhandled argument type");
+       }
++      const unsigned VReg =
++        RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
++      RegInfo.addLiveIn(VA.getLocReg(), VReg);
++      ArgValue = DAG.getCopyFromReg(Chain, DL, VReg, LocVT);
+     } else {
+       assert(VA.isMemLoc() && "Argument not register or memory");
+ 
+@@ -688,11 +676,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   }
+ 
+   if (IsVarArg) {
+-    ArrayRef<MCPhysReg> ArgRegs = makeArrayRef(RV32ArgGPRs);
++    ArrayRef<MCPhysReg> ArgRegs = makeArrayRef(ArgGPRs);
+     unsigned Idx = CCInfo.getFirstUnallocated(ArgRegs);
+-    // TODO: needs to be modified for rv64
+-    int RegSizeInBytes = 4;
+-    MVT RegTy = MVT::getIntegerVT(RegSizeInBytes * 8);
+     const TargetRegisterClass *RC = &RISCV::GPRRegClass;
+     RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+ 
+@@ -707,31 +692,31 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+       VaArgOffset = CCInfo.getNextStackOffset();
+       VarArgsSaveSize = 0;
+     } else {
+-      VarArgsSaveSize = RegSizeInBytes * (ArgRegs.size() - Idx);
++      VarArgsSaveSize = XLenInBytes * (ArgRegs.size() - Idx);
+       VaArgOffset = -VarArgsSaveSize;
+     }
+ 
+     // Record the frame index of the first variable argument
+     // which is a value necessary to VASTART.
+-    int FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
++    int FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset, true);
+     RVFI->setVarArgsFrameIndex(FI);
+ 
+     // If saving an odd-number of registers, create an extra stack slot to
+     // ensure even-numbered registers are always 2xlen-aligned
+     if (Idx % 2) {
+-      FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset - RegSizeInBytes,
++      FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset - (int)XLenInBytes,
+                                  true);
+-      VarArgsSaveSize += RegSizeInBytes;
++      VarArgsSaveSize += XLenInBytes;
+     }
+ 
+     // Copy the integer registers that may have been used for passing varargs
+     // to the vararg save area.
+     for (unsigned I = Idx; I < ArgRegs.size();
+-         ++I, VaArgOffset += RegSizeInBytes) {
++         ++I, VaArgOffset += XLenInBytes) {
+       const unsigned Reg = RegInfo.createVirtualRegister(RC);
+       RegInfo.addLiveIn(ArgRegs[I], Reg);
+-      SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, RegTy);
+-      FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
++      SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, XLenVT);
++      FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset, true);
+       SDValue PtrOff = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
+       SDValue Store =
+           DAG.getStore(Chain, DL, ArgValue, PtrOff, MachinePointerInfo());
+@@ -768,6 +753,8 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   CallingConv::ID CallConv = CLI.CallConv;
+   bool IsVarArg = CLI.IsVarArg;
+   EVT PtrVT = getPointerTy(DAG.getDataLayout());
++  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
++  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
+ 
+   MachineFunction &MF = DAG.getMachineFunction();
+ 
+@@ -792,8 +779,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+ 
+     int FI = MF.getFrameInfo().CreateStackObject(Size, Align, false);
+     SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
+-    // TODO: will need to change for i64
+-    SDValue SizeNode = DAG.getConstant(Size, DL, MVT::i32);
++    SDValue SizeNode = DAG.getConstant(Size, DL, XLenVT);
+ 
+     Chain = DAG.getMemcpy(Chain, DL, FIPtr, Arg, SizeNode, Align,
+                           /*IsVolatile=*/false,
+@@ -947,7 +933,7 @@ bool RISCVTargetLowering::CanLowerReturn(
+   for (unsigned i = 0, e = Outs.size(); i != e; ++i) {
+     MVT VT = Outs[i].VT;
+     ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
+-    if (CC_RISCV32(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags, CCInfo, /*IsFixed*/true, /*IsRet*/true, nullptr))
++    if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags, CCInfo, /*IsFixed*/true, /*IsRet*/true, nullptr))
+       return false;
+   }
+   return true;
+-- 
+2.14.1
+

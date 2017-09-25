@@ -20,7 +20,7 @@ Differential Revision: https://reviews.llvm.org/D37065
  1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index 38d6ca0cc76..9cc2368cf0f 100644
+index 1cf90403842..533c5f48b53 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
 @@ -859,12 +859,16 @@ class InstrInfo {

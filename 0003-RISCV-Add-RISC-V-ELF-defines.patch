@@ -205,10 +205,10 @@ index 0f777addb7b..d6123499a22 100644
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index 3cc95c1f760..266b556360b 100644
+index 7006c6393b6..09396466c40 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
-@@ -768,6 +768,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+@@ -750,6 +750,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
    case ELF::EM_HEXAGON:
    case ELF::EM_MIPS:
    case ELF::EM_BPF:

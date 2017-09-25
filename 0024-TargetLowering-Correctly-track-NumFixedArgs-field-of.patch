@@ -24,10 +24,10 @@ Differential Revision: https://reviews.llvm.org/D37898
  2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/include/llvm/Target/TargetLowering.h b/include/llvm/Target/TargetLowering.h
-index 30f60fa0b0a..7bce5e9127b 100644
+index ea3e3f7b049..d35acdfc92e 100644
 --- a/include/llvm/Target/TargetLowering.h
 +++ b/include/llvm/Target/TargetLowering.h
-@@ -2906,7 +2906,7 @@ public:
+@@ -2907,7 +2907,7 @@ public:
        RetTy = ResultType;
        Callee = Target;
        CallConv = CC;
@@ -36,7 +36,7 @@ index 30f60fa0b0a..7bce5e9127b 100644
        Args = std::move(ArgsList);
  
        DAG.getTargetLoweringInfo().markLibCallAttributes(
-@@ -2919,7 +2919,7 @@ public:
+@@ -2920,7 +2920,7 @@ public:
        RetTy = ResultType;
        Callee = Target;
        CallConv = CC;
@@ -46,10 +46,10 @@ index 30f60fa0b0a..7bce5e9127b 100644
        return *this;
      }
 diff --git a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
-index fb32487ac42..116208fa7dc 100644
+index b103792d00c..642ca52e0d1 100644
 --- a/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
 +++ b/lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
-@@ -8046,6 +8046,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
+@@ -8056,6 +8056,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
      Entry.IsSwiftError = false;
      Entry.Alignment = Align;
      CLI.getArgs().insert(CLI.getArgs().begin(), Entry);
