@@ -2,6 +2,8 @@
 ## About
 This repository hosts a series of patches implementing a RISC-V backend for 
 LLVM. For more information, see:
+* [September RISC-V LLVM status
+update](http://www.lowrisc.org/blog/2017/09/moving-risc-v-llvm-forwards/)
 * The [most recent status update to the LLVM mailing 
 list](http://lists.llvm.org/pipermail/llvm-dev/2017-August/116709.html)
 * [The lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status)
@@ -26,7 +28,11 @@ upstream](https://reviews.llvm.org/differential/?authors=asb&order=updated) is
 a fantastic way to help out.
 
 The current patchset allows the entirety of the GCC torture suite to compile
-and run for RV32I at O0 (1401/1401 compile and run without error). See the
+and run for RV32I at all optimisation levels (1390/1390 compile and run
+without error). Additionally, all torture suite tests compile and run for
+RV64I at O1, O2, O3, and Os (there is one compilation failure at O0). MC-layer
+support is present for the RV32MAFD extensions, as well as codegen support for
+RV32M. See the
 [lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
 details.
 
@@ -132,8 +138,8 @@ have questions about code contributions that you can't discuss on the LLVM
 mailing list.
 
 Thank you to everyone who has contributed review comments, suggestions, or
-code to this patchset and related support patches: Chandler Carruth, Chih-Mao
-Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal Finkel,
-Mandeep Singh Grang, James Y Knight, David Majnemer, Ed Maste, Dylan McKay,
-Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy Portman, Philip Reames,
-Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian Zeitz.
+code to this patchset and related support patches: Chandler Carruth, Shiva
+Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal
+Finkel, Mandeep Singh Grang, James Y Knight, David Majnemer, Ed Maste, Dylan
+McKay, Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy Portman, Philip
+Reames, Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian Zeitz.
