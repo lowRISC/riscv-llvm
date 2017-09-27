@@ -38,8 +38,8 @@ details.
 
 MC-layer support is present for RV32IMAFD+RV64I, and codegen support for
 RV32IM. Codegen support for RV64I and beyond is in development.
-Note that patches 0036-0047 are in an early form and will likely see further
-changes.
+Note that patches 0036+ are not quite in a finalised form and will likely see
+further changes.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 
