@@ -11,12 +11,11 @@ Subject: [RISCV] MC-layer support for the standard RV32F instruction set
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  lib/Target/RISCV/RISCVInstrInfoF.td                |  95 +++++++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td              |   8 ++
- lib/Target/RISCV/RISCVSubtarget.cpp                |   3 +-
  lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
  test/MC/RISCV/rv32f-invalid.s                      |  21 ++++
  test/MC/RISCV/rv32f-valid.s                        | 114 +++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   4 +
- 12 files changed, 308 insertions(+), 11 deletions(-)
+ 11 files changed, 306 insertions(+), 10 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoF.td
  create mode 100644 test/MC/RISCV/rv32f-invalid.s
  create mode 100644 test/MC/RISCV/rv32f-valid.s
@@ -269,37 +268,26 @@ index 787886a412d..3ce1d7eb810 100644
 +  (sequence "F%u_64", 8, 9),
 +  (sequence "F%u_64", 18, 27)
 +)>;
-diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
-index 8a8ba9590eb..2dfec6158fd 100644
---- a/lib/Target/RISCV/RISCVSubtarget.cpp
-+++ b/lib/Target/RISCV/RISCVSubtarget.cpp
-@@ -29,4 +29,5 @@ void RISCVSubtarget::anchor() {}
- RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
-                                const std::string &FS, const TargetMachine &TM)
-     : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
--      TLInfo(TM, *this), HasStdExtM(false), HasStdExtA(false), HasRV64(false) {}
-+      TLInfo(TM, *this), HasStdExtM(false), HasStdExtA(false),
-+      HasStdExtF(false), HasRV64(false) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index c617126b194..daeaa34f877 100644
+index d4349fb183f..0990e63675b 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -36,6 +36,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
-   SelectionDAGTargetInfo TSInfo;
-   bool HasStdExtM;
-   bool HasStdExtA;
-+  bool HasStdExtF;
-   bool HasRV64;
- 
- public:
-@@ -62,6 +63,7 @@ public:
+@@ -32,6 +32,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   virtual void anchor();
+   bool HasStdExtM = false;
+   bool HasStdExtA = false;
++  bool HasStdExtF = false;
+   bool HasRV64 = false;
+   unsigned XLen = 32;
+   MVT XLenVT = MVT::i32;
+@@ -69,6 +70,7 @@ public:
    }
    bool hasStdExtM() const { return HasStdExtM; }
    bool hasStdExtA() const { return HasStdExtA; }
 +  bool hasStdExtF() const { return HasStdExtF; }
    bool is64Bit() const { return HasRV64; }
- };
- } // End llvm namespace
+   MVT getXLenVT() const { return XLenVT; }
+   unsigned getXLen() const { return XLen; }
 diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
 new file mode 100644
 index 00000000000..a5654bd1c22

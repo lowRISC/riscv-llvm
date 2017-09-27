@@ -1,10 +1,10 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] Implement RISCV32 ABI lowering
+Subject: [RISCV] Implement RISCV ABI lowering
 
-There are several TODOs in the implementation, and this has not been
-thoroughly tested for compatibility with GCC's implementation of the RISC-V
-calling convention and ABI.
+Specified in terms of XLEN for both RV32 and RV64 compatibility.
+
+TODO: tests for the 64-bit ABI.
 ---
  lib/CodeGen/TargetInfo.cpp | 121 ++++++++++++++++
  test/CodeGen/riscv32-abi.c | 354 +++++++++++++++++++++++++++++++++++++++++++++
@@ -12,10 +12,10 @@ calling convention and ABI.
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 934e155ccd..d0d7f753ab 100644
+index 934e155ccd..b4c64c633f 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8741,6 +8741,124 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8741,6 +8741,122 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -48,6 +48,7 @@ index 934e155ccd..d0d7f753ab 100644
 +} // end anonymous namespace
 +
 +ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty) const {
++  unsigned XLen = getTarget().getPointerWidth(0);
 +
 +  // TODO: do we want this on RISC-V?
 +  Ty = useFirstFieldIfTransparentUnion(Ty);
@@ -74,21 +75,22 @@ index 934e155ccd..d0d7f753ab 100644
 +  if (isEmptyRecord(getContext(), Ty, true))
 +    return ABIArgInfo::getIgnore();
 +
-+  // TODO: adjust for RV64 when supported
 +  // Aggregates which are <= 2*xlen will be passed in registers if possible,
 +  // so coerce to integers
-+  if (Size <= 64) {
++  if (Size <= 2 * XLen) {
 +    unsigned Alignment = getContext().getTypeAlign(Ty);
 +
-+    // Use a single i32 if possible, an i64 if 8-byte alignment is required,
-+    // and a 2-element i32 array if 4-byte alignment is required
-+    if (Size <= 32) {
-+      return ABIArgInfo::getDirect(llvm::IntegerType::get(getVMContext(), 32));
-+    } else if (Alignment == 64) {
-+      return ABIArgInfo::getDirect(llvm::IntegerType::get(getVMContext(), 64));
-+    } else {
++    // Use a single XLen int if possible, 2XLen if 2XLen alignment is required,
++    // and a 2-element XLen array if only XLen alignment is required.
++    if (Size <= XLen) {
 +      return ABIArgInfo::getDirect(
-+          llvm::ArrayType::get(llvm::Type::getInt32Ty(getVMContext()), 2));
++          llvm::IntegerType::get(getVMContext(), XLen));
++    } else if (Alignment == 2 * XLen) {
++      return ABIArgInfo::getDirect(
++          llvm::IntegerType::get(getVMContext(), 2 * XLen));
++    } else {
++      return ABIArgInfo::getDirect(llvm::ArrayType::get(
++          llvm::IntegerType::get(getVMContext(), XLen), 2));
 +    }
 +  }
 +  return getNaturalAlignIndirect(Ty, /*ByVal=*/true);
@@ -105,8 +107,8 @@ index 934e155ccd..d0d7f753ab 100644
 +
 +Address RISCVABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
 +                                QualType Ty) const {
-+  // TODO: adjust for RV64
-+  CharUnits SlotSize = CharUnits::fromQuantity(4);
++  unsigned XLen = getTarget().getPointerWidth(0);
++  CharUnits SlotSize = CharUnits::fromQuantity(XLen / 8);
 +
 +  // Empty records are ignored for parameter passing purposes.
 +  if (isEmptyRecord(getContext(), Ty, true)) {
@@ -120,7 +122,7 @@ index 934e155ccd..d0d7f753ab 100644
 +  auto TyInfo = getContext().getTypeInfoInChars(Ty);
 +
 +  // Arguments bigger than 2*xlen bytes
-+  bool IsIndirect = TyInfo.first.getQuantity() > 8;
++  bool IsIndirect = TyInfo.first.getQuantity() > ((2 * XLen) / 8);
 +
 +  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, IsIndirect, TyInfo, SlotSize,
 +                          /*AllowHigherAlign*/ true);
@@ -130,22 +132,20 @@ index 934e155ccd..d0d7f753ab 100644
 +class RISCVTargetCodeGenInfo : public TargetCodeGenInfo {
 +public:
 +  RISCVTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, bool Is64Bit)
-+      : TargetCodeGenInfo(new RISCVABIInfo(CGT)) {
-+    if (Is64Bit) {
-+      llvm_unreachable("64-bit ABI not supported yet\n");
-+    }
-+  }
++      : TargetCodeGenInfo(new RISCVABIInfo(CGT)) {}
 +};
 +}
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8855,6 +8973,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8855,6 +8971,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  
 +  case llvm::Triple::riscv32:
 +    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, false));
++  case llvm::Triple::riscv64:
++    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, true));
 +
    case llvm::Triple::systemz: {
      bool HasVector = getTarget().getABI() == "vector";

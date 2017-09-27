@@ -8,7 +8,7 @@ This allows the same code paths to support both RV32 and RV64.
  1 file changed, 46 insertions(+), 60 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b0860fecca6..f013a14d487 100644
+index bd870c25531..dc85bcdd404 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -389,10 +389,6 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,

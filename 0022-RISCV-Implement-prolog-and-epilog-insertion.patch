@@ -247,10 +247,10 @@ index 52cd45235c1..d1bb5455811 100644
    unsigned Reg = MI.getOperand(0).getReg();
    assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index b9c83921a9a..3db2ef9742f 100644
+index 9640841cfa3..564cd05e7e0 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -49,7 +49,7 @@ public:
+@@ -56,7 +56,7 @@ public:
      return &FrameLowering;
    }
    const RISCVInstrInfo *getInstrInfo() const override { return &InstrInfo; }

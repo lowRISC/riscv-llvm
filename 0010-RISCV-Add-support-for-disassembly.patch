@@ -13,12 +13,12 @@ Differential Revision: https://reviews.llvm.org/D23567
  .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 +++++++++++++++++++++
  lib/Target/RISCV/LLVMBuild.txt                     |   3 +-
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  20 +++
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |   4 +
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  12 ++
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |   3 +
  lib/Target/RISCV/RISCVInstrFormats.td              |   5 +
  lib/Target/RISCV/RISCVInstrInfo.td                 |   8 ++
  test/MC/RISCV/rv32i-valid.s                        |   4 +
- 11 files changed, 211 insertions(+), 1 deletion(-)
+ 11 files changed, 219 insertions(+), 1 deletion(-)
  create mode 100644 lib/Target/RISCV/Disassembler/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/Disassembler/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
@@ -284,7 +284,7 @@ index eb0beb028ad..f4eaf06f622 100644
  
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 0f68dd7aa05..2b35eab577b 100644
+index 0f68dd7aa05..bb12c2536e5 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -29,6 +29,9 @@
@@ -297,11 +297,26 @@ index 0f68dd7aa05..2b35eab577b 100644
  using namespace llvm;
  
  static MCInstrInfo *createRISCVMCInstrInfo() {
-@@ -64,5 +67,6 @@ extern "C" void LLVMInitializeRISCVTargetMC() {
+@@ -48,6 +51,14 @@ static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
+   return new RISCVMCAsmInfo(TT);
+ }
+ 
++static MCSubtargetInfo *createRISCVMCSubtargetInfo(const Triple &TT,
++                                                   StringRef CPU, StringRef FS) {
++  std::string CPUName = CPU;
++  if (CPUName.empty())
++    CPUName = TT.isArch64Bit() ? "generic-rv64" : "generic-rv32";
++  return createRISCVMCSubtargetInfoImpl(TT, CPUName, FS);
++}
++
+ static MCInstPrinter *createRISCVMCInstPrinter(const Triple &T,
+                                                unsigned SyntaxVariant,
+                                                const MCAsmInfo &MAI,
+@@ -64,5 +75,6 @@ extern "C" void LLVMInitializeRISCVTargetMC() {
      TargetRegistry::RegisterMCAsmBackend(*T, createRISCVAsmBackend);
      TargetRegistry::RegisterMCCodeEmitter(*T, createRISCVMCCodeEmitter);
      TargetRegistry::RegisterMCInstPrinter(*T, createRISCVMCInstPrinter);
-+    TargetRegistry::RegisterMCSubtargetInfo(*T, createRISCVMCSubtargetInfoImpl);
++    TargetRegistry::RegisterMCSubtargetInfo(*T, createRISCVMCSubtargetInfo);
    }
  }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h

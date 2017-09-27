@@ -38,13 +38,13 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  65 ++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
- lib/Target/RISCV/RISCVSubtarget.cpp     |  32 ++++++
- lib/Target/RISCV/RISCVSubtarget.h       |  64 ++++++++++++
+ lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++++
+ lib/Target/RISCV/RISCVSubtarget.h       |  74 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1109 insertions(+), 36 deletions(-)
+ 24 files changed, 1135 insertions(+), 36 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -1161,10 +1161,10 @@ index f04de217bf0..df707746d04 100644
  )>;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
 new file mode 100644
-index 00000000000..344c4c1116f
+index 00000000000..2c1ba7ff2b0
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.cpp
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,48 @@
 +//===-- RISCVSubtarget.cpp - RISCV Subtarget Information ------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1193,16 +1193,32 @@ index 00000000000..344c4c1116f
 +
 +void RISCVSubtarget::anchor() {}
 +
++RISCVSubtarget &RISCVSubtarget::initializeSubtargetDependencies(StringRef CPU,
++                                                                StringRef FS,
++                                                                bool Is64Bit) {
++  // Determine default and user-specified characteristics
++  std::string CPUName = CPU;
++  if (CPUName.empty())
++    CPUName = Is64Bit ? "generic-rv64" : "generic-rv32";
++  ParseSubtargetFeatures(CPUName, FS);
++  if (Is64Bit) {
++    XLenVT = MVT::i64;
++    XLen = 64;
++  }
++  return *this;
++}
++
 +RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
 +                               const std::string &FS, const TargetMachine &TM)
-+    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
-+      TLInfo(TM, *this), HasRV64(false) {}
++    : RISCVGenSubtargetInfo(TT, CPU, FS),
++      FrameLowering(initializeSubtargetDependencies(CPU, FS, TT.isArch64Bit())),
++      InstrInfo(), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 new file mode 100644
-index 00000000000..fc3fbf1b328
+index 00000000000..9640841cfa3
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,74 @@
 +//===-- RISCVSubtarget.h - Define Subtarget for the RISCV -------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1235,11 +1251,18 @@ index 00000000000..fc3fbf1b328
 +
 +class RISCVSubtarget : public RISCVGenSubtargetInfo {
 +  virtual void anchor();
-+  RISCVInstrInfo InstrInfo;
++  bool HasRV64 = false;
++  unsigned XLen = 32;
++  MVT XLenVT = MVT::i32;
 +  RISCVFrameLowering FrameLowering;
++  RISCVInstrInfo InstrInfo;
 +  RISCVTargetLowering TLInfo;
 +  SelectionDAGTargetInfo TSInfo;
-+  bool HasRV64;
++
++  /// Initializes using the passed in CPU and feature strings so that we can
++  /// use initializer lists for subtarget initialization.
++  RISCVSubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS,
++                                                  bool Is64Bit);
 +
 +public:
 +  // Initializes the data members to match that of the specified triple.
@@ -1263,6 +1286,9 @@ index 00000000000..fc3fbf1b328
 +  const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
 +    return &TSInfo;
 +  }
++  bool is64Bit() const { return HasRV64; }
++  MVT getXLenVT() const { return XLenVT; }
++  unsigned getXLen() const { return XLen; }
 +};
 +} // End llvm namespace
 +

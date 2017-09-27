@@ -141,11 +141,11 @@ index d5f98e72626..938298e4347 100644
  xori sp, 22, 220 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
 diff --git a/test/MC/RISCV/rv64i-invalid.s b/test/MC/RISCV/rv64i-invalid.s
 new file mode 100644
-index 00000000000..67b9a82beff
+index 00000000000..d35fada3874
 --- /dev/null
 +++ b/test/MC/RISCV/rv64i-invalid.s
 @@ -0,0 +1,20 @@
-+# RUN: not llvm-mc -triple riscv64 -mattr=+64bit < %s 2>&1 | FileCheck %s
++# RUN: not llvm-mc -triple riscv64 < %s 2>&1 | FileCheck %s
 +
 +# Out of range immediates
 +## uimm5
@@ -167,14 +167,14 @@ index 00000000000..67b9a82beff
 +addiw a0, a1, %hi(foo) # CHECK: :[[@LINE]]:15: error: immediate must be an integer in the range [-2048, 2047]
 diff --git a/test/MC/RISCV/rv64i-valid.s b/test/MC/RISCV/rv64i-valid.s
 new file mode 100644
-index 00000000000..cb30b8caaf3
+index 00000000000..292a2e6b0b7
 --- /dev/null
 +++ b/test/MC/RISCV/rv64i-valid.s
 @@ -0,0 +1,99 @@
-+# RUN: llvm-mc %s -triple=riscv64 -mattr=+64bit -show-encoding \
++# RUN: llvm-mc %s -triple=riscv64 -show-encoding \
 +# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
-+# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+64bit < %s \
-+# RUN:     | llvm-objdump -mattr=+64bit -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
 +
 +# CHECK-INST: lwu zero, 4(ra)
 +# CHECK: encoding: [0x03,0xe0,0x40,0x00]

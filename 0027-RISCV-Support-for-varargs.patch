@@ -65,7 +65,7 @@ index d91eb1b150e..cd1c33059d5 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 0f334718cf0..b07425fa3ec 100644
+index 353c287c8be..b8d142a818b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -85,7 +85,7 @@ index 0f334718cf0..b07425fa3ec 100644
 +  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
 +  setOperationAction(ISD::VAEND, MVT::Other, Expand);
 +
-   for (auto VT : {MVT::i1, MVT::i8, MVT::i16, MVT::i32})
+   for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
      setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
  
 @@ -151,6 +157,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,

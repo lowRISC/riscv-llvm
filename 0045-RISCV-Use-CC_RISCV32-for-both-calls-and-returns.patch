@@ -42,7 +42,7 @@ index a7645b9198c..cfabf8741af 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9,
                            (sequence "X%u", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 73c04156e42..b0860fecca6 100644
+index 5d11bb2aa13..bd870c25531 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -459,8 +459,12 @@ static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,

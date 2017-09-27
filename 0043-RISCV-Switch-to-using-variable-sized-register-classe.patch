@@ -18,8 +18,8 @@ RV64.
  lib/Target/RISCV/RISCVRegisterInfo.h               |   2 +-
  lib/Target/RISCV/RISCVRegisterInfo.td              | 111 ++++++++++-----------
  lib/Target/RISCV/RISCVSubtarget.cpp                |   2 +-
- lib/Target/RISCV/RISCVSubtarget.h                  |   4 +-
- 14 files changed, 121 insertions(+), 136 deletions(-)
+ lib/Target/RISCV/RISCVSubtarget.h                  |   5 +-
+ 14 files changed, 122 insertions(+), 136 deletions(-)
 
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 index 06e2f8ffe21..fd54c21e2d2 100644
@@ -49,7 +49,7 @@ index 06e2f8ffe21..fd54c21e2d2 100644
  
  static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 2b35eab577b..b22792e7bad 100644
+index bb12c2536e5..45de976ec6c 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -42,7 +42,7 @@ static MCInstrInfo *createRISCVMCInstrInfo() {
@@ -145,7 +145,7 @@ index 076a0d0cbbe..72d592b8880 100644
        }
      }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 83c4ebf78b0..73c04156e42 100644
+index 4720c572b96..5d11bb2aa13 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -41,12 +41,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -569,22 +569,28 @@ index 3ce1d7eb810..c458ad29516 100644
  // Floating point registers
  let RegAltNameIndices = [ABIRegAltName] in {
 diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
-index d8340e792be..01c702c5958 100644
+index 2c1ba7ff2b0..b221ea84a33 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.cpp
 +++ b/lib/Target/RISCV/RISCVSubtarget.cpp
-@@ -35,6 +35,6 @@ RISCVSubtarget &RISCVSubtarget::initializeSubtargetDependencies(StringRef CPU,
- 
- RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
+@@ -45,4 +45,4 @@ RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
                                 const std::string &FS, const TargetMachine &TM)
--    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(),
-+    : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), RegInfo(getHwMode()),
-       FrameLowering(initializeSubtargetDependencies(CPU, FS)),
-       TLInfo(TM, *this) {}
+     : RISCVGenSubtargetInfo(TT, CPU, FS),
+       FrameLowering(initializeSubtargetDependencies(CPU, FS, TT.isArch64Bit())),
+-      InstrInfo(), TLInfo(TM, *this) {}
++      InstrInfo(), RegInfo(getHwMode()), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 368cc592d0a..676d1830bd9 100644
+index fffa9eaf5dd..25e07737789 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -58,9 +58,7 @@ public:
+@@ -39,6 +39,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   MVT XLenVT = MVT::i32;
+   RISCVFrameLowering FrameLowering;
+   RISCVInstrInfo InstrInfo;
++  RISCVRegisterInfo RegInfo;
+   RISCVTargetLowering TLInfo;
+   SelectionDAGTargetInfo TSInfo;
+ 
+@@ -60,9 +61,7 @@ public:
      return &FrameLowering;
    }
    const RISCVInstrInfo *getInstrInfo() const override { return &InstrInfo; }

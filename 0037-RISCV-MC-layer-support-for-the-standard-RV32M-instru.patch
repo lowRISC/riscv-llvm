@@ -7,11 +7,10 @@ Subject: [RISCV] MC-layer support for the standard RV32M instruction set
  lib/Target/RISCV/RISCV.td           | 19 ++++++++++++-------
  lib/Target/RISCV/RISCVInstrInfo.td  |  5 +++++
  lib/Target/RISCV/RISCVInstrInfoM.td | 24 ++++++++++++++++++++++++
- lib/Target/RISCV/RISCVSubtarget.cpp |  2 +-
  lib/Target/RISCV/RISCVSubtarget.h   |  2 ++
  test/MC/RISCV/rv32i-invalid.s       |  3 +++
  test/MC/RISCV/rv32m-valid.s         | 33 +++++++++++++++++++++++++++++++++
- 7 files changed, 80 insertions(+), 8 deletions(-)
+ 6 files changed, 79 insertions(+), 7 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoM.td
  create mode 100644 test/MC/RISCV/rv32m-valid.s
 
@@ -95,36 +94,26 @@ index 00000000000..25b5aa3c711
 +def REM     : ALU_rr<0b0000001, 0b110, "rem">;
 +def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
 +}
-diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
-index 344c4c1116f..0f19ad314be 100644
---- a/lib/Target/RISCV/RISCVSubtarget.cpp
-+++ b/lib/Target/RISCV/RISCVSubtarget.cpp
-@@ -29,4 +29,4 @@ void RISCVSubtarget::anchor() {}
- RISCVSubtarget::RISCVSubtarget(const Triple &TT, const std::string &CPU,
-                                const std::string &FS, const TargetMachine &TM)
-     : RISCVGenSubtargetInfo(TT, CPU, FS), InstrInfo(), FrameLowering(*this),
--      TLInfo(TM, *this), HasRV64(false) {}
-+      TLInfo(TM, *this), HasStdExtM(false), HasRV64(false) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 3db2ef9742f..2f279f26d6a 100644
+index 564cd05e7e0..d3174db6b30 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -34,6 +34,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
-   RISCVFrameLowering FrameLowering;
-   RISCVTargetLowering TLInfo;
-   SelectionDAGTargetInfo TSInfo;
-+  bool HasStdExtM;
-   bool HasRV64;
+@@ -30,6 +30,7 @@ class StringRef;
  
- public:
-@@ -58,6 +59,7 @@ public:
+ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   virtual void anchor();
++  bool HasStdExtM;
+   bool HasRV64 = false;
+   unsigned XLen = 32;
+   MVT XLenVT = MVT::i32;
+@@ -65,6 +66,7 @@ public:
    const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
      return &TSInfo;
    }
 +  bool hasStdExtM() const { return HasStdExtM; }
    bool is64Bit() const { return HasRV64; }
- };
- } // End llvm namespace
+   MVT getXLenVT() const { return XLenVT; }
+   unsigned getXLen() const { return XLen; }
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
 index 3e4ac85ed60..763d4c547a2 100644
 --- a/test/MC/RISCV/rv32i-invalid.s

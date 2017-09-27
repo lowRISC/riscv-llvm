@@ -13,11 +13,10 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
  lib/Target/RISCV/RISCVInstrInfo.td     |  56 ++++++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 ++++++++++++----
- lib/Target/RISCV/RISCVSubtarget.h      |   1 +
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++
  test/CodeGen/RISCV/mem.ll              | 174 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++
- 12 files changed, 424 insertions(+), 26 deletions(-)
+ 11 files changed, 423 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -398,18 +397,6 @@ index 9837b46532b..9c890c76bee 100644
 +      OutMI.addOperand(MCOp);
    }
  }
-diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index fc3fbf1b328..b9c83921a9a 100644
---- a/lib/Target/RISCV/RISCVSubtarget.h
-+++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -58,6 +58,7 @@ public:
-   const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
-     return &TSInfo;
-   }
-+  bool is64Bit() const { return HasRV64; }
- };
- } // End llvm namespace
- 
 diff --git a/test/CodeGen/RISCV/alu.ll b/test/CodeGen/RISCV/alu.ll
 index 01cdf2eaacf..f99d67b9c05 100644
 --- a/test/CodeGen/RISCV/alu.ll
