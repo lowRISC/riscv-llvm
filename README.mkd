@@ -108,7 +108,7 @@ guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
 
     export REV=314102 # Check the most recent commit on this repo to ensure this is correct
     svn co http://llvm.org/svn/llvm-project/llvm/trunk@$REV llvm
-    cd tools
+    cd llvm/tools
     svn co http://llvm.org/svn/llvm-project/cfe/trunk@$REV clang
     cd ..
     for P in /path/to/riscv-llvm/*.patch; do patch -p1 < $P; done
