@@ -140,6 +140,7 @@ mailing list.
 Thank you to everyone who has contributed review comments, suggestions, or
 code to this patchset and related support patches: Chandler Carruth, Shiva
 Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal
-Finkel, Mandeep Singh Grang, James Y Knight, David Majnemer, Ed Maste, Dylan
-McKay, Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy Portman, Philip
-Reames, Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian Zeitz.
+Finkel, Ondrej Glasnak, Mandeep Singh Grang, James Y Knight, David Majnemer,
+Ed Maste, Dylan McKay, Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy
+Portman, Philip Reames, Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian
+Zeitz.
