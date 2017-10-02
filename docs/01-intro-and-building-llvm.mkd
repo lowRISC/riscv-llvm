@@ -1,0 +1,121 @@
+# A step-by-step guide to the RISC-V LLVM backend
+
+## Introduction
+Creating a new compiler backend can seem like an insurmountable challenge at 
+times. As well as the challenges of integrating your code in to a complex
+compiler toolchain, you're often contending with unstable assemblers, linkers, 
+runtime libraries and even simulators. In my view, taking an incremental 
+approach to backend development is the only way to successfully battle this 
+complexity. Copying and code from another backend and modifying it until it 
+produces plausible output is allows rapid initial progress, but isolating and 
+debugging issues can be incredibly difficult.
+
+This document describes the approach taken for the implementation of the 
+RISC-V backend. I hope this will serve as a useful reference for prospective 
+developers of any LLVM backend.
+
+Please note: this documentation is a work in progress. A HTML-rendered "v1" 
+will be posted on lowrisc.org soon.
+
+## Building LLVM
+Before doing anything else, it's worth ensuring you can check out and build an 
+unmodified LLVM.
+
+    git clone https://git.llvm.org/git/llvm.git
+    cd llvm
+
+These instructions give a very condensed recipe for building LLVM. The 
+[official documentation](http://llvm.org/docs/GettingStarted.html) has more 
+detail if necessary.
+
+First, ensure you have necessary dependencies. The LLVM documentation has a 
+more complete listing, but ensuring you have ninja, CMake, and a recent host 
+compiler (e.g. Clang) is a good starting point:
+
+    sudo apt-get install clang ninja cmake
+
+LLVM development involves a huge number of incremental rebuilds (i.e.  
+compiling after making a small change). Choosing compiler options that help 
+reduce the time this takes is really useful for productivity. This [blog 
+post](https://blogs.s-osg.org/an-introduction-to-accelerating-your-build-with-clang/) 
+provides some useful guidance.
+
+    mkdir build
+    cd build
+    cmake -G Ninja -DCMAKE_BUILD_TYPE="Debug" \
+      -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+      -DLLVM_OPTIMIZED_TABLEGEN=True \
+      -DLLVM_BUILD_TESTS=True \
+      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+      -DLLVM_TARGETS_TO_BUILD="X86" ../
+    cmake --build .
+
+To explain some of these options:
+* `cmake -G Ninja` will cause CMake to use the
+[Ninja](https://martine.github.io/ninja/) build system and generate a
+build.ninja file rather than Makefiles
+* `-DBUILD_SHARED_LIBS=True` and  `-DLLVM_USE_SPLIT_DWARF=True` ultimately 
+reduce
+incremental build times by reducing file I/O
+* `-DLLVM_TARGETS_TO_BUILD="X86"` specifies that only the X86 target will be
+built. This is one way of speeding up the build.
+* `-DCMAKE_BUILD_TYPE="Debug"` means a debug build will be produced, which has
+assertions and backtraces enabled. The binaries will be larger and shower than
+a release build.
+* `-DLLVM_OPTIMIZED_TABLEGEN=True` will cause a release binary of tblgen to
+be built and used. This can decrease build time for debug builds.
+* `-DLLVM_BUILD_TESTS=True` as the option name suggests will cause unit tests
+to be built by default.
+* With `-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`, the system 
+Clang compiler will be used. This is typically faster than GCC and can
+have better error messages.
+
+## Running the LLVM test suite
+
+LLVM has an [extensive test
+infrastructure](http://llvm.org/docs/TestingGuide.html). Before getting stuck
+in to coding, it's worth familiarising yourself with the basics and being sure
+you're able to invoke the test suite.
+
+LLVM's regression tests live in the `test/` and `unittest/` subdirectories.
+You can invoke all these tests using the `llvm-lit` tool. From the build dir,
+execute `./bin/llvm-lit test -s`. This will execute all tests and present a
+nice progress bar. As you can verify for yourself with `./bin/llvm-lit
+--show-suites test` the lit tool discovers both sets of tests. Although the
+full suite runs reasonably quickly, it can also be useful to run only a subset
+of tests. The `--filter` parameter allows you to specify a regular expression
+that will be used to select the tests to be run. e.g. `./bin/llvm-lit -s
+--filter 'ScalarEvolution' test` will run only the tests with ScalarEvolution
+in their name. Another useful parameter to help speed up the edit-compile-test
+cycle is `-i` which will run modified and recently failed tests first.
+Frequently, this is what you want in order to rapidly determine whether your
+change fixed a previously failing test or your recently modified tests still
+pass.
+
+## Setting up your repo
+
+Now you can build LLVM and run the test suites, the only remaining task is to 
+set up the Git repository so you can commit changes and easily pull in changes 
+from upstream. There are many ways of organising this, but the following 
+describes the approach I've found most helpful.
+
+First, rename 'origin' to 'upstream'
+
+    git remote rename origin upstream
+    git config --unset branch.master.remote
+
+Then set up a new 'origin', with a git remote that will host your code (e.g. a 
+repository in a GitHub account).
+
+    git remote add origin your@gitrepo.org:here.git
+    git push -u origin master
+
+In future checkouts from this new 'origin', you will need to explicitly add 
+the upstream remote:
+
+    git remote add upstream http://llvm.org/git/llvm.git
+
+To rebase on top changes from upstream at any time:
+
+    git fetch upstream
+    git rebase upstream/master

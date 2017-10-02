@@ -1,0 +1,58 @@
+# Implementing support for relocations and fixups
+
+A relocation is emitted when there is an unresolved symbol reference (for 
+instance, a reference to a function in another compilation unit). In LLVM, a 
+"fixup" is generated when an unknown piece of information is referenced (e.g.
+an unresolved symbol reference). Some fixups can be resolved before the ELF is 
+generated, while others must be converted to relocations. Every relocation was 
+once a fixup, but not every fixup becomes a relocation.
+
+Once implementation of this is completed, the MC layer will be implemented and 
+you'll be ready to move on to code generation.
+
+## Introducing fixups
+
+First, introduce `RISCVFixupKinds.h` and implement 
+`RISCVAsmBackend::getFixupKindInfo`. This defines the supported fixups, and 
+metadata bout each fixup (offset in an instruction, the length, whether it's 
+relative to the program counter). Next, implement 
+`RISCVAsmBackend::applyFixup`. If the fixup value is known at the time 
+`applyFixup` is called, this method is responsible for modifying the encoded 
+instruction. It's useful to introduce a helper function, e.g.
+`adjustFixupValue` which will modify the value as necessary. This is necessary 
+to manipulate values so the bit layout matches that needed for the target 
+RISC-V instruction.
+
+With that logic in place, the next steps are to 1) implement support for 
+generating fixups from the assembly parser and 2) implement support for 
+generating relocations when fixups are left unresolved.
+
+## Changes to the assembler
+
+Generating fixups from the assembly parser requires the implementation of 
+`RISCVMCExr`. Instances of this will be created to allow the assembly parser 
+to record operands with modifiers like `%pcrel_hi()`. `RISCVMCExpr` introduces 
+yet another concept - `VariantKind`s. These are needed to represent cases 
+where operand modifiers don't result in fixups, for instance `%lo()` might be 
+applied to a constant value.
+
+RISCVAsmParser must be modified so that symbols can be parsed, and so it must 
+be able to tolerate when instruction operands. Additionally, it must 
+successfully parse operand modifiers. As is usual with the LLVM assembly 
+parser, it will recognise any modifier with the correct form, and then later 
+validate if the operand modifier was valid for RISC-V or not.
+
+When converting from a VariantKind to a fixup, there's a question of how to 
+convert `RISCVMCExpr::VK_RISCV_LO`, given that there are two different 
+encodings of 12-bit immediates amongst the RISC-V instruction formats 
+(I-format and S-format instructions distribute the immediate bits 
+differently). Although this could be handled by hard-coding a list of I-type 
+opcodes and a list of S-type opcodes, it would be preferable to avoid this 
+sort of hard-coding. By adding the instruction format as a property of each 
+instruction, you can select the appropriate fixup by checking the format of 
+the current instruction.
+
+## Relocations
+
+Finally, you can modify `RISCVELFObjectWriter::getRelocType` to map a fixup 
+type to the appropriate relocation type.

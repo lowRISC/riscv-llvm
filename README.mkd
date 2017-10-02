@@ -86,6 +86,9 @@ backend](http://lists.llvm.org/pipermail/llvm-dev/2016-August/103748.html)
 All patches are under the [LLVM 
 license](http://llvm.org/docs/DeveloperPolicy.html#license).
 
+The docs/ directory is under the Creative Commons CC-BY-SA 4.0 license
+<https://creativecommons.org/licenses/by-sa/4.0/>.
+
 ## How to build
 There are two things to note:
 

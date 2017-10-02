@@ -1,0 +1,82 @@
+# Starting the new backend
+
+## Add support for the target triple
+
+The very first step is to add support for recognising the architecture name in 
+the target-independent "triple" parsing code. The triple is used to identify 
+the architecture, vendor, operating system and sometimes environment. For 
+RISC-V, there are two architecture names to recognise - riscv32 and riscv64.
+
+Necessary changes include adding riscv32 and riscv64 to:
+* The `Triple::ArchType` enum.
+* `Triple::getArchTypeName`, `Triple::getArchTypePrefix`, 
+`Triple::getArchTypeForLLVMName`, and `Triple::parseArch`
+* Helper functions such as `Triple::getDefaultFormat` (returning 
+`Triple::ELF`), `Triple::getArchPointerBitWidth`, `Triple::isLittleEndian`
+* Most importantly, test all of the above by modifying 
+`unittests/ADT/TripleTest.cpp`
+
+See the patch for a full listing:
+
+{{% showpatch "recognise riscv32 riscv64 triple parsing" %}}
+
+You can now run the tests using lit (as described in the first part of this 
+tutorial), and commit the patch.
+
+## Support for RISC-V ELF files
+
+The final step before getting started on the backend itself is to add the 
+necessary definitions for RISC-V ELF files. This includes:
+* Adding the relocation types to 
+`include/llvm/BinaryFormat/ELFRelocs/RISCV.def`.
+* Adding the `EM_RISCV` machine definition (see 
+[here](http://www.sco.com/developers/gabi/latest/ch4.eheader.html) for a 
+reference list).
+* Adding `EM_RISCV` to various case statements in 
+`include/llvm/Object/ELFObjectFile.h`. Some architectures have a different 
+`EM_*` constant for 32-bit vs 64-bit, but RISC-V (like MIPS) uses the 
+`EI_CLASS` ELF field to determine whether an object file is for a 32-bit of 
+64-bit machine.
+* Add `EM_RISCV` to case statements in ELFYAML, llvm-objdump and llvm-readobj.
+
+See the patch for full details:
+
+{{% showpatch "add RISC-V ELF defines" %}}
+
+## Adding a skeleton backend
+
+The next step is to add a "skeleton" backend. i.e., enough code in 
+`lib/Target/RISCV` that the backend will compile and link. This involves:
+* Registering the RISC-V backend with the LLVM buildsystem.
+* Adding a stub `RISCVTargetMachine.{cpp,h}`
+* Adding a stub `RISCVTargetInfo.cpp` which will register the target
+
+The most interesting part of `RISCVTargetMachine` is probably the 
+`computeDataLayout` helper. This returns a datalayout string appropriate to 
+the machine (riscv32 or riscv64). For instance, the riscv32 datalayout string 
+is `"e-m:e-p:32:32-i64:64-n32-S128"`. To pull this apart, this string means:
+
+* `e`: little-endian
+* `m:e`: ELF mangling mode
+* `p:32:32`: pointers are 32-bit wide and have 32-bit alignment
+* `i64:64`: 64-bit integers have 64-bit alignment
+* `n32`: the native integer type is 32-bit
+* `S128`: the stack's natural alignment is 128 bits (16 bytes)
+
+You can now build the backend. CMake must be re-run, with RISCV specified in 
+`LLVM_EXPERIMENTAL_TARGETS_TO_BUILD`.
+
+    cmake -G Ninja -DCMAKE_BUILD_TYPE="Debug" \
+      -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+      -DLLVM_OPTIMIZED_TABLEGEN=True \
+      -DLLVM_BUILD_TESTS=True \
+      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+      -DLLVM_TARGETS_TO_BUILD="X86" \
+      -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../
+    cmake --build .
+
+You can check the target was included and registered correctly by checking the 
+output of a command like `./bin/llvm/as --version`, which should list riscv32 
+and riscv64 as registered targets. Of course the RISC-V backend is just a stub 
+at this point, so trying something like `./bin/llc -march=riscv64 
+../test/Object/Inputs/trivial.ll` will fail immediately with an assertion.

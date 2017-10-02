@@ -1,0 +1,23 @@
+# Supporting disassembly
+
+RISCVDisassembler provides methods for decoding immediates and registers to 
+appropriate `MCOperand` instances. This is driven by `getInstruction`, which 
+in turn relies on the TableGen-produced `decodeInstruction`.
+
+For instance:
+
+    template <unsigned N>
+    static DecodeStatus decodeSImmOperand(MCInst &Inst, uint64_t Imm,
+                                          int64_t Address, const void *Decoder)
+      assert(isUInt<N>(Imm) && "Invalid immediate");
+      // Sign-extend the number in the bottom N bits of Imm
+      Inst.addOperand(MCOperand::createImm(SignExtend64<N>(Imm)));
+      return MCDisassembler::Success;
+    }
+
+These `decode*` methods are specified in `RISCVInstrInfo.td`.
+
+With disassembly support implemented, `rv32i-valid.s` can be extended to 
+support full round-trip testing, i.e. checking that the `CHECK-INST` lines are 
+correct both for `llvm-mc -show-encoding` and when using `llvm-objdump -d` to 
+disassemble the object file.

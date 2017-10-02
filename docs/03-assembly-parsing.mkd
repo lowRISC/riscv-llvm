@@ -1,0 +1,197 @@
+# Implementing support for parsing RISC-V assembly
+
+## Overview
+
+Warning: Unfortunately there's quite a lot of code that needs to be written 
+before the assembler becomes testable.
+
+The necessary steps are:
+* Add a minimal set of TableGen files describing the RISC-V registers, 
+instruction formats, and instructions
+* Add a RISC-V MCTargetDesc in order to correctly initialise the MC layer 
+(machine code layer)
+* Add a RISCVAsmParser that is capable of parsing simple RISC-V assembly files
+* Add a RISCVInstPrinter in order to make the whole thing testable (this will 
+be done in the next part of this series)
+
+When targeting an architecture that already has a working assembler, you could 
+avoid implementing MC-layer support altogether and just rely on an external 
+assembler. However, starting with the MC layer is actually a useful way of 
+incrementally building up the backend.
+
+## Adding TableGen files
+
+[TableGen](http://llvm.org/docs/TableGen/) is a domain-specific language which 
+provides a concise and readably syntax for specifying records. For an LLVM 
+backend, these records include registers, instruction formats, and instruction 
+definitions. The [RISC-V specifications](https://riscv.org/specifications/) 
+are a useful reference for this.
+
+### Adding RISCVRegisterInfo.td
+
+RISCVRegisterInfo.td should define each register with a name such as `x1` as 
+well as the ABI name, `ra`. Each register definition is subclassed from 
+`Register`, defined in `include/llvm/Target/Target.td`. In order to support an 
+alternate name, you must define a unique `RegAltNameIndex`:
+
+    def ABIRegAltName : RegAltNameIndex
+
+Then for each Register, specify a list of alternate names as well as the valid 
+RegAltNameIndices. For instance in the following, `"zero"` is the 
+`ABIRegAltName`:
+
+    let RegAltNameIndices = [ABIRegAltName] in {
+      def X0_32    : RISCVReg32<0, "x0", ["zero"]>, DwarfRegNum<[0]>;
+
+Registers are collected in to an appropriate `RegisterClass`. The order of 
+registers in a class reflects the preferred register allocation sequence.
+However, given that the focus is just on the MC layer for now you can add them 
+in ascending order:
+
+    def GPR : RegisterClass<"RISCV", [i32], 32, (add
+      (sequence "X%u_32", 0, 31)
+    )>;
+
+### Adding RISCVInstrFormats.td
+
+Each instruction format definition serves as a superclass for individual 
+RISC-V instructions. The instruction format specifies how instructions of that 
+type should be encoded. For instance, the 'I' format instruction has a 3-bit 
+funct field, a 7-bit opcode field, two registers, and a 12-bit immediate 
+field.
+
+    class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, 
+        list<dag> pattern>
+        : RISCVInst<outs, ins, asmstr, pattern>
+    {
+      bits<12> imm12;
+      bits<5> rs1;
+      bits<5> rd;
+
+      let Inst{31-20} = imm12;
+      let Inst{19-15} = rs1;
+      let Inst{14-12} = funct3;
+      let Inst{11-7} = rd;
+      let Opcode = opcode;
+    }
+
+
+### Adding RISCVInstrInfo.td
+
+With the formats defined, adding the instructions is relatively 
+straight-forward. For instance:
+
+    def simm12 : Operand<i32>;
+
+    class ALU_ri<bits<3> funct3, string OpcodeStr> :
+          FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+             OpcodeStr#"\t$rd, $rs1, $imm12", []> {}
+
+    def ADDI  : ALU_ri<0b000, "addi">;
+
+Defining the `ALU_ri` class helps to avoid repetition when specifying the 
+group of similarly defined reg-imm ALU instructions.
+
+The string `"\t$rd, $rs1, $imm12"` specifies how the instruction's operands
+are represented in textual assembly.
+
+### Adding RISCV.td and checking the descriptions
+
+RISCV.td is the top-level TableGen file. As well as incorporating the register 
+and instruction definitions via includes, it contains definitions of processor 
+models and features, as well as other miscellaneous backend settings.
+
+You can check the produced TableGen records by executing:
+
+    ./bin/llvm-tblgen -I ../lib/Target/RISCV/ -I ../include/ -I ../lib/Target/ ../lib/Target/RISCV/RISCV.td
+
+You can then add tablegen invocations to `lib/Target/RISCV/CMakeLists.txt` 
+that generate backend C++ code based on the .td contents:
+
+    set(LLVM_TARGET_DEFINITIONS RISCV.td)
+
+    tablegen(LLVM RISCVGenRegisterInfo.inc -gen-register-info)
+    tablegen(LLVM RISCVGenInstrInfo.inc -gen-instr-info)
+
+    add_public_tablegen_target(RISCVCommonTableGen)
+
+## Adding a RISC-V MCTargetDesc
+
+The next step is to add a minimal set of classes under the RISCVMCTargetDesc 
+sub-directory. This will provide just enough functionality to emit a RISC-V 
+ELF.
+
+I found it easier to start top-down rather than bottom-up, so start with 
+`RISCVMCTargetDesc.cpp`. This is primarily responsible for registering the 
+necessary MC-layer classes.
+
+    extern "C" void LLVMInitializeRISCVTargetMC() {
+      for (Target *T : {&getTheRISCV32Target(), &getTheRISCV64Target()}) {
+        TargetRegistry::RegisterMCAsmInfo(*T, createRISCVMCAsmInfo);
+        TargetRegistry::RegisterMCInstrInfo(*T, createRISCVMCInstrInfo);
+        TargetRegistry::RegisterMCRegInfo(*T, createRISCVMCRegisterInfo);
+        TargetRegistry::RegisterMCAsmBackend(*T, createRISCVAsmBackend);
+        TargetRegistry::RegisterMCCodeEmitter(*T, createRISCVMCCodeEmitter);
+      }
+    }
+
+To understand this registration process, it's worth looking at how the LLVM 
+`TargetRegistry` works. A typical LLVM front-end or tool (e.g. llvm-mc) will 
+get an instance of `Target`, and then call methods such as `createMCRegInfo` 
+in order to obtain an instance of the given type.
+`LLVMInitializeRISCVTargetMC` is responsible for registering these instances, 
+ready for later retrieval. The easiest way of finding the minimal set of MC 
+classes to implement is to work through one-by-one and see what fails when 
+executing `./bin/llvm-mc -arch=riscv64 -filetype=obj foo.s`.
+
+* RISCVMCAsmInfo
+  * Inherits from MCAsmInfoELF. Just needs to specify a few key details such 
+  as the comment string.
+  * The 'anchor' method is provided as per the [LLVM coding 
+  standards](http://llvm.org/docs/CodingStandards.html#provide-a-virtual-method-anchor-for-classes-in-headers).  
+  As explained in [this StackOverflow 
+  answer](https://stackoverflow.com/questions/16801222/out-of-line-virtual-method), 
+  creating a dummy virtual method like this ensures that the vtable is emitted 
+  in only one .o file.
+* RISCVMCInstrInfo
+  * Trivial, just need to call `InitRISCVMCInstrInfo`, which is generated by 
+  tablegen.
+* RISCVAsmBackend
+  * All methods are stubbed out, with the exception of 
+  `RISCVAsmBackend::writeNopData`. The canonical NOP for RISC-V is `addi x0, 
+  x0, 0` (0x13).
+* RISCVELFObjectWriter
+  * Derives from `MCELFObjectTargetWriter`, and methods are all stubbed out.
+* RISCVMCCodeEmitter
+  * Converts RISC-V instructions (MCInst) to encoded instructions. Most of the 
+  work is done by `getBinaryCodeForInstr`, which is generated by TableGen.
+
+Finally, add `MCTargetDesc` to `lib/Target/RISCV/CMakeLists.txt` and create 
+`lib/Target/RISCV/MCTargetDesc/CMakeLists.txt`.
+
+At this point, you can try `./bin/llvm-mc -arch=riscv64 -filetype=obj foo.s`, 
+which should result in "error: this target does not support assembly parsing".
+Progress!
+
+## Implementing RISCVAsmParser
+
+Next up is the implementation of 
+`lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp`. A number of functions are 
+auto-generated from RISCVInstrInfo.td, such as `MatchRegisterName`, 
+`MatchRegisterAltName`, and `MatchInstructionImpl`.
+
+There are three major components to RISCVAsmParser:
+* `RISCVOperand`, representing an instruction operand (a token, register, or 
+immediate).
+* The top-level `MatchAndEmitInstruction`. This primarily calls 
+`MatchEmitInstructionImpl`. However, you will need to write code that handles 
+the various failure conditions, emitting an appropriate diagnostic.
+* Methods to parse instructions and operands.
+
+There is the potential for confusion with some of these method 
+implementations. Some will return a bool, others a MatchResult. A return value 
+of false typically indicates success.
+
+At this point, it should be possible to assemble a simple file using 
+`llvm-mc`. The `-stats` and `-as-lex` options are useful to track what is 
+going on.

@@ -1,0 +1,87 @@
+# Implementing instruction printing and testing
+
+With the bulk of the necessary infrastructure in place, you're now in a 
+position to add the final piece needed to test the assembler.
+
+## Adding an instruction printer
+
+RISCVInstPrinter is needed to convert an `MCInst` to a string. With this class 
+implemented, the `-show-encoding` option of `llvm-mc` can be used to check 
+that the way parsed instructions are printed matches expectations, and that 
+the encoding is correct.
+
+As with much of the MC-layer, the majority of the "work" is done by code 
+generated using TableGen.
+
+    void RISCVInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
+                                     StringRef Annot, const MCSubtargetInfo &ST
+      printInstruction(MI, O);
+      printAnnotation(O, Annot);
+    }
+
+    void RISCVInstPrinter::printRegName(raw_ostream &O, unsigned RegNo) const {
+      O << getRegisterName(RegNo);
+    }
+
+    void RISCVInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+                                        raw_ostream &O, const char *Modifier) {
+      assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
+      const MCOperand &MO = MI->getOperand(OpNo);
+
+      if (MO.isReg()) {
+        printRegName(O, MO.getReg());
+        return;
+      }
+
+      if (MO.isImm()) {
+        O << MO.getImm();
+        return;
+      }
+
+      assert(MO.isExpr() && "Unknown operand kind in printOperand");
+      MO.getExpr()->print(O, &MAI);
+    }
+
+## Implementing tests
+
+After creating the `test/MC/RISCV` direct, you must create a `lit.local.cfg` 
+file containing:
+
+    if not 'RISCV' in config.root.targets:
+        config.unsupported = True
+
+This ensures that the tests are not run when LLVM is built with RISCV support.
+
+LLVM tests typically make use of the 
+[FileCheck](http://llvm.org/docs/CommandGuide/FileCheck.html) utility to check 
+for patterns in tool output. There's lots of flexibility for how to struct 
+tests, but I suggest creating `rv32i-valid.s` to check that valid RISC-V 
+instructions are assembled correctly, and `rv32i-invalid.s` to check 
+diagnostics for invalid instructions.
+
+For instance, `rv32i-valid.s` may contain code like:
+
+    # RUN: llvm-mc %s -triple=riscv32 -show-encoding \
+    # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+    # RUN: llvm-mc %s -triple=riscv64 -show-encoding \
+    # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+
+    # CHECK-INST: addi ra, sp, 2
+    # CHECK: encoding: [0x93,0x00,0x21,0x00]
+    addi ra, sp, 2
+    # CHECK-INST: slti a0, a2, -20
+    # CHECK: encoding: [0x13,0x25,0xc6,0xfe]
+    slti a0, a2, -20
+
+While `rv32i-invalid.s` may contain code like:
+
+    # RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
+
+    # Out of range immediates
+    ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+    andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+
+## Adding support for all instructions
+
+At this point, you can now ensure that all RV32I instructions are defined in 
+`RISCVInstrInfo.td`, and can be assembled correctly.
