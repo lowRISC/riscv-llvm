@@ -10,7 +10,7 @@ implemented, the `-show-encoding` option of `llvm-mc` can be used to check
 that the way parsed instructions are printed matches expectations, and that 
 the encoding is correct.
 
-As with much of the MC-layer, the majority of the "work" is done by code 
+As with much of the MC layer, the majority of the "work" is done by code 
 generated using TableGen.
 
     void RISCVInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
@@ -44,7 +44,7 @@ generated using TableGen.
 
 ## Implementing tests
 
-After creating the `test/MC/RISCV` direct, you must create a `lit.local.cfg` 
+After creating the `test/MC/RISCV` directory, you must create a `lit.local.cfg` 
 file containing:
 
     if not 'RISCV' in config.root.targets:
@@ -83,5 +83,5 @@ While `rv32i-invalid.s` may contain code like:
 
 ## Adding support for all instructions
 
-At this point, you can now ensure that all RV32I instructions are defined in 
+At this point, you can ensure that all RV32I instructions are defined in 
 `RISCVInstrInfo.td`, and can be assembled correctly.
