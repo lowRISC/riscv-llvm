@@ -8,7 +8,7 @@ the architecture, vendor, operating system and sometimes environment. For
 RISC-V, there are two architecture names to recognise - riscv32 and riscv64.
 
 Necessary changes include adding riscv32 and riscv64 to:
-* The `Triple::ArchType` enum.
+* The `Triple::ArchType` enum
 * `Triple::getArchTypeName`, `Triple::getArchTypePrefix`, 
 `Triple::getArchTypeForLLVMName`, and `Triple::parseArch`
 * Helper functions such as `Triple::getDefaultFormat` (returning 
@@ -28,16 +28,17 @@ tutorial), and commit the patch.
 The final step before getting started on the backend itself is to add the 
 necessary definitions for RISC-V ELF files. This includes:
 * Adding the relocation types to 
-`include/llvm/BinaryFormat/ELFRelocs/RISCV.def`.
+`include/llvm/BinaryFormat/ELFRelocs/RISCV.def`
 * Adding the `EM_RISCV` machine definition (see 
 [here](http://www.sco.com/developers/gabi/latest/ch4.eheader.html) for a 
-reference list).
+reference list)
 * Adding `EM_RISCV` to various case statements in 
 `include/llvm/Object/ELFObjectFile.h`. Some architectures have a different 
 `EM_*` constant for 32-bit vs 64-bit, but RISC-V (like MIPS) uses the 
 `EI_CLASS` ELF field to determine whether an object file is for a 32-bit of 
-64-bit machine.
-* Add `EM_RISCV` to case statements in ELFYAML, llvm-objdump and llvm-readobj.
+64-bit machine
+* Adding `EM_RISCV` to case statements in ELFYAML, llvm-objdump and 
+llvm-readobj
 
 See the patch for full details:
 
@@ -45,9 +46,9 @@ See the patch for full details:
 
 ## Adding a skeleton backend
 
-The next step is to add a "skeleton" backend. i.e., enough code in 
+The next step is to add a "skeleton" backend, i.e. enough code in
 `lib/Target/RISCV` that the backend will compile and link. This involves:
-* Registering the RISC-V backend with the LLVM buildsystem.
+* Registering the RISC-V backend with the LLVM buildsystem
 * Adding a stub `RISCVTargetMachine.{cpp,h}`
 * Adding a stub `RISCVTargetInfo.cpp` which will register the target
 
@@ -77,6 +78,6 @@ You can now build the backend. CMake must be re-run, with RISCV specified in
 
 You can check the target was included and registered correctly by checking the 
 output of a command like `./bin/llvm/as --version`, which should list riscv32 
-and riscv64 as registered targets. Of course the RISC-V backend is just a stub 
-at this point, so trying something like `./bin/llc -march=riscv64 
+and riscv64 as registered targets. Of course, the RISC-V backend is just a 
+stub at this point, so trying something like `./bin/llc -march=riscv64 
 ../test/Object/Inputs/trivial.ll` will fail immediately with an assertion.

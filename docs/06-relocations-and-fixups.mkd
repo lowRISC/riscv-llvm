@@ -14,7 +14,7 @@ you'll be ready to move on to code generation.
 
 First, introduce `RISCVFixupKinds.h` and implement 
 `RISCVAsmBackend::getFixupKindInfo`. This defines the supported fixups, and 
-metadata bout each fixup (offset in an instruction, the length, whether it's 
+metadata about each fixup (offset in an instruction, the length, whether it's 
 relative to the program counter). Next, implement 
 `RISCVAsmBackend::applyFixup`. If the fixup value is known at the time 
 `applyFixup` is called, this method is responsible for modifying the encoded 
@@ -30,7 +30,7 @@ generating relocations when fixups are left unresolved.
 ## Changes to the assembler
 
 Generating fixups from the assembly parser requires the implementation of 
-`RISCVMCExr`. Instances of this will be created to allow the assembly parser 
+`RISCVMCExpr`. Instances of this will be created to allow the assembly parser 
 to record operands with modifiers like `%pcrel_hi()`. `RISCVMCExpr` introduces 
 yet another concept - `VariantKind`s. These are needed to represent cases 
 where operand modifiers don't result in fixups, for instance `%lo()` might be 

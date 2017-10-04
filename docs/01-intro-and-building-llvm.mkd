@@ -2,12 +2,12 @@
 
 ## Introduction
 Creating a new compiler backend can seem like an insurmountable challenge at 
-times. As well as the challenges of integrating your code in to a complex
+times. As well as the challenges of integrating your code into a complex
 compiler toolchain, you're often contending with unstable assemblers, linkers, 
 runtime libraries and even simulators. In my view, taking an incremental 
 approach to backend development is the only way to successfully battle this 
-complexity. Copying and code from another backend and modifying it until it 
-produces plausible output is allows rapid initial progress, but isolating and 
+complexity. Copying code from another backend and modifying it until it 
+produces plausible output allows rapid initial progress, but isolating and 
 debugging issues can be incredibly difficult.
 
 This document describes the approach taken for the implementation of the 
@@ -34,7 +34,7 @@ compiler (e.g. Clang) is a good starting point:
 
     sudo apt-get install clang ninja cmake
 
-LLVM development involves a huge number of incremental rebuilds (i.e.  
+LLVM development involves a huge number of incremental rebuilds (i.e. 
 compiling after making a small change). Choosing compiler options that help 
 reduce the time this takes is really useful for productivity. This [blog 
 post](https://blogs.s-osg.org/an-introduction-to-accelerating-your-build-with-clang/) 
@@ -55,12 +55,11 @@ To explain some of these options:
 [Ninja](https://martine.github.io/ninja/) build system and generate a
 build.ninja file rather than Makefiles
 * `-DBUILD_SHARED_LIBS=True` and  `-DLLVM_USE_SPLIT_DWARF=True` ultimately 
-reduce
-incremental build times by reducing file I/O
+reduce incremental build times by reducing file I/O
 * `-DLLVM_TARGETS_TO_BUILD="X86"` specifies that only the X86 target will be
 built. This is one way of speeding up the build.
 * `-DCMAKE_BUILD_TYPE="Debug"` means a debug build will be produced, which has
-assertions and backtraces enabled. The binaries will be larger and shower than
+assertions and backtraces enabled. The binaries will be larger and slower than
 a release build.
 * `-DLLVM_OPTIMIZED_TABLEGEN=True` will cause a release binary of tblgen to
 be built and used. This can decrease build time for debug builds.
@@ -74,7 +73,7 @@ have better error messages.
 
 LLVM has an [extensive test
 infrastructure](http://llvm.org/docs/TestingGuide.html). Before getting stuck
-in to coding, it's worth familiarising yourself with the basics and being sure
+into coding, it's worth familiarising yourself with the basics and being sure
 you're able to invoke the test suite.
 
 LLVM's regression tests live in the `test/` and `unittest/` subdirectories.
