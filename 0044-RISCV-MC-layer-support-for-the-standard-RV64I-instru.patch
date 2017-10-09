@@ -271,5 +271,5 @@ index 00000000000..292a2e6b0b7
 +# CHECK: encoding: [0x3b,0xdf,0x0f,0x40]
 +sraw t5, t6, zero
 -- 
-2.14.1
+2.14.2
 

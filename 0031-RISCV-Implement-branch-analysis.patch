@@ -317,5 +317,5 @@ index bb7ad950a90..12b156f1179 100644
  define i32 @foo(i32 %a, i32 *%b) {
  ; CHECK-LABEL: foo:
 -- 
-2.14.1
+2.14.2
 

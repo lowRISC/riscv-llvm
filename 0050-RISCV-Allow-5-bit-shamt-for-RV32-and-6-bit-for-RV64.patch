@@ -282,5 +282,5 @@ index 292a2e6b0b7..d33b1d1ef43 100644
  # CHECK: encoding: [0x13,0xdc,0x0c,0x00]
  srli x24, x25, 0
 -- 
-2.14.1
+2.14.2
 

@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC-layer support for the standard RV64M instruction set
+ extension
+
+---
+ lib/Target/RISCV/RISCVInstrInfoM.td | 10 ++++++++++
+ test/MC/RISCV/rv32m-invalid.s       |  9 +++++++++
+ test/MC/RISCV/rv64m-valid.s         | 20 ++++++++++++++++++++
+ 3 files changed, 39 insertions(+)
+ create mode 100644 test/MC/RISCV/rv32m-invalid.s
+ create mode 100644 test/MC/RISCV/rv64m-valid.s
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
+index c18518a5bf1..0cbf127ac4c 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoM.td
++++ b/lib/Target/RISCV/RISCVInstrInfoM.td
+@@ -21,10 +21,20 @@ def DIV     : ALU_rr<0b0000001, 0b100, "div">;
+ def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
+ def REM     : ALU_rr<0b0000001, 0b110, "rem">;
+ def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
++}
++
++let Predicates = [HasStdExtM, IsRV64] in {
++def MULW    : ALU64_rr<0b0000001, 0b000, "mulw">;
++def DIVW    : ALU64_rr<0b0000001, 0b100, "divw">;
++def DIVUW   : ALU64_rr<0b0000001, 0b101, "divuw">;
++def REMW    : ALU64_rr<0b0000001, 0b110, "remw">;
++def REMUW   : ALU64_rr<0b0000001, 0b111, "remuw">;
++}
+ 
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ 
++let Predicates = [HasStdExtM] in {
+ def : PatGprGpr<mul, MUL>;
+ def : PatGprGpr<mulhs, MULH>;
+ def : PatGprGpr<mulhu, MULHU>;
+diff --git a/test/MC/RISCV/rv32m-invalid.s b/test/MC/RISCV/rv32m-invalid.s
+new file mode 100644
+index 00000000000..5e268e8b916
+--- /dev/null
++++ b/test/MC/RISCV/rv32m-invalid.s
+@@ -0,0 +1,9 @@
++# RUN: not llvm-mc -triple riscv32 -mattr=+m < %s 2>&1 | FileCheck %s
++
++# RV64M instructions can't be used for RV32
++mulw ra, sp, gp # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++divw tp, t0, t1 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++divuw t2, s0, s2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++remw a0, a1, a2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++remuw a3, a4, a5 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++
+diff --git a/test/MC/RISCV/rv64m-valid.s b/test/MC/RISCV/rv64m-valid.s
+new file mode 100644
+index 00000000000..3de540dac21
+--- /dev/null
++++ b/test/MC/RISCV/rv64m-valid.s
+@@ -0,0 +1,20 @@
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+m -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+m < %s \
++# RUN:     | llvm-objdump -mattr=+m -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# CHECK-INST: mulw ra, sp, gp
++# CHECK: encoding: [0xbb,0x00,0x31,0x02]
++mulw ra, sp, gp
++# CHECK-INST: divw tp, t0, t1
++# CHECK: encoding: [0x3b,0xc2,0x62,0x02]
++divw tp, t0, t1
++# CHECK-INST: divuw t2, s0, s2
++# CHECK: encoding: [0xbb,0x53,0x24,0x03]
++divuw t2, s0, s2
++# CHECK-INST: remw a0, a1, a2
++# CHECK: encoding: [0x3b,0xe5,0xc5,0x02]
++remw a0, a1, a2
++# CHECK-INST: remuw a3, a4, a5
++# CHECK: encoding: [0xbb,0x76,0xf7,0x02]
++remuw a3, a4, a5
+-- 
+2.14.2
+
