@@ -1,25 +1,25 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV32A instruction set
+Subject: [RISCV] MC layer support for the standard RV32A instruction set
  extension
 
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  37 +++++--
  lib/Target/RISCV/RISCV.td                     |   5 +
- lib/Target/RISCV/RISCVInstrFormats.td         |  17 +++
+ lib/Target/RISCV/RISCVInstrFormats.td         |  18 ++++
  lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
- lib/Target/RISCV/RISCVInstrInfoA.td           |  57 ++++++++++
+ lib/Target/RISCV/RISCVInstrInfoA.td           |  63 +++++++++++
  lib/Target/RISCV/RISCVSubtarget.h             |   4 +-
  test/MC/RISCV/rv32a-invalid.s                 |  14 +++
  test/MC/RISCV/rv32a-valid.s                   | 146 ++++++++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                 |   2 +
- 9 files changed, 276 insertions(+), 7 deletions(-)
+ 9 files changed, 283 insertions(+), 7 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoA.td
  create mode 100644 test/MC/RISCV/rv32a-invalid.s
  create mode 100644 test/MC/RISCV/rv32a-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 6e77e028600..71980d9adbd 100644
+index 7c79afafe19..c4134d97df6 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -52,7 +52,8 @@ class RISCVAsmParser : public MCTargetAsmParser {
@@ -93,7 +93,7 @@ index 6e77e028600..71980d9adbd 100644
  
    // Attempt to parse token as an immediate
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index bf9d6cdb340..541f466a878 100644
+index d8581f8d03c..e9a7501e920 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -18,6 +18,11 @@ def FeatureStdExtM : SubtargetFeature<"m", "HasStdExtM", "true",
@@ -109,16 +109,17 @@ index bf9d6cdb340..541f466a878 100644
                             "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
-index 97c9edb69da..25b39f25f1b 100644
+index 48f6cf8762d..3dca957e31f 100644
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ b/lib/Target/RISCV/RISCVInstrFormats.td
-@@ -86,6 +86,23 @@ class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
-   let Opcode = opcode;
+@@ -118,6 +118,24 @@ class RVInstR<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode, dag outs,
+   let Opcode = opcode.Value;
  }
  
-+class FRAtomic<bits<5> funct5, bit aq, bit rl, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
-+         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern, InstFormatR>
-+{
++class RVInstRAtomic<bits<5> funct5, bit aq, bit rl, bits<3> funct3,
++                    RISCVOpcode opcode, dag outs, dag ins, string opcodestr,
++                    string argstr>
++    : RVInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
 +  bits<5> rs2;
 +  bits<5> rs1;
 +  bits<5> rd;
@@ -130,27 +131,27 @@ index 97c9edb69da..25b39f25f1b 100644
 +  let Inst{19-15} = rs1;
 +  let Inst{14-12} = funct3;
 +  let Inst{11-7} = rd;
-+  let Opcode = opcode;
++  let Opcode = opcode.Value;
 +}
 +
- class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
-     : RISCVInst<outs, ins, asmstr, pattern, InstFormatI>
- {
+ class RVInstI<bits<3> funct3, RISCVOpcode opcode, dag outs, dag ins,
+               string opcodestr, string argstr>
+     : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index af02c91a842..193f3d9c6be 100644
+index 6c55c34d71f..5592cd06f4a 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -434,3 +434,4 @@ let Defs = [X2_32], Uses = [X2_32] in {
- // Standard extensions
+@@ -461,3 +461,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+ //===----------------------------------------------------------------------===//
  
  include "RISCVInstrInfoM.td"
 +include "RISCVInstrInfoA.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoA.td b/lib/Target/RISCV/RISCVInstrInfoA.td
 new file mode 100644
-index 00000000000..273e8548bfe
+index 00000000000..54f35c3c0ba
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoA.td
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,63 @@
 +//===-- RISCVInstrInfoA.td - RISC-V 'A' instructions -------*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -165,35 +166,41 @@ index 00000000000..273e8548bfe
 +//
 +//===----------------------------------------------------------------------===//
 +
-+// lr.w needs its own class+multiclass as it takes only two arguments. sc.w
-+// has the same format as the AMOs and can make use of AMO_rr_aq_rl
++//===----------------------------------------------------------------------===//
++// Instruction class templates
++//===----------------------------------------------------------------------===//
++
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-+class LR_r<bit aq, bit rl, bits<3> funct3, string OpcodeStr> :
-+      FRAtomic<0b00010, aq, rl, funct3, 0b0101111,
-+               (outs GPR:$rd), (ins GPR:$rs1),
-+               OpcodeStr#"\t$rd, (${rs1})", []> {
++class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
++    : RVInstRAtomic<0b00010, aq, rl, funct3, OPC_AMO,
++                    (outs GPR:$rd), (ins GPR:$rs1),
++                    opcodestr, "$rd, (${rs1})"> {
 +  let rs2 = 0;
 +}
 +
-+multiclass LR_r_aq_rl<bits<3> funct3, string OpcodeStr> {
-+  def ""     : LR_r<0, 0, funct3, OpcodeStr>;
-+  def _AQ    : LR_r<1, 0, funct3, OpcodeStr # ".aq">;
-+  def _RL    : LR_r<0, 1, funct3, OpcodeStr # ".rl">;
-+  def _AQ_RL : LR_r<1, 1, funct3, OpcodeStr # ".aqrl">;
++multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr> {
++  def ""     : LR_r<0, 0, funct3, opcodestr>;
++  def _AQ    : LR_r<1, 0, funct3, opcodestr # ".aq">;
++  def _RL    : LR_r<0, 1, funct3, opcodestr # ".rl">;
++  def _AQ_RL : LR_r<1, 1, funct3, opcodestr # ".aqrl">;
 +}
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in
-+class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string OpcodeStr> :
-+      FRAtomic<funct5, aq, rl, funct3, 0b0101111,
-+               (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-+               OpcodeStr#"\t$rd, $rs2, (${rs1})", []>;
++class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr>
++    : RVInstRAtomic<funct5, aq, rl, funct3, OPC_AMO,
++                    (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
++                    opcodestr, "$rd, $rs2, (${rs1})">;
 +
-+multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string OpcodeStr> {
-+  def ""     : AMO_rr<funct5, 0, 0, funct3, OpcodeStr>;
-+  def _AQ    : AMO_rr<funct5, 1, 0, funct3, OpcodeStr # ".aq">;
-+  def _RL    : AMO_rr<funct5, 0, 1, funct3, OpcodeStr # ".rl">;
-+  def _AQ_RL : AMO_rr<funct5, 1, 1, funct3, OpcodeStr # ".aqrl">;
++multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr> {
++  def ""     : AMO_rr<funct5, 0, 0, funct3, opcodestr>;
++  def _AQ    : AMO_rr<funct5, 1, 0, funct3, opcodestr # ".aq">;
++  def _RL    : AMO_rr<funct5, 0, 1, funct3, opcodestr # ".rl">;
++  def _AQ_RL : AMO_rr<funct5, 1, 1, funct3, opcodestr # ".aqrl">;
 +}
++
++//===----------------------------------------------------------------------===//
++// Instructions
++//===----------------------------------------------------------------------===//
 +
 +let Predicates = [HasStdExtA] in {
 +defm LR_W       : LR_r_aq_rl<0b010, "lr.w">;
@@ -207,9 +214,9 @@ index 00000000000..273e8548bfe
 +defm AMOMAX_W   : AMO_rr_aq_rl<0b10100, 0b010, "amomax.w">;
 +defm AMOMINU_W  : AMO_rr_aq_rl<0b11000, 0b010, "amominu.w">;
 +defm AMOMAXU_W  : AMO_rr_aq_rl<0b11100, 0b010, "amomaxu.w">;
-+}
++} // Predicates = [HasStdExtA]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index d3174db6b30..d4349fb183f 100644
+index be9b04990ca..14b25c14dbe 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -30,7 +30,8 @@ class StringRef;
@@ -222,7 +229,7 @@ index d3174db6b30..d4349fb183f 100644
    bool HasRV64 = false;
    unsigned XLen = 32;
    MVT XLenVT = MVT::i32;
-@@ -67,6 +68,7 @@ public:
+@@ -68,6 +69,7 @@ public:
      return &TSInfo;
    }
    bool hasStdExtM() const { return HasStdExtM; }

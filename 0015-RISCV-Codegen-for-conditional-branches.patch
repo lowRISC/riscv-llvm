@@ -8,11 +8,11 @@ Subject: [RISCV] Codegen for conditional branches
  lib/Target/RISCV/RISCVISelLowering.cpp |  1 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    | 33 ++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h      | 11 +++++
- lib/Target/RISCV/RISCVInstrInfo.td     | 41 +++++++++++++++--
+ lib/Target/RISCV/RISCVInstrInfo.td     | 36 ++++++++++++++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp | 31 ++++++++++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |  2 +
  test/CodeGen/RISCV/branch.ll           | 83 ++++++++++++++++++++++++++++++++++
- 9 files changed, 204 insertions(+), 4 deletions(-)
+ 9 files changed, 200 insertions(+), 3 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
@@ -32,25 +32,25 @@ index a6bf14f9a7d..56c0abdab32 100644
  void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
                                      const AsmPrinter &AP);
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
-index 7eb48c8f177..05a515e7b76 100644
+index e0c25e32e01..0b7a523424c 100644
 --- a/lib/Target/RISCV/RISCVCallingConv.td
 +++ b/lib/Target/RISCV/RISCVCallingConv.td
-@@ -29,3 +29,6 @@ def CC_RISCV32 : CallingConv<[
+@@ -27,3 +27,6 @@ def CC_RISCV32 : CallingConv<[
+ ]>;
  
- def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
-                           (sequence "X%u_32", 18, 27))>;
+ def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
 +
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 10a09fc9ca5..ad75e173457 100644
+index 59dc06bc888..216c2817d25 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -55,6 +55,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -57,6 +57,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  
-   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
-+  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
++  setOperationAction(ISD::BR_CC, XLenVT, Expand);
    setBooleanContents(ZeroOrOneBooleanContent);
  
  
@@ -96,10 +96,10 @@ index 77206a80640..b756c69124b 100644
 +    llvm_unreachable("Can't load this register from stack slot");
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 27492c869db..3fee03252f2 100644
+index 5da3d010215..4d26d3148b7 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -33,6 +33,17 @@ public:
+@@ -30,6 +30,17 @@ public:
    void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator Position,
                     const DebugLoc &DL, unsigned DestinationRegister,
                     unsigned SourceRegister, bool KillSource) const override;
@@ -118,47 +118,35 @@ index 27492c869db..3fee03252f2 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 93a6bd46587..07a32bb0254 100644
+index 5a129ce72a9..7cb3ffe7372 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -60,7 +60,7 @@ def uimm12 : Operand<i32> {
+@@ -67,7 +67,7 @@ def uimm12 : Operand<XLenVT> {
  }
  
  // A 13-bit signed immediate where the least significant bit is zero.
--def simm13_lsb0 : Operand<i32> {
+-def simm13_lsb0 : Operand<XLenVT> {
 +def simm13_lsb0 : Operand<OtherVT> {
    let ParserMatchClass = SImmAsmOperand<13, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
    let DecoderMethod = "decodeSImmOperandAndLsl1<13>";
-@@ -73,7 +73,7 @@ def uimm20 : Operand<i32> {
+@@ -80,7 +80,7 @@ def uimm20 : Operand<XLenVT> {
  }
  
  // A 21-bit signed immediate where the least significant bit is zero.
--def simm21_lsb0 : Operand<i32> {
+-def simm21_lsb0 : Operand<XLenVT> {
 +def simm21_lsb0 : Operand<OtherVT> {
    let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
-@@ -120,7 +120,10 @@ def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
- let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
- class Bcc<bits<3> funct3, string OpcodeStr> :
-       FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
--         OpcodeStr#"\t$rs1, $rs2, $imm12", []>;
-+         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
-+  let isBranch = 1;
-+  let isTerminator = 1;
-+}
- 
- def BEQ   : Bcc<0b000, "beq">;
- def BNE   : Bcc<0b001, "bne">;
-@@ -283,6 +286,38 @@ def : PatGprSimm12<setult, SLTIU>;
+@@ -307,6 +307,38 @@ def : PatGprSimm12<setult, SLTIU>;
  
  /// Branches and jumps
  
 +// Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
 +// instruction.
-+class BccPat<PatFrag CondOp, FSB Inst> :
-+      Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
++class BccPat<PatFrag CondOp, RVInstB Inst>
++    : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
 +          (Inst GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12)>;
 +
 +def : BccPat<seteq, BEQ>;
@@ -168,9 +156,9 @@ index 93a6bd46587..07a32bb0254 100644
 +def : BccPat<setult, BLTU>;
 +def : BccPat<setuge, BGEU>;
 +
-+class BccSwapPat<PatFrag CondOp, RISCVInst InstBcc> : Pat<
-+  (brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
-+  (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
++class BccSwapPat<PatFrag CondOp, RVInst InstBcc>
++    : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
++          (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
 +
 +// Condition codes that don't have matching RISC-V branch instructions, but
 +// are trivially supported by swapping the two input operands
@@ -181,20 +169,20 @@ index 93a6bd46587..07a32bb0254 100644
 +
 +// An extra pattern is needed for a brcond without a setcc (i.e. where the
 +// condition was calculated elsewhere).
-+def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0_32, bb:$imm12)>;
++def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0, bb:$imm12)>;
 +
 +let isBarrier = 1, isBranch = 1, isTerminator = 1 in
 +def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
-+               PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
++               PseudoInstExpansion<(JAL X0, simm21_lsb0:$imm20)>;
 +
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index cf0a31df9cf..e9b81a2446f 100644
+index 4f6c528061c..fb1cf6d198b 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -54,10 +54,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+@@ -50,10 +50,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
    return Reserved;
  }
  
@@ -236,7 +224,7 @@ index cf0a31df9cf..e9b81a2446f 100644
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index 30ca44247d9..4e179c22cdd 100644
+index 94af9f44ecd..a9b6f0717db 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -29,6 +29,8 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

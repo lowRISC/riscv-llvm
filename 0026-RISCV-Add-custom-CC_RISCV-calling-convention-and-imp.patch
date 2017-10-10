@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] Add custom CC_RISCV32 calling convention and improved call
+Subject: [RISCV] Add custom CC_RISCV calling convention and improved call
  support
 
 The TableGen-based calling convention definitions are inflexible, while
@@ -11,54 +11,76 @@ this patch adds support for:
 * Byval arguments
 * Passing values on the stack when the argument registers are exhausted
 
+The custom CC_RISCV calling convention is also used for returns.
+
 It also documents the ABI lowering that a language frontend is expected to
-perform. I would like to drastically simplify these requirements over time,
+perform. I would like to work to simplify these requirements over time,
 but this will require further discussion within the LLVM community.
 ---
- lib/Target/RISCV/RISCVCallingConv.td   |  12 +-
- lib/Target/RISCV/RISCVISelLowering.cpp | 277 +++++++++++++++++-
- lib/Target/RISCV/RISCVISelLowering.h   |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |   5 +-
- test/CodeGen/RISCV/byval.ll            |  27 ++
- test/CodeGen/RISCV/calling-conv.ll     | 513 +++++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/calls.ll            |  27 ++
- test/CodeGen/RISCV/fp128.ll            |  40 +++
- 8 files changed, 879 insertions(+), 26 deletions(-)
+ lib/Target/RISCV/CMakeLists.txt              |   1 -
+ lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
+ lib/Target/RISCV/RISCVISelLowering.cpp       | 334 +++++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.h         |  10 +
+ lib/Target/RISCV/RISCVInstrInfo.td           |   5 +-
+ test/CodeGen/RISCV/byval.ll                  |  27 ++
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll | 204 +++++++++++
+ test/CodeGen/RISCV/calling-conv.ll           | 513 +++++++++++++++++++++++++++
+ test/CodeGen/RISCV/calls.ll                  |  27 ++
+ test/CodeGen/RISCV/fp128.ll                  |  40 +++
+ 10 files changed, 1141 insertions(+), 36 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
+ create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
  create mode 100644 test/CodeGen/RISCV/fp128.ll
 
+diff --git a/lib/Target/RISCV/CMakeLists.txt b/lib/Target/RISCV/CMakeLists.txt
+index bac4d4c353d..66b50f8728e 100644
+--- a/lib/Target/RISCV/CMakeLists.txt
++++ b/lib/Target/RISCV/CMakeLists.txt
+@@ -6,7 +6,6 @@ tablegen(LLVM RISCVGenMCCodeEmitter.inc -gen-emitter)
+ tablegen(LLVM RISCVGenMCPseudoLowering.inc -gen-pseudo-lowering)
+ tablegen(LLVM RISCVGenAsmMatcher.inc -gen-asm-matcher)
+ tablegen(LLVM RISCVGenAsmWriter.inc -gen-asm-writer)
+-tablegen(LLVM RISCVGenCallingConv.inc -gen-callingconv)
+ tablegen(LLVM RISCVGenDAGISel.inc -gen-dag-isel)
+ tablegen(LLVM RISCVGenSubtargetInfo.inc -gen-subtarget)
+ tablegen(LLVM RISCVGenDisassemblerTables.inc -gen-disassembler)
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
-index 05a515e7b76..51a4470f5ca 100644
+index 0b7a523424c..d2b17c64c9c 100644
 --- a/lib/Target/RISCV/RISCVCallingConv.td
 +++ b/lib/Target/RISCV/RISCVCallingConv.td
-@@ -15,17 +15,7 @@
- def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10_32, X11_32]>>]>;
+@@ -11,20 +11,8 @@
+ //
+ //===----------------------------------------------------------------------===//
  
- // RISCV 32-bit C Calling convention.
+-// RISCV 32-bit C return-value convention.
+-def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10, X11]>>]>;
+-
+-// RISCV 32-bit C Calling convention.
 -def CC_RISCV32 : CallingConv<[
 -  // Promote i8/i16 args to i32
 -  CCIfType<[ i8, i16 ], CCPromoteToType<i32>>,
 -
 -  // All arguments get passed in integer registers if there is space.
--  CCIfType<[i32], CCAssignToReg<[ X10_32, X11_32, X12_32, X13_32, X14_32,
--                                  X15_32, X16_32, X17_32 ]>>,
+-  CCIfType<[i32], CCAssignToReg<[ X10, X11, X12, X13, X14, X15, X16, X17]>>,
 -
 -  // Could be assigned to the stack in 8-byte aligned units, but unsupported
 -  CCAssignToStack<8, 8>
 -]>;
-+def CC_RISCV32 : CustomCallingConv;
++// The RISC-V calling convention is handled with custom code in
++// RISCVISelLowering.cpp (CC_RISCV).
  
- def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
-                           (sequence "X%u_32", 18, 27))>;
+ def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
+ 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 45885da604f..353c287c8be 100644
+index c4ea48f53e6..856168d0e5e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -284,6 +284,151 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -309,7 +309,190 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
+-#include "RISCVGenCallingConv.inc"
 +// The expectations for frontend ABI lowering vary from target to target.
 +// Ideally, an LLVM frontend would be able to avoid worrying about many ABI
 +// details, but this is a longer term goal. For now, we simply try to keep the
@@ -84,28 +106,31 @@ index 45885da604f..353c287c8be 100644
 +// arguments.
 +
 +static const MCPhysReg ArgGPRs[] = {
-+  RISCV::X10_32, RISCV::X11_32, RISCV::X12_32, RISCV::X13_32,
-+  RISCV::X14_32, RISCV::X15_32, RISCV::X16_32, RISCV::X17_32
++  RISCV::X10, RISCV::X11, RISCV::X12, RISCV::X13,
++  RISCV::X14, RISCV::X15, RISCV::X16, RISCV::X17
 +};
 +
 +// Pass a 2xlen argument that has been split in to two xlen values through
 +// registers or the stack as necessary.
-+static bool CC_RISCV32Assign2XLEN(CCState &State, CCValAssign VA1,
-+                                  ISD::ArgFlagsTy ArgFlags1, unsigned ValNo2,
-+                                  MVT ValVT2, MVT LocVT2,
-+                                  ISD::ArgFlagsTy ArgFlags2) {
++static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
++                                ISD::ArgFlagsTy ArgFlags1, unsigned ValNo2,
++                                MVT ValVT2, MVT LocVT2,
++                                ISD::ArgFlagsTy ArgFlags2) {
++  unsigned XLenInBytes = XLen / 8;
 +  if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
 +    // At least one half can be passed via register
 +    State.addLoc(CCValAssign::getReg(VA1.getValNo(), VA1.getValVT(), Reg,
 +                                     VA1.getLocVT(), CCValAssign::Full));
 +  } else {
 +    // Both halves must be passed on the stack, with proper alignment
-+    unsigned StackAlign = std::max(4u, ArgFlags1.getOrigAlign());
-+    State.addLoc(CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
-+                                     State.AllocateStack(4, StackAlign),
-+                                     VA1.getLocVT(), CCValAssign::Full));
-+    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
-+                                     LocVT2, CCValAssign::Full));
++    unsigned StackAlign = std::max(XLenInBytes, ArgFlags1.getOrigAlign());
++    State.addLoc(
++        CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
++                            State.AllocateStack(XLenInBytes, StackAlign),
++                            VA1.getLocVT(), CCValAssign::Full));
++    State.addLoc(CCValAssign::getMem(
++        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes), LocVT2,
++        CCValAssign::Full));
 +    return false;
 +  }
 +
@@ -115,26 +140,28 @@ index 45885da604f..353c287c8be 100644
 +        CCValAssign::getReg(ValNo2, ValVT2, Reg, LocVT2, CCValAssign::Full));
 +  } else {
 +    // The second half is passed via the stack, without additional alignment
-+    State.addLoc(CCValAssign::getMem(ValNo2, ValVT2, State.AllocateStack(4, 4),
-+                                     LocVT2, CCValAssign::Full));
++    State.addLoc(CCValAssign::getMem(
++        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes), LocVT2,
++        CCValAssign::Full));
 +  }
 +
 +  return false;
 +}
 +
-+static bool CC_RISCV32(unsigned ValNo, MVT ValVT, MVT LocVT,
-+                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
-+                       CCState &State) {
-+  // Promote i8 and i16
-+  if (LocVT == MVT::i8 || LocVT == MVT::i16) {
-+    LocVT = MVT::i32;
-+    if (ArgFlags.isSExt())
-+      LocInfo = CCValAssign::SExt;
-+    else if (ArgFlags.isZExt())
-+      LocInfo = CCValAssign::ZExt;
-+    else
-+      LocInfo = CCValAssign::AExt;
-+  }
++static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
++                     CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
++                     CCState &State, bool IsFixed, bool IsRet) {
++  unsigned XLen = DL.getLargestLegalIntTypeSizeInBits();
++  assert(XLen == 32 || XLen == 64);
++  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
++  assert(ValVT == XLenVT);
++  assert(LocVT == XLenVT);
++  assert(IsFixed && "Vararg support not yet implemented");
++
++  // Any return value split in to more than two values can't be returned
++  // directly.
++  if (IsRet && ValNo > 1)
++    return true;
 +
 +  SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
 +  SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
@@ -145,7 +172,7 @@ index 45885da604f..353c287c8be 100644
 +  // Split arguments might be passed indirectly, so keep track of the pending
 +  // values.
 +  if (ArgFlags.isSplit() || !PendingMembers.empty()) {
-+    LocVT = MVT::i32;
++    LocVT = XLenVT;
 +    LocInfo = CCValAssign::Indirect;
 +    PendingMembers.push_back(
 +        CCValAssign::getPending(ValNo, ValVT, LocVT, LocInfo));
@@ -165,12 +192,13 @@ index 45885da604f..353c287c8be 100644
 +    ISD::ArgFlagsTy AF = PendingArgFlags[0];
 +    PendingMembers.clear();
 +    PendingArgFlags.clear();
-+    return CC_RISCV32Assign2XLEN(State, VA, AF, ValNo, ValVT, LocVT, ArgFlags);
++    return CC_RISCVAssign2XLen(XLen, State, VA, AF, ValNo, ValVT, LocVT,
++                               ArgFlags);
 +  }
 +
 +  // Allocate to a register if possible, or else a stack slot
 +  unsigned Reg = State.AllocateReg(ArgGPRs);
-+  unsigned StackOffset = Reg ? 0 : State.AllocateStack(4, 4);
++  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen / 8, XLen / 8);
 +
 +  // If we reach this point and PendingMembers is non-empty, we must be at the
 +  // end of a split argument that must be passed indirect
@@ -190,10 +218,7 @@ index 45885da604f..353c287c8be 100644
 +    return false;
 +  }
 +
-+  assert(LocVT.getSizeInBits() == 32 &&
-+         "Programming error: should have a 32-bit sized type at this point");
-+  // TODO: do I need to bit-convert f32?
-+  assert(LocVT == MVT::i32 && "Expected and i32 at this stage");
++  assert(LocVT == XLenVT && "Expected an XLenVT at this stage");
 +
 +  if (Reg) {
 +    State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
@@ -204,22 +229,62 @@ index 45885da604f..353c287c8be 100644
 +  return false;
 +}
 +
- #include "RISCVGenCallingConv.inc"
++void RISCVTargetLowering::analyzeInputArgs(
++    MachineFunction &MF, CCState &CCInfo,
++    const SmallVectorImpl<ISD::InputArg> &Ins, bool IsRet) const {
++  unsigned NumArgs = Ins.size();
++
++  for (unsigned i = 0; i != NumArgs; ++i) {
++    MVT ArgVT = Ins[i].VT;
++    ISD::ArgFlagsTy ArgFlags = Ins[i].Flags;
++
++    if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++                 ArgFlags, CCInfo, true, IsRet)) {
++      DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
++                   << EVT(ArgVT).getEVTString() << '\n');
++      llvm_unreachable(nullptr);
++    }
++  }
++}
++
++void RISCVTargetLowering::analyzeOutputArgs(
++    MachineFunction &MF, CCState &CCInfo,
++    const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsRet,
++    CallLoweringInfo *CLI) const {
++  unsigned NumArgs = Outs.size();
++
++  for (unsigned i = 0; i != NumArgs; i++) {
++    MVT ArgVT = Outs[i].VT;
++    ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
++
++    if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
++                 ArgFlags, CCInfo, Outs[i].IsFixed, IsRet)) {
++      DEBUG(dbgs() << "OutputArg #" << i << " has unhandled type "
++                   << EVT(ArgVT).getEVTString() << "\n");
++      llvm_unreachable(nullptr);
++    }
++  }
++}
  
  // Transform physical registers into virtual registers.
-@@ -301,7 +446,9 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -326,8 +509,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
    MachineRegisterInfo &RegInfo = MF.getRegInfo();
+   MVT XLenVT = Subtarget.getXLenVT();
 +  EVT PtrVT = getPointerTy(DAG.getDataLayout());
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -311,27 +458,59 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -335,25 +520,56 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   // Assign locations to all of the incoming arguments.
+   SmallVector<CCValAssign, 16> ArgLocs;
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
-   CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
+-  CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
++  analyzeInputArgs(MF, CCInfo, Ins, /*IsRet*/ false);
  
 -  for (auto &VA : ArgLocs) {
 +  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
@@ -229,32 +294,27 @@ index 45885da604f..353c287c8be 100644
      if (VA.isRegLoc()) {
        // Arguments passed in registers.
 -      EVT RegVT = VA.getLocVT();
--      switch (RegVT.getSimpleVT().SimpleTy) {
-+      switch (LocVT.getSimpleVT().SimpleTy) {
-       case MVT::i32: {
-         const unsigned VReg =
-             RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-         RegInfo.addLiveIn(VA.getLocReg(), VReg);
--        SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
--
--        InVals.push_back(ArgIn);
-+        ArgValue = DAG.getCopyFromReg(Chain, DL, VReg, LocVT);
-         break;
-       }
-       default:
+-      if (RegVT != XLenVT) {
++      if (LocVT != XLenVT) {
          DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 -                     << RegVT.getEVTString() << "\n");
 +                     << LocVT.getEVTString() << "\n");
          report_fatal_error("unhandled argument type");
        }
-     } else {
--      report_fatal_error("Defined with too many args");
+-      const unsigned VReg =
+-          RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
++      const unsigned VReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+       RegInfo.addLiveIn(VA.getLocReg(), VReg);
+-      SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
++      ArgValue = DAG.getCopyFromReg(Chain, DL, VReg, LocVT);
++    } else {
 +      assert(VA.isMemLoc() && "Argument not register or memory");
 +
 +      // Create the frame index object for this incoming parameter.
 +      int FI = MFI.CreateFixedObject(LocVT.getSizeInBits() / 8,
 +                                     VA.getLocMemOffset(), true);
-+
+ 
+-      InVals.push_back(ArgIn);
 +      // Create the SelectionDAG nodes corresponding to a load
 +      // from this parameter
 +      SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
@@ -280,12 +340,27 @@ index 45885da604f..353c287c8be 100644
 +                                     MachinePointerInfo()));
 +        ++I;
 +      }
-+    } else {
+     } else {
+-      report_fatal_error("Defined with too many args");
 +      InVals.push_back(ArgValue);
      }
    }
    return Chain;
-@@ -367,39 +546,101 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -374,6 +590,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   CallingConv::ID CallConv = CLI.CallConv;
+   bool IsVarArg = CLI.IsVarArg;
+   EVT PtrVT = getPointerTy(DAG.getDataLayout());
++  MVT XLenVT = Subtarget.getXLenVT();
+ 
+   if (IsVarArg) {
+     report_fatal_error("LowerCall with varargs not implemented");
+@@ -384,44 +601,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   // Analyze the operands of the call, assigning locations to each operand.
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  ArgCCInfo.AnalyzeCallOperands(Outs, CC_RISCV32);
++  analyzeOutputArgs(MF, ArgCCInfo, Outs, false, &CLI);
+ 
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
  
@@ -305,8 +380,7 @@ index 45885da604f..353c287c8be 100644
 +
 +    int FI = MF.getFrameInfo().CreateStackObject(Size, Align, false);
 +    SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
-+    // TODO: will need to change for i64
-+    SDValue SizeNode = DAG.getConstant(Size, DL, MVT::i32);
++    SDValue SizeNode = DAG.getConstant(Size, DL, XLenVT);
 +
 +    Chain = DAG.getMemcpy(Chain, DL, FIPtr, Arg, SizeNode, Align,
 +                          /*IsVolatile=*/false,
@@ -375,7 +449,7 @@ index 45885da604f..353c287c8be 100644
 +
 +      // Work out the address of the stack slot.
 +      if (!StackPtr.getNode())
-+        StackPtr = DAG.getCopyFromReg(Chain, DL, RISCV::X2_32, PtrVT);
++        StackPtr = DAG.getCopyFromReg(Chain, DL, RISCV::X2, PtrVT);
 +      SDValue Address =
 +          DAG.getNode(ISD::ADD, DL, PtrVT, StackPtr,
 +                      DAG.getIntPtrConstant(VA.getLocMemOffset(), DL));
@@ -393,7 +467,16 @@ index 45885da604f..353c287c8be 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -465,6 +706,14 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -471,7 +749,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   // Assign locations to each value returned by this call.
+   SmallVector<CCValAssign, 16> RVLocs;
+   CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
+-  RetCCInfo.AnalyzeCallResult(Ins, RetCC_RISCV32);
++  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet*/ true);
+ 
+   // Copy all of the result registers out of their specified physreg.
+   for (auto &VA : RVLocs) {
+@@ -487,6 +765,21 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    return Chain;
  }
  
@@ -402,17 +485,46 @@ index 45885da604f..353c287c8be 100644
 +    const SmallVectorImpl<ISD::OutputArg> &Outs, LLVMContext &Context) const {
 +  SmallVector<CCValAssign, 16> RVLocs;
 +  CCState CCInfo(CallConv, IsVarArg, MF, RVLocs, Context);
-+  return CCInfo.CheckReturn(Outs, RetCC_RISCV32);
++  for (unsigned i = 0, e = Outs.size(); i != e; ++i) {
++    MVT VT = Outs[i].VT;
++    ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
++    if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
++                 CCInfo, /*IsFixed*/ true, /*IsRet*/ true))
++      return false;
++  }
++  return true;
 +}
 +
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
+@@ -504,7 +797,8 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
+                  *DAG.getContext());
+ 
+-  CCInfo.AnalyzeReturn(Outs, RetCC_RISCV32);
++  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet*/ true,
++                    nullptr);
+ 
+   SDValue Flag;
+   SmallVector<SDValue, 4> RetOps(1, Chain);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 77d5f16ee7c..5e3fb118df6 100644
+index e688576ef88..3d63482388f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -54,6 +54,10 @@ private:
+@@ -48,12 +48,22 @@ public:
+                               MachineBasicBlock *BB) const override;
+ 
+ private:
++  void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,
++                        const SmallVectorImpl<ISD::InputArg> &Ins,
++                        bool IsRet) const;
++  void analyzeOutputArgs(MachineFunction &MF, CCState &CCInfo,
++                         const SmallVectorImpl<ISD::OutputArg> &Outs,
++                         bool IsRet, CallLoweringInfo *CLI) const;
+   // Lower incoming arguments, copy physregs into vregs
+   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
+                                bool IsVarArg,
                                 const SmallVectorImpl<ISD::InputArg> &Ins,
                                 const SDLoc &DL, SelectionDAG &DAG,
                                 SmallVectorImpl<SDValue> &InVals) const override;
@@ -424,20 +536,20 @@ index 77d5f16ee7c..5e3fb118df6 100644
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b8cc83a5d3e..ccdc7c60868 100644
+index 4346b8b2ec6..76b3599c39d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -378,7 +378,10 @@ let isCall = 1, Defs = [X1_32] in
+@@ -404,7 +404,10 @@ let isCall = 1, Defs = [X1] in
  def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-                  PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
+                  PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
  
 -let isBarrier = 1, isReturn = 1, isTerminator = 1 in
-+// FIXME: PseudoRET doesn't really modify X1_32 (RA), however marking it as
++// FIXME: PseudoRET doesn't really modify X1 (RA), however marking it as
 +// such does ensure the the return address is always given a stack slot.
 +
-+let Defs = [X1_32], isBarrier = 1, isReturn = 1, isTerminator = 1 in
++let Defs = [X1], isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
  
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
 new file mode 100644
@@ -472,6 +584,216 @@ index 00000000000..bef084f8376
 +  %call = call i32 @callee(%struct.Foo* byval @foo)
 +  ret void
 +}
+diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
+new file mode 100644
+index 00000000000..970f2db5afa
+--- /dev/null
++++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
+@@ -0,0 +1,204 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++; TODO: add exhaustive CHECK-NEXT checks once codegen learns not to create
++; unnecessary frames
++
++define zeroext i8 @uint8_arg_to_uint8_ret(i8 zeroext %a) {
++; CHECK-LABEL: uint8_arg_to_uint8_ret:
++  ret i8 %a
++}
++
++declare void @receive_uint8(i8 zeroext)
++
++define void @pass_uint8_as_uint8(i8 zeroext %a) {
++; CHECK-LABEL: pass_uint8_as_uint8:
++  call void @receive_uint8(i8 zeroext %a)
++  ret void
++}
++
++declare zeroext i8 @return_uint8()
++
++define zeroext i8 @ret_callresult_uint8_as_uint8() {
++; CHECK-LABEL: ret_callresult_uint8_as_uint8:
++  %1 = call zeroext i8 @return_uint8()
++  ret i8 %1
++}
++
++define signext i8 @uint8_arg_to_sint8_ret(i8 zeroext %a) {
++; CHECK-LABEL: uint8_arg_to_sint8_ret:
++; CHECK: slli a0, a0, 24
++; CHECK: srai a0, a0, 24
++  ret i8 %a
++}
++
++declare void @receive_sint8(i8 signext)
++
++define void @pass_uint8_as_sint8(i8 zeroext %a) {
++; CHECK-LABEL: pass_uint8_as_sint8:
++; CHECK: slli a0, a0, 24
++; CHECK: srai a0, a0, 24
++; CHECK: jalr ra, a1, 0
++
++  call void @receive_sint8(i8 signext %a)
++  ret void
++}
++
++define signext i8 @ret_callresult_uint8_as_sint8() {
++; CHECK-LABEL: ret_callresult_uint8_as_sint8:
++; CHECK: jalr  ra, a0, 0
++; CHECK: slli  a0, a0, 24
++; CHECK: srai  a0, a0, 24
++  %1 = call zeroext i8 @return_uint8()
++  ret i8 %1
++}
++
++define signext i32 @uint8_arg_to_anyint32_ret(i8 zeroext %a) {
++; CHECK-LABEL: uint8_arg_to_anyint32_ret:
++  %1 = zext i8 %a to i32
++  ret i32 %1
++}
++
++declare void @receive_anyint32(i32 signext)
++
++define void @pass_uint8_as_anyint32(i8 zeroext %a) {
++; CHECK-LABEL: pass_uint8_as_anyint32:
++  %1 = zext i8 %a to i32
++  call void @receive_anyint32(i32 signext %1)
++  ret void
++}
++
++define signext i32 @ret_callresult_uint8_as_anyint32() {
++; CHECK-LABEL: ret_callresult_uint8_as_anyint32:
++  %1 = call zeroext i8 @return_uint8()
++  %2 = zext i8 %1 to i32
++  ret i32 %2
++}
++
++define zeroext i8 @sint8_arg_to_uint8_ret(i8 signext %a) {
++; CHECK-LABEL: sint8_arg_to_uint8_ret:
++; CHECK: andi a0, a0, 255
++  ret i8 %a
++}
++
++define void @pass_sint8_as_uint8(i8 signext %a) {
++; CHECK-LABEL: pass_sint8_as_uint8:
++; CHECK: andi a0, a0, 255
++  call void @receive_uint8(i8 zeroext %a)
++  ret void
++}
++
++declare signext i8 @return_sint8()
++
++define zeroext i8 @ret_callresult_sint8_as_uint8() {
++; CHECK-LABEL: ret_callresult_sint8_as_uint8:
++; CHECK: andi a0, a0, 255
++  %1 = call signext i8 @return_sint8()
++  ret i8 %1
++}
++
++define signext i8 @sint8_arg_to_sint8_ret(i8 signext %a) {
++; CHECK-LABEL: sint8_arg_to_sint8_ret:
++  ret i8 %a
++}
++
++define void @pass_sint8_as_sint8(i8 signext %a) {
++; CHECK-LABEL: pass_sint8_as_sint8:
++  call void @receive_sint8(i8 signext %a)
++  ret void
++}
++
++define signext i8 @ret_callresult_sint8_as_sint8() {
++; CHECK-LABEL: ret_callresult_sint8_as_sint8:
++  %1 = call signext i8 @return_sint8()
++  ret i8 %1
++}
++
++define signext i32 @sint8_arg_to_anyint32_ret(i8 signext %a) {
++; CHECK-LABEL: sint8_arg_to_anyint32_ret:
++  %1 = sext i8 %a to i32
++  ret i32 %1
++}
++
++define void @pass_sint8_as_anyint32(i8 signext %a) {
++; CHECK-LABEL: pass_sint8_as_anyint32:
++  %1 = sext i8 %a to i32
++  call void @receive_anyint32(i32 signext %1)
++  ret void
++}
++
++define signext i32 @ret_callresult_sint8_as_anyint32() {
++; CHECK-LABEL: ret_callresult_sint8_as_anyint32:
++; CHECK: jalr ra, a0, 0
++; CHECK-NEXT: lw s0, 8(sp)
++  %1 = call signext i8 @return_sint8()
++  %2 = sext i8 %1 to i32
++  ret i32 %2
++}
++
++define zeroext i8 @anyint32_arg_to_uint8_ret(i32 signext %a) {
++; CHECK-LABEL: anyint32_arg_to_uint8_ret:
++; CHECK: andi a0, a0, 255
++  %1 = trunc i32 %a to i8
++  ret i8 %1
++}
++
++define void @pass_anyint32_as_uint8(i32 signext %a) {
++; CHECK-LABEL: pass_anyint32_as_uint8:
++; CHECK: andi a0, a0, 255
++  %1 = trunc i32 %a to i8
++  call void @receive_uint8(i8 zeroext %1)
++  ret void
++}
++
++declare signext i32 @return_anyint32()
++
++define zeroext i8 @ret_callresult_anyint32_as_uint8() {
++; CHECK-LABEL: ret_callresult_anyint32_as_uint8:
++; CHECK: andi a0, a0, 255
++  %1 = call signext i32 @return_anyint32()
++  %2 = trunc i32 %1 to i8
++  ret i8 %2
++}
++
++define signext i8 @anyint32_arg_to_sint8_ret(i32 signext %a) {
++; CHECK-LABEL: anyint32_arg_to_sint8_ret:
++; CHECK: slli  a0, a0, 24
++; CHECK: srai  a0, a0, 24
++  %1 = trunc i32 %a to i8
++  ret i8 %1
++}
++
++define void @pass_anyint32_as_sint8(i32 signext %a) {
++; CHECK-LABEL: pass_anyint32_as_sint8:
++; CHECK: slli a0, a0, 24
++; CHECK: srai a0, a0, 24
++; CHECK: jalr ra, a1, 0
++  %1 = trunc i32 %a to i8
++  call void @receive_sint8(i8 signext %1)
++  ret void
++}
++
++define signext i8 @ret_callresult_anyint32_as_sint8() {
++; CHECK-LABEL: ret_callresult_anyint32_as_sint8:
++  %1 = call signext i32 @return_anyint32()
++  %2 = trunc i32 %1 to i8
++  ret i8 %2
++}
++
++define signext i32 @anyint32_arg_to_anyint32_ret(i32 signext %a) {
++; CHECK-LABEL: anyint32_arg_to_anyint32_ret:
++  ret i32 %a
++}
++
++define void @pass_anyint32_as_anyint32(i32 signext %a) {
++; CHECK-LABEL: pass_anyint32_as_anyint32:
++  call void @receive_anyint32(i32 signext %a)
++  ret void
++}
++
++define signext i32 @ret_callresult_anyint32_as_anyint32() {
++; CHECK-LABEL: ret_callresult_anyint32_as_anyint32:
++  %1 = call signext i32 @return_anyint32()
++  ret i32 %1
++}
++
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
 index 00000000000..289c033b196

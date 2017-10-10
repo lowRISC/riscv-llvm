@@ -427,7 +427,7 @@ index 00000000000..9309d493cef
 +#include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 new file mode 100644
-index 00000000000..41be0a2084b
+index 00000000000..bad5f440061
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -0,0 +1,58 @@
@@ -471,7 +471,7 @@ index 00000000000..41be0a2084b
 +
 +static MCRegisterInfo *createRISCVMCRegisterInfo(const Triple &TT) {
 +  MCRegisterInfo *X = new MCRegisterInfo();
-+  InitRISCVMCRegisterInfo(X, RISCV::X1_32);
++  InitRISCVMCRegisterInfo(X, RISCV::X1);
 +  return X;
 +}
 +

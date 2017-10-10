@@ -229,7 +229,7 @@ index e48f04963ff..92daae30e3f 100644
 +required_libraries = MC RISCVAsmPrinter RISCVInfo Support
  add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 41be0a2084b..0f68dd7aa05 100644
+index bad5f440061..72485c5cd08 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -12,6 +12,7 @@

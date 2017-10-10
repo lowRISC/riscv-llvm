@@ -3,17 +3,42 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add floating point registers to RISCVRegisterInfo.td
 
 ---
- lib/Target/RISCV/RISCVRegisterInfo.td | 51 +++++++++++++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+ lib/Target/RISCV/RISCVRegisterInfo.td | 69 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 69 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
-index df707746d04..787886a412d 100644
+index 78c036a37b9..c5abe42de56 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.td
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.td
-@@ -98,3 +98,54 @@ def GPR64 : RegisterClass<"RISCV", [i64], 64, (add
-   (sequence "X%u_64", 18, 27),
-   (sequence "X%u_64", 0, 4)
- )>;
+@@ -16,6 +16,24 @@ class RISCVReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
+   let HWEncoding{4-0} = Enc;
+   let AltNames = alt;
+ }
++
++class RISCVReg32<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
++  let HWEncoding{4-0} = Enc;
++  let AltNames = alt;
++}
++
++// RISCV64 registers don't define an AsmName or AltName. If they specified
++// names aliasing the RISCVReg32 registers, the generation of the default
++// MatchRegisterName/MatchRegisterAltName would fail. When necessary,
++// RISCVAsmParser will need to convert a register number from a RISCVReg32
++// to the equivalent RISCVReg64.
++def sub_32 : SubRegIndex<32>;
++class RISCVReg64<RISCVReg32 subreg> : Register<""> {
++  let HWEncoding{4-0} = subreg.HWEncoding{4-0};
++  let SubRegs = [subreg];
++  let SubRegIndices = [sub_32];
++}
++
+ def ABIRegAltName : RegAltNameIndex;
+ } // Namespace = "RISCV"
+ 
+@@ -72,3 +90,54 @@ def GPR : RegisterClass<"RISCV", [XLenVT], 32, (add
+       [RV32,              RV64,              DefaultMode],
+       [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
+ }
 +
 +// Floating point registers
 +let RegAltNameIndices = [ABIRegAltName] in {
@@ -59,11 +84,11 @@ index df707746d04..787886a412d 100644
 +// The order of registers represents the preferred allocation sequence,
 +// meaning caller-save regs are listed before callee-save.
 +def FPR32 : RegisterClass<"RISCV", [f32], 32, (add
-+  (sequence "F%u_32", 0, 7),
-+  (sequence "F%u_32", 10, 17),
-+  (sequence "F%u_32", 28, 31),
-+  (sequence "F%u_32", 8, 9),
-+  (sequence "F%u_32", 18, 27)
++    (sequence "F%u_32", 0, 7),
++    (sequence "F%u_32", 10, 17),
++    (sequence "F%u_32", 28, 31),
++    (sequence "F%u_32", 8, 9),
++    (sequence "F%u_32", 18, 27)
 +)>;
 -- 
 2.14.2

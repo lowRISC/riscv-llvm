@@ -4,23 +4,20 @@ Subject: [RISCV] Codegen support for the standard RV32M instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp |   8 ++-
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp |   2 +-
  lib/Target/RISCV/RISCVISelLowering.cpp |  18 +++---
- lib/Target/RISCV/RISCVInstrInfoM.td    |  12 ++++
+ lib/Target/RISCV/RISCVInstrInfoM.td    |  15 +++++
  test/CodeGen/RISCV/div.ll              | 115 ++++++++++++++++++++-------------
  test/CodeGen/RISCV/mul.ll              | 106 ++++++++++++++++++++++--------
  test/CodeGen/RISCV/rem.ll              |  27 +++++---
- 6 files changed, 194 insertions(+), 92 deletions(-)
+ 6 files changed, 191 insertions(+), 92 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 69dbce95212..076a0d0cbbe 100644
+index 39f4560a50c..4119506fc21 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -26,14 +26,20 @@ using namespace llvm;
- // SelectionDAG operations.
- namespace {
- class RISCVDAGToDAGISel final : public SelectionDAGISel {
-+  const RISCVSubtarget *Subtarget;
+@@ -29,7 +29,7 @@ class RISCVDAGToDAGISel final : public SelectionDAGISel {
+   const RISCVSubtarget *Subtarget;
  public:
    explicit RISCVDAGToDAGISel(RISCVTargetMachine &TargetMachine)
 -      : SelectionDAGISel(TargetMachine) {}
@@ -28,61 +25,53 @@ index 69dbce95212..076a0d0cbbe 100644
  
    StringRef getPassName() const override {
      return "RISCV DAG->DAG Pattern Instruction Selection";
-   }
- 
-+  bool runOnMachineFunction(MachineFunction &MF) override {
-+    Subtarget = &MF.getSubtarget<RISCVSubtarget>();
-+    return SelectionDAGISel::runOnMachineFunction(MF);
-+  }
-+
-   void Select(SDNode *Node) override;
- 
-   bool SelectInlineAsmMemoryOperand(const SDValue &Op, unsigned ConstraintID,
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 40eb1dd81b6..4720c572b96 100644
+index bfd5dbbf3da..a988fbc7097 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -75,18 +75,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   setOperationAction(ISD::SUBC, MVT::i32, Expand);
-   setOperationAction(ISD::SUBE, MVT::i32, Expand);
+@@ -77,18 +77,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::SUBC, XLenVT, Expand);
+   setOperationAction(ISD::SUBE, XLenVT, Expand);
  
--  setOperationAction(ISD::SREM, MVT::i32, Expand);
+-  setOperationAction(ISD::SREM, XLenVT, Expand);
 +  if (!Subtarget.hasStdExtM()) {
-+    setOperationAction(ISD::MUL, MVT::i32, Expand);
-+    setOperationAction(ISD::MULHS, MVT::i32, Expand);
-+    setOperationAction(ISD::MULHU, MVT::i32, Expand);
-+    setOperationAction(ISD::SDIV, MVT::i32, Expand);
-+    setOperationAction(ISD::UDIV, MVT::i32, Expand);
-+    setOperationAction(ISD::SREM, MVT::i32, Expand);
-+    setOperationAction(ISD::UREM, MVT::i32, Expand);
++    setOperationAction(ISD::MUL, XLenVT, Expand);
++    setOperationAction(ISD::MULHS, XLenVT, Expand);
++    setOperationAction(ISD::MULHU, XLenVT, Expand);
++    setOperationAction(ISD::SDIV, XLenVT, Expand);
++    setOperationAction(ISD::UDIV, XLenVT, Expand);
++    setOperationAction(ISD::SREM, XLenVT, Expand);
++    setOperationAction(ISD::UREM, XLenVT, Expand);
 +  }
 +
-   setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
--  setOperationAction(ISD::SDIV, MVT::i32, Expand);
--  setOperationAction(ISD::UREM, MVT::i32, Expand);
-   setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
--  setOperationAction(ISD::UDIV, MVT::i32, Expand);
+   setOperationAction(ISD::SDIVREM, XLenVT, Expand);
+-  setOperationAction(ISD::SDIV, XLenVT, Expand);
+-  setOperationAction(ISD::UREM, XLenVT, Expand);
+   setOperationAction(ISD::UDIVREM, XLenVT, Expand);
+-  setOperationAction(ISD::UDIV, XLenVT, Expand);
 -
--  setOperationAction(ISD::MUL, MVT::i32, Expand);
-   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
-   setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
--  setOperationAction(ISD::MULHS, MVT::i32, Expand);
--  setOperationAction(ISD::MULHU, MVT::i32, Expand);
+-  setOperationAction(ISD::MUL, XLenVT, Expand);
+   setOperationAction(ISD::SMUL_LOHI, XLenVT, Expand);
+   setOperationAction(ISD::UMUL_LOHI, XLenVT, Expand);
+-  setOperationAction(ISD::MULHS, XLenVT, Expand);
+-  setOperationAction(ISD::MULHU, XLenVT, Expand);
  
-   setOperationAction(ISD::SHL_PARTS, MVT::i32, Expand);
-   setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
+   setOperationAction(ISD::SHL_PARTS, XLenVT, Expand);
+   setOperationAction(ISD::SRL_PARTS, XLenVT, Expand);
 diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
-index 25b5aa3c711..c18518a5bf1 100644
+index fec9c1f9399..2dd10ada400 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoM.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoM.td
-@@ -21,4 +21,16 @@ def DIV     : ALU_rr<0b0000001, 0b100, "div">;
- def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
- def REM     : ALU_rr<0b0000001, 0b110, "rem">;
- def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
+@@ -34,3 +34,18 @@ def DIVUW   : ALUW_rr<0b0000001, 0b101, "divuw">;
+ def REMW    : ALUW_rr<0b0000001, 0b110, "remw">;
+ def REMUW   : ALUW_rr<0b0000001, 0b111, "remuw">;
+ } // Predicates = [HasStdExtM, IsRV64]
 +
 +//===----------------------------------------------------------------------===//
 +// Pseudo-instructions and codegen patterns
++//===----------------------------------------------------------------------===//
 +
++let Predicates = [HasStdExtM] in {
 +def : PatGprGpr<mul, MUL>;
 +def : PatGprGpr<mulhs, MULH>;
 +def : PatGprGpr<mulhu, MULHU>;
@@ -91,7 +80,7 @@ index 25b5aa3c711..c18518a5bf1 100644
 +def : PatGprGpr<udiv, DIVU>;
 +def : PatGprGpr<srem, REM>;
 +def : PatGprGpr<urem, REMU>;
- }
++} // Predicates = [HasStdExtM]
 diff --git a/test/CodeGen/RISCV/div.ll b/test/CodeGen/RISCV/div.ll
 index 845e89d327d..ffce79b4967 100644
 --- a/test/CodeGen/RISCV/div.ll

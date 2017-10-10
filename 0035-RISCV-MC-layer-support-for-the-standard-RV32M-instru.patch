@@ -1,75 +1,64 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV32M instruction set
+Subject: [RISCV] MC layer support for the standard RV32M instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCV.td           | 19 ++++++++++++-------
- lib/Target/RISCV/RISCVInstrInfo.td  |  5 +++++
- lib/Target/RISCV/RISCVInstrInfoM.td | 24 ++++++++++++++++++++++++
+ lib/Target/RISCV/RISCV.td           | 13 +++++++++----
+ lib/Target/RISCV/RISCVInstrInfo.td  |  6 ++++++
+ lib/Target/RISCV/RISCVInstrInfoM.td | 28 ++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVSubtarget.h   |  2 ++
  test/MC/RISCV/rv32i-invalid.s       |  3 +++
  test/MC/RISCV/rv32m-valid.s         | 33 +++++++++++++++++++++++++++++++++
- 6 files changed, 79 insertions(+), 7 deletions(-)
+ 6 files changed, 81 insertions(+), 4 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoM.td
  create mode 100644 test/MC/RISCV/rv32m-valid.s
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index eda4d78ae8b..bf9d6cdb340 100644
+index da919acad36..d8581f8d03c 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -9,6 +9,18 @@
+@@ -13,11 +13,16 @@ include "llvm/Target/Target.td"
+ // RISC-V subtarget features and instruction predicates.
+ //===----------------------------------------------------------------------===//
  
- include "llvm/Target/Target.td"
- 
-+//===----------------------------------------------------------------------===//
-+// RISC-V Subtarget features and instruction predicates.
-+//===----------------------------------------------------------------------===//
-+
+-def Feature64Bit : SubtargetFeature<"64bit", "HasRV64", "true",
+-                                    "Implements RV64">;
 +def FeatureStdExtM : SubtargetFeature<"m", "HasStdExtM", "true",
 +                           "'M' (Integer Multiplication and Division)">;
 +def HasStdExtM     : Predicate<"Subtarget->hasStdExtM()">,
 +                           AssemblerPredicate<"FeatureStdExtM">;
-+
+ 
+-def RV64         : HwMode<"+64bit">;
+-def RV32         : HwMode<"-64bit">;
 +def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
 +                           "Implements RV64">;
 +
- //===----------------------------------------------------------------------===//
- // Register File, Calling Conv, Instruction Descriptions
- //===----------------------------------------------------------------------===//
-@@ -22,13 +34,6 @@ def RISCVInstrInfo : InstrInfo {
-   let guessInstructionProperties = 0;
- }
++def RV64           : HwMode<"+64bit">;
++def RV32           : HwMode<"-64bit">;
  
--//===----------------------------------------------------------------------===//
--// RISC-V Subtarget features.
--//===----------------------------------------------------------------------===//
--
--def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
--                                      "Implements RV64">;
--
  //===----------------------------------------------------------------------===//
- // RISC-V processors supported.
- //===----------------------------------------------------------------------===//
+ // Registers, calling conventions, instruction descriptions.
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index ccdc7c60868..af02c91a842 100644
+index 76b3599c39d..6c55c34d71f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -429,3 +429,8 @@ let Defs = [X2_32], Uses = [X2_32] in {
-   def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-                                 [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
- }
+@@ -455,3 +455,9 @@ def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                               [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
+ } // Defs = [X2], Uses = [X2]
 +
 +//===----------------------------------------------------------------------===//
 +// Standard extensions
++//===----------------------------------------------------------------------===//
 +
 +include "RISCVInstrInfoM.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
 new file mode 100644
-index 00000000000..25b5aa3c711
+index 00000000000..a253c1eb811
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoM.td
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,28 @@
 +//===-- RISCVInstrInfoM.td - RISC-V 'M' instructions -------*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -84,6 +73,10 @@ index 00000000000..25b5aa3c711
 +//
 +//===----------------------------------------------------------------------===//
 +
++//===----------------------------------------------------------------------===//
++// Instructions
++//===----------------------------------------------------------------------===//
++
 +let Predicates = [HasStdExtM] in {
 +def MUL     : ALU_rr<0b0000001, 0b000, "mul">;
 +def MULH    : ALU_rr<0b0000001, 0b001, "mulh">;
@@ -93,9 +86,9 @@ index 00000000000..25b5aa3c711
 +def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
 +def REM     : ALU_rr<0b0000001, 0b110, "rem">;
 +def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
-+}
++} // Predicates = [HasStdExtM]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 564cd05e7e0..d3174db6b30 100644
+index 657b0e65620..be9b04990ca 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -30,6 +30,7 @@ class StringRef;
@@ -106,7 +99,7 @@ index 564cd05e7e0..d3174db6b30 100644
    bool HasRV64 = false;
    unsigned XLen = 32;
    MVT XLenVT = MVT::i32;
-@@ -65,6 +66,7 @@ public:
+@@ -66,6 +67,7 @@ public:
    const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
      return &TSInfo;
    }

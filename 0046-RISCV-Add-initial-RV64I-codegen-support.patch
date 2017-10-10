@@ -5,23 +5,26 @@ Subject: [RISCV] Add initial RV64I codegen support
 Most of RISCVTargetLowering is now parameterised by XLEN.
 
 Note this patch contains a temporary workaround in CodeGenDAGPatterns.cpp.
+
+This patch also reformats RISCVInstrInfo.td to ensure consistent indentation
+and naming (TODO: back-propagate these changes).
 ---
  lib/Target/RISCV/RISCV.td                 |   1 +
- lib/Target/RISCV/RISCVISelLowering.cpp    | 109 ++++++-----
+ lib/Target/RISCV/RISCVISelLowering.cpp    |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp       |   7 +-
- lib/Target/RISCV/RISCVInstrInfo.td        |  69 ++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td        |  79 ++++++--
  lib/Target/RISCV/RISCVRegisterInfo.cpp    |  17 +-
  lib/Target/RISCV/RISCVTargetMachine.cpp   |   2 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll |  14 ++
  test/CodeGen/RISCV/alu64.ll               | 288 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/mem64.ll               | 198 ++++++++++++++++++++
  utils/TableGen/CodeGenDAGPatterns.cpp     |   4 +-
- 10 files changed, 632 insertions(+), 77 deletions(-)
+ 10 files changed, 591 insertions(+), 28 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index eed9d31b6f9..ce4a491fcc2 100644
+index 84715a3a2d0..fee8dde3f40 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -38,6 +38,7 @@ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
@@ -33,117 +36,10 @@ index eed9d31b6f9..ce4a491fcc2 100644
  def RV64           : HwMode<"+64bit">;
  def RV32           : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index dc85bcdd404..f91c3e83d10 100644
+index a988fbc7097..9ff9af9a664 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -40,11 +40,10 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-                                          const RISCVSubtarget &STI)
-     : TargetLowering(TM), Subtarget(STI) {
- 
-+  MVT XLenVT = Subtarget.getXLenVT();
-+
-   // Set up the register classes.
--  if (Subtarget.is64Bit())
--    addRegisterClass(MVT::i64, &RISCV::GPRRegClass);
--  else
--    addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
-+  addRegisterClass(XLenVT, &RISCV::GPRRegClass);
- 
-   // Compute derived properties from the register classes.
-   computeRegisterProperties(STI.getRegisterInfo());
-@@ -52,15 +51,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   setStackPointerRegisterToSaveRestore(RISCV::X2);
- 
-   for (auto N : {ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD})
--    setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
-+    setLoadExtAction(N, XLenVT, MVT::i1, Promote);
- 
-   // TODO: add all necessary setOperationAction calls.
--  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
-+  setOperationAction(ISD::DYNAMIC_STACKALLOC, XLenVT, Expand);
- 
-   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
--  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
--  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
--  setOperationAction(ISD::SELECT, MVT::i32, Expand);
-+  setOperationAction(ISD::BR_CC, XLenVT, Expand);
-+  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
-+  setOperationAction(ISD::SELECT, XLenVT, Expand);
- 
-   setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
-   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
-@@ -73,39 +72,39 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
-     setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
- 
--  setOperationAction(ISD::ADDC, MVT::i32, Expand);
--  setOperationAction(ISD::ADDE, MVT::i32, Expand);
--  setOperationAction(ISD::SUBC, MVT::i32, Expand);
--  setOperationAction(ISD::SUBE, MVT::i32, Expand);
-+  setOperationAction(ISD::ADDC, XLenVT, Expand);
-+  setOperationAction(ISD::ADDE, XLenVT, Expand);
-+  setOperationAction(ISD::SUBC, XLenVT, Expand);
-+  setOperationAction(ISD::SUBE, XLenVT, Expand);
- 
-   if (!Subtarget.hasStdExtM()) {
--    setOperationAction(ISD::MUL, MVT::i32, Expand);
--    setOperationAction(ISD::MULHS, MVT::i32, Expand);
--    setOperationAction(ISD::MULHU, MVT::i32, Expand);
--    setOperationAction(ISD::SDIV, MVT::i32, Expand);
--    setOperationAction(ISD::UDIV, MVT::i32, Expand);
--    setOperationAction(ISD::SREM, MVT::i32, Expand);
--    setOperationAction(ISD::UREM, MVT::i32, Expand);
--  }
--
--  setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
--  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
--  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
--  setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
--
--  setOperationAction(ISD::SHL_PARTS, MVT::i32, Expand);
--  setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
--  setOperationAction(ISD::SRA_PARTS, MVT::i32, Expand);
--
--  setOperationAction(ISD::ROTL, MVT::i32, Expand);
--  setOperationAction(ISD::ROTR, MVT::i32, Expand);
--  setOperationAction(ISD::BSWAP, MVT::i32, Expand);
--  setOperationAction(ISD::CTTZ, MVT::i32, Expand);
--  setOperationAction(ISD::CTLZ, MVT::i32, Expand);
--  setOperationAction(ISD::CTPOP, MVT::i32, Expand);
--
--  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
--  setOperationAction(ISD::BlockAddress, MVT::i32, Custom);
-+    setOperationAction(ISD::MUL, XLenVT, Expand);
-+    setOperationAction(ISD::MULHS, XLenVT, Expand);
-+    setOperationAction(ISD::MULHU, XLenVT, Expand);
-+    setOperationAction(ISD::SDIV, XLenVT, Expand);
-+    setOperationAction(ISD::UDIV, XLenVT, Expand);
-+    setOperationAction(ISD::SREM, XLenVT, Expand);
-+    setOperationAction(ISD::UREM, XLenVT, Expand);
-+  }
-+
-+  setOperationAction(ISD::SDIVREM, XLenVT, Expand);
-+  setOperationAction(ISD::UDIVREM, XLenVT, Expand);
-+  setOperationAction(ISD::SMUL_LOHI, XLenVT, Expand);
-+  setOperationAction(ISD::UMUL_LOHI, XLenVT, Expand);
-+
-+  setOperationAction(ISD::SHL_PARTS, XLenVT, Expand);
-+  setOperationAction(ISD::SRL_PARTS, XLenVT, Expand);
-+  setOperationAction(ISD::SRA_PARTS, XLenVT, Expand);
-+
-+  setOperationAction(ISD::ROTL, XLenVT, Expand);
-+  setOperationAction(ISD::ROTR, XLenVT, Expand);
-+  setOperationAction(ISD::BSWAP, XLenVT, Expand);
-+  setOperationAction(ISD::CTTZ, XLenVT, Expand);
-+  setOperationAction(ISD::CTLZ, XLenVT, Expand);
-+  setOperationAction(ISD::CTPOP, XLenVT, Expand);
-+
-+  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
-+  setOperationAction(ISD::BlockAddress, XLenVT, Custom);
- 
-   setBooleanContents(ZeroOrOneBooleanContent);
- 
-@@ -184,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    const GlobalValue *GV = N->getGlobal();
    int64_t Offset = N->getOffset();
  
@@ -152,7 +48,7 @@ index dc85bcdd404..f91c3e83d10 100644
      SDValue GAHi =
          DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
      SDValue GALo =
-@@ -206,7 +205,7 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
+@@ -205,7 +205,7 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
    const BlockAddress *BA = N->getBlockAddress();
    int64_t Offset = N->getOffset();
  
@@ -161,7 +57,7 @@ index dc85bcdd404..f91c3e83d10 100644
      SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
      SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
      SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
-@@ -227,7 +226,7 @@ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
+@@ -226,7 +226,7 @@ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
  
    // TODO: should also handle gp-relative loads
  
@@ -170,85 +66,16 @@ index dc85bcdd404..f91c3e83d10 100644
      SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
      SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
      SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
-@@ -250,7 +249,7 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
- 
-   normaliseSetCC(LHS, RHS, CC);
- 
--  SDValue TargetCC = DAG.getConstant(CC, DL, MVT::i32);
-+  SDValue TargetCC = DAG.getConstant(CC, DL, Subtarget.getXLenVT());
- 
-   SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-   SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
-@@ -280,14 +279,14 @@ SDValue RISCVTargetLowering::LowerFRAMEADDR(SDValue Op,
-   MachineFrameInfo &MFI = MF.getFrameInfo();
-   MFI.setFrameAddressIsTaken(true);
-   unsigned FrameReg = RI.getFrameRegister(MF);
-+  int XLenInBytes = Subtarget.getXLen()/8;
- 
-   EVT VT = Op.getValueType();
-   SDLoc DL(Op);
-   SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), DL, FrameReg, VT);
-   unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
-   while (Depth--) {
--    // TODO: adjust for RV64
--    const unsigned Offset = -8;
-+    int Offset = -(XLenInBytes*2);
-     SDValue Ptr = DAG.getNode(ISD::ADD, DL, VT, FrameAddr,
-                               DAG.getIntPtrConstant(Offset, DL));
-     FrameAddr =
-@@ -302,6 +301,8 @@ SDValue RISCVTargetLowering::LowerRETURNADDR(SDValue Op,
-   MachineFunction &MF = DAG.getMachineFunction();
-   MachineFrameInfo &MFI = MF.getFrameInfo();
-   MFI.setReturnAddressIsTaken(true);
-+  MVT XLenVT = Subtarget.getXLenVT();
-+  int XLenInBytes = Subtarget.getXLen()/8;
- 
-   if (verifyReturnAddressArgumentIsConstant(Op, DAG))
-     return SDValue();
-@@ -310,9 +311,9 @@ SDValue RISCVTargetLowering::LowerRETURNADDR(SDValue Op,
-   SDLoc DL(Op);
-   unsigned Depth = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
-   if (Depth) {
-+    int Off = -XLenInBytes;
-     SDValue FrameAddr = LowerFRAMEADDR(Op, DAG);
--    // TODO: adjust for RV64
--    SDValue Offset = DAG.getConstant(-4, DL, MVT::i32);
-+    SDValue Offset = DAG.getConstant(Off, DL, VT);
-     return DAG.getLoad(VT, DL, DAG.getEntryNode(),
-                        DAG.getNode(ISD::ADD, DL, VT, FrameAddr, Offset),
-                        MachinePointerInfo());
-@@ -320,8 +321,8 @@ SDValue RISCVTargetLowering::LowerRETURNADDR(SDValue Op,
- 
-   // Return the value of the return address register, marking it an implicit
-   // live-in.
--  unsigned Reg = MF.addLiveIn(RI.getRARegister(), getRegClassFor(MVT::i32));
--  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, VT);
-+  unsigned Reg = MF.addLiveIn(RI.getRARegister(), getRegClassFor(XLenVT));
-+  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, Reg, XLenVT);
- }
- 
- MachineBasicBlock *
-@@ -611,9 +612,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -617,9 +617,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    MachineFrameInfo &MFI = MF.getFrameInfo();
    MachineRegisterInfo &RegInfo = MF.getRegInfo();
+   MVT XLenVT = Subtarget.getXLenVT();
++  unsigned XLenInBytes = Subtarget.getXLen()/8;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
 -  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
--  unsigned XLenInBytes = XLen/8;
--  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
-+  MVT XLenVT = Subtarget.getXLenVT();
-+  unsigned XLenInBytes = Subtarget.getXLen()/8;
+-  unsigned XLenInBytes = XLen / 8;
    // Used with vargs to acumulate store chains.
    std::vector<SDValue> OutChains;
- 
-@@ -753,8 +753,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
-   CallingConv::ID CallConv = CLI.CallConv;
-   bool IsVarArg = CLI.IsVarArg;
-   EVT PtrVT = getPointerTy(DAG.getDataLayout());
--  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
--  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
-+  MVT XLenVT = Subtarget.getXLenVT();
- 
-   MachineFunction &MF = DAG.getMachineFunction();
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
 index 13babf7c710..7c1e9fddff5 100644
@@ -284,84 +111,29 @@ index 13babf7c710..7c1e9fddff5 100644
  
    if (!isInt<32>(BrOffset))
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index c73c1763bc0..764f875edb2 100644
+index 6c632043fc0..4e60d810d01 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -17,7 +17,7 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
-                                             SDTCisVT<1, i32>]>;
- def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
-                                          SDTCisVT<1, i32>]>;
--def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
-+def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, XLenVT>]>;
- def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
+@@ -26,7 +26,6 @@ def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
                                                   SDTCisSameAs<0, 4>,
                                                   SDTCisSameAs<4, 5>]>;
-@@ -195,6 +195,7 @@ class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr> :
-       FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
-          OpcodeStr#"\t$rd, $rs1, $shamt", []>;
  
-+// TODO: accept and encode a 6-bit shift amount for RV64
- def SLLI : SHIFT32_ri<0, 0b001, "slli">;
- def SRLI : SHIFT32_ri<0, 0b101, "srli">;
- def SRAI : SHIFT32_ri<1, 0b101, "srai">;
-@@ -316,8 +317,10 @@ class PatGprUimm5<SDPatternOperator OpNode, FI32Shift Inst> :
+-
+ def Call         : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
+                            SDNPVariadic]>;
+@@ -126,6 +125,7 @@ def ixlenimm : Operand<XLenVT>;
  
- /// Immediates
+ // Standalone (codegen-only) immleaf patterns.
+ def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
++def simm64 : ImmLeaf<XLenVT, [{return isInt<64>(Imm);}]>;
  
-+def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
-+
- def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
--def : Pat<(XLenVT imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
-+def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>, Requires<[IsRV32]>;
+ // Addressing modes.
+ def ADDRii : ComplexPattern<iPTR, 2, "SelectADDRii", [add, frameindex], []>;
+@@ -150,6 +150,23 @@ def HI20 : SDNodeXForm<imm, [{
+                                    SDLoc(N), N->getValueType(0));
+ }]>;
  
- /// Simple arithmetic operations
- 
-@@ -361,9 +364,9 @@ def : Pat<(setle GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs2, GPR:$rs1), 1)>;
- 
- let usesCustomInserter = 1 in
- def Select : Pseudo<(outs GPR:$dst),
--                    (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
--                    [(set i32:$dst,
--                     (SelectCC GPR:$lhs, GPR:$rhs, (i32 imm:$imm), GPR:$src, GPR:$src2))]>;
-+                    (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src, GPR:$src2),
-+                    [(set XLenVT:$dst,
-+                     (SelectCC GPR:$lhs, GPR:$rhs, (XLenVT imm:$imm), GPR:$src, GPR:$src2))]>;
- 
- /// Branches and jumps
- 
-@@ -429,11 +432,11 @@ defm : LdPat<sextloadi8, LB>;
- defm : LdPat<extloadi8, LB>;
- defm : LdPat<sextloadi16, LH>;
- defm : LdPat<extloadi16, LH>;
--defm : LdPat<load, LW>;
-+defm : LdPat<load, LW>, Requires<[IsRV32]>;
- defm : LdPat<zextloadi8, LBU>;
- defm : LdPat<zextloadi16, LHU>;
- 
--def LW_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
-+def LdXLEN_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
-                    [(set GPR:$dst, (load ADDRii:$addr))]>;
- 
- 
-@@ -447,9 +450,9 @@ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
- 
- defm : StPat<truncstorei8, SB>;
- defm : StPat<truncstorei16, SH>;
--defm : StPat<store, SW>;
-+defm : StPat<store, SW>, Requires<[IsRV32]>;
- 
--def SW_FI : Pseudo<(outs), (ins GPR:$src, MEMii:$addr),
-+def StXLEN_FI : Pseudo<(outs), (ins GPR:$src, MEMii:$addr),
-                    [(store GPR:$src, ADDRii:$addr)]>;
- 
- /// Other pseudo-instructions
-@@ -462,6 +465,54 @@ let Defs = [X2], Uses = [X2] in {
-                                 [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
- }
- 
-+/// RV64 patterns
-+
-+
 +// Extract least significant 12 bits from the upper half of an immediate value
 +// and sign extend them.
 +def HLO12Sext : SDNodeXForm<imm, [{
@@ -379,24 +151,95 @@ index c73c1763bc0..764f875edb2 100644
 +                                   SDLoc(N), N->getValueType(0));
 +}]>;
 +
-+def simm64 : ImmLeaf<XLenVT, [{return isInt<64>(Imm);}]>;
+ //===----------------------------------------------------------------------===//
+ // Instruction Class Templates
+ //===----------------------------------------------------------------------===//
+@@ -358,7 +375,8 @@ class PatGprUimmLog2XLen<SDPatternOperator OpNode, RVInstIShift Inst>
+ /// Immediates
+ 
+ def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
+-def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
++def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>,
++      Requires<[IsRV32]>;
+ 
+ /// Simple arithmetic operations
+ 
+@@ -380,7 +398,8 @@ def : PatGprUimmLog2XLen<sra, SRAI>;
+ 
+ // Add with a frameindex, used to legalize frameindex copies and necessary to
+ // keep tblgen happy
+-def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr), [(set GPR:$dst, ADDRii:$addr)]>;
++def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
++                    [(set GPR:$dst, ADDRii:$addr)]>;
+ 
+ /// Setcc
+ 
+@@ -473,13 +492,12 @@ defm : LdPat<sextloadi8, LB>;
+ defm : LdPat<extloadi8, LB>;
+ defm : LdPat<sextloadi16, LH>;
+ defm : LdPat<extloadi16, LH>;
+-defm : LdPat<load, LW>;
++defm : LdPat<load, LW>, Requires<[IsRV32]>;
+ defm : LdPat<zextloadi8, LBU>;
+ defm : LdPat<zextloadi16, LHU>;
+ 
+-def LW_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
+-                   [(set GPR:$dst, (load ADDRii:$addr))]>;
+-
++def LdXLEN_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
++                       [(set GPR:$dst, (load ADDRii:$addr))]>;
+ 
+ /// Stores
+ 
+@@ -491,10 +509,10 @@ multiclass StPat<PatFrag StoreOp, RVInst Inst> {
+ 
+ defm : StPat<truncstorei8, SB>;
+ defm : StPat<truncstorei16, SH>;
+-defm : StPat<store, SW>;
++defm : StPat<store, SW>, Requires<[IsRV32]>;
+ 
+-def SW_FI : Pseudo<(outs), (ins GPR:$src, MEMii:$addr),
+-                   [(store GPR:$src, ADDRii:$addr)]>;
++def StXLEN_FI : Pseudo<(outs), (ins GPR:$src, MEMii:$addr),
++                       [(store GPR:$src, ADDRii:$addr)]>;
+ 
+ /// Other pseudo-instructions
+ 
+@@ -506,6 +524,47 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                               [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
+ } // Defs = [X2], Uses = [X2]
+ 
++/// RV64 patterns
 +
 +let Predicates = [IsRV64] in {
 +def : Pat<(simm32:$imm), (ADDIW (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
 +// TODO: add better patterns for loading 64-bit immediates
-+def : Pat<(simm64:$imm), (OR (SLLI (ADDIW (LUI (HHI20 imm:$imm)), (HLO12Sext imm:$imm)), (i64 32)),
-+                             (SRLI (SLLI (ADDIW (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm)), 32), 32))>;
++def : Pat<(simm64:$imm), (OR (SLLI (ADDIW (LUI (HHI20 imm:$imm)),
++                                           (HLO12Sext imm:$imm)),
++                                   (i64 32)),
++                             (SRLI (SLLI (ADDIW (LUI (HI20 imm:$imm)),
++                                          (LO12Sext imm:$imm)),
++                                    32),
++                              32))>;
 +
-+def : Pat<(sext_inreg (add GPR:$rs1, simm12:$imm12), i32), (ADDIW GPR:$rs1, simm12:$imm12)>;
++def : Pat<(sext_inreg (add GPR:$rs1, simm12:$imm12), i32),
++          (ADDIW GPR:$rs1, simm12:$imm12)>;
 +// sext.w
 +def : Pat<(sext_inreg GPR:$rs1, i32), (ADDIW GPR:$rs1, 0)>;
-+def : Pat<(sext_inreg (shl GPR:$rs1, uimm5:$shamt), i32), (SLLIW GPR:$rs1, uimm5:$shamt)>;
++
++def : Pat<(sext_inreg (shl GPR:$rs1, uimm5:$shamt), i32),
++          (SLLIW GPR:$rs1, uimm5:$shamt)>;
 +// TODO: Patterns for SRLIW, SRAIW
-+def : Pat<(sext_inreg (add GPR:$rs1, GPR:$rs2), i32), (ADDW GPR:$rs1, GPR:$rs2)>;
-+def : Pat<(sext_inreg (sub GPR:$rs1, GPR:$rs2), i32), (SUBW GPR:$rs1, GPR:$rs2)>;
-+def : Pat<(sext_inreg (shl GPR:$rs1, GPR:$rs2), i32), (SLLW GPR:$rs1, GPR:$rs2)>;
-+def : Pat<(srl (and GPR:$rs1, 0xffffffff), GPR:$rs2), (SRLW GPR:$rs1, GPR:$rs2)>;
-+def : Pat<(sra (sext_inreg GPR:$rs1, i32), GPR:$rs2), (SRAW GPR:$rs1, GPR:$rs2)>;
++def : Pat<(sext_inreg (add GPR:$rs1, GPR:$rs2), i32),
++          (ADDW GPR:$rs1, GPR:$rs2)>;
++def : Pat<(sext_inreg (sub GPR:$rs1, GPR:$rs2), i32),
++          (SUBW GPR:$rs1, GPR:$rs2)>;
++def : Pat<(sext_inreg (shl GPR:$rs1, GPR:$rs2), i32),
++          (SLLW GPR:$rs1, GPR:$rs2)>;
++def : Pat<(srl (and GPR:$rs1, 0xffffffff), GPR:$rs2),
++          (SRLW GPR:$rs1, GPR:$rs2)>;
++def : Pat<(sra (sext_inreg GPR:$rs1, i32), GPR:$rs2),
++          (SRAW GPR:$rs1, GPR:$rs2)>;
 +
 +defm : LdPat<sextloadi32, LW>;
 +defm : LdPat<extloadi32, LW>;
@@ -405,16 +248,16 @@ index c73c1763bc0..764f875edb2 100644
 +
 +defm : StPat<truncstorei32, SW>;
 +defm : StPat<store, SD>;
-+}
++} // Predicates = [IsRV64]
 +
  //===----------------------------------------------------------------------===//
  // Standard extensions
- 
+ //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 6d05adc6e9f..a81f0fc9514 100644
+index b55d823cce9..f3bb1a69147 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -61,6 +61,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
@@ -422,7 +265,7 @@ index 6d05adc6e9f..a81f0fc9514 100644
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineFrameInfo &MFI = MF.getFrameInfo();
    MachineRegisterInfo &MRI = MF.getRegInfo();
-@@ -124,14 +125,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -125,14 +126,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      FrameRegFlags = RegState::Kill;
    }
  
@@ -447,7 +290,7 @@ index 6d05adc6e9f..a81f0fc9514 100644
          .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
          .addReg(FrameReg, FrameRegFlags | RegState::Kill)
          .addImm(Offset);
-@@ -141,8 +148,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -142,8 +149,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          .addReg(FrameReg, FrameRegFlags)
          .addImm(Offset);
      break;

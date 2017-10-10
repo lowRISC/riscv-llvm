@@ -192,10 +192,10 @@ index 67af8fdcbbd..13babf7c710 100644
 +  }
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 2ab6a2cd83a..abb72bc399c 100644
+index 0d80885d121..2dd4e321aa9 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -45,6 +45,8 @@ public:
+@@ -42,6 +42,8 @@ public:
                              int FrameIndex, const TargetRegisterClass *RC,
                              const TargetRegisterInfo *TRI) const override;
  
@@ -204,7 +204,7 @@ index 2ab6a2cd83a..abb72bc399c 100644
    bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                       MachineBasicBlock *&FBB,
                       SmallVectorImpl<MachineOperand> &Cond,
-@@ -55,11 +57,21 @@ public:
+@@ -52,11 +54,21 @@ public:
                          const DebugLoc &dl,
                          int *BytesAdded = nullptr) const override;
  
@@ -227,7 +227,7 @@ index 2ab6a2cd83a..abb72bc399c 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index bed4627feb8..5dc36228253 100644
+index f2e903f756d..b413ee4079a 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
 @@ -42,17 +42,18 @@ static MCOperand lowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym,
@@ -263,7 +263,7 @@ index bed4627feb8..5dc36228253 100644
    case MachineOperand::MO_GlobalAddress:
      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index d01b61ee936..9bfac490a06 100644
+index ba4c729f490..669d989deed 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -47,6 +47,10 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

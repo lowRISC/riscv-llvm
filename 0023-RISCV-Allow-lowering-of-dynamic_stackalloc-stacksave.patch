@@ -9,19 +9,19 @@ Subject: [RISCV] Allow lowering of dynamic_stackalloc, stacksave, stackrestore
  create mode 100644 test/CodeGen/RISCV/alloca.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c7f174452b2..45885da604f 100644
+index 3a9ea3dcdde..c4ea48f53e6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -51,11 +51,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-     setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
+@@ -53,11 +53,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+     setLoadExtAction(N, XLenVT, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
-+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
++  setOperationAction(ISD::DYNAMIC_STACKALLOC, XLenVT, Expand);
 +
    setOperationAction(ISD::BR_JT, MVT::Other, Expand);
-   setOperationAction(ISD::BR_CC, MVT::i32, Expand);
-   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
-   setOperationAction(ISD::SELECT, MVT::i32, Expand);
+   setOperationAction(ISD::BR_CC, XLenVT, Expand);
+   setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
+   setOperationAction(ISD::SELECT, XLenVT, Expand);
  
 +  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
 +  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);

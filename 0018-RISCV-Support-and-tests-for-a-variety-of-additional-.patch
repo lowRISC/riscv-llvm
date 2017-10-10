@@ -18,14 +18,16 @@ for a number of these cases:
 * br_jt
 * bswap, ctlz, cttz, ctpop
 * rotl, rotr
+* BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  67 +++++++-
- lib/Target/RISCV/RISCVISelLowering.h        |   1 +
- lib/Target/RISCV/RISCVInstrInfo.td          |  21 ++-
- lib/Target/RISCV/RISCVMCInstLower.cpp       |   4 +
+ lib/Target/RISCV/RISCVISelLowering.cpp      |  90 ++++++++++-
+ lib/Target/RISCV/RISCVISelLowering.h        |   2 +
+ lib/Target/RISCV/RISCVInstrInfo.td          |  20 +++
+ lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  26 ++++
  test/CodeGen/RISCV/alu.ll                   |   4 +
  test/CodeGen/RISCV/bare-select.ll           |  13 ++
+ test/CodeGen/RISCV/blockaddress.ll          |  19 +++
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  89 +++++++++++
  test/CodeGen/RISCV/div.ll                   |  96 ++++++++++++
  test/CodeGen/RISCV/indirectbr.ll            |  28 ++++
@@ -36,9 +38,10 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll                 |  91 +++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 233 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  28 ++++
- 17 files changed, 818 insertions(+), 8 deletions(-)
+ 18 files changed, 866 insertions(+), 6 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
+ create mode 100644 test/CodeGen/RISCV/blockaddress.ll
  create mode 100644 test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
  create mode 100644 test/CodeGen/RISCV/div.ll
  create mode 100644 test/CodeGen/RISCV/indirectbr.ll
@@ -51,55 +54,56 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4180b84336b..c7f174452b2 100644
+index 5991ec51cfd..3a9ea3dcdde 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -51,18 +51,53 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-     setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
+@@ -53,18 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+     setLoadExtAction(N, XLenVT, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
 -  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
 +  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
-+  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
-+  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
-+  setOperationAction(ISD::SELECT, MVT::i32, Expand);
++  setOperationAction(ISD::BR_CC, XLenVT, Expand);
++  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
++  setOperationAction(ISD::SELECT, XLenVT, Expand);
 +
 +  for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
 +    setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
 +
-+  setOperationAction(ISD::ADDC, MVT::i32, Expand);
-+  setOperationAction(ISD::ADDE, MVT::i32, Expand);
-+  setOperationAction(ISD::SUBC, MVT::i32, Expand);
-+  setOperationAction(ISD::SUBE, MVT::i32, Expand);
++  setOperationAction(ISD::ADDC, XLenVT, Expand);
++  setOperationAction(ISD::ADDE, XLenVT, Expand);
++  setOperationAction(ISD::SUBC, XLenVT, Expand);
++  setOperationAction(ISD::SUBE, XLenVT, Expand);
 +
-+  setOperationAction(ISD::SREM, MVT::i32, Expand);
-+  setOperationAction(ISD::SDIVREM, MVT::i32, Expand);
-+  setOperationAction(ISD::SDIV, MVT::i32, Expand);
-+  setOperationAction(ISD::UREM, MVT::i32, Expand);
-+  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
-+  setOperationAction(ISD::UDIV, MVT::i32, Expand);
++  setOperationAction(ISD::SREM, XLenVT, Expand);
++  setOperationAction(ISD::SDIVREM, XLenVT, Expand);
++  setOperationAction(ISD::SDIV, XLenVT, Expand);
++  setOperationAction(ISD::UREM, XLenVT, Expand);
++  setOperationAction(ISD::UDIVREM, XLenVT, Expand);
++  setOperationAction(ISD::UDIV, XLenVT, Expand);
 +
-+  setOperationAction(ISD::MUL, MVT::i32, Expand);
-+  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
-+  setOperationAction(ISD::UMUL_LOHI, MVT::i32, Expand);
-+  setOperationAction(ISD::MULHS, MVT::i32, Expand);
-+  setOperationAction(ISD::MULHU, MVT::i32, Expand);
++  setOperationAction(ISD::MUL, XLenVT, Expand);
++  setOperationAction(ISD::SMUL_LOHI, XLenVT, Expand);
++  setOperationAction(ISD::UMUL_LOHI, XLenVT, Expand);
++  setOperationAction(ISD::MULHS, XLenVT, Expand);
++  setOperationAction(ISD::MULHU, XLenVT, Expand);
 +
-+  setOperationAction(ISD::SHL_PARTS, MVT::i32, Expand);
-+  setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
-+  setOperationAction(ISD::SRA_PARTS, MVT::i32, Expand);
++  setOperationAction(ISD::SHL_PARTS, XLenVT, Expand);
++  setOperationAction(ISD::SRL_PARTS, XLenVT, Expand);
++  setOperationAction(ISD::SRA_PARTS, XLenVT, Expand);
 +
-+  setOperationAction(ISD::ROTL, MVT::i32, Expand);
-+  setOperationAction(ISD::ROTR, MVT::i32, Expand);
-+  setOperationAction(ISD::BSWAP, MVT::i32, Expand);
-+  setOperationAction(ISD::CTTZ, MVT::i32, Expand);
-+  setOperationAction(ISD::CTLZ, MVT::i32, Expand);
-+  setOperationAction(ISD::CTPOP, MVT::i32, Expand);
++  setOperationAction(ISD::ROTL, XLenVT, Expand);
++  setOperationAction(ISD::ROTR, XLenVT, Expand);
++  setOperationAction(ISD::BSWAP, XLenVT, Expand);
++  setOperationAction(ISD::CTTZ, XLenVT, Expand);
++  setOperationAction(ISD::CTLZ, XLenVT, Expand);
++  setOperationAction(ISD::CTPOP, XLenVT, Expand);
  
-   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
++  setOperationAction(ISD::BlockAddress, XLenVT, Custom);
  
--  setOperationAction(ISD::BR_CC, MVT::i32, Expand);
--  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
+-  setOperationAction(ISD::BR_CC, XLenVT, Expand);
+-  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
    setBooleanContents(ZeroOrOneBooleanContent);
  
 -
@@ -112,10 +116,39 @@ index 4180b84336b..c7f174452b2 100644
  }
  
  // Changes the condition code and swaps operands if necessary, so the SetCC
-@@ -138,6 +173,27 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -111,6 +147,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+   switch (Op.getOpcode()) {
+   case ISD::GlobalAddress:
+     return lowerGlobalAddress(Op, DAG);
++  case ISD::BlockAddress:
++    return lowerBlockAddress(Op, DAG);
+   case ISD::SELECT_CC:
+     return lowerSELECT_CC(Op, DAG);
+   default:
+@@ -140,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
++SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
++                                               SelectionDAG &DAG) const {
++  SDLoc DL(Op);
++  EVT Ty = Op.getValueType();
++  BlockAddressSDNode *N = cast<BlockAddressSDNode>(Op);
++  const BlockAddress *BA = N->getBlockAddress();
++  int64_t Offset = N->getOffset();
++
++  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
++    SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
++    SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
++    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
++    SDValue MNLo =
++        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
++    return MNLo;
++  } else {
++    report_fatal_error("Unable to lowerBlockAddress");
++  }
++}
++
 +SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
 +                                                 SelectionDAG &DAG) const {
 +  SDLoc DL(Op);
@@ -140,7 +173,7 @@ index 4180b84336b..c7f174452b2 100644
  SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
                                              SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-@@ -350,8 +406,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -349,8 +428,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
@@ -151,29 +184,30 @@ index 4180b84336b..c7f174452b2 100644
  
    // The first call operand is the chain and the second is the target address.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index f2e6c96044c..77d5f16ee7c 100644
+index f2e6c96044c..e688576ef88 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -65,6 +65,7 @@ private:
+@@ -65,6 +65,8 @@ private:
      return true;
    }
    SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
++  SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 287881a9b5f..c181974e2a6 100644
+index bc615d74298..d32f4ac0727 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -304,6 +304,17 @@ def : PatGprSimm12<setlt, SLTI>;
+@@ -327,6 +327,17 @@ def : PatGprSimm12<setlt, SLTI>;
  def : PatGprGpr<setult, SLTU>;
  def : PatGprSimm12<setult, SLTIU>;
  
 +// Define pattern expansions for setcc operations that aren't directly
 +// handled by a RISC-V instruction
 +def : Pat<(seteq GPR:$rs1, GPR:$rs2), (SLTIU (XOR GPR:$rs1, GPR:$rs2), 1)>;
-+def : Pat<(setne GPR:$rs1, GPR:$rs2), (SLTU X0_32, (XOR GPR:$rs1, GPR:$rs2))>;
++def : Pat<(setne GPR:$rs1, GPR:$rs2), (SLTU X0, (XOR GPR:$rs1, GPR:$rs2))>;
 +def : Pat<(setugt GPR:$rs1, GPR:$rs2), (SLTU GPR:$rs2, GPR:$rs1)>;
 +def : Pat<(setuge GPR:$rs1, GPR:$rs2), (XORI (SLTU GPR:$rs1, GPR:$rs2), 1)>;
 +def : Pat<(setule GPR:$rs1, GPR:$rs2), (XORI (SLTU GPR:$rs2, GPR:$rs1), 1)>;
@@ -183,35 +217,35 @@ index 287881a9b5f..c181974e2a6 100644
 +
  let usesCustomInserter = 1 in
  def Select : Pseudo<(outs GPR:$dst),
-                     (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
-@@ -344,11 +355,17 @@ let isBarrier = 1, isBranch = 1, isTerminator = 1 in
- def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
-                PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
+                     (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src,
+@@ -369,6 +380,15 @@ def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
+                PseudoInstExpansion<(JAL X0, simm21_lsb0:$imm20)>;
  
--let isCall = 1, Defs=[X1_32] in
+ let isCall = 1, Defs=[X1] in
 +let isBarrier = 1, isBranch = 1, isIndirectBranch = 1, isTerminator = 1 in
 +def PseudoBRIND : Pseudo<(outs), (ins GPR:$rs1, simm12:$imm12), []>,
-+                  PseudoInstExpansion<(JALR X0_32, GPR:$rs1, simm12:$imm12)>;
++                  PseudoInstExpansion<(JALR X0, GPR:$rs1, simm12:$imm12)>;
 +
 +def : Pat<(brind GPR:$rs1), (PseudoBRIND GPR:$rs1, 0)>;
-+def : Pat<(brind (add GPR:$rs1, simm12:$imm12)), (PseudoBRIND GPR:$rs1, simm12:$imm12)>;
++def : Pat<(brind (add GPR:$rs1, simm12:$imm12)),
++          (PseudoBRIND GPR:$rs1, simm12:$imm12)>;
 +
-+let isCall = 1, Defs = [X1_32] in
++let isCall = 1, Defs = [X1] in
  def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-                  PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
+                  PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
  
--
- let isBarrier = 1, isReturn = 1, isTerminator = 1 in
- def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index a6f103e8f57..bed4627feb8 100644
+index a6f103e8f57..f2e903f756d 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -81,6 +81,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+@@ -81,6 +81,14 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
    case MachineOperand::MO_GlobalAddress:
      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
      break;
++  case MachineOperand::MO_BlockAddress:
++    MCOp = lowerSymbolOperand(
++        MO, AP.GetBlockAddressSymbol(MO.getBlockAddress()), AP);
++    break;
 +  case MachineOperand::MO_ExternalSymbol:
 +    MCOp = lowerSymbolOperand(
 +        MO, AP.GetExternalSymbolSymbol(MO.getSymbolName()), AP);
@@ -283,6 +317,31 @@ index 00000000000..a636d342b86
 +; CHECK: addi a0, a1, 0
 +  %1 = select i1 %a, i32 %b, i32 %c
 +  ret i32 %1
++}
+diff --git a/test/CodeGen/RISCV/blockaddress.ll b/test/CodeGen/RISCV/blockaddress.ll
+new file mode 100644
+index 00000000000..263be932279
+--- /dev/null
++++ b/test/CodeGen/RISCV/blockaddress.ll
+@@ -0,0 +1,19 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++@addr = global i8* null
++
++define void @test_blockaddress() {
++; CHECK-LABEL: test_blockaddress:
++; CHECK: lui a0, %hi(addr)
++; CHECK: addi a0, a0, %lo(addr)
++; CHECK: lui a1, %hi(.Ltmp0)
++; CHECK: addi a1, a1, %lo(.Ltmp0)
++; CHECK: sw a1, 0(a0)
++; CHECK: lw a0, 0(a0)
++; CHECK: jalr zero, a0, 0
++  store volatile i8* blockaddress(@test_blockaddress, %block), i8** @addr
++  %val = load volatile i8*, i8** @addr
++  indirectbr i8* %val, [label %block]
++
++block:
++  ret void
 +}
 diff --git a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
 new file mode 100644

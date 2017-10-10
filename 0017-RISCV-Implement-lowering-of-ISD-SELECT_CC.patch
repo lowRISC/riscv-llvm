@@ -5,24 +5,24 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp | 128 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   8 ++-
- lib/Target/RISCV/RISCVInstrInfo.td     |  10 +++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  15 ++++
  test/CodeGen/RISCV/select-cc.ll        |  56 +++++++++++++++
- 4 files changed, 201 insertions(+), 1 deletion(-)
+ 4 files changed, 206 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 2b27c12eeae..4180b84336b 100644
+index 5e52f4c2539..5991ec51cfd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -56,6 +56,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+@@ -58,6 +58,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
-   setOperationAction(ISD::BR_CC, MVT::i32, Expand);
-+  setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
+   setOperationAction(ISD::BR_CC, XLenVT, Expand);
++  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
    setBooleanContents(ZeroOrOneBooleanContent);
  
  
-@@ -64,11 +65,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -66,11 +67,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setPrefFunctionAlignment(3);
  }
  
@@ -75,7 +75,7 @@ index 2b27c12eeae..4180b84336b 100644
    default:
      report_fatal_error("unimplemented operand");
    }
-@@ -96,6 +138,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -98,6 +140,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -90,7 +90,7 @@ index 2b27c12eeae..4180b84336b 100644
 +
 +  normaliseSetCC(LHS, RHS, CC);
 +
-+  SDValue TargetCC = DAG.getConstant(CC, DL, MVT::i32);
++  SDValue TargetCC = DAG.getConstant(CC, DL, Subtarget.getXLenVT());
 +
 +  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
 +  SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
@@ -166,7 +166,7 @@ index 2b27c12eeae..4180b84336b 100644
  // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -331,6 +457,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -330,6 +456,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";
@@ -209,36 +209,48 @@ index dfb4824cc18..f2e6c96044c 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index e0f2d1a5266..287881a9b5f 100644
+index dff90337ac5..bc615d74298 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -18,6 +18,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
+@@ -22,6 +22,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
+                                             SDTCisVT<1, i32>]>;
  def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
-                                          SDTCisVT<1, i32>]>;
- def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
+                                           SDTCisVT<1, i32>]>;
 +def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
 +                                                 SDTCisSameAs<0, 4>,
 +                                                 SDTCisSameAs<4, 5>]>;
  
  
- def Call             : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
-@@ -29,6 +32,7 @@ def CallSeqStart     : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
-                               [SDNPHasChain, SDNPOutGlue]>;
- def CallSeqEnd       : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
-                               [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
-+def SelectCC         : SDNode<"RISCVISD::SELECT_CC", SDT_RISCVSelectCC, [SDNPInGlue]>;
+ def Call         : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
+@@ -33,6 +36,8 @@ def CallSeqEnd   : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+ def RetFlag      : SDNode<"RISCVISD::RET_FLAG", SDTNone,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
++def SelectCC     : SDNode<"RISCVISD::SELECT_CC", SDT_RISCVSelectCC,
++                          [SDNPInGlue]>;
  
- // Operands
- class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -300,6 +304,12 @@ def : PatGprSimm12<setlt, SLTI>;
+ //===----------------------------------------------------------------------===//
+ // Operand and SDNode transformation definitions.
+@@ -100,6 +105,9 @@ def simm21_lsb0 : Operand<OtherVT> {
+   let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
+ }
+ 
++// A parameterized register class alternative for i32imm/i64imm from Target.td.
++def ixlenimm : Operand<XLenVT>;
++
+ // Standalone (codegen-only) immleaf patterns.
+ def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
+ 
+@@ -319,6 +327,13 @@ def : PatGprSimm12<setlt, SLTI>;
  def : PatGprGpr<setult, SLTU>;
  def : PatGprSimm12<setult, SLTIU>;
  
 +let usesCustomInserter = 1 in
 +def Select : Pseudo<(outs GPR:$dst),
-+                    (ins GPR:$lhs, GPR:$rhs, i32imm:$imm, GPR:$src, GPR:$src2),
-+                    [(set i32:$dst,
-+                     (SelectCC GPR:$lhs, GPR:$rhs, (i32 imm:$imm), GPR:$src, GPR:$src2))]>;
++                    (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src,
++                     GPR:$src2),
++                    [(set XLenVT:$dst, (SelectCC GPR:$lhs, GPR:$rhs,
++                     (XLenVT imm:$imm), GPR:$src, GPR:$src2))]>;
 +
  /// Branches and jumps
  

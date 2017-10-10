@@ -1,44 +1,50 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV64D instruction set
- extension
+Subject: [RISCV] MC layer support for the standard RV64D instruction set
+ extension (WIP)
 
 ---
- lib/Target/RISCV/RISCVInstrInfoD.td | 20 ++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td | 26 ++++++++++++++++++++++++++
  test/MC/RISCV/rv64d-invalid.s       | 11 +++++++++++
  test/MC/RISCV/rv64d-valid.s         | 31 +++++++++++++++++++++++++++++++
- 3 files changed, 62 insertions(+)
+ 3 files changed, 68 insertions(+)
  create mode 100644 test/MC/RISCV/rv64d-invalid.s
  create mode 100644 test/MC/RISCV/rv64d-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index b60e964d6b3..7c50dfd872b 100644
+index 073dc5790f0..e001021e786 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -78,3 +78,23 @@ def FCVT_D_W  : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.w">;
- let rs2 = 0b00001 in
- def FCVT_D_WU : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu">;
+@@ -111,3 +111,29 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu"> {
+   let rs2 = 0b00001;
  }
+ } // Predicates = [HasStdExtD]
 +
 +let Predicates = [HasStdExtD, IsRV64] in {
-+let rs2 = 0b00010 in
-+def FCVT_L_D  : FPMisc_r<0b1100001, 0b111, GPR, FPR32, "fcvt.l.d">;
-+
-+let rs2 = 0b00011 in
-+def FCVT_LU_D : FPMisc_r<0b1100001, 0b111, GPR, FPR32, "fcvt.lu.d">;
-+
-+let rs2 = 0b00000 in
-+def FMV_X_D   : FPMisc_r<0b1110001, 0b000, GPR, FPR32, "fmv.x.d">;
-+
-+let rs2 = 0b00010 in
-+def FCVT_D_L  : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.l">;
-+
-+let rs2 = 0b00011 in
-+def FCVT_D_LU : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.lu">;
-+
-+let rs2 = 0b00000 in
-+def FMV_D_X   : FPMisc_r<0b1111001, 0b000, FPR32, GPR, "fmv.d.x">;
++def FCVT_L_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.l.d"> {
++  let rs2 = 0b00010;
 +}
++
++def FCVT_LU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.lu.d"> {
++  let rs2 = 0b00011;
++}
++
++def FMV_X_D : FPUnaryOp_r<0b1110001, 0b000, GPR, FPR32, "fmv.x.d"> {
++  let rs2 = 0b00000;
++}
++
++def FCVT_D_L : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.l"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_D_LU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.lu"> {
++  let rs2 = 0b00011;
++}
++
++def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR32, GPR, "fmv.d.x"> {
++  let rs2 = 0b00000;
++}
++} // Predicates = [HasStdExtD, IsRV64]
 diff --git a/test/MC/RISCV/rv64d-invalid.s b/test/MC/RISCV/rv64d-invalid.s
 new file mode 100644
 index 00000000000..0f508aafd9b

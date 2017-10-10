@@ -23,28 +23,28 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/CMakeLists.txt         |  11 ++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
  lib/Target/RISCV/RISCV.h                |  31 ++++++
- lib/Target/RISCV/RISCV.td               |   5 +-
+ lib/Target/RISCV/RISCV.td               |   7 +-
  lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 +++++++++++++
- lib/Target/RISCV/RISCVCallingConv.td    |  31 ++++++
+ lib/Target/RISCV/RISCVCallingConv.td    |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 ++++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 172 ++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelLowering.h    |  60 +++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 171 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h    |  62 ++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
- lib/Target/RISCV/RISCVInstrInfo.h       |  35 +++++++
- lib/Target/RISCV/RISCVInstrInfo.td      | 105 +++++++++++++------
+ lib/Target/RISCV/RISCVInstrInfo.h       |  32 ++++++
+ lib/Target/RISCV/RISCVInstrInfo.td      |  60 ++++++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  |  65 ++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 ++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td   |  18 +++-
+ lib/Target/RISCV/RISCVRegisterInfo.td   |  13 ++-
  lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++++
- lib/Target/RISCV/RISCVSubtarget.h       |  74 ++++++++++++++
+ lib/Target/RISCV/RISCVSubtarget.h       |  75 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu.ll               | 162 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1135 insertions(+), 36 deletions(-)
+ 24 files changed, 1105 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -143,24 +143,33 @@ index 00000000000..1b6140203c8
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index 19e11839ac3..0cf06a7647b 100644
+index 7b61901915f..da919acad36 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -10,10 +10,13 @@
- include "llvm/Target/Target.td"
+@@ -20,10 +20,11 @@ def RV64         : HwMode<"+64bit">;
+ def RV32         : HwMode<"-64bit">;
+ 
+ //===----------------------------------------------------------------------===//
+-// Register file, instruction descriptions.
++// Registers, calling conventions, instruction descriptions.
+ //===----------------------------------------------------------------------===//
  
  include "RISCVRegisterInfo.td"
 +include "RISCVCallingConv.td"
  include "RISCVInstrInfo.td"
  
+ //===----------------------------------------------------------------------===//
+@@ -38,7 +39,9 @@ def : ProcessorModel<"generic-rv64", NoSchedModel, [Feature64Bit]>;
+ // Define the RISC-V target.
+ //===----------------------------------------------------------------------===//
  
 -def RISCVInstrInfo : InstrInfo;
 +def RISCVInstrInfo : InstrInfo {
 +  let guessInstructionProperties = 0;
 +}
  
- def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
-                                       "Implements RV64">;
+ def RISCVAsmParser : AsmParser {
+   let ShouldEmitMatchRegisterAltName = 1;
 diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
 new file mode 100644
 index 00000000000..1c213b6c7e9
@@ -236,10 +245,10 @@ index 00000000000..1c213b6c7e9
 +}
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
 new file mode 100644
-index 00000000000..7eb48c8f177
+index 00000000000..e0c25e32e01
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVCallingConv.td
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,29 @@
 +//===-- RISCVCallingConv.td - Calling Conventions RISCV ----*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -254,7 +263,7 @@ index 00000000000..7eb48c8f177
 +//===----------------------------------------------------------------------===//
 +
 +// RISCV 32-bit C return-value convention.
-+def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10_32, X11_32]>>]>;
++def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10, X11]>>]>;
 +
 +// RISCV 32-bit C Calling convention.
 +def CC_RISCV32 : CallingConv<[
@@ -262,15 +271,13 @@ index 00000000000..7eb48c8f177
 +  CCIfType<[ i8, i16 ], CCPromoteToType<i32>>,
 +
 +  // All arguments get passed in integer registers if there is space.
-+  CCIfType<[i32], CCAssignToReg<[ X10_32, X11_32, X12_32, X13_32, X14_32,
-+                                  X15_32, X16_32, X17_32 ]>>,
++  CCIfType<[i32], CCAssignToReg<[ X10, X11, X12, X13, X14, X15, X16, X17]>>,
 +
 +  // Could be assigned to the stack in 8-byte aligned units, but unsupported
 +  CCAssignToStack<8, 8>
 +]>;
 +
-+def CSR : CalleeSavedRegs<(add X1_32, X3_32, X4_32, X8_32, X9_32,
-+                          (sequence "X%u_32", 18, 27))>;
++def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 new file mode 100644
 index 00000000000..fd3b258e26c
@@ -418,10 +425,10 @@ index 00000000000..78f61fa4184
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..58ee1a55799
+index 00000000000..575619fb521
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,171 @@
 +//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -461,15 +468,17 @@ index 00000000000..58ee1a55799
 +
 +RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 +                                         const RISCVSubtarget &STI)
-+    : TargetLowering(TM) {
++    : TargetLowering(TM), Subtarget(STI) {
++
++  MVT XLenVT = Subtarget.getXLenVT();
 +
 +  // Set up the register classes.
-+  addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
++  addRegisterClass(XLenVT, &RISCV::GPRRegClass);
 +
 +  // Compute derived properties from the register classes.
 +  computeRegisterProperties(STI.getRegisterInfo());
 +
-+  setStackPointerRegisterToSaveRestore(RISCV::X2_32);
++  setStackPointerRegisterToSaveRestore(RISCV::X2);
 +
 +  // TODO: add all necessary setOperationAction calls.
 +
@@ -506,6 +515,7 @@ index 00000000000..58ee1a55799
 +
 +  MachineFunction &MF = DAG.getMachineFunction();
 +  MachineRegisterInfo &RegInfo = MF.getRegInfo();
++  MVT XLenVT = Subtarget.getXLenVT();
 +
 +  if (IsVarArg)
 +    report_fatal_error("VarArg not supported");
@@ -519,21 +529,17 @@ index 00000000000..58ee1a55799
 +    if (VA.isRegLoc()) {
 +      // Arguments passed in registers.
 +      EVT RegVT = VA.getLocVT();
-+      switch (RegVT.getSimpleVT().SimpleTy) {
-+      case MVT::i32: {
-+        const unsigned VReg =
-+            RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-+        RegInfo.addLiveIn(VA.getLocReg(), VReg);
-+        SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
-+
-+        InVals.push_back(ArgIn);
-+        break;
-+      }
-+      default:
++      if (RegVT != XLenVT) {
 +        DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 +                     << RegVT.getEVTString() << "\n");
 +        report_fatal_error("unhandled argument type");
 +      }
++      const unsigned VReg =
++          RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
++      RegInfo.addLiveIn(VA.getLocReg(), VReg);
++      SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
++
++      InVals.push_back(ArgIn);
 +    } else {
 +      report_fatal_error("Defined with too many args");
 +    }
@@ -596,10 +602,10 @@ index 00000000000..58ee1a55799
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
 new file mode 100644
-index 00000000000..fc4ab2b9c4c
+index 00000000000..9fed48fc04e
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,62 @@
 +//===-- RISCVISelLowering.h - RISCV DAG Lowering Interface ------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -631,6 +637,8 @@ index 00000000000..fc4ab2b9c4c
 +}
 +
 +class RISCVTargetLowering : public TargetLowering {
++  const RISCVSubtarget &Subtarget;
++
 +public:
 +  explicit RISCVTargetLowering(const TargetMachine &TM,
 +                               const RISCVSubtarget &STI);
@@ -699,10 +707,10 @@ index 00000000000..92db5358ce4
 +RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
 new file mode 100644
-index 00000000000..a89198a157b
+index 00000000000..50404d5554d
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,32 @@
 +//===-- RISCVInstrInfo.h - RISCV Instruction Information --------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -728,184 +736,50 @@ index 00000000000..a89198a157b
 +namespace llvm {
 +
 +class RISCVInstrInfo : public RISCVGenInstrInfo {
-+  const RISCVRegisterInfo RI;
 +
 +public:
 +  RISCVInstrInfo();
-+
-+  const RISCVRegisterInfo &getRegisterInfo() const { return RI; }
 +};
 +}
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 1a5f32ecabe..8efeed3f594 100644
+index 213ef63f5f9..23adf1eda9d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,6 +13,11 @@
+@@ -13,6 +13,13 @@
  
  include "RISCVInstrFormats.td"
  
-+// Target-independent nodes
++//===----------------------------------------------------------------------===//
++// RISC-V specific DAG Nodes.
++//===----------------------------------------------------------------------===//
++
 +def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
 +                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 +
-+// Operands
- class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-   let Name = prefix # "Imm" # width # suffix;
-   let RenderMethod = "addImmOperands";
-@@ -39,12 +44,12 @@ def fencearg : Operand<i32> {
+ //===----------------------------------------------------------------------===//
+ // Operand and SDNode transformation definitions.
+ //===----------------------------------------------------------------------===//
+@@ -43,12 +50,12 @@ def fencearg : Operand<XLenVT> {
    let DecoderMethod = "decodeUImmOperand<4>";
  }
  
--def uimm5 : Operand<i32> {
-+def uimm5 : Operand<i32>, ImmLeaf<i32, [{return isUInt<5>(Imm);}]> {
+-def uimm5 : Operand<XLenVT> {
++def uimm5 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isUInt<5>(Imm);}]> {
    let ParserMatchClass = UImmAsmOperand<5>;
    let DecoderMethod = "decodeUImmOperand<5>";
  }
  
--def simm12 : Operand<i32> {
-+def simm12 : Operand<i32>, ImmLeaf<i32, [{return isInt<12>(Imm);}]> {
+-def simm12 : Operand<XLenVT> {
++def simm12 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<12>(Imm);}]> {
    let ParserMatchClass = SImmAsmOperand<12>;
    let EncoderMethod = "getImmOpValue";
    let DecoderMethod = "decodeSImmOperand<12>";
-@@ -83,6 +88,7 @@ def simm21_lsb0 : Operand<i32> {
- // like <http://lists.llvm.org/pipermail/llvm-dev/2016-September/105027.html>
- // is adopted.
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
- def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
-              "lui\t$rd, $imm20", []>;
- 
-@@ -94,11 +100,12 @@ def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
- 
- def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-               "jalr\t$rd, $rs1, $imm12", []>;
-+}
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
- class Bcc<bits<3> funct3, string OpcodeStr> :
-       FSB<funct3, 0b1100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
--         OpcodeStr#"\t$rs1, $rs2, $imm12", []> {
--}
-+         OpcodeStr#"\t$rs1, $rs2, $imm12", []>;
- 
- def BEQ   : Bcc<0b000, "beq">;
- def BNE   : Bcc<0b001, "bne">;
-@@ -107,11 +114,10 @@ def BGE   : Bcc<0b101, "bge">;
- def BLTU  : Bcc<0b110, "bltu">;
- def BGEU  : Bcc<0b111, "bgeu">;
- 
-+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
- class LD_ri<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b0000011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
--         OpcodeStr#"\t$rd, ${imm12}(${rs1})", []> {
--  let mayLoad = 1;
--}
-+         OpcodeStr#"\t$rd, ${imm12}(${rs1})", []>;
- 
- def LB   : LD_ri<0b000, "lb">;
- def LH   : LD_ri<0b001, "lh">;
-@@ -119,21 +125,19 @@ def LW   : LD_ri<0b010, "lw">;
- def LBU  : LD_ri<0b100, "lbu">;
- def LHU  : LD_ri<0b101, "lhu">;
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
- class ST_ri<bits<3> funct3, string OpcodeStr> :
-       FS<funct3, 0b0100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm12:$imm12),
--         OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []> {
--  let mayStore = 1;
--}
-+         OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []>;
- 
- def SB  : ST_ri<0b000, "sb">;
- def SH  : ST_ri<0b001, "sh">;
- def SW  : ST_ri<0b010, "sw">;
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
- class ALU_ri<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
--         OpcodeStr#"\t$rd, $rs1, $imm12", []>
--{
--}
-+         OpcodeStr#"\t$rd, $rs1, $imm12", []>;
- 
- def ADDI  : ALU_ri<0b000, "addi">;
- def SLTI  : ALU_ri<0b010, "slti">;
-@@ -142,21 +146,19 @@ def XORI  : ALU_ri<0b100, "xori">;
- def ORI   : ALU_ri<0b110, "ori">;
- def ANDI  : ALU_ri<0b111, "andi">;
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
- class SHIFT32_ri<bit arithshift, bits<3> funct3, string OpcodeStr> :
-       FI32Shift<arithshift, funct3, 0b0010011, (outs GPR:$rd), (ins GPR:$rs1, uimm5:$shamt),
--         OpcodeStr#"\t$rd, $rs1, $shamt", []>
--{
--}
-+         OpcodeStr#"\t$rd, $rs1, $shamt", []>;
- 
- def SLLI : SHIFT32_ri<0, 0b001, "slli">;
- def SRLI : SHIFT32_ri<0, 0b101, "srli">;
- def SRAI : SHIFT32_ri<1, 0b101, "srai">;
- 
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
- class ALU_rr<bits<7> funct7, bits<3> funct3, string OpcodeStr> :
-       FR<funct7, funct3, 0b0110011, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
--         OpcodeStr#"\t$rd, $rs1, $rs2", []>
--{
--}
-+         OpcodeStr#"\t$rd, $rs1, $rs2", []>;
- 
- def ADD  : ALU_rr<0b0000000, 0b000, "add">;
- def SUB  : ALU_rr<0b0100000, 0b000, "sub">;
-@@ -169,6 +171,7 @@ def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
- def OR   : ALU_rr<0b0000000, 0b110, "or">;
- def AND  : ALU_rr<0b0000000, 0b111, "and">;
- 
-+let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
- def FENCE : FI<0b000, 0b0001111, (outs), (ins fencearg:$pred, fencearg:$succ),
-                "fence\t$pred, $succ", []> {
-   bits<4> pred;
-@@ -185,31 +188,77 @@ def FENCEI : FI<0b001, 0b0001111, (outs), (ins), "fence.i", []> {
-   let imm12 = 0;
- }
- 
--let rs1=0, rd=0 in {
-+let rs1 = 0, rd = 0 in {
-   def ECALL  : FI<0b000, 0b1110011, (outs), (ins), "ecall", []> {
--    let imm12=0;
-+    let imm12 = 0;
-   }
-   def EBREAK : FI<0b000, 0b1110011, (outs), (ins), "ebreak", []> {
--    let imm12=1;
-+    let imm12 = 1;
-   }
- }
-+}
- 
-+let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
- class CSR_rr<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b1110011, (outs GPR:$rd), (ins uimm12:$imm12, GPR:$rs1),
--         OpcodeStr#"\t$rd, $imm12, $rs1", []>
--{
--}
-+         OpcodeStr#"\t$rd, $imm12, $rs1", []>;
- 
- def CSRRW : CSR_rr<0b001, "csrrw">;
- def CSRRS : CSR_rr<0b010, "csrrs">;
- def CSRRC : CSR_rr<0b011, "csrrc">;
- 
-+let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
- class CSR_ri<bits<3> funct3, string OpcodeStr> :
-       FI<funct3, 0b1110011, (outs GPR:$rd), (ins uimm12:$imm12, uimm5:$rs1),
--         OpcodeStr#"\t$rd, $imm12, $rs1", []>
--{
--}
-+         OpcodeStr#"\t$rd, $imm12, $rs1", []>;
- 
- def CSRRWI : CSR_ri<0b101, "csrrwi">;
- def CSRRSI : CSR_ri<0b110, "csrrsi">;
- def CSRRCI : CSR_ri<0b111, "csrrci">;
+@@ -231,3 +238,52 @@ def CSRRC : CSR_ir<0b011, "csrrc">;
+ def CSRRWI : CSR_ii<0b101, "csrrwi">;
+ def CSRRSI : CSR_ii<0b110, "csrrsi">;
+ def CSRRCI : CSR_ii<0b111, "csrrci">;
 +
 +//===----------------------------------------------------------------------===//
 +// Pseudo-instructions and codegen patterns
@@ -913,15 +787,17 @@ index 1a5f32ecabe..8efeed3f594 100644
 +// Naming convention: For 'generic' pattern classes, we use the naming
 +// convention PatTy1Ty2. For pattern classes which offer a more complex
 +// expension, prefix the class name, e.g. BccPat.
++//===----------------------------------------------------------------------===//
 +
 +/// Generic pattern classes
 +
-+class PatGprGpr<SDPatternOperator OpNode, FR Inst> :
-+      Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
-+class PatGprSimm12<SDPatternOperator OpNode, FI Inst> :
-+      Pat<(OpNode GPR:$rs1, simm12:$imm12), (Inst GPR:$rs1, simm12:$imm12)>;
-+class PatGprUimm5<SDPatternOperator OpNode, FI32Shift Inst> :
-+      Pat<(OpNode GPR:$rs1, uimm5:$shamt), (Inst GPR:$rs1, uimm5:$shamt)>;
++class PatGprGpr<SDPatternOperator OpNode, RVInstR Inst>
++    : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
++class PatGprSimm12<SDPatternOperator OpNode, RVInstI Inst>
++    : Pat<(OpNode GPR:$rs1, simm12:$imm12), (Inst GPR:$rs1, simm12:$imm12)>;
++class PatGprUimm5<SDPatternOperator OpNode, RVInstIShift Inst>
++    : Pat<(OpNode GPR:$rs1, uimm5:$shamt),
++          (Inst GPR:$rs1, uimm5:$shamt)>;
 +
 +/// Simple arithmetic operations
 +
@@ -952,7 +828,7 @@ index 1a5f32ecabe..8efeed3f594 100644
 +
 +let isBarrier = 1, isReturn = 1, isTerminator = 1 in
 +def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-+                PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
++                PseudoInstExpansion<(JALR X0, X1, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 new file mode 100644
 index 00000000000..9837b46532b
@@ -1013,10 +889,10 @@ index 00000000000..9837b46532b
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 new file mode 100644
-index 00000000000..cf0a31df9cf
+index 00000000000..4f6c528061c
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,61 @@
 +//===-- RISCVRegisterInfo.cpp - RISCV Register Information ------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1046,7 +922,9 @@ index 00000000000..cf0a31df9cf
 +
 +using namespace llvm;
 +
-+RISCVRegisterInfo::RISCVRegisterInfo() : RISCVGenRegisterInfo(RISCV::X1_32) {}
++RISCVRegisterInfo::RISCVRegisterInfo(unsigned HwMode)
++    : RISCVGenRegisterInfo(RISCV::X1, /*DwarfFlavour*/0, /*EHFlavor*/0,
++                           /*PC*/0, HwMode) {}
 +
 +const MCPhysReg *
 +RISCVRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
@@ -1057,18 +935,12 @@ index 00000000000..cf0a31df9cf
 +  BitVector Reserved(getNumRegs());
 +
 +  // Use markSuperRegs to ensure any register aliases are also reserved
-+  markSuperRegs(Reserved, RISCV::X0_64); // zero
-+  markSuperRegs(Reserved, RISCV::X0_32); // zero
-+  markSuperRegs(Reserved, RISCV::X1_64); // ra
-+  markSuperRegs(Reserved, RISCV::X1_32); // ra
-+  markSuperRegs(Reserved, RISCV::X2_64); // sp
-+  markSuperRegs(Reserved, RISCV::X2_32); // sp
-+  markSuperRegs(Reserved, RISCV::X3_64); // gp
-+  markSuperRegs(Reserved, RISCV::X3_32); // gp
-+  markSuperRegs(Reserved, RISCV::X4_64); // tp
-+  markSuperRegs(Reserved, RISCV::X4_32); // tp
-+  markSuperRegs(Reserved, RISCV::X8_64); // fp
-+  markSuperRegs(Reserved, RISCV::X8_32); // fp
++  markSuperRegs(Reserved, RISCV::X0); // zero
++  markSuperRegs(Reserved, RISCV::X1); // ra
++  markSuperRegs(Reserved, RISCV::X2); // sp
++  markSuperRegs(Reserved, RISCV::X3); // gp
++  markSuperRegs(Reserved, RISCV::X4); // tp
++  markSuperRegs(Reserved, RISCV::X8); // fp
 +  assert(checkAllSuperRegsMarked(Reserved));
 +  return Reserved;
 +}
@@ -1080,11 +952,11 @@ index 00000000000..cf0a31df9cf
 +}
 +
 +unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-+  return RISCV::X8_32;
++  return RISCV::X8;
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 new file mode 100644
-index 00000000000..30ca44247d9
+index 00000000000..94af9f44ecd
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -0,0 +1,40 @@
@@ -1113,7 +985,7 @@ index 00000000000..30ca44247d9
 +
 +struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
 +
-+  RISCVRegisterInfo();
++  RISCVRegisterInfo(unsigned HwMode);
 +
 +  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
 +
@@ -1129,39 +1001,32 @@ index 00000000000..30ca44247d9
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
-index f04de217bf0..df707746d04 100644
+index a5484130dfc..78c036a37b9 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.td
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.td
-@@ -79,12 +79,22 @@ foreach Index = 0-31 in {
- // similar are implemented, we can just use one 'GPR' class for most
- // instruction definitions.
+@@ -58,10 +58,15 @@ let RegAltNameIndices = [ABIRegAltName] in {
+ def XLenVT : ValueTypeByHwMode<[RV32, RV64, DefaultMode],
+                                [i32,  i64,  i32]>;
  
 -// TODO: once codegen is implemented, registers should be listed in an order
 -// reflecting the preferred register allocation sequence.
+-def GPR : RegisterClass< "RISCV", [XLenVT], 32, (add
+-    (sequence "X%u", 0, 31)
 +// The order of registers represents the preferred allocation sequence.
 +// Registers are listed in the order caller-save, callee-save, specials.
- def GPR : RegisterClass<"RISCV", [i32], 32, (add
--  (sequence "X%u_32", 0, 31)
-+  (sequence "X%u_32", 10, 17),
-+  (sequence "X%u_32", 5, 7),
-+  (sequence "X%u_32", 28, 31),
-+  (sequence "X%u_32", 8, 9),
-+  (sequence "X%u_32", 18, 27),
-+  (sequence "X%u_32", 0, 4)
- )>;
- 
- def GPR64 : RegisterClass<"RISCV", [i64], 64, (add
--  (sequence "X%u_64", 0, 31)
-+  (sequence "X%u_64", 10, 17),
-+  (sequence "X%u_64", 5, 7),
-+  (sequence "X%u_64", 28, 31),
-+  (sequence "X%u_64", 8, 9),
-+  (sequence "X%u_64", 18, 27),
-+  (sequence "X%u_64", 0, 4)
- )>;
++def GPR : RegisterClass<"RISCV", [XLenVT], 32, (add
++    (sequence "X%u", 10, 17),
++    (sequence "X%u", 5, 7),
++    (sequence "X%u", 28, 31),
++    (sequence "X%u", 8, 9),
++    (sequence "X%u", 18, 27),
++    (sequence "X%u", 0, 4)
+   )> {
+   let RegInfos = RegInfoByHwMode<
+       [RV32,              RV64,              DefaultMode],
 diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
 new file mode 100644
-index 00000000000..2c1ba7ff2b0
+index 00000000000..b221ea84a33
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.cpp
 @@ -0,0 +1,48 @@
@@ -1212,13 +1077,13 @@ index 00000000000..2c1ba7ff2b0
 +                               const std::string &FS, const TargetMachine &TM)
 +    : RISCVGenSubtargetInfo(TT, CPU, FS),
 +      FrameLowering(initializeSubtargetDependencies(CPU, FS, TT.isArch64Bit())),
-+      InstrInfo(), TLInfo(TM, *this) {}
++      InstrInfo(), RegInfo(getHwMode()), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 new file mode 100644
-index 00000000000..9640841cfa3
+index 00000000000..657b0e65620
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +//===-- RISCVSubtarget.h - Define Subtarget for the RISCV -------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1256,6 +1121,7 @@ index 00000000000..9640841cfa3
 +  MVT XLenVT = MVT::i32;
 +  RISCVFrameLowering FrameLowering;
 +  RISCVInstrInfo InstrInfo;
++  RISCVRegisterInfo RegInfo;
 +  RISCVTargetLowering TLInfo;
 +  SelectionDAGTargetInfo TSInfo;
 +
@@ -1277,8 +1143,8 @@ index 00000000000..9640841cfa3
 +    return &FrameLowering;
 +  }
 +  const RISCVInstrInfo *getInstrInfo() const override { return &InstrInfo; }
-+  const TargetRegisterInfo *getRegisterInfo() const override {
-+    return &InstrInfo.getRegisterInfo();
++  const RISCVRegisterInfo *getRegisterInfo() const override {
++    return &RegInfo;
 +  }
 +  const RISCVTargetLowering *getTargetLowering() const override {
 +    return &TLInfo;

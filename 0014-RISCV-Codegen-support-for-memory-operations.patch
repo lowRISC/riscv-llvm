@@ -7,16 +7,16 @@ in turn enabled code generation for `ret i32 <CONST>`.
 ---
  lib/Target/RISCV/RISCV.h               |   9 +-
  lib/Target/RISCV/RISCVAsmPrinter.cpp   |   7 +-
- lib/Target/RISCV/RISCVISelLowering.cpp |  33 ++++++-
- lib/Target/RISCV/RISCVISelLowering.h   |   3 +
+ lib/Target/RISCV/RISCVISelLowering.cpp |  31 ++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |   1 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 +++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |  56 ++++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td     |  51 ++++++++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 ++++++++++++----
  test/CodeGen/RISCV/alu.ll              |  39 ++++++++
  test/CodeGen/RISCV/mem.ll              | 174 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++
- 11 files changed, 423 insertions(+), 26 deletions(-)
+ 11 files changed, 417 insertions(+), 23 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -74,29 +74,20 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 58ee1a55799..10a09fc9ca5 100644
+index 575619fb521..59dc06bc888 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -37,7 +37,7 @@ using namespace llvm;
+@@ -49,10 +49,17 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  
- RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-                                          const RISCVSubtarget &STI)
--    : TargetLowering(TM) {
-+    : TargetLowering(TM), Subtarget(STI) {
- 
-   // Set up the register classes.
-   addRegisterClass(MVT::i32, &RISCV::GPRRegClass);
-@@ -47,10 +47,17 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
- 
-   setStackPointerRegisterToSaveRestore(RISCV::X2_32);
+   setStackPointerRegisterToSaveRestore(RISCV::X2);
  
 +  for (auto N : {ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD})
-+    setLoadExtAction(N, MVT::i32, MVT::i1, Promote);
++    setLoadExtAction(N, XLenVT, MVT::i1, Promote);
 +
    // TODO: add all necessary setOperationAction calls.
 +  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
 +
-+  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
++  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
    setBooleanContents(ZeroOrOneBooleanContent);
  
@@ -104,7 +95,7 @@ index 58ee1a55799..10a09fc9ca5 100644
    // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
-@@ -59,11 +66,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -61,11 +68,35 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
  SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
    switch (Op.getOpcode()) {
@@ -141,19 +132,10 @@ index 58ee1a55799..10a09fc9ca5 100644
  #include "RISCVGenCallingConv.inc"
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index fc4ab2b9c4c..2bd5717ca0c 100644
+index 9fed48fc04e..2bd5717ca0c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
-@@ -29,6 +29,8 @@ enum NodeType : unsigned {
- }
- 
- class RISCVTargetLowering : public TargetLowering {
-+  const RISCVSubtarget &Subtarget;
-+
- public:
-   explicit RISCVTargetLowering(const TargetMachine &TM,
-                                const RISCVSubtarget &STI);
-@@ -54,6 +56,7 @@ private:
+@@ -56,6 +56,7 @@ private:
                                           Type *Ty) const override {
      return true;
    }
@@ -185,13 +167,13 @@ index 92db5358ce4..77206a80640 100644
 +      .addImm(0);
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index a89198a157b..27492c869db 100644
+index 50404d5554d..5da3d010215 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -29,6 +29,10 @@ public:
-   RISCVInstrInfo();
+@@ -26,6 +26,10 @@ class RISCVInstrInfo : public RISCVGenInstrInfo {
  
-   const RISCVRegisterInfo &getRegisterInfo() const { return RI; }
+ public:
+   RISCVInstrInfo();
 +
 +  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator Position,
 +                   const DebugLoc &DL, unsigned DestinationRegister,
@@ -200,26 +182,21 @@ index a89198a157b..27492c869db 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 8efeed3f594..93a6bd46587 100644
+index 23adf1eda9d..5a129ce72a9 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,7 +13,6 @@
- 
- include "RISCVInstrFormats.td"
- 
--// Target-independent nodes
- def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
-                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
- 
-@@ -80,6 +79,22 @@ def simm21_lsb0 : Operand<i32> {
+@@ -86,6 +86,24 @@ def simm21_lsb0 : Operand<XLenVT> {
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
  }
  
++// Standalone (codegen-only) immleaf patterns.
++def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
++
 +// Extract least significant 12 bits from an immediate value and sign extend
 +// them.
 +def LO12Sext : SDNodeXForm<imm, [{
 +  return CurDAG->getTargetConstant(SignExtend64<12>(N->getZExtValue()),
-+                                   SDLoc(N), MVT::i32);
++                                   SDLoc(N), N->getValueType(0));
 +}]>;
 +
 +// Extract the most significant 20 bits from an immediate value. Add 1 if bit
@@ -227,48 +204,32 @@ index 8efeed3f594..93a6bd46587 100644
 +// or ld/st being negative.
 +def HI20 : SDNodeXForm<imm, [{
 +  return CurDAG->getTargetConstant(((N->getZExtValue()+0x800) >> 12) & 0xfffff,
-+                                   SDLoc(N), MVT::i32);
++                                   SDLoc(N), N->getValueType(0));
 +}]>;
 +
-+
- // As noted in RISCVRegisterInfo.td, the hope is that support for
- // variable-sized register classes will mean that instruction definitions do
- // not need to be duplicated for 32-bit and 64-bit register classes. For now
-@@ -125,9 +140,13 @@ def LW   : LD_ri<0b010, "lw">;
- def LBU  : LD_ri<0b100, "lbu">;
- def LHU  : LD_ri<0b101, "lhu">;
- 
-+// Operands for stores are in the order srcreg, base, offset rather than
-+// reflecting the order these fields are specified in the instruction
-+// encoding.
-+
- let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
- class ST_ri<bits<3> funct3, string OpcodeStr> :
--      FS<funct3, 0b0100011, (outs), (ins GPR:$rs1, GPR:$rs2, simm12:$imm12),
-+      FS<funct3, 0b0100011, (outs), (ins GPR:$rs2, GPR:$rs1, simm12:$imm12),
-          OpcodeStr#"\t$rs2, ${imm12}(${rs1})", []>;
- 
- def SB  : ST_ri<0b000, "sb">;
-@@ -232,6 +251,11 @@ class PatGprSimm12<SDPatternOperator OpNode, FI Inst> :
- class PatGprUimm5<SDPatternOperator OpNode, FI32Shift Inst> :
-       Pat<(OpNode GPR:$rs1, uimm5:$shamt), (Inst GPR:$rs1, uimm5:$shamt)>;
+ //===----------------------------------------------------------------------===//
+ // Instruction Class Templates
+ //===----------------------------------------------------------------------===//
+@@ -257,6 +275,11 @@ class PatGprUimm5<SDPatternOperator OpNode, RVInstIShift Inst>
+     : Pat<(OpNode GPR:$rs1, uimm5:$shamt),
+           (Inst GPR:$rs1, uimm5:$shamt)>;
  
 +/// Immediates
 +
-+def : Pat<(simm12:$imm), (ADDI X0_32, simm12:$imm)>;
-+def : Pat<(i32 imm:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
++def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
++def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
 +
  /// Simple arithmetic operations
  
  def : PatGprGpr<add, ADD>;
-@@ -262,3 +286,31 @@ def : PatGprSimm12<setult, SLTIU>;
+@@ -287,3 +310,31 @@ def : PatGprSimm12<setult, SLTIU>;
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
 +
 +/// Loads
 +
-+multiclass LdPat<PatFrag LoadOp, RISCVInst Inst> {
++multiclass LdPat<PatFrag LoadOp, RVInst Inst> {
 +  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
 +  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)),
 +            (Inst GPR:$rs1, simm12:$imm12)>;
@@ -284,7 +245,7 @@ index 8efeed3f594..93a6bd46587 100644
 +
 +/// Stores
 +
-+multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
++multiclass StPat<PatFrag StoreOp, RVInst Inst> {
 +  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
 +  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)),
 +            (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;

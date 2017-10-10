@@ -1,23 +1,22 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV32D extension (WIP)
+Subject: [RISCV] MC layer support for the standard RV32D extension (WIP)
 
 ---
  lib/Target/RISCV/RISCV.td           |   6 ++
  lib/Target/RISCV/RISCVInstrInfo.td  |   1 +
- lib/Target/RISCV/RISCVInstrInfoD.td |  80 ++++++++++++++++++++++++
- lib/Target/RISCV/RISCVInstrInfoF.td |  17 +++---
+ lib/Target/RISCV/RISCVInstrInfoD.td | 113 ++++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVSubtarget.h   |   1 +
  test/MC/RISCV/rv32d-invalid.s       |  21 +++++++
  test/MC/RISCV/rv32d-valid.s         | 118 ++++++++++++++++++++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s       |   5 +-
- 8 files changed, 240 insertions(+), 9 deletions(-)
+ 7 files changed, 264 insertions(+), 1 deletion(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index a7674436727..b2bc0d88d83 100644
+index aa3cb6bfbc3..a2348ca50ad 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -28,6 +28,12 @@ def FeatureStdExtF : SubtargetFeature<"f", "HasStdExtF", "true",
@@ -34,20 +33,20 @@ index a7674436727..b2bc0d88d83 100644
                             "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index ebce21d36b1..3fb7e353b29 100644
+index 7a11918187c..3e1e767b012 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -436,3 +436,4 @@ let Defs = [X2_32], Uses = [X2_32] in {
+@@ -463,3 +463,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
  include "RISCVInstrInfoF.td"
 +include "RISCVInstrInfoD.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
 new file mode 100644
-index 00000000000..b60e964d6b3
+index 00000000000..073dc5790f0
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,113 @@
 +//===-- RISCVInstrInfoD.td - RISC-V 'D' instructions -------*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -66,105 +65,103 @@ index 00000000000..b60e964d6b3
 +// as operands. This is sufficent for (dis)assembler support, but is obviously
 +// incorrect for codegen.
 +
++//===----------------------------------------------------------------------===//
++// Instruction Class Templates
++//===----------------------------------------------------------------------===//
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++class FPFMAD_rrr<bits<3> funct3, RISCVOpcode opcode, string opcodestr>
++    : RVInstR4<0b01, funct3, opcode, (outs FPR32:$rd),
++               (ins FPR32:$rs1, FPR32:$rs2, FPR32:$rs3),
++               opcodestr, "$rd, $rs1, $rs2, $rs3">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++class FPALUD_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
++    : RVInstR<funct7, funct3, OPC_OP_FP, (outs FPR32:$rd),
++              (ins FPR32:$rs1, FPR32:$rs2), opcodestr, "$rd, $rs1, $rs2">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++class FPCmpD_rr<bits<3> funct3, string opcodestr>
++    : RVInstR<0b1010001, funct3, OPC_OP_FP, (outs GPR:$rd),
++              (ins FPR32:$rs1, FPR32:$rs2), opcodestr, "$rd, $rs1, $rs2">;
++
++//===----------------------------------------------------------------------===//
++// Instructions
++//===----------------------------------------------------------------------===//
++
 +let Predicates = [HasStdExtD] in {
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-+def FLD : FI<0b011, 0b0000111, (outs FPR32:$rd), (ins GPR:$rs1, simm12:$imm12),
-+             "fld\t$rd, ${imm12}(${rs1})", []>;
-+
++def FLD : RVInstI<0b011, OPC_LOAD_FP, (outs FPR32:$rd),
++                  (ins GPR:$rs1, simm12:$imm12),
++                  "fld", "$rd, ${imm12}(${rs1})">;
 +
 +// Operands for stores are in the order srcreg, base, offset rather than
 +// reflecting the order these fields are specified in the instruction
 +// encoding.
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-+def FSD : FS<0b011, 0b0100111, (outs), (ins FPR32:$rs2, GPR:$rs1, simm12:$imm12),
-+             "fsd\t $rs2, ${imm12}(${rs1})", []>;
++def FSD : RVInstS<0b011, OPC_STORE_FP, (outs),
++                  (ins FPR32:$rs2, GPR:$rs1, simm12:$imm12),
++                  "fsd", "$rs2, ${imm12}(${rs1})">;
 +
 +// Hard-code the rounding mode to dynamic, as there doesn't seem to be any
 +// standard RISC-V assembly syntax for specifying the rounding mode field
 +
-+def FMADD_D   : FPFMA_rr<0b01, 0b111, 0b1000011, FPR32, "fmadd.d">;
-+def FMSUB_D   : FPFMA_rr<0b01, 0b111, 0b1000111, FPR32, "fmsub.d">;
-+def FNMSUB_D  : FPFMA_rr<0b01, 0b111, 0b1001011, FPR32, "fnmsub.d">;
-+def FNMADD_D  : FPFMA_rr<0b01, 0b111, 0b1001111, FPR32, "fnmadd.d">;
++def FMADD_D  : FPFMAD_rrr<0b111, OPC_MADD, "fmadd.d">;
++def FMSUB_D  : FPFMAD_rrr<0b111, OPC_MSUB, "fmsub.d">;
++def FNMSUB_D : FPFMAD_rrr<0b111, OPC_NMSUB, "fnmsub.d">;
++def FNMADD_D : FPFMAD_rrr<0b111, OPC_NMADD, "fnmadd.d">;
 +
-+def FADD_D    : FPALU_rr<0b0000001, 0b111, FPR32, FPR32, FPR32, "fadd.d">;
-+def FSUB_D    : FPALU_rr<0b0000101, 0b111, FPR32, FPR32, FPR32, "fsub.d">;
-+def FMUL_D    : FPALU_rr<0b0001001, 0b111, FPR32, FPR32, FPR32, "fmul.d">;
-+def FDIV_D    : FPALU_rr<0b0001101, 0b111, FPR32, FPR32, FPR32, "fdiv.d">;
++def FADD_D : FPALUD_rr<0b0000001, 0b111, "fadd.d">;
++def FSUB_D : FPALUD_rr<0b0000101, 0b111, "fsub.d">;
++def FMUL_D : FPALUD_rr<0b0001001, 0b111, "fmul.d">;
++def FDIV_D : FPALUD_rr<0b0001101, 0b111, "fdiv.d">;
 +
-+let rs2 = 0b00000 in
-+def FSQRT_D   : FPMisc_r<0b0101101, 0b111, FPR32, FPR32, "fsqrt.d">;
-+
-+def FSGNJ_D   : FPALU_rr<0b0010001, 0b000, FPR32, FPR32, FPR32, "fsgnj.d">;
-+def FSGNJN_D  : FPALU_rr<0b0010001, 0b001, FPR32, FPR32, FPR32, "fsgnjn.d">;
-+def FSGNJX_D  : FPALU_rr<0b0010001, 0b010, FPR32, FPR32, FPR32, "fsgnjx.d">;
-+def FMIN_D    : FPALU_rr<0b0010101, 0b000, FPR32, FPR32, FPR32, "fmin.d">;
-+def FMAX_D    : FPALU_rr<0b0010101, 0b001, FPR32, FPR32, FPR32, "fmax.d">;
-+
-+let rs2 = 0b00001 in
-+def FCVT_S_D  : FPMisc_r<0b0100000, 0b111, FPR32, FPR32, "fcvt.s.d">;
-+
-+let rs2 = 0b00000 in
-+def FCVT_D_S  : FPMisc_r<0b0100001, 0b000, FPR32, FPR32, "fcvt.d.s">;
-+
-+def FEQ_D     : FPALU_rr<0b1010001, 0b010, GPR, FPR32, FPR32, "feq.d">;
-+def FLT_D     : FPALU_rr<0b1010001, 0b001, GPR, FPR32, FPR32, "flt.d">;
-+def FLE_D     : FPALU_rr<0b1010001, 0b000, GPR, FPR32, FPR32, "fle.d">;
-+
-+let rs2 = 0b00000 in
-+def FCLASS_D  : FPMisc_r<0b1110001, 0b001, GPR, FPR32, "fclass.d">;
-+
-+let rs2 = 0b00000 in
-+def FCVT_W_D  : FPMisc_r<0b1100001, 0b111, GPR, FPR32, "fcvt.w.d">;
-+
-+let rs2 = 0b00001 in
-+def FCVT_WU_D : FPMisc_r<0b1100001, 0b111, GPR, FPR32, "fcvt.wu.d">;
-+
-+let rs2 = 0b00000 in
-+def FCVT_D_W  : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.w">;
-+
-+let rs2 = 0b00001 in
-+def FCVT_D_WU : FPMisc_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu">;
++def FSQRT_D : FPUnaryOp_r<0b0101101, 0b111, FPR32, FPR32, "fsqrt.d"> {
++  let rs2 = 0b00000;
 +}
-diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index 85ae1255d30..c325b58999f 100644
---- a/lib/Target/RISCV/RISCVInstrInfoF.td
-+++ b/lib/Target/RISCV/RISCVInstrInfoF.td
-@@ -16,10 +16,11 @@
- let Predicates = [HasStdExtF] in {
- 
- let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
--class FPFMA_rr<bits<2> funct2, bits<3> funct3, bits<7> opcode, string OpcodeStr> :
--      FR4<funct2, funct3, opcode, (outs FPR32:$rd),
--          (ins FPR32:$rs1, FPR32:$rs2, FPR32:$rs3),
--          OpcodeStr#"\t$rd, $rs1, $rs2, $rs3", []>;
-+class FPFMA_rr<bits<2> funct2, bits<3> funct3, bits<7> opcode,
-+               RegisterClass regty, string OpcodeStr> :
-+        FR4<funct2, funct3, opcode, (outs FPR32:$rd),
-+            (ins FPR32:$rs1, FPR32:$rs2, FPR32:$rs3),
-+            OpcodeStr#"\t$rd, $rs1, $rs2, $rs3", []>;
- 
- class FPALU_rr<bits<7> funct7, bits<3> funct3, RegisterClass rdty,
-                RegisterClass rs1ty, RegisterClass rs2ty, string OpcodeStr> :
-@@ -48,10 +49,10 @@ def FSW : FS<0b010, 0b0100111, (outs), (ins FPR32:$rs2, GPR:$rs1, simm12:$imm12)
- // Hard-code the rounding mode to dynamic, as there doesn't seem to be any
- // standard RISC-V assembly syntax for specifying the rounding mode field
- 
--def FMADD_S   : FPFMA_rr<0b00, 0b111, 0b1000011, "fmadd.s">;
--def FMSUB_S   : FPFMA_rr<0b00, 0b111, 0b1000111, "fmsub.s">;
--def FNMSUB_S  : FPFMA_rr<0b00, 0b111, 0b1001011, "fnmsub.s">;
--def FNMADD_S  : FPFMA_rr<0b00, 0b111, 0b1001111, "fnmadd.s">;
-+def FMADD_S   : FPFMA_rr<0b00, 0b111, 0b1000011, FPR32, "fmadd.s">;
-+def FMSUB_S   : FPFMA_rr<0b00, 0b111, 0b1000111, FPR32, "fmsub.s">;
-+def FNMSUB_S  : FPFMA_rr<0b00, 0b111, 0b1001011, FPR32, "fnmsub.s">;
-+def FNMADD_S  : FPFMA_rr<0b00, 0b111, 0b1001111, FPR32, "fnmadd.s">;
- 
- 
- def FADD_S    : FPALU_rr<0b0000000, 0b111, FPR32, FPR32, FPR32, "fadd.s">;
++
++def FSGNJ_D  : FPALUD_rr<0b0010001, 0b000, "fsgnj.d">;
++def FSGNJN_D : FPALUD_rr<0b0010001, 0b001, "fsgnjn.d">;
++def FSGNJX_D : FPALUD_rr<0b0010001, 0b010, "fsgnjx.d">;
++def FMIN_D   : FPALUD_rr<0b0010101, 0b000, "fmin.d">;
++def FMAX_D   : FPALUD_rr<0b0010101, 0b001, "fmax.d">;
++
++def FCVT_S_D : FPUnaryOp_r<0b0100000, 0b111, FPR32, FPR32, "fcvt.s.d"> {
++  let rs2 = 0b00001;
++}
++
++def FCVT_D_S : FPUnaryOp_r<0b0100001, 0b000, FPR32, FPR32, "fcvt.d.s"> {
++  let rs2 = 0b00000;
++}
++
++def FEQ_D : FPCmpD_rr<0b010, "feq.d">;
++def FLT_D : FPCmpD_rr<0b001, "flt.d">;
++def FLE_D : FPCmpD_rr<0b000, "fle.d">;
++
++def FCLASS_D : FPUnaryOp_r<0b1110001, 0b001, GPR, FPR32, "fclass.d"> {
++  let rs2 = 0b00000;
++}
++
++def FCVT_W_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.w.d"> {
++  let rs2 = 0b00000;
++}
++
++def FCVT_WU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.wu.d"> {
++  let rs2 = 0b00001;
++}
++
++def FCVT_D_W : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.w"> {
++  let rs2 = 0b00000;
++}
++
++def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu"> {
++  let rs2 = 0b00001;
++}
++} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 0990e63675b..fffa9eaf5dd 100644
+index 9d40c27aa3f..439702433d2 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -33,6 +33,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {

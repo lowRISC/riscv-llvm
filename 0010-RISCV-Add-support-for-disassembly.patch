@@ -85,7 +85,7 @@ index 00000000000..340e89d4cf3
 +
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 new file mode 100644
-index 00000000000..e64d875a567
+index 00000000000..003686ac2f3
 --- /dev/null
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 @@ -0,0 +1,135 @@
@@ -147,14 +147,14 @@ index 00000000000..e64d875a567
 +}
 +
 +static const unsigned GPRDecoderTable[] = {
-+  RISCV::X0_32,  RISCV::X1_32,  RISCV::X2_32,  RISCV::X3_32,
-+  RISCV::X4_32,  RISCV::X5_32,  RISCV::X6_32,  RISCV::X7_32,
-+  RISCV::X8_32,  RISCV::X9_32,  RISCV::X10_32, RISCV::X11_32,
-+  RISCV::X12_32, RISCV::X13_32, RISCV::X14_32, RISCV::X15_32,
-+  RISCV::X16_32, RISCV::X17_32, RISCV::X18_32, RISCV::X19_32,
-+  RISCV::X20_32, RISCV::X21_32, RISCV::X22_32, RISCV::X23_32,
-+  RISCV::X24_32, RISCV::X25_32, RISCV::X26_32, RISCV::X27_32,
-+  RISCV::X28_32, RISCV::X29_32, RISCV::X30_32, RISCV::X31_32
++  RISCV::X0,  RISCV::X1,  RISCV::X2,  RISCV::X3,
++  RISCV::X4,  RISCV::X5,  RISCV::X6,  RISCV::X7,
++  RISCV::X8,  RISCV::X9,  RISCV::X10, RISCV::X11,
++  RISCV::X12, RISCV::X13, RISCV::X14, RISCV::X15,
++  RISCV::X16, RISCV::X17, RISCV::X18, RISCV::X19,
++  RISCV::X20, RISCV::X21, RISCV::X22, RISCV::X23,
++  RISCV::X24, RISCV::X25, RISCV::X26, RISCV::X27,
++  RISCV::X28, RISCV::X29, RISCV::X30, RISCV::X31
 +};
 +
 +static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
@@ -284,7 +284,7 @@ index eb0beb028ad..f4eaf06f622 100644
  
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
-index 0f68dd7aa05..bb12c2536e5 100644
+index 72485c5cd08..45de976ec6c 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 @@ -29,6 +29,9 @@
@@ -332,11 +332,11 @@ index 7c98b1c8f32..9891fd52b2f 100644
 +
  #endif
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
-index 3fab7122f6f..d77f3874c7d 100644
+index 59ddc703c1d..9121314bfcc 100644
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ b/lib/Target/RISCV/RISCVInstrFormats.td
-@@ -28,6 +28,11 @@
- class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+@@ -56,6 +56,11 @@ class RVInst<dag outs, dag ins, string opcodestr, string argstr,
+              list<dag> pattern>
      : Instruction {
    field bits<32> Inst;
 +  // SoftFail is a field the disassembler can use to provide a way for
@@ -348,52 +348,52 @@ index 3fab7122f6f..d77f3874c7d 100644
  
    bits<7> Opcode = 0;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 78b1c907f33..e84e4dabb94 100644
+index 37edb89af25..dd54ab6c06b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -36,34 +36,42 @@ def FenceArg : AsmOperandClass {
- def fencearg : Operand<i32> {
+@@ -40,34 +40,42 @@ def FenceArg : AsmOperandClass {
+ def fencearg : Operand<XLenVT> {
    let ParserMatchClass = FenceArg;
    let PrintMethod = "printFenceArg";
 +  let DecoderMethod = "decodeUImmOperand<4>";
  }
  
- def uimm5 : Operand<i32> {
+ def uimm5 : Operand<XLenVT> {
    let ParserMatchClass = UImmAsmOperand<5>;
 +  let DecoderMethod = "decodeUImmOperand<5>";
  }
  
- def simm12 : Operand<i32> {
+ def simm12 : Operand<XLenVT> {
    let ParserMatchClass = SImmAsmOperand<12>;
 +  let DecoderMethod = "decodeSImmOperand<12>";
  }
  
- def uimm12 : Operand<i32> {
+ def uimm12 : Operand<XLenVT> {
    let ParserMatchClass = UImmAsmOperand<12>;
 +  let DecoderMethod = "decodeUImmOperand<12>";
  }
  
  // A 13-bit signed immediate where the least significant bit is zero.
- def simm13_lsb0 : Operand<i32> {
+ def simm13_lsb0 : Operand<XLenVT> {
    let ParserMatchClass = SImmAsmOperand<13, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
 +  let DecoderMethod = "decodeSImmOperandAndLsl1<13>";
  }
  
- def uimm20 : Operand<i32> {
+ def uimm20 : Operand<XLenVT> {
    let ParserMatchClass = UImmAsmOperand<20>;
 +  let EncoderMethod = "getImmOpValue";
 +  let DecoderMethod = "decodeUImmOperand<20>";
  }
  
  // A 21-bit signed immediate where the least significant bit is zero.
- def simm21_lsb0 : Operand<i32> {
+ def simm21_lsb0 : Operand<XLenVT> {
    let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
    let EncoderMethod = "getImmOpValueAsr1";
 +  let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
  }
  
- // As noted in RISCVRegisterInfo.td, the hope is that support for
+ //===----------------------------------------------------------------------===//
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
 index 4c883e9a0ae..95d9da4bb51 100644
 --- a/test/MC/RISCV/rv32i-valid.s

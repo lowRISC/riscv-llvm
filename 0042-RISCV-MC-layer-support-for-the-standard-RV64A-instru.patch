@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV64A instruction set
+Subject: [RISCV] MC layer support for the standard RV64A instruction set
  extension
 
 ---
@@ -13,13 +13,13 @@ Subject: [RISCV] MC-layer support for the standard RV64A instruction set
  create mode 100644 test/MC/RISCV/rv64a-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoA.td b/lib/Target/RISCV/RISCVInstrInfoA.td
-index 273e8548bfe..c185a9a7702 100644
+index 54f35c3c0ba..33e863ba6a1 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoA.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoA.td
-@@ -55,3 +55,17 @@ defm AMOMAX_W   : AMO_rr_aq_rl<0b10100, 0b010, "amomax.w">;
+@@ -61,3 +61,17 @@ defm AMOMAX_W   : AMO_rr_aq_rl<0b10100, 0b010, "amomax.w">;
  defm AMOMINU_W  : AMO_rr_aq_rl<0b11000, 0b010, "amominu.w">;
  defm AMOMAXU_W  : AMO_rr_aq_rl<0b11100, 0b010, "amomaxu.w">;
- }
+ } // Predicates = [HasStdExtA]
 +
 +let Predicates = [HasStdExtA, IsRV64] in {
 +defm LR_D       : LR_r_aq_rl<0b011, "lr.d">;
@@ -33,7 +33,7 @@ index 273e8548bfe..c185a9a7702 100644
 +defm AMOMAX_D   : AMO_rr_aq_rl<0b10100, 0b011, "amomax.d">;
 +defm AMOMINU_D  : AMO_rr_aq_rl<0b11000, 0b011, "amominu.d">;
 +defm AMOMAXU_D  : AMO_rr_aq_rl<0b11100, 0b011, "amomaxu.d">;
-+}
++} // Predicates = [HasStedExtA, IsRV64]
 diff --git a/test/MC/RISCV/rv32a-invalid.s b/test/MC/RISCV/rv32a-invalid.s
 index 0b293ac26fa..8ee21bc501b 100644
 --- a/test/MC/RISCV/rv32a-invalid.s

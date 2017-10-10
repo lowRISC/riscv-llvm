@@ -211,10 +211,10 @@ index 4aad0a54954..67af8fdcbbd 100644
 +  return false;
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 3fee03252f2..2ab6a2cd83a 100644
+index 4d26d3148b7..0d80885d121 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -44,6 +44,22 @@ public:
+@@ -41,6 +41,22 @@ public:
                              MachineBasicBlock::iterator MBBI, unsigned DestReg,
                              int FrameIndex, const TargetRegisterClass *RC,
                              const TargetRegisterInfo *TRI) const override;

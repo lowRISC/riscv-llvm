@@ -14,7 +14,7 @@ function.
  create mode 100644 test/CodeGen/RISCV/large-stack.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index cd1c33059d5..bc7b0dda836 100644
+index 16ddf084d80..970c3e9dc8b 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -57,6 +57,49 @@ void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
@@ -156,10 +156,10 @@ index 98325ffd571..f4c9c6e6540 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 8ae5fe794cf..b8fdc09c4c9 100644
+index d783bae3272..b55d823cce9 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -68,6 +68,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -64,6 +64,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
    MachineFunction &MF = *MI.getParent()->getParent();
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -167,7 +167,7 @@ index 8ae5fe794cf..b8fdc09c4c9 100644
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
-@@ -102,28 +103,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -98,28 +99,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
  
@@ -222,7 +222,7 @@ index 8ae5fe794cf..b8fdc09c4c9 100644
      break;
    default:
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index 159b9d5bd9b..d01b61ee936 100644
+index d9de9bf8c76..ba4c729f490 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -39,6 +39,14 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

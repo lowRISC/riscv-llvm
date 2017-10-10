@@ -1,39 +1,43 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC-layer support for the standard RV64F instruction set
+Subject: [RISCV] MC layer support for the standard RV64F instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCVInstrInfoF.td | 14 ++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoF.td | 18 ++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s       |  2 ++
  test/MC/RISCV/rv64f-invalid.s       |  9 +++++++++
  test/MC/RISCV/rv64f-valid.s         | 23 +++++++++++++++++++++++
- 4 files changed, 48 insertions(+)
+ 4 files changed, 52 insertions(+)
  create mode 100644 test/MC/RISCV/rv64f-invalid.s
  create mode 100644 test/MC/RISCV/rv64f-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index c325b58999f..8f5136c9a9e 100644
+index 941794de4dd..9429d0612e5 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
-@@ -94,3 +94,17 @@ def FCVT_S_WU : FPMisc_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.wu">;
- let rs2 = 0b00000 in
- def FMV_W_X : FPMisc_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x">;
+@@ -111,3 +111,21 @@ def FMV_W_X : FPUnaryOp_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x"> {
+   let rs2 = 0b00000;
  }
+ } // Predicates = [HasStdExtF]
 +
 +let Predicates = [HasStdExtF, IsRV64] in {
-+let rs2 = 0b00010 in
-+def FCVT_L_S  : FPMisc_r<0b1100000, 0b111, GPR, FPR32, "fcvt.l.s">;
-+
-+let rs2 = 0b00011 in
-+def FCVT_LU_S  : FPMisc_r<0b1100000, 0b111, GPR, FPR32, "fcvt.lu.s">;
-+
-+let rs2 = 0b00010 in
-+def FCVT_S_L : FPMisc_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.l">;
-+
-+let rs2 = 0b00011 in
-+def FCVT_S_LU : FPMisc_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.lu">;
++def FCVT_L_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.l.s"> {
++  let rs2 = 0b00010;
 +}
++
++def FCVT_LU_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.lu.s"> {
++  let rs2 = 0b00011;
++}
++
++def FCVT_S_L : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.l"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_S_LU : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.lu"> {
++  let rs2 = 0b00011;
++}
++} // Predicates = [HasStdExtF, IsRV64]
 diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
 index 1a209a2b19b..cbc8d8c374a 100644
 --- a/test/MC/RISCV/rv32f-invalid.s

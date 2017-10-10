@@ -9,12 +9,11 @@ before the frame pointer is set.
  lib/Target/RISCV/RISCVFrameLowering.cpp | 146 +++++++++++++++++++++++++++++++-
  lib/Target/RISCV/RISCVFrameLowering.h   |  12 ++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  26 +++++-
- lib/Target/RISCV/RISCVSubtarget.h       |   2 +-
  test/CodeGen/RISCV/frame.ll             |  25 +++---
- 5 files changed, 194 insertions(+), 17 deletions(-)
+ 4 files changed, 193 insertions(+), 16 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index fd3b258e26c..d91eb1b150e 100644
+index fd3b258e26c..304174e851b 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -22,8 +22,150 @@ using namespace llvm;
@@ -69,8 +68,8 @@ index fd3b258e26c..d91eb1b150e 100644
 +  const RISCVInstrInfo *TII = STI.getInstrInfo();
 +  MachineBasicBlock::iterator MBBI = MBB.begin();
 +
-+  unsigned FPReg = RISCV::X8_32;
-+  unsigned SPReg = RISCV::X2_32;
++  unsigned FPReg = RISCV::X8;
++  unsigned SPReg = RISCV::X2;
 +
 +  // Debug location must be unknown since the first debug location is used
 +  // to determine the end of the prologue.
@@ -128,8 +127,8 @@ index fd3b258e26c..d91eb1b150e 100644
 +  const RISCVRegisterInfo *RI = STI.getRegisterInfo();
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  DebugLoc DL = MBBI->getDebugLoc();
-+  unsigned FPReg = RISCV::X8_32;
-+  unsigned SPReg = RISCV::X2_32;
++  unsigned FPReg = RISCV::X8;
++  unsigned SPReg = RISCV::X2;
 +
 +  // Skip to before the restores of callee-saved registers
 +  MachineBasicBlock::iterator Begin = MBB.begin();
@@ -167,7 +166,7 @@ index fd3b258e26c..d91eb1b150e 100644
 +                                              BitVector &SavedRegs,
 +                                              RegScavenger *RS) const {
 +  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
-+  SavedRegs.set(RISCV::X8_32);
++  SavedRegs.set(RISCV::X8);
 +  return;
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
@@ -205,10 +204,10 @@ index da4f266c931..98325ffd571 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 52cd45235c1..d1bb5455811 100644
+index c007577e629..4f15668311e 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -65,14 +65,34 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -61,14 +61,34 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
@@ -238,7 +237,7 @@ index 52cd45235c1..d1bb5455811 100644
 +  }
 +
 +  if ((FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI)) {
-+    FrameReg = RISCV::X2_32;
++    FrameReg = RISCV::X2;
 +    Offset += MF.getFrameInfo().getStackSize();
 +  } else {
 +    FrameReg = getFrameRegister(MF);
@@ -246,19 +245,6 @@ index 52cd45235c1..d1bb5455811 100644
  
    unsigned Reg = MI.getOperand(0).getReg();
    assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
-diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 9640841cfa3..564cd05e7e0 100644
---- a/lib/Target/RISCV/RISCVSubtarget.h
-+++ b/lib/Target/RISCV/RISCVSubtarget.h
-@@ -56,7 +56,7 @@ public:
-     return &FrameLowering;
-   }
-   const RISCVInstrInfo *getInstrInfo() const override { return &InstrInfo; }
--  const TargetRegisterInfo *getRegisterInfo() const override {
-+  const RISCVRegisterInfo *getRegisterInfo() const override {
-     return &InstrInfo.getRegisterInfo();
-   }
-   const RISCVTargetLowering *getTargetLowering() const override {
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
 index 701a972b842..2451567b5fe 100644
 --- a/test/CodeGen/RISCV/frame.ll

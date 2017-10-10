@@ -7,12 +7,12 @@ Subject: [RISCV] Support for function calls
  lib/Target/RISCV/RISCVISelLowering.cpp | 132 +++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   5 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp    |   3 +-
- lib/Target/RISCV/RISCVInstrInfo.td     |  31 ++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  32 +++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |   6 ++
  lib/Target/RISCV/RISCVRegisterInfo.h   |   3 +
  test/CodeGen/RISCV/calls.ll            |  49 ++++++++++++
- 9 files changed, 236 insertions(+), 2 deletions(-)
+ 9 files changed, 235 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/calls.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
@@ -33,10 +33,10 @@ index 14772ddac4a..da4f266c931 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index ad75e173457..2b27c12eeae 100644
+index 216c2817d25..5e52f4c2539 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -109,6 +109,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -111,6 +111,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    default:
      report_fatal_error("Unsupported calling convention");
    case CallingConv::C:
@@ -44,7 +44,7 @@ index ad75e173457..2b27c12eeae 100644
      break;
    }
  
-@@ -149,6 +150,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -148,6 +149,135 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    return Chain;
  }
  
@@ -180,7 +180,7 @@ index ad75e173457..2b27c12eeae 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -199,6 +329,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -198,6 +328,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      break;
    case RISCVISD::RET_FLAG:
      return "RISCVISD::RET_FLAG";
@@ -227,57 +227,46 @@ index b756c69124b..265cb609c63 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator Position,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 07a32bb0254..e0f2d1a5266 100644
+index 7cb3ffe7372..dff90337ac5 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,8 +13,22 @@
+@@ -17,8 +17,22 @@ include "RISCVInstrFormats.td"
+ // RISC-V specific DAG Nodes.
+ //===----------------------------------------------------------------------===//
  
- include "RISCVInstrFormats.td"
- 
+-def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
+-                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
++def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, XLenVT>]>;
 +def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
 +                                            SDTCisVT<1, i32>]>;
 +def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
-+                                         SDTCisVT<1, i32>]>;
-+def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
++                                          SDTCisVT<1, i32>]>;
 +
 +
-+def Call             : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
-+                              [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
-+                               SDNPVariadic]>;
- def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
-                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
-+def CallSeqStart     : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
-+                              [SDNPHasChain, SDNPOutGlue]>;
-+def CallSeqEnd       : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
-+                              [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
++def Call         : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
++                          [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
++                           SDNPVariadic]>;
++def CallSeqStart : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
++                          [SDNPHasChain, SDNPOutGlue]>;
++def CallSeqEnd   : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
++                          [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
++def RetFlag      : SDNode<"RISCVISD::RET_FLAG", SDTNone,
++                          [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
  
- // Operands
- class ImmAsmOperand<string prefix, int width, string suffix> : AsmOperandClass {
-@@ -110,9 +124,11 @@ def LUI : FU<0b0110111, (outs GPR:$rd), (ins uimm20:$imm20),
- def AUIPC : FU<0b0010111, (outs GPR:$rd), (ins uimm20:$imm20),
-              "auipc\t$rd, $imm20", []>;
- 
-+let isCall = 1 in
- def JAL : FUJ<0b1101111, (outs GPR:$rd), (ins simm21_lsb0:$imm20),
-               "jal\t$rd, $imm20", []>;
- 
-+let isCall = 1 in
- def JALR : FI<0b000, 0b1100111, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
-               "jalr\t$rd, $rs1, $imm12", []>;
- }
-@@ -318,6 +334,11 @@ let isBarrier = 1, isBranch = 1, isTerminator = 1 in
+ //===----------------------------------------------------------------------===//
+ // Operand and SDNode transformation definitions.
+@@ -339,6 +353,10 @@ let isBarrier = 1, isBranch = 1, isTerminator = 1 in
  def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
-                PseudoInstExpansion<(JAL X0_32, simm21_lsb0:$imm20)>;
+                PseudoInstExpansion<(JAL X0, simm21_lsb0:$imm20)>;
  
-+let isCall = 1, Defs=[X1_32] in
++let isCall = 1, Defs=[X1] in
 +def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-+                 PseudoInstExpansion<(JALR X1_32, GPR:$rs1, 0)>;
-+
++                 PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
 +
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0_32, X1_32, 0)>;
-@@ -349,3 +370,13 @@ multiclass StPat<PatFrag StoreOp, RISCVInst Inst> {
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
+@@ -370,3 +388,13 @@ multiclass StPat<PatFrag StoreOp, RVInst Inst> {
  defm : StPat<truncstorei8, SB>;
  defm : StPat<truncstorei16, SH>;
  defm : StPat<store, SW>;
@@ -285,12 +274,12 @@ index 07a32bb0254..e0f2d1a5266 100644
 +/// Other pseudo-instructions
 +
 +// Pessimistically assume the stack pointer will be clobbered
-+let Defs = [X2_32], Uses = [X2_32] in {
-+  def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-+                                [(CallSeqStart timm:$amt1, timm:$amt2)]>;
-+  def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-+                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
-+}
++let Defs = [X2], Uses = [X2] in {
++def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
++                              [(CallSeqStart timm:$amt1, timm:$amt2)]>;
++def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
++                              [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
++} // Defs = [X2], Uses = [X2]
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 index 9c890c76bee..a6f103e8f57 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
@@ -306,12 +295,12 @@ index 9c890c76bee..a6f103e8f57 100644
      MCOp = MCOperand::createImm(MO.getImm());
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index e9b81a2446f..a46105bacd7 100644
+index fb1cf6d198b..cbb55206b5a 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -92,3 +92,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -88,3 +88,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-   return RISCV::X8_32;
+   return RISCV::X8;
  }
 +
 +const uint32_t *
@@ -320,12 +309,12 @@ index e9b81a2446f..a46105bacd7 100644
 +  return CSR_RegMask;
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index 4e179c22cdd..159b9d5bd9b 100644
+index a9b6f0717db..d9de9bf8c76 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -25,6 +25,9 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
  
-   RISCVRegisterInfo();
+   RISCVRegisterInfo(unsigned HwMode);
  
 +  const uint32_t *getCallPreservedMask(const MachineFunction &MF,
 +                                       CallingConv::ID) const override;
