@@ -10,12 +10,11 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
  lib/Target/RISCV/RISCVInstrFormats.td              |  30 ++++--
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  lib/Target/RISCV/RISCVInstrInfoF.td                | 113 ++++++++++++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td              |   8 ++
  lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
  test/MC/RISCV/rv32f-invalid.s                      |  21 ++++
  test/MC/RISCV/rv32f-valid.s                        | 114 +++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   4 +
- 11 files changed, 324 insertions(+), 11 deletions(-)
+ 10 files changed, 316 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoF.td
  create mode 100644 test/MC/RISCV/rv32f-invalid.s
  create mode 100644 test/MC/RISCV/rv32f-valid.s
@@ -80,7 +79,7 @@ index 59a41bd7072..9c96fe8b234 100644
    InstFormatMask = 15
  };
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index e9a7501e920..aa3cb6bfbc3 100644
+index 9f140dd39b8..2c91bc69125 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -23,6 +23,11 @@ def FeatureStdExtA : SubtargetFeature<"a", "HasStdExtA", "true",
@@ -144,10 +143,10 @@ index 3dca957e31f..0cc5f0793cc 100644
                      RISCVOpcode opcode, dag outs, dag ins, string opcodestr,
                      string argstr>
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 5592cd06f4a..7a11918187c 100644
+index e0918efaca7..ac09b419a21 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -462,3 +462,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -459,3 +459,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  
  include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
@@ -271,22 +270,6 @@ index 00000000000..941794de4dd
 +  let rs2 = 0b00000;
 +}
 +} // Predicates = [HasStdExtF]
-diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
-index c5abe42de56..09e6d10721c 100644
---- a/lib/Target/RISCV/RISCVRegisterInfo.td
-+++ b/lib/Target/RISCV/RISCVRegisterInfo.td
-@@ -141,3 +141,11 @@ def FPR32 : RegisterClass<"RISCV", [f32], 32, (add
-     (sequence "F%u_32", 8, 9),
-     (sequence "F%u_32", 18, 27)
- )>;
-+
-+def FPR64 : RegisterClass<"RISCV", [f64], 64, (add
-+  (sequence "F%u_64", 0, 7),
-+  (sequence "F%u_64", 10, 17),
-+  (sequence "F%u_64", 28, 31),
-+  (sequence "F%u_64", 8, 9),
-+  (sequence "F%u_64", 18, 27)
-+)>;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 index 14b25c14dbe..9d40c27aa3f 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h

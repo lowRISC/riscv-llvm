@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] MC layer support for the standard RV64D instruction set
- extension (WIP)
+ extension
 
 ---
  lib/Target/RISCV/RISCVInstrInfoD.td | 26 ++++++++++++++++++++++++++
@@ -12,36 +12,36 @@ Subject: [RISCV] MC layer support for the standard RV64D instruction set
  create mode 100644 test/MC/RISCV/rv64d-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 073dc5790f0..e001021e786 100644
+index f6d8c1fdb33..3f2e1e4f001 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -111,3 +111,29 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu"> {
+@@ -107,3 +107,29 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.wu"> {
    let rs2 = 0b00001;
  }
  } // Predicates = [HasStdExtD]
 +
 +let Predicates = [HasStdExtD, IsRV64] in {
-+def FCVT_L_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.l.d"> {
++def FCVT_L_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.l.d"> {
 +  let rs2 = 0b00010;
 +}
 +
-+def FCVT_LU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.lu.d"> {
++def FCVT_LU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.lu.d"> {
 +  let rs2 = 0b00011;
 +}
 +
-+def FMV_X_D : FPUnaryOp_r<0b1110001, 0b000, GPR, FPR32, "fmv.x.d"> {
++def FMV_X_D : FPUnaryOp_r<0b1110001, 0b000, GPR, FPR64, "fmv.x.d"> {
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_D_L : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.l"> {
++def FCVT_D_L : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.l"> {
 +  let rs2 = 0b00010;
 +}
 +
-+def FCVT_D_LU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.lu"> {
++def FCVT_D_LU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.lu"> {
 +  let rs2 = 0b00011;
 +}
 +
-+def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR32, GPR, "fmv.d.x"> {
++def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
 +  let rs2 = 0b00000;
 +}
 +} // Predicates = [HasStdExtD, IsRV64]

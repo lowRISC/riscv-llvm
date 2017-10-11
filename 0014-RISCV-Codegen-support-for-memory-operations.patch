@@ -13,10 +13,10 @@ in turn enabled code generation for `ret i32 <CONST>`.
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
  lib/Target/RISCV/RISCVInstrInfo.td     |  51 ++++++++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  84 ++++++++++++----
- test/CodeGen/RISCV/alu.ll              |  39 ++++++++
+ test/CodeGen/RISCV/alu32.ll            |  40 +++++++-
  test/CodeGen/RISCV/mem.ll              | 174 +++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  25 +++++
- 11 files changed, 417 insertions(+), 23 deletions(-)
+ 11 files changed, 417 insertions(+), 24 deletions(-)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
@@ -358,51 +358,59 @@ index 9837b46532b..9c890c76bee 100644
 +      OutMI.addOperand(MCOp);
    }
  }
-diff --git a/test/CodeGen/RISCV/alu.ll b/test/CodeGen/RISCV/alu.ll
-index 01cdf2eaacf..f99d67b9c05 100644
---- a/test/CodeGen/RISCV/alu.ll
-+++ b/test/CodeGen/RISCV/alu.ll
-@@ -160,3 +160,42 @@ define i32 @and(i32 %a, i32 %b) nounwind {
+diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
+index 32242d2e40d..aa52af1f463 100644
+--- a/test/CodeGen/RISCV/alu32.ll
++++ b/test/CodeGen/RISCV/alu32.ll
+@@ -7,7 +7,6 @@ define i32 @addi(i32 %a) nounwind {
+ ; RV32I-LABEL: addi:
+ ; RV32I: addi a0, a0, 1
+ ; RV32I: jalr zero, ra, 0
+-; TODO: check support for materialising larger constants
+   %1 = add i32 %a, 1
+   ret i32 %1
+ }
+@@ -161,3 +160,42 @@ define i32 @and(i32 %a, i32 %b) nounwind {
    %1 = and i32 %a, %b
    ret i32 %1
  }
 +
 +; Materialize constants
 +
-+define i32 @zero() {
-+; CHECK-LABEL: zero:
-+; CHECK: addi a0, zero, 0
-+; CHECK: jalr zero, ra, 0
++define i32 @zero() nounwind {
++; RV32I-LABEL: zero:
++; RV32I: addi a0, zero, 0
++; RV32I: jalr zero, ra, 0
 +  ret i32 0
 +}
 +
-+define i32 @pos_small() {
-+; CHECK-LABEL: pos_small:
-+; CHECK: addi a0, zero, 2047
-+; CHECK: jalr zero, ra, 0
++define i32 @pos_small() nounwind {
++; RV32I-LABEL: pos_small:
++; RV32I: addi a0, zero, 2047
++; RV32I: jalr zero, ra, 0
 +  ret i32 2047
 +}
 +
-+define i32 @neg_small() {
-+; CHECK-LABEL: neg_small:
-+; CHECK: addi a0, zero, -2048
-+; CHECK: jalr zero, ra, 0
++define i32 @neg_small() nounwind {
++; RV32I-LABEL: neg_small:
++; RV32I: addi a0, zero, -2048
++; RV32I: jalr zero, ra, 0
 +  ret i32 -2048
 +}
 +
-+define i32 @pos_i32() {
-+; CHECK-LABEL: pos_i32:
-+; CHECK: lui [[REG:[a-z0-9]+]], 423811
-+; CHECK: addi a0, [[REG]], -1297
-+; CHECK: jalr zero, ra, 0
++define i32 @pos_i32() nounwind {
++; RV32I-LABEL: pos_i32:
++; RV32I: lui a0, 423811
++; RV32I: addi a0, a0, -1297
++; RV32I: jalr zero, ra, 0
 +  ret i32 1735928559
 +}
 +
-+define i32 @neg_i32() {
-+; CHECK-LABEL: neg_i32:
-+; CHECK: lui [[REG:[a-z0-9]+]], 912092
-+; CHECK: addi a0, [[REG]], -273
-+; CHECK: jalr zero, ra, 0
++define i32 @neg_i32() nounwind {
++; RV32I-LABEL: neg_i32:
++; RV32I: lui a0, 912092
++; RV32I: addi a0, a0, -273
++; RV32I: jalr zero, ra, 0
 +  ret i32 -559038737
 +}
 diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll

@@ -19,7 +19,7 @@ known offsets of the frame pointer.
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 304174e851b..16ddf084d80 100644
+index 198beb8f0bb..afa2559eea9 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -12,6 +12,7 @@

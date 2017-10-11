@@ -1,22 +1,145 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC layer support for the standard RV32D extension (WIP)
+Subject: [RISCV] MC layer support for the standard RV32D extension
 
+As the FPR32 and FPR64 registers have the same names, use
+validateTargetOperandClass in RISCVAsmParser to coerce a parsed FPR32 to an
+FPR64 when necessary.
 ---
- lib/Target/RISCV/RISCV.td           |   6 ++
- lib/Target/RISCV/RISCVInstrInfo.td  |   1 +
- lib/Target/RISCV/RISCVInstrInfoD.td | 113 ++++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVSubtarget.h   |   1 +
- test/MC/RISCV/rv32d-invalid.s       |  21 +++++++
- test/MC/RISCV/rv32d-valid.s         | 118 ++++++++++++++++++++++++++++++++++++
- test/MC/RISCV/rv32f-invalid.s       |   5 +-
- 7 files changed, 264 insertions(+), 1 deletion(-)
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  63 +++++++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 +++++
+ lib/Target/RISCV/RISCV.td                          |   6 ++
+ lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
+ lib/Target/RISCV/RISCVInstrInfoD.td                | 109 +++++++++++++++++++
+ lib/Target/RISCV/RISCVSubtarget.h                  |   1 +
+ test/MC/RISCV/rv32d-invalid.s                      |  21 ++++
+ test/MC/RISCV/rv32d-valid.s                        | 118 +++++++++++++++++++++
+ test/MC/RISCV/rv32f-invalid.s                      |   5 +-
+ 9 files changed, 349 insertions(+), 1 deletion(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
 
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index c4134d97df6..f988dd23863 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -32,6 +32,9 @@ struct RISCVOperand;
+ class RISCVAsmParser : public MCTargetAsmParser {
+   SMLoc getLoc() const { return getParser().getTok().getLoc(); }
+ 
++  unsigned validateTargetOperandClass(MCParsedAsmOperand &Op,
++                                      unsigned Kind) override;
++
+   bool generateImmOutOfRangeError(OperandVector &Operands, uint64_t ErrorInfo,
+                                   int Lower, int Upper, Twine Msg);
+ 
+@@ -351,6 +354,66 @@ public:
+ #define GET_MATCHER_IMPLEMENTATION
+ #include "RISCVGenAsmMatcher.inc"
+ 
++// Return the matching FPR64 register for the given FPR32.
++// FIXME: Ideally this function could be removed in favour of using
++// information from TableGen.
++unsigned convertFPR32ToFPR64(unsigned Reg) {
++  switch (Reg) {
++    default:
++      llvm_unreachable("Not a recognised FPR32 register");
++    case RISCV::F0_32: return RISCV::F0_64;
++    case RISCV::F1_32: return RISCV::F1_64;
++    case RISCV::F2_32: return RISCV::F2_64;
++    case RISCV::F3_32: return RISCV::F3_64;
++    case RISCV::F4_32: return RISCV::F4_64;
++    case RISCV::F5_32: return RISCV::F5_64;
++    case RISCV::F6_32: return RISCV::F6_64;
++    case RISCV::F7_32: return RISCV::F7_64;
++    case RISCV::F8_32: return RISCV::F8_64;
++    case RISCV::F9_32: return RISCV::F9_64;
++    case RISCV::F10_32: return RISCV::F10_64;
++    case RISCV::F11_32: return RISCV::F11_64;
++    case RISCV::F12_32: return RISCV::F12_64;
++    case RISCV::F13_32: return RISCV::F13_64;
++    case RISCV::F14_32: return RISCV::F14_64;
++    case RISCV::F15_32: return RISCV::F15_64;
++    case RISCV::F16_32: return RISCV::F16_64;
++    case RISCV::F17_32: return RISCV::F17_64;
++    case RISCV::F18_32: return RISCV::F18_64;
++    case RISCV::F19_32: return RISCV::F19_64;
++    case RISCV::F20_32: return RISCV::F20_64;
++    case RISCV::F21_32: return RISCV::F21_64;
++    case RISCV::F22_32: return RISCV::F22_64;
++    case RISCV::F23_32: return RISCV::F23_64;
++    case RISCV::F24_32: return RISCV::F24_64;
++    case RISCV::F25_32: return RISCV::F25_64;
++    case RISCV::F26_32: return RISCV::F26_64;
++    case RISCV::F27_32: return RISCV::F27_64;
++    case RISCV::F28_32: return RISCV::F28_64;
++    case RISCV::F29_32: return RISCV::F29_64;
++    case RISCV::F30_32: return RISCV::F30_64;
++    case RISCV::F31_32: return RISCV::F31_64;
++  }
++}
++
++unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
++                                                    unsigned Kind) {
++  RISCVOperand &Op = static_cast<RISCVOperand &>(AsmOp);
++  if (Op.isReg()) {
++    unsigned Reg = Op.getReg();
++    bool IsRegFPR32 =
++        RISCVMCRegisterClasses[RISCV::FPR32RegClassID].contains(Reg);
++
++    // As the parser couldn't differentiate an FPR32 from an FPR64, coerce the
++    // register from FPR32 to FPR64 if necessary.
++    if (IsRegFPR32 && Kind == MCK_FPR64) {
++      Op.Reg.RegNum = convertFPR32ToFPR64(Reg);
++      return Match_Success;
++    }
++  }
++  return Match_InvalidOperand;
++}
++
+ bool RISCVAsmParser::generateImmOutOfRangeError(
+     OperandVector &Operands, uint64_t ErrorInfo, int Lower, int Upper,
+     Twine Msg = "immediate must be an integer in the range") {
+diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+index fd54c21e2d2..a9d51d1fb75 100644
+--- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
++++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+@@ -107,6 +107,32 @@ static DecodeStatus DecodeFPR32RegisterClass(MCInst &Inst, uint64_t RegNo,
+    return MCDisassembler::Success;
+ }
+ 
++static const unsigned FPR64DecoderTable[] = {
++  RISCV::F0_64,  RISCV::F1_64,  RISCV::F2_64,  RISCV::F3_64,
++  RISCV::F4_64,  RISCV::F5_64,  RISCV::F6_64,  RISCV::F7_64,
++  RISCV::F8_64,  RISCV::F9_64,  RISCV::F10_64, RISCV::F11_64,
++  RISCV::F12_64, RISCV::F13_64, RISCV::F14_64, RISCV::F15_64,
++  RISCV::F16_64, RISCV::F17_64, RISCV::F18_64, RISCV::F19_64,
++  RISCV::F20_64, RISCV::F21_64, RISCV::F22_64, RISCV::F23_64,
++  RISCV::F24_64, RISCV::F25_64, RISCV::F26_64, RISCV::F27_64,
++  RISCV::F28_64, RISCV::F29_64, RISCV::F30_64, RISCV::F31_64
++};
++
++static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
++                                             uint64_t Address,
++                                             const void *Decoder) {
++  if (RegNo > sizeof(FPR64DecoderTable)) {
++    return MCDisassembler::Fail;
++  }
++
++  // We must define our own mapping from RegNo to register identifier.
++  // Accessing index RegNo in the register class will work in the case that
++  // registers were added in ascending order, but not in general.
++  unsigned Reg = FPR64DecoderTable[RegNo];
++  Inst.addOperand(MCOperand::createReg(Reg));
++  return MCDisassembler::Success;
++}
++
+ template <unsigned N>
+ static DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t Imm,
+                                       int64_t Address, const void *Decoder) {
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index aa3cb6bfbc3..a2348ca50ad 100644
+index 2c91bc69125..f5632b875a9 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -28,6 +28,12 @@ def FeatureStdExtF : SubtargetFeature<"f", "HasStdExtF", "true",
@@ -33,20 +156,20 @@ index aa3cb6bfbc3..a2348ca50ad 100644
                             "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 7a11918187c..3e1e767b012 100644
+index ac09b419a21..c8b31493d33 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -463,3 +463,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -460,3 +460,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
  include "RISCVInstrInfoF.td"
 +include "RISCVInstrInfoD.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
 new file mode 100644
-index 00000000000..073dc5790f0
+index 00000000000..f6d8c1fdb33
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,109 @@
 +//===-- RISCVInstrInfoD.td - RISC-V 'D' instructions -------*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -61,29 +184,25 @@ index 00000000000..073dc5790f0
 +//
 +//===----------------------------------------------------------------------===//
 +
-+// TODO: Note that as a temporary HACK, RV32F registers are always specified
-+// as operands. This is sufficent for (dis)assembler support, but is obviously
-+// incorrect for codegen.
-+
 +//===----------------------------------------------------------------------===//
 +// Instruction Class Templates
 +//===----------------------------------------------------------------------===//
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class FPFMAD_rrr<bits<3> funct3, RISCVOpcode opcode, string opcodestr>
-+    : RVInstR4<0b01, funct3, opcode, (outs FPR32:$rd),
-+               (ins FPR32:$rs1, FPR32:$rs2, FPR32:$rs3),
++    : RVInstR4<0b01, funct3, opcode, (outs FPR64:$rd),
++               (ins FPR64:$rs1, FPR64:$rs2, FPR64:$rs3),
 +               opcodestr, "$rd, $rs1, $rs2, $rs3">;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class FPALUD_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
-+    : RVInstR<funct7, funct3, OPC_OP_FP, (outs FPR32:$rd),
-+              (ins FPR32:$rs1, FPR32:$rs2), opcodestr, "$rd, $rs1, $rs2">;
++    : RVInstR<funct7, funct3, OPC_OP_FP, (outs FPR64:$rd),
++              (ins FPR64:$rs1, FPR64:$rs2), opcodestr, "$rd, $rs1, $rs2">;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class FPCmpD_rr<bits<3> funct3, string opcodestr>
 +    : RVInstR<0b1010001, funct3, OPC_OP_FP, (outs GPR:$rd),
-+              (ins FPR32:$rs1, FPR32:$rs2), opcodestr, "$rd, $rs1, $rs2">;
++              (ins FPR64:$rs1, FPR64:$rs2), opcodestr, "$rd, $rs1, $rs2">;
 +
 +//===----------------------------------------------------------------------===//
 +// Instructions
@@ -92,7 +211,7 @@ index 00000000000..073dc5790f0
 +let Predicates = [HasStdExtD] in {
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-+def FLD : RVInstI<0b011, OPC_LOAD_FP, (outs FPR32:$rd),
++def FLD : RVInstI<0b011, OPC_LOAD_FP, (outs FPR64:$rd),
 +                  (ins GPR:$rs1, simm12:$imm12),
 +                  "fld", "$rd, ${imm12}(${rs1})">;
 +
@@ -102,7 +221,7 @@ index 00000000000..073dc5790f0
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 +def FSD : RVInstS<0b011, OPC_STORE_FP, (outs),
-+                  (ins FPR32:$rs2, GPR:$rs1, simm12:$imm12),
++                  (ins FPR64:$rs2, GPR:$rs1, simm12:$imm12),
 +                  "fsd", "$rs2, ${imm12}(${rs1})">;
 +
 +// Hard-code the rounding mode to dynamic, as there doesn't seem to be any
@@ -118,7 +237,7 @@ index 00000000000..073dc5790f0
 +def FMUL_D : FPALUD_rr<0b0001001, 0b111, "fmul.d">;
 +def FDIV_D : FPALUD_rr<0b0001101, 0b111, "fdiv.d">;
 +
-+def FSQRT_D : FPUnaryOp_r<0b0101101, 0b111, FPR32, FPR32, "fsqrt.d"> {
++def FSQRT_D : FPUnaryOp_r<0b0101101, 0b111, FPR64, FPR64, "fsqrt.d"> {
 +  let rs2 = 0b00000;
 +}
 +
@@ -128,11 +247,11 @@ index 00000000000..073dc5790f0
 +def FMIN_D   : FPALUD_rr<0b0010101, 0b000, "fmin.d">;
 +def FMAX_D   : FPALUD_rr<0b0010101, 0b001, "fmax.d">;
 +
-+def FCVT_S_D : FPUnaryOp_r<0b0100000, 0b111, FPR32, FPR32, "fcvt.s.d"> {
++def FCVT_S_D : FPUnaryOp_r<0b0100000, 0b111, FPR32, FPR64, "fcvt.s.d"> {
 +  let rs2 = 0b00001;
 +}
 +
-+def FCVT_D_S : FPUnaryOp_r<0b0100001, 0b000, FPR32, FPR32, "fcvt.d.s"> {
++def FCVT_D_S : FPUnaryOp_r<0b0100001, 0b000, FPR64, FPR32, "fcvt.d.s"> {
 +  let rs2 = 0b00000;
 +}
 +
@@ -140,23 +259,23 @@ index 00000000000..073dc5790f0
 +def FLT_D : FPCmpD_rr<0b001, "flt.d">;
 +def FLE_D : FPCmpD_rr<0b000, "fle.d">;
 +
-+def FCLASS_D : FPUnaryOp_r<0b1110001, 0b001, GPR, FPR32, "fclass.d"> {
++def FCLASS_D : FPUnaryOp_r<0b1110001, 0b001, GPR, FPR64, "fclass.d"> {
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_W_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.w.d"> {
++def FCVT_W_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.w.d"> {
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_WU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR32, "fcvt.wu.d"> {
++def FCVT_WU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.wu.d"> {
 +  let rs2 = 0b00001;
 +}
 +
-+def FCVT_D_W : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.w"> {
++def FCVT_D_W : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.w"> {
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR32, GPR, "fcvt.d.wu"> {
++def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.wu"> {
 +  let rs2 = 0b00001;
 +}
 +} // Predicates = [HasStdExtD]

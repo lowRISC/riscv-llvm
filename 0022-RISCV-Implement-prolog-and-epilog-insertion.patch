@@ -6,17 +6,17 @@ Additionally, ensure callee-saved registers are accessed relative to the
 stackpointer. This is necessary as callee-saved register spills are performed
 before the frame pointer is set.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp | 146 +++++++++++++++++++++++++++++++-
+ lib/Target/RISCV/RISCVFrameLowering.cpp | 149 +++++++++++++++++++++++++++++++-
  lib/Target/RISCV/RISCVFrameLowering.h   |  12 ++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  26 +++++-
  test/CodeGen/RISCV/frame.ll             |  25 +++---
- 4 files changed, 193 insertions(+), 16 deletions(-)
+ 4 files changed, 196 insertions(+), 16 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index fd3b258e26c..304174e851b 100644
+index fd3b258e26c..198beb8f0bb 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
-@@ -22,8 +22,150 @@ using namespace llvm;
+@@ -22,8 +22,153 @@ using namespace llvm;
  
  bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
  
@@ -166,6 +166,9 @@ index fd3b258e26c..304174e851b 100644
 +                                              BitVector &SavedRegs,
 +                                              RegScavenger *RS) const {
 +  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
++  // TODO: once frame pointer elimination is implemented, don't
++  // unconditionally spill the frame pointer and return address
++  SavedRegs.set(RISCV::X1);
 +  SavedRegs.set(RISCV::X8);
 +  return;
 +}

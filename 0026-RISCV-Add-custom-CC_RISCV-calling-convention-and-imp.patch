@@ -21,13 +21,12 @@ but this will require further discussion within the LLVM community.
  lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
  lib/Target/RISCV/RISCVISelLowering.cpp       | 334 +++++++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h         |  10 +
- lib/Target/RISCV/RISCVInstrInfo.td           |   5 +-
  test/CodeGen/RISCV/byval.ll                  |  27 ++
  test/CodeGen/RISCV/calling-conv-sext-zext.ll | 204 +++++++++++
  test/CodeGen/RISCV/calling-conv.ll           | 513 +++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll                  |  27 ++
  test/CodeGen/RISCV/fp128.ll                  |  40 +++
- 10 files changed, 1141 insertions(+), 36 deletions(-)
+ 9 files changed, 1137 insertions(+), 35 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
@@ -535,22 +534,6 @@ index e688576ef88..3d63482388f 100644
    SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
-diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 4346b8b2ec6..76b3599c39d 100644
---- a/lib/Target/RISCV/RISCVInstrInfo.td
-+++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -404,7 +404,10 @@ let isCall = 1, Defs = [X1] in
- def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
-                  PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
- 
--let isBarrier = 1, isReturn = 1, isTerminator = 1 in
-+// FIXME: PseudoRET doesn't really modify X1 (RA), however marking it as
-+// such does ensure the the return address is always given a stack slot.
-+
-+let Defs = [X1], isBarrier = 1, isReturn = 1, isTerminator = 1 in
- def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
-                 PseudoInstExpansion<(JALR X0, X1, 0)>;
- 
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
 new file mode 100644
 index 00000000000..bef084f8376

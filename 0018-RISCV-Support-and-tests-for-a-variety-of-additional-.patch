@@ -25,7 +25,7 @@ for a number of these cases:
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +++
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  26 ++++
- test/CodeGen/RISCV/alu.ll                   |   4 +
+ test/CodeGen/RISCV/alu32.ll                 |   4 +
  test/CodeGen/RISCV/bare-select.ll           |  13 ++
  test/CodeGen/RISCV/blockaddress.ll          |  19 +++
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  89 +++++++++++
@@ -285,12 +285,13 @@ index 00000000000..def5b76a79c
 +  %1 = sub i64 %a, %b
 +  ret i64 %1
 +}
-diff --git a/test/CodeGen/RISCV/alu.ll b/test/CodeGen/RISCV/alu.ll
-index f99d67b9c05..6630458d067 100644
---- a/test/CodeGen/RISCV/alu.ll
-+++ b/test/CodeGen/RISCV/alu.ll
-@@ -1,5 +1,9 @@
- ; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
+diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
+index aa52af1f463..adb2cea31b3 100644
+--- a/test/CodeGen/RISCV/alu32.ll
++++ b/test/CodeGen/RISCV/alu32.ll
+@@ -1,6 +1,10 @@
+ ; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck %s -check-prefix=RV32I
  
 +; These tests are each targeted at a particular RISC-V ALU instruction. Other
 +; files in this folder exercise LLVM IR instructions that don't directly match a
