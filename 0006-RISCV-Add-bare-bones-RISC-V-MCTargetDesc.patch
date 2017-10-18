@@ -16,16 +16,16 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/LLVMBuild.txt                     |  2 +-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  7 ++
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        | 23 ++++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 93 ++++++++++++++++++++++
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 47 +++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 94 ++++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 50 ++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   | 25 ++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 ++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 +++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 +++++++++++++++++++++
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 ++++++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 58 ++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 +++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 59 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h              |  3 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
- 13 files changed, 437 insertions(+), 8 deletions(-)
+ 13 files changed, 442 insertions(+), 8 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
@@ -110,10 +110,10 @@ index 00000000000..e48f04963ff
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 00000000000..4896c38dbb0
+index 00000000000..e275548dea0
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,94 @@
 +//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -152,7 +152,8 @@ index 00000000000..4896c38dbb0
 +                  const MCValue &Target, MutableArrayRef<char> Data,
 +                  uint64_t Value, bool IsResolved) const override;
 +
-+  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
++  std::unique_ptr<MCObjectWriter>
++  createObjectWriter(raw_pwrite_stream &OS) const override;
 +
 +  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
 +                            const MCRelaxableFragment *DF,
@@ -193,7 +194,7 @@ index 00000000000..4896c38dbb0
 +  return;
 +}
 +
-+MCObjectWriter *
++std::unique_ptr<MCObjectWriter>
 +RISCVAsmBackend::createObjectWriter(raw_pwrite_stream &OS) const {
 +  return createRISCVELFObjectWriter(OS, OSABI, Is64Bit);
 +}
@@ -209,10 +210,10 @@ index 00000000000..4896c38dbb0
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 00000000000..93c981e2a2a
+index 00000000000..01cdcc6d3fd
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,50 @@
 +//===-- RISCVELFObjectWriter.cpp - RISCV ELF Writer -----------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -225,6 +226,7 @@ index 00000000000..93c981e2a2a
 +#include "MCTargetDesc/RISCVMCTargetDesc.h"
 +#include "llvm/MC/MCELFObjectWriter.h"
 +#include "llvm/MC/MCFixup.h"
++#include "llvm/MC/MCObjectWriter.h"
 +#include "llvm/Support/ErrorHandling.h"
 +
 +using namespace llvm;
@@ -255,10 +257,12 @@ index 00000000000..93c981e2a2a
 +  report_fatal_error("invalid fixup kind!");
 +}
 +
-+MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,
-+                                                 uint8_t OSABI, bool Is64Bit) {
-+  MCELFObjectTargetWriter *MOTW = new RISCVELFObjectWriter(OSABI, Is64Bit);
-+  return createELFObjectWriter(MOTW, OS, /*IsLittleEndian*/ true);
++std::unique_ptr<MCObjectWriter>
++llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
++                                 bool Is64Bit) {
++  return createELFObjectWriter(
++      llvm::make_unique<RISCVELFObjectWriter>(OSABI, Is64Bit), OS,
++      /*IsLittleEndian=*/false);
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 new file mode 100644
@@ -491,10 +495,10 @@ index 00000000000..bad5f440061
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 new file mode 100644
-index 00000000000..7c98b1c8f32
+index 00000000000..df0ad68a2ec
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,59 @@
 +//===-- RISCVMCTargetDesc.h - RISCV Target Descriptions ---------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -514,6 +518,7 @@ index 00000000000..7c98b1c8f32
 +#include "llvm/Config/config.h"
 +#include "llvm/MC/MCTargetOptions.h"
 +#include "llvm/Support/DataTypes.h"
++#include <memory>
 +
 +namespace llvm {
 +class MCAsmBackend;
@@ -540,8 +545,8 @@ index 00000000000..7c98b1c8f32
 +                                    const Triple &TT, StringRef CPU,
 +                                    const MCTargetOptions &Options);
 +
-+MCObjectWriter *createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
-+                                           bool Is64Bit);
++std::unique_ptr<MCObjectWriter>
++createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI, bool Is64Bit);
 +}
 +
 +// Defines symbolic names for RISC-V registers.

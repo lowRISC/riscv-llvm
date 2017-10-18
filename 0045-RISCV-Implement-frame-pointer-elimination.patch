@@ -1,0 +1,270 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement frame pointer elimination
+
+TODO: properly update tests to have a version with and without fp elimination
+when necessary.
+---
+ lib/Target/RISCV/RISCVFrameLowering.cpp      | 33 ++++++++++++------------
+ lib/Target/RISCV/RISCVRegisterInfo.cpp       | 13 +++++-----
+ test/CodeGen/RISCV/byval.ll                  |  2 +-
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll |  1 -
+ test/CodeGen/RISCV/calling-conv.ll           |  2 +-
+ test/CodeGen/RISCV/fp128.ll                  |  2 +-
+ test/CodeGen/RISCV/frame.ll                  | 38 +++++++++++++++++++++-------
+ test/CodeGen/RISCV/large-stack.ll            |  2 +-
+ test/CodeGen/RISCV/vararg.ll                 |  2 +-
+ 9 files changed, 58 insertions(+), 37 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
+index 33de593d6ce..47003c9fe2e 100644
+--- a/lib/Target/RISCV/RISCVFrameLowering.cpp
++++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
+@@ -22,7 +22,15 @@
+ 
+ using namespace llvm;
+ 
+-bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
++bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const {
++  const TargetRegisterInfo *RegInfo = MF.getSubtarget().getRegisterInfo();
++
++  const MachineFrameInfo &MFI = MF.getFrameInfo();
++  return MF.getTarget().Options.DisableFramePointerElim(MF) ||
++      RegInfo->needsStackRealignment(MF) ||
++      MFI.hasVarSizedObjects() ||
++      MFI.isFrameAddressTaken();
++}
+ 
+ // Determines the size of the frame and maximum call frame size.
+ void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
+@@ -105,11 +113,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+                                       MachineBasicBlock &MBB) const {
+   assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+ 
+-  if (!hasFP(MF)) {
+-    report_fatal_error(
+-        "emitPrologue doesn't support framepointer-less functions");
+-  }
+-
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineBasicBlock::iterator MBBI = MBB.begin();
+@@ -145,17 +148,13 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   std::advance(MBBI, CSI.size());
+ 
+   // Generate new FP
+-  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
++  if (hasFP(MF))
++    adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
+             MachineInstr::FrameSetup);
+ }
+ 
+ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+                                       MachineBasicBlock &MBB) const {
+-  if (!hasFP(MF)) {
+-    report_fatal_error(
+-        "emitEpilogue doesn't support framepointer-less functions");
+-  }
+-
+   MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
+   const RISCVRegisterInfo *RI = STI.getRegisterInfo();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+@@ -176,6 +175,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   // necessary if the stack pointer was modified, meaning the stack size is
+   // unknown.
+   if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
++    assert(hasFP(MF) && "frame pointer should not have been eliminated");
+     adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
+               -StackSize + RVFI->getVarArgsSaveSize(),
+               MachineInstr::FrameDestroy);
+@@ -189,10 +189,11 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+                                               BitVector &SavedRegs,
+                                               RegScavenger *RS) const {
+   TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+-  // TODO: once frame pointer elimination is implemented, don't
+-  // unconditionally spill the frame pointer and return address
+-  SavedRegs.set(RISCV::X1);
+-  SavedRegs.set(RISCV::X8);
++  // Unconditionally spill RA and FP only if the function uses a frame pointer
++  if (hasFP(MF)) {
++    SavedRegs.set(RISCV::X1);
++    SavedRegs.set(RISCV::X8);
++  }
+   return;
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index b55d823cce9..f9ff0ccb8d2 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -65,7 +65,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   MachineRegisterInfo &MRI = MF.getRegInfo();
+-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   DebugLoc DL = MI.getDebugLoc();
+ 
+@@ -86,19 +85,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+     MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
+   }
+ 
+-  if ((FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI)) {
++  if (FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI) {
+     FrameReg = RISCV::X2;
+     Offset += MF.getFrameInfo().getStackSize();
+   } else {
+     FrameReg = getFrameRegister(MF);
+-    Offset += RVFI->getVarArgsSaveSize();
++    if (getFrameLowering(MF)->hasFP(MF))
++      Offset += RVFI->getVarArgsSaveSize();
++    else
++      Offset += MF.getFrameInfo().getStackSize();
+   }
+ 
+   unsigned Reg = MI.getOperand(0).getReg();
+   assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
+ 
+-  assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+-
+   if (!isInt<32>(Offset)) {
+     report_fatal_error(
+         "Frame offsets outside of the signed 32-bit range not supported");
+@@ -152,7 +152,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+ }
+ 
+ unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+-  return RISCV::X8;
++  const TargetFrameLowering *TFI = getFrameLowering(MF);
++  return TFI->hasFP(MF) ? RISCV::X8 : RISCV::X2;
+ }
+ 
+ const uint32_t *
+diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
+index 988d2e4173f..8b516e847ed 100644
+--- a/test/CodeGen/RISCV/byval.ll
++++ b/test/CodeGen/RISCV/byval.ll
+@@ -1,4 +1,4 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
+ 
+ %struct.Foo = type { i32, i32, i32, i16, i8 }
+diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
+index d91a45b09f7..a6edc043f83 100644
+--- a/test/CodeGen/RISCV/calling-conv-sext-zext.ll
++++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
+@@ -130,7 +130,6 @@ define void @pass_sint8_as_anyint32(i8 signext %a) {
+ define signext i32 @ret_callresult_sint8_as_anyint32() {
+ ; RV32I-LABEL: ret_callresult_sint8_as_anyint32:
+ ; RV32I: jalr ra, a0, 0
+-; RV32I-NEXT: lw s0, 8(sp)
+   %1 = call signext i8 @return_sint8()
+   %2 = sext i8 %1 to i32
+   ret i32 %2
+diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
+index 0fb1436e8e5..4fc61a543ed 100644
+--- a/test/CodeGen/RISCV/calling-conv.ll
++++ b/test/CodeGen/RISCV/calling-conv.ll
+@@ -1,4 +1,4 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs -disable-fp-elim < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
+ 
+ ; As well as calling convention details, we check that ra and fp are
+diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
+index 9a7a08fb703..028252be4cc 100644
+--- a/test/CodeGen/RISCV/fp128.ll
++++ b/test/CodeGen/RISCV/fp128.ll
+@@ -1,4 +1,4 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
+ 
+ @x = local_unnamed_addr global fp128 0xL00000000000000007FFF000000000000, align 16
+diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
+index 5d759d01381..24e001f4077 100644
+--- a/test/CodeGen/RISCV/frame.ll
++++ b/test/CodeGen/RISCV/frame.ll
+@@ -1,5 +1,7 @@
+ ; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
++; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32I-FPTR %s
+ 
+ %struct.key_t = type { i32, [16 x i8] }
+ 
+@@ -8,23 +10,41 @@ define i32 @test() {
+ ; RV32I-LABEL: test:
+ ; RV32I: addi sp, sp, -32
+ ; RV32I: sw ra, 28(sp)
+-; RV32I: sw s0, 24(sp)
+-; RV32I: addi s0, sp, 32
+-; RV32I: sw zero, -16(s0)
+-; RV32I: sw zero, -20(s0)
+-; RV32I: sw zero, -24(s0)
+-; RV32I: sw zero, -28(s0)
+-; RV32I: sw zero, -32(s0)
+-; RV32I: addi a0, s0, -32
++; RV32I: sw zero, 24(sp)
++; RV32I: sw zero, 20(sp)
++; RV32I: sw zero, 16(sp)
++; RV32I: sw zero, 12(sp)
++; RV32I: sw zero, 8(sp)
++; RV32I: addi a0, sp, 8
+ ; RV32I: ori a0, a0, 4
+ ; RV32I: lui a1, %hi(test1)
+ ; RV32I: addi a1, a1, %lo(test1)
+ ; RV32I: jalr ra, a1, 0
+ ; RV32I: addi a0, zero, 0
+-; RV32I: lw s0, 24(sp)
+ ; RV32I: lw ra, 28(sp)
+ ; RV32I: addi sp, sp, 32
+ ; RV32I: jalr zero, ra, 0
++
++; RV32I-FPTR-LABEL: test:
++; RV32I-FPTR: addi sp, sp, -32
++; RV32I-FPTR: sw ra, 28(sp)
++; RV32I-FPTR: sw s0, 24(sp)
++; RV32I-FPTR: addi s0, sp, 32
++; RV32I-FPTR: sw zero, -16(s0)
++; RV32I-FPTR: sw zero, -20(s0)
++; RV32I-FPTR: sw zero, -24(s0)
++; RV32I-FPTR: sw zero, -28(s0)
++; RV32I-FPTR: sw zero, -32(s0)
++; RV32I-FPTR: addi a0, s0, -32
++; RV32I-FPTR: ori a0, a0, 4
++; RV32I-FPTR: lui a1, %hi(test1)
++; RV32I-FPTR: addi a1, a1, %lo(test1)
++; RV32I-FPTR: jalr ra, a1, 0
++; RV32I-FPTR: addi a0, zero, 0
++; RV32I-FPTR: lw s0, 24(sp)
++; RV32I-FPTR: lw ra, 28(sp)
++; RV32I-FPTR: addi sp, sp, 32
++; RV32I-FPTR: jalr zero, ra, 0
+   %key = alloca %struct.key_t, align 4
+   %1 = bitcast %struct.key_t* %key to i8*
+   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 20, i32 4, i1 false)
+diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
+index 680228ff7ef..384a80fb27a 100644
+--- a/test/CodeGen/RISCV/large-stack.ll
++++ b/test/CodeGen/RISCV/large-stack.ll
+@@ -1,4 +1,4 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
+ 
+ ; TODO: the quality of the generated code is poor
+diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
+index 9b46f08934d..c4ccf7189da 100644
+--- a/test/CodeGen/RISCV/vararg.ll
++++ b/test/CodeGen/RISCV/vararg.ll
+@@ -1,4 +1,4 @@
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
+ ; RUN:   | FileCheck -check-prefix=RV32I %s
+ 
+ declare void @llvm.va_start(i8*)
+-- 
+2.14.2
+

@@ -12,10 +12,10 @@ TODO: tests for the 64-bit ABI.
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 934e155ccd..b4c64c633f 100644
+index 99079f9b27..4fce04cef9 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8741,6 +8741,122 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8744,6 +8744,122 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -138,7 +138,7 @@ index 934e155ccd..b4c64c633f 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8855,6 +8971,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8858,6 +8974,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  
@@ -511,5 +511,5 @@ index 0000000000..dbed942173
 +  return ret;
 +}
 -- 
-2.14.1
+2.14.2
 

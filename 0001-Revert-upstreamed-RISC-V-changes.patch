@@ -8,7 +8,7 @@ basis.
  docs/CompilerWriterInfo.rst                        |   4 -
  include/llvm/ADT/Triple.h                          |   2 -
  include/llvm/BinaryFormat/ELF.h                    |   6 -
- include/llvm/BinaryFormat/ELFRelocs/RISCV.def      |  59 ---
+ include/llvm/BinaryFormat/ELFRelocs/RISCV.def      |  59 --
  include/llvm/Object/ELFObjectFile.h                |  13 -
  include/llvm/module.modulemap                      |   1 -
  lib/Object/ELF.cpp                                 |   7 -
@@ -17,42 +17,49 @@ basis.
  lib/Target/LLVMBuild.txt                           |   1 -
  lib/Target/RISCV/AsmParser/CMakeLists.txt          |   3 -
  lib/Target/RISCV/AsmParser/LLVMBuild.txt           |  23 -
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 506 ---------------------
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 649 ---------------------
  lib/Target/RISCV/CMakeLists.txt                    |  21 -
  lib/Target/RISCV/Disassembler/CMakeLists.txt       |   3 -
  lib/Target/RISCV/Disassembler/LLVMBuild.txt        |  24 -
- .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 ------
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 -----
  lib/Target/RISCV/InstPrinter/CMakeLists.txt        |   3 -
  lib/Target/RISCV/InstPrinter/LLVMBuild.txt         |  23 -
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  69 ---
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |  44 --
  lib/Target/RISCV/LLVMBuild.txt                     |  34 --
- lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   7 -
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   8 -
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |  23 -
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |  93 ----
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 ---
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  47 --
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 199 -------
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  55 --
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  71 ---
+ lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 --
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |  25 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |  31 --
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 130 ------
+ lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |  31 -
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 176 ------
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 ----
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 ---
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  72 ---
- lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |  61 ---
- lib/Target/RISCV/RISCV.td                          |  32 --
- lib/Target/RISCV/RISCVInstrFormats.td              | 158 -------
- lib/Target/RISCV/RISCVInstrInfo.td                 | 214 ---------
- lib/Target/RISCV/RISCVRegisterInfo.td              |  90 ----
+ lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |  62 --
+ lib/Target/RISCV/RISCV.td                          |  32 -
+ lib/Target/RISCV/RISCVInstrFormats.td              | 175 ------
+ lib/Target/RISCV/RISCVInstrInfo.td                 | 215 -------
+ lib/Target/RISCV/RISCVRegisterInfo.td              |  90 ---
  lib/Target/RISCV/RISCVTargetMachine.cpp            |  67 ---
  lib/Target/RISCV/RISCVTargetMachine.h              |  40 --
  lib/Target/RISCV/TargetInfo/CMakeLists.txt         |   3 -
  lib/Target/RISCV/TargetInfo/LLVMBuild.txt          |  23 -
- lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  30 --
+ lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  30 -
+ test/MC/RISCV/fixups-diagnostics.s                 |  18 -
+ test/MC/RISCV/fixups.s                             |  49 --
+ test/MC/RISCV/hilo-constaddr.s                     |  39 --
  test/MC/RISCV/lit.local.cfg                        |   3 -
- test/MC/RISCV/rv32i-invalid.s                      |  74 ---
- test/MC/RISCV/rv32i-valid.s                        | 217 ---------
+ test/MC/RISCV/relocations.s                        |  65 ---
+ test/MC/RISCV/rv32i-invalid.s                      | 127 ----
+ test/MC/RISCV/rv32i-valid.s                        | 238 --------
  tools/llvm-objdump/llvm-objdump.cpp                |   1 -
  tools/llvm-readobj/ELFDumper.cpp                   |   1 -
  unittests/ADT/TripleTest.cpp                       |  36 --
- 47 files changed, 2538 deletions(-)
+ 54 files changed, 3343 deletions(-)
  delete mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  delete mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
  delete mode 100644 lib/Target/RISCV/AsmParser/LLVMBuild.txt
@@ -71,9 +78,12 @@ basis.
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
+ delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
  delete mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
  delete mode 100644 lib/Target/RISCV/RISCV.td
@@ -85,7 +95,11 @@ basis.
  delete mode 100644 lib/Target/RISCV/TargetInfo/CMakeLists.txt
  delete mode 100644 lib/Target/RISCV/TargetInfo/LLVMBuild.txt
  delete mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
+ delete mode 100644 test/MC/RISCV/fixups-diagnostics.s
+ delete mode 100644 test/MC/RISCV/fixups.s
+ delete mode 100644 test/MC/RISCV/hilo-constaddr.s
  delete mode 100644 test/MC/RISCV/lit.local.cfg
+ delete mode 100644 test/MC/RISCV/relocations.s
  delete mode 100644 test/MC/RISCV/rv32i-invalid.s
  delete mode 100644 test/MC/RISCV/rv32i-valid.s
 
@@ -105,7 +119,7 @@ index 60f102472c6..4e5d8dc2026 100644
  -----
  
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 4e1e218da78..786587397fe 100644
+index f8fec5d0da7..a658f06a682 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,8 +66,6 @@ public:
@@ -118,7 +132,7 @@ index 4e1e218da78..786587397fe 100644
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index c22cb19391d..8bc376c3024 100644
+index 99d81358f34..ac56102ab04 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,7 +309,6 @@ enum {
@@ -129,8 +143,8 @@ index c22cb19391d..8bc376c3024 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -612,11 +611,6 @@ enum {
- #include "ELFRelocs/Lanai.def"
+@@ -627,11 +626,6 @@ enum : unsigned {
+   EF_RISCV_RVE = 0x0008
  };
  
 -// ELF Relocation types for RISC-V
@@ -207,10 +221,10 @@ index 5cc4c0ec302..00000000000
 -ELF_RELOC(R_RISCV_SET32,             56)
 -ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index f436e4534ce..13fe4a2ec46 100644
+index 905ce450f7f..75006dcf031 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -962,8 +962,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -981,8 +981,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return "ELF32-mips";
      case ELF::EM_PPC:
        return "ELF32-ppc";
@@ -219,7 +233,7 @@ index f436e4534ce..13fe4a2ec46 100644
      case ELF::EM_SPARC:
      case ELF::EM_SPARC32PLUS:
        return "ELF32-sparc";
-@@ -984,8 +982,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -1003,8 +1001,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
      case ELF::EM_PPC64:
        return "ELF64-ppc64";
@@ -228,7 +242,7 @@ index f436e4534ce..13fe4a2ec46 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -1041,15 +1037,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1058,15 +1054,6 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
@@ -245,7 +259,7 @@ index f436e4534ce..13fe4a2ec46 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 4b177540a50..e7dbcfcc7df 100644
+index cb8ac04a867..8d985001f6f 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -58,7 +58,6 @@ module LLVM_BinaryFormat {
@@ -275,7 +289,7 @@ index 130fb2d9ecc..258842c35a7 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index d6123499a22..0f777addb7b 100644
+index dee820c21cb..a4268ea1915 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -286,7 +300,7 @@ index d6123499a22..0f777addb7b 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -580,9 +579,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -593,9 +592,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARC:
  #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
@@ -297,7 +311,7 @@ index d6123499a22..0f777addb7b 100644
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 8dc582ab95a..706473eb9f5 100644
+index 69c99ac907a..65530e08ece 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -41,8 +41,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -319,7 +333,7 @@ index 8dc582ab95a..706473eb9f5 100644
    }
  }
  
-@@ -277,8 +272,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -278,8 +273,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -328,7 +342,7 @@ index 8dc582ab95a..706473eb9f5 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -404,8 +397,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -405,8 +398,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -337,7 +351,7 @@ index 8dc582ab95a..706473eb9f5 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -654,8 +645,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -656,8 +647,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -346,7 +360,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1192,7 +1181,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1194,7 +1183,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -354,7 +368,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1222,7 +1210,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1224,7 +1212,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -362,7 +376,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1277,7 +1264,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1279,7 +1266,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -370,7 +384,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1301,7 +1287,6 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1303,7 +1289,6 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -378,7 +392,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1346,7 +1331,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1348,7 +1333,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -386,7 +400,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1363,7 +1347,6 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1365,7 +1349,6 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -394,7 +408,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1398,8 +1381,6 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1400,8 +1383,6 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -403,7 +417,7 @@ index 8dc582ab95a..706473eb9f5 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1486,8 +1467,6 @@ bool Triple::isLittleEndian() const {
+@@ -1488,8 +1469,6 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -464,10 +478,10 @@ index a9ad92c872e..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 deleted file mode 100644
-index 4b1eec9ec86..00000000000
+index c907f6d3c84..00000000000
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ /dev/null
-@@ -1,506 +0,0 @@
+@@ -1,649 +0,0 @@
 -//===-- RISCVAsmParser.cpp - Parse RISCV assembly to MCInst instructions --===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -478,6 +492,7 @@ index 4b1eec9ec86..00000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "MCTargetDesc/RISCVBaseInfo.h"
+-#include "MCTargetDesc/RISCVMCExpr.h"
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
 -#include "llvm/ADT/STLExtras.h"
 -#include "llvm/ADT/StringSwitch.h"
@@ -499,6 +514,7 @@ index 4b1eec9ec86..00000000000
 -struct RISCVOperand;
 -
 -class RISCVAsmParser : public MCTargetAsmParser {
+-
 -  SMLoc getLoc() const { return getParser().getTok().getLoc(); }
 -
 -  bool generateImmOutOfRangeError(OperandVector &Operands, uint64_t ErrorInfo,
@@ -523,6 +539,7 @@ index 4b1eec9ec86..00000000000
 -  OperandMatchResultTy parseImmediate(OperandVector &Operands);
 -  OperandMatchResultTy parseRegister(OperandVector &Operands);
 -  OperandMatchResultTy parseMemOpBaseReg(OperandVector &Operands);
+-  OperandMatchResultTy parseOperandWithModifier(OperandVector &Operands);
 -
 -  bool parseOperand(OperandVector &Operands);
 -
@@ -534,9 +551,13 @@ index 4b1eec9ec86..00000000000
 -#undef GET_OPERAND_DIAGNOSTIC_TYPES
 -  };
 -
+-  static bool classifySymbolRef(const MCExpr *Expr,
+-                                RISCVMCExpr::VariantKind &Kind,
+-                                int64_t &Addend);
+-
 -  RISCVAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
 -                 const MCInstrInfo &MII, const MCTargetOptions &Options)
--      : MCTargetAsmParser(Options, STI) {
+-      : MCTargetAsmParser(Options, STI, MII) {
 -    setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
 -  }
 -};
@@ -591,13 +612,32 @@ index 4b1eec9ec86..00000000000
 -  bool isImm() const override { return Kind == Immediate; }
 -  bool isMem() const override { return false; }
 -
--  bool isConstantImm() const {
--    return isImm() && dyn_cast<MCConstantExpr>(getImm());
+-  bool evaluateConstantImm(int64_t &Imm, RISCVMCExpr::VariantKind &VK) const {
+-    const MCExpr *Val = getImm();
+-    bool Ret = false;
+-    if (auto *RE = dyn_cast<RISCVMCExpr>(Val)) {
+-      Ret = RE->evaluateAsConstant(Imm);
+-      VK = RE->getKind();
+-    } else if (auto CE = dyn_cast<MCConstantExpr>(Val)) {
+-      Ret = true;
+-      VK = RISCVMCExpr::VK_RISCV_None;
+-      Imm = CE->getValue();
+-    }
+-    return Ret;
 -  }
 -
--  int64_t getConstantImm() const {
--    const MCExpr *Val = getImm();
--    return static_cast<const MCConstantExpr *>(Val)->getValue();
+-  // True if operand is a symbol with no modifiers, or a constant with no
+-  // modifiers and isShiftedInt<N-1, 1>(Op).
+-  template <int N> bool isBareSimmNLsb0() const {
+-    int64_t Imm;
+-    RISCVMCExpr::VariantKind VK;
+-    bool IsConstantImm = evaluateConstantImm(Imm, VK);
+-    bool IsValid;
+-    if (!IsConstantImm)
+-      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
+-    else
+-      IsValid = isShiftedInt<N - 1, 1>(Imm);
+-    return IsValid && VK == RISCVMCExpr::VK_RISCV_None;
 -  }
 -
 -  // Predicate methods for AsmOperands defined in RISCVInstrInfo.td
@@ -628,28 +668,49 @@ index 4b1eec9ec86..00000000000
 -  }
 -
 -  bool isUImm5() const {
--    return (isConstantImm() && isUInt<5>(getConstantImm()));
+-    int64_t Imm;
+-    RISCVMCExpr::VariantKind VK;
+-    bool IsConstantImm = evaluateConstantImm(Imm, VK);
+-    return IsConstantImm && isUInt<5>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
 -  }
 -
 -  bool isSImm12() const {
--    return (isConstantImm() && isInt<12>(getConstantImm()));
+-    RISCVMCExpr::VariantKind VK;
+-    int64_t Imm;
+-    bool IsValid;
+-    bool IsConstantImm = evaluateConstantImm(Imm, VK);
+-    if (!IsConstantImm)
+-      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
+-    else
+-      IsValid = isInt<12>(Imm);
+-    return IsValid &&
+-           (VK == RISCVMCExpr::VK_RISCV_None || VK == RISCVMCExpr::VK_RISCV_LO);
 -  }
 -
 -  bool isUImm12() const {
--    return (isConstantImm() && isUInt<12>(getConstantImm()));
+-    int64_t Imm;
+-    RISCVMCExpr::VariantKind VK;
+-    bool IsConstantImm = evaluateConstantImm(Imm, VK);
+-    return IsConstantImm && isUInt<12>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
 -  }
 -
--  bool isSImm13Lsb0() const {
--    return (isConstantImm() && isShiftedInt<12, 1>(getConstantImm()));
--  }
+-  bool isSImm13Lsb0() const { return isBareSimmNLsb0<13>(); }
 -
 -  bool isUImm20() const {
--    return (isConstantImm() && isUInt<20>(getConstantImm()));
+-    RISCVMCExpr::VariantKind VK;
+-    int64_t Imm;
+-    bool IsValid;
+-    bool IsConstantImm = evaluateConstantImm(Imm, VK);
+-    if (!IsConstantImm)
+-      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
+-    else
+-      IsValid = isUInt<20>(Imm);
+-    return IsValid && (VK == RISCVMCExpr::VK_RISCV_None ||
+-                       VK == RISCVMCExpr::VK_RISCV_HI ||
+-                       VK == RISCVMCExpr::VK_RISCV_PCREL_HI);
 -  }
 -
--  bool isSImm21Lsb0() const {
--    return (isConstantImm() && isShiftedInt<20, 1>(getConstantImm()));
--  }
+-  bool isSImm21Lsb0() const { return isBareSimmNLsb0<21>(); }
 -
 -  /// getStartLoc - Gets location of the first token of this operand
 -  SMLoc getStartLoc() const override { return StartLoc; }
@@ -704,7 +765,7 @@ index 4b1eec9ec86..00000000000
 -  }
 -
 -  static std::unique_ptr<RISCVOperand> createImm(const MCExpr *Val, SMLoc S,
--                                                 SMLoc E) {
+-                                                 SMLoc E, MCContext &Ctx) {
 -    auto Op = make_unique<RISCVOperand>(Immediate);
 -    Op->Imm.Val = Val;
 -    Op->StartLoc = S;
@@ -714,8 +775,17 @@ index 4b1eec9ec86..00000000000
 -
 -  void addExpr(MCInst &Inst, const MCExpr *Expr) const {
 -    assert(Expr && "Expr shouldn't be null!");
--    if (auto *CE = dyn_cast<MCConstantExpr>(Expr))
--      Inst.addOperand(MCOperand::createImm(CE->getValue()));
+-    int64_t Imm = 0;
+-    bool IsConstant = false;
+-    if (auto *RE = dyn_cast<RISCVMCExpr>(Expr)) {
+-      IsConstant = RE->evaluateAsConstant(Imm);
+-    } else if (auto *CE = dyn_cast<MCConstantExpr>(Expr)) {
+-      IsConstant = true;
+-      Imm = CE->getValue();
+-    }
+-
+-    if (IsConstant)
+-      Inst.addOperand(MCOperand::createImm(Imm));
 -    else
 -      Inst.addOperand(MCOperand::createExpr(Expr));
 -  }
@@ -881,9 +951,51 @@ index 4b1eec9ec86..00000000000
 -    Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
 -    break;
 -  }
+-  case AsmToken::Percent:
+-    return parseOperandWithModifier(Operands);
 -  }
 -
--  Operands.push_back(RISCVOperand::createImm(Res, S, E));
+-  Operands.push_back(RISCVOperand::createImm(Res, S, E, getContext()));
+-  return MatchOperand_Success;
+-}
+-
+-OperandMatchResultTy
+-RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
+-  SMLoc S = getLoc();
+-  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+-
+-  if (getLexer().getKind() != AsmToken::Percent) {
+-    Error(getLoc(), "expected '%' for operand modifier");
+-    return MatchOperand_ParseFail;
+-  }
+-
+-  getParser().Lex(); // Eat '%'
+-
+-  if (getLexer().getKind() != AsmToken::Identifier) {
+-    Error(getLoc(), "expected valid identifier for operand modifier");
+-    return MatchOperand_ParseFail;
+-  }
+-  StringRef Identifier = getParser().getTok().getIdentifier();
+-  RISCVMCExpr::VariantKind VK = RISCVMCExpr::getVariantKindForName(Identifier);
+-  if (VK == RISCVMCExpr::VK_RISCV_Invalid) {
+-    Error(getLoc(), "unrecognized operand modifier");
+-    return MatchOperand_ParseFail;
+-  }
+-
+-  getParser().Lex(); // Eat the identifier
+-  if (getLexer().getKind() != AsmToken::LParen) {
+-    Error(getLoc(), "expected '('");
+-    return MatchOperand_ParseFail;
+-  }
+-  getParser().Lex(); // Eat '('
+-
+-  const MCExpr *SubExpr;
+-  if (getParser().parseParenExpression(SubExpr, E)) {
+-    return MatchOperand_ParseFail;
+-  }
+-
+-  const MCExpr *ModExpr = RISCVMCExpr::create(SubExpr, VK, getContext());
+-  Operands.push_back(RISCVOperand::createImm(ModExpr, S, E, getContext()));
 -  return MatchOperand_Success;
 -}
 -
@@ -966,6 +1078,51 @@ index 4b1eec9ec86..00000000000
 -
 -  getParser().Lex(); // Consume the EndOfStatement.
 -  return false;
+-}
+-
+-bool RISCVAsmParser::classifySymbolRef(const MCExpr *Expr,
+-                                       RISCVMCExpr::VariantKind &Kind,
+-                                       int64_t &Addend) {
+-  Kind = RISCVMCExpr::VK_RISCV_None;
+-  Addend = 0;
+-
+-  if (const RISCVMCExpr *RE = dyn_cast<RISCVMCExpr>(Expr)) {
+-    Kind = RE->getKind();
+-    Expr = RE->getSubExpr();
+-  }
+-
+-  // It's a simple symbol reference or constant with no addend.
+-  if (isa<MCConstantExpr>(Expr) || isa<MCSymbolRefExpr>(Expr))
+-    return true;
+-
+-  const MCBinaryExpr *BE = dyn_cast<MCBinaryExpr>(Expr);
+-  if (!BE)
+-    return false;
+-
+-  if (!isa<MCSymbolRefExpr>(BE->getLHS()))
+-    return false;
+-
+-  if (BE->getOpcode() != MCBinaryExpr::Add &&
+-      BE->getOpcode() != MCBinaryExpr::Sub)
+-    return false;
+-
+-  // We are able to support the subtraction of two symbol references
+-  if (BE->getOpcode() == MCBinaryExpr::Sub &&
+-      isa<MCSymbolRefExpr>(BE->getRHS()))
+-    return true;
+-
+-  // See if the addend is is a constant, otherwise there's more going
+-  // on here than we can deal with.
+-  auto AddendExpr = dyn_cast<MCConstantExpr>(BE->getRHS());
+-  if (!AddendExpr)
+-    return false;
+-
+-  Addend = AddendExpr->getValue();
+-  if (BE->getOpcode() == MCBinaryExpr::Sub)
+-    Addend = -Addend;
+-
+-  // It's some symbol reference + a constant addend
+-  return Kind != RISCVMCExpr::VK_RISCV_Invalid;
 -}
 -
 -bool RISCVAsmParser::ParseDirective(AsmToken DirectiveID) { return true; }
@@ -1386,16 +1543,17 @@ index e15963b5bd7..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
 deleted file mode 100644
-index d79de74f7cf..00000000000
+index 60429647edd..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
 +++ /dev/null
-@@ -1,7 +0,0 @@
+@@ -1,8 +0,0 @@
 -add_llvm_library(LLVMRISCVDesc
 -  RISCVAsmBackend.cpp
 -  RISCVELFObjectWriter.cpp
 -  RISCVMCAsmInfo.cpp
--  RISCVMCTargetDesc.cpp
 -  RISCVMCCodeEmitter.cpp
+-  RISCVMCExpr.cpp
+-  RISCVMCTargetDesc.cpp
 -)
 diff --git a/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt b/lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
 deleted file mode 100644
@@ -1428,10 +1586,10 @@ index 92daae30e3f..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 deleted file mode 100644
-index 4896c38dbb0..00000000000
+index add63b6e77f..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ /dev/null
-@@ -1,93 +0,0 @@
+@@ -1,199 +0,0 @@
 -//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1441,9 +1599,12 @@ index 4896c38dbb0..00000000000
 -//
 -//===----------------------------------------------------------------------===//
 -
+-#include "MCTargetDesc/RISCVFixupKinds.h"
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/ADT/APInt.h"
 -#include "llvm/MC/MCAsmBackend.h"
 -#include "llvm/MC/MCAssembler.h"
+-#include "llvm/MC/MCContext.h"
 -#include "llvm/MC/MCDirectives.h"
 -#include "llvm/MC/MCELFObjectWriter.h"
 -#include "llvm/MC/MCExpr.h"
@@ -1470,7 +1631,8 @@ index 4896c38dbb0..00000000000
 -                  const MCValue &Target, MutableArrayRef<char> Data,
 -                  uint64_t Value, bool IsResolved) const override;
 -
--  MCObjectWriter *createObjectWriter(raw_pwrite_stream &OS) const override;
+-  std::unique_ptr<MCObjectWriter>
+-  createObjectWriter(raw_pwrite_stream &OS) const override;
 -
 -  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
 -                            const MCRelaxableFragment *DF,
@@ -1478,7 +1640,31 @@ index 4896c38dbb0..00000000000
 -    return false;
 -  }
 -
--  unsigned getNumFixupKinds() const override { return 1; }
+-  unsigned getNumFixupKinds() const override {
+-    return RISCV::NumTargetFixupKinds;
+-  }
+-
+-  const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override {
+-    const static MCFixupKindInfo Infos[RISCV::NumTargetFixupKinds] = {
+-      // This table *must* be in the order that the fixup_* kinds are defined in
+-      // RISCVFixupKinds.h.
+-      //
+-      // name                    offset bits  flags
+-      { "fixup_riscv_hi20",       12,     20,  0 },
+-      { "fixup_riscv_lo12_i",     20,     12,  0 },
+-      { "fixup_riscv_lo12_s",      0,     32,  0 },
+-      { "fixup_riscv_pcrel_hi20", 12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_jal",        12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_branch",      0,     32,  MCFixupKindInfo::FKF_IsPCRel }
+-    };
+-
+-    if (Kind < FirstTargetFixupKind)
+-      return MCAsmBackend::getFixupKindInfo(Kind);
+-
+-    assert(unsigned(Kind - FirstTargetFixupKind) < getNumFixupKinds() &&
+-           "Invalid kind!");
+-    return Infos[Kind - FirstTargetFixupKind];
+-  }
 -
 -  bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
 -
@@ -1504,14 +1690,92 @@ index 4896c38dbb0..00000000000
 -  return true;
 -}
 -
+-static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+-                                 MCContext &Ctx) {
+-  unsigned Kind = Fixup.getKind();
+-  switch (Kind) {
+-  default:
+-    llvm_unreachable("Unknown fixup kind!");
+-  case FK_Data_1:
+-  case FK_Data_2:
+-  case FK_Data_4:
+-  case FK_Data_8:
+-    return Value;
+-  case RISCV::fixup_riscv_lo12_i:
+-    return Value & 0xfff;
+-  case RISCV::fixup_riscv_lo12_s:
+-    return (((Value >> 5) & 0x7f) << 25) | ((Value & 0x1f) << 7);
+-  case RISCV::fixup_riscv_hi20:
+-  case RISCV::fixup_riscv_pcrel_hi20:
+-    // Add 1 if bit 11 is 1, to compensate for low 12 bits being negative.
+-    return ((Value + 0x800) >> 12) & 0xfffff;
+-  case RISCV::fixup_riscv_jal: {
+-    if (!isInt<21>(Value))
+-      Ctx.reportError(Fixup.getLoc(), "fixup value out of range");
+-    if (Value & 0x1)
+-      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned");
+-    // Need to produce imm[19|10:1|11|19:12] from the 21-bit Value.
+-    unsigned Sbit = (Value >> 20) & 0x1;
+-    unsigned Hi8 = (Value >> 12) & 0xff;
+-    unsigned Mid1 = (Value >> 11) & 0x1;
+-    unsigned Lo10 = (Value >> 1) & 0x3ff;
+-    // Inst{31} = Sbit;
+-    // Inst{30-21} = Lo10;
+-    // Inst{20} = Mid1;
+-    // Inst{19-12} = Hi8;
+-    Value = (Sbit << 19) | (Lo10 << 9) | (Mid1 << 8) | Hi8;
+-    return Value;
+-  }
+-  case RISCV::fixup_riscv_branch: {
+-    if (!isInt<13>(Value))
+-      Ctx.reportError(Fixup.getLoc(), "fixup value out of range");
+-    if (Value & 0x1)
+-      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned");
+-    // Need to extract imm[12], imm[10:5], imm[4:1], imm[11] from the 13-bit
+-    // Value.
+-    unsigned Sbit = (Value >> 12) & 0x1;
+-    unsigned Hi1 = (Value >> 11) & 0x1;
+-    unsigned Mid6 = (Value >> 5) & 0x3f;
+-    unsigned Lo4 = (Value >> 1) & 0xf;
+-    // Inst{31} = Sbit;
+-    // Inst{30-25} = Mid6;
+-    // Inst{11-8} = Lo4;
+-    // Inst{7} = Hi1;
+-    Value = (Sbit << 31) | (Mid6 << 25) | (Lo4 << 8) | (Hi1 << 7);
+-    return Value;
+-  }
+-
+-  }
+-}
+-
 -void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
 -                                 const MCValue &Target,
 -                                 MutableArrayRef<char> Data, uint64_t Value,
 -                                 bool IsResolved) const {
+-  MCContext &Ctx = Asm.getContext();
+-  MCFixupKind Kind = Fixup.getKind();
+-  unsigned NumBytes = (getFixupKindInfo(Kind).TargetSize + 7) / 8;
+-  if (!Value)
+-    return; // Doesn't change encoding.
+-  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
+-  // Apply any target-specific value adjustments.
+-  Value = adjustFixupValue(Fixup, Value, Ctx);
+-
+-  // Shift the value into position.
+-  Value <<= Info.TargetOffset;
+-
+-  unsigned Offset = Fixup.getOffset();
+-  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
+-
+-  // For each byte of the fragment that the fixup touches, mask in the
+-  // bits from the fixup value.
+-  for (unsigned i = 0; i != 4; ++i) {
+-    Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
+-  }
 -  return;
 -}
 -
--MCObjectWriter *
+-std::unique_ptr<MCObjectWriter>
 -RISCVAsmBackend::createObjectWriter(raw_pwrite_stream &OS) const {
 -  return createRISCVELFObjectWriter(OS, OSABI, Is64Bit);
 -}
@@ -1527,10 +1791,10 @@ index 4896c38dbb0..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 deleted file mode 100644
-index c3bf3213a98..00000000000
+index cfb124262c6..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 +++ /dev/null
-@@ -1,54 +0,0 @@
+@@ -1,55 +0,0 @@
 -//===-- RISCVBaseInfo.h - Top level definitions for RISCV MC ----*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1565,6 +1829,7 @@ index c3bf3213a98..00000000000
 -
 -  InstFormatMask = 15
 -};
+-
 -enum {
 -  MO_None,
 -  MO_LO,
@@ -1587,10 +1852,10 @@ index c3bf3213a98..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 deleted file mode 100644
-index 93c981e2a2a..00000000000
+index 2756d6526fe..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ /dev/null
-@@ -1,47 +0,0 @@
+@@ -1,71 +0,0 @@
 -//===-- RISCVELFObjectWriter.cpp - RISCV ELF Writer -----------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1600,9 +1865,11 @@ index 93c981e2a2a..00000000000
 -//
 -//===----------------------------------------------------------------------===//
 -
+-#include "MCTargetDesc/RISCVFixupKinds.h"
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
 -#include "llvm/MC/MCELFObjectWriter.h"
 -#include "llvm/MC/MCFixup.h"
+-#include "llvm/MC/MCObjectWriter.h"
 -#include "llvm/Support/ErrorHandling.h"
 -
 -using namespace llvm;
@@ -1630,14 +1897,88 @@ index 93c981e2a2a..00000000000
 -                                            const MCValue &Target,
 -                                            const MCFixup &Fixup,
 -                                            bool IsPCRel) const {
--  report_fatal_error("invalid fixup kind!");
+-  // Determine the type of the relocation
+-  switch ((unsigned)Fixup.getKind()) {
+-  default:
+-    llvm_unreachable("invalid fixup kind!");
+-  case FK_Data_4:
+-    return ELF::R_RISCV_32;
+-  case FK_Data_8:
+-    return ELF::R_RISCV_64;
+-  case RISCV::fixup_riscv_hi20:
+-    return ELF::R_RISCV_HI20;
+-  case RISCV::fixup_riscv_lo12_i:
+-    return ELF::R_RISCV_LO12_I;
+-  case RISCV::fixup_riscv_lo12_s:
+-    return ELF::R_RISCV_LO12_S;
+-  case RISCV::fixup_riscv_pcrel_hi20:
+-    return ELF::R_RISCV_PCREL_HI20;
+-  case RISCV::fixup_riscv_jal:
+-    return ELF::R_RISCV_JAL;
+-  case RISCV::fixup_riscv_branch:
+-    return ELF::R_RISCV_BRANCH;
+-  }
 -}
 -
--MCObjectWriter *llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS,
--                                                 uint8_t OSABI, bool Is64Bit) {
--  MCELFObjectTargetWriter *MOTW = new RISCVELFObjectWriter(OSABI, Is64Bit);
--  return createELFObjectWriter(MOTW, OS, /*IsLittleEndian*/ true);
+-std::unique_ptr<MCObjectWriter>
+-llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
+-                                 bool Is64Bit) {
+-  return createELFObjectWriter(
+-      llvm::make_unique<RISCVELFObjectWriter>(OSABI, Is64Bit), OS,
+-      /*IsLittleEndian=*/false);
 -}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
+deleted file mode 100644
+index 115229414d5..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
++++ /dev/null
+@@ -1,46 +0,0 @@
+-//===-- RISCVFixupKinds.h - RISCV Specific Fixup Entries --------*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVFIXUPKINDS_H
+-#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVFIXUPKINDS_H
+-
+-#include "llvm/MC/MCFixup.h"
+-
+-#undef RISCV
+-
+-namespace llvm {
+-namespace RISCV {
+-enum Fixups {
+-  // fixup_riscv_hi20 - 20-bit fixup corresponding to hi(foo) for
+-  // instructions like lui
+-  fixup_riscv_hi20 = FirstTargetFixupKind,
+-  // fixup_riscv_lo12_i - 12-bit fixup corresponding to lo(foo) for
+-  // instructions like addi
+-  fixup_riscv_lo12_i,
+-  // fixup_riscv_lo12_s - 12-bit fixup corresponding to lo(foo) for
+-  // the S-type store instructions
+-  fixup_riscv_lo12_s,
+-  // fixup_riscv_pcrel_hi20 - 20-bit fixup corresponding to pcrel_hi(foo) for
+-  // instructions like auipc
+-  fixup_riscv_pcrel_hi20,
+-  // fixup_riscv_jal - 20-bit fixup for symbol references in the jal
+-  // instruction
+-  fixup_riscv_jal,
+-  // fixup_riscv_branch - 12-bit fixup for symbol references in the branch
+-  // instructions
+-  fixup_riscv_branch,
+-
+-  // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
+-  fixup_riscv_invalid,
+-  NumTargetFixupKinds = fixup_riscv_invalid - FirstTargetFixupKind
+-};
+-} // end namespace RISCV
+-} // end namespace llvm
+-
+-#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 deleted file mode 100644
 index d622911e92c..00000000000
@@ -1708,10 +2049,10 @@ index 901a1eba8af..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 deleted file mode 100644
-index f4eaf06f622..00000000000
+index f8212159331..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ /dev/null
-@@ -1,130 +0,0 @@
+@@ -1,176 +0,0 @@
 -//===-- RISCVMCCodeEmitter.cpp - Convert RISCV code to machine code -------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1725,6 +2066,9 @@ index f4eaf06f622..00000000000
 -//
 -//===----------------------------------------------------------------------===//
 -
+-#include "MCTargetDesc/RISCVBaseInfo.h"
+-#include "MCTargetDesc/RISCVFixupKinds.h"
+-#include "MCTargetDesc/RISCVMCExpr.h"
 -#include "MCTargetDesc/RISCVMCTargetDesc.h"
 -#include "llvm/ADT/Statistic.h"
 -#include "llvm/MC/MCAsmInfo.h"
@@ -1732,8 +2076,10 @@ index f4eaf06f622..00000000000
 -#include "llvm/MC/MCContext.h"
 -#include "llvm/MC/MCExpr.h"
 -#include "llvm/MC/MCInst.h"
+-#include "llvm/MC/MCInstrInfo.h"
 -#include "llvm/MC/MCRegisterInfo.h"
 -#include "llvm/MC/MCSymbol.h"
+-#include "llvm/Support/Casting.h"
 -#include "llvm/Support/EndianStream.h"
 -#include "llvm/Support/raw_ostream.h"
 -
@@ -1742,15 +2088,18 @@ index f4eaf06f622..00000000000
 -#define DEBUG_TYPE "mccodeemitter"
 -
 -STATISTIC(MCNumEmitted, "Number of MC instructions emitted");
+-STATISTIC(MCNumFixups, "Number of MC fixups created");
 -
 -namespace {
 -class RISCVMCCodeEmitter : public MCCodeEmitter {
 -  RISCVMCCodeEmitter(const RISCVMCCodeEmitter &) = delete;
 -  void operator=(const RISCVMCCodeEmitter &) = delete;
 -  MCContext &Ctx;
+-  MCInstrInfo const &MCII;
 -
 -public:
--  RISCVMCCodeEmitter(MCContext &ctx) : Ctx(ctx) {}
+-  RISCVMCCodeEmitter(MCContext &ctx, MCInstrInfo const &MCII)
+-      : Ctx(ctx), MCII(MCII) {}
 -
 -  ~RISCVMCCodeEmitter() override {}
 -
@@ -1773,6 +2122,7 @@ index f4eaf06f622..00000000000
 -  unsigned getImmOpValueAsr1(const MCInst &MI, unsigned OpNo,
 -                             SmallVectorImpl<MCFixup> &Fixups,
 -                             const MCSubtargetInfo &STI) const;
+-
 -  unsigned getImmOpValue(const MCInst &MI, unsigned OpNo,
 -                         SmallVectorImpl<MCFixup> &Fixups,
 -                         const MCSubtargetInfo &STI) const;
@@ -1782,7 +2132,7 @@ index f4eaf06f622..00000000000
 -MCCodeEmitter *llvm::createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
 -                                              const MCRegisterInfo &MRI,
 -                                              MCContext &Ctx) {
--  return new RISCVMCCodeEmitter(Ctx);
+-  return new RISCVMCCodeEmitter(Ctx, MCII);
 -}
 -
 -void RISCVMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
@@ -1821,9 +2171,7 @@ index f4eaf06f622..00000000000
 -    return Res >> 1;
 -  }
 -
--  llvm_unreachable("Unhandled expression!");
--
--  return 0;
+-  return getImmOpValue(MI, OpNo, Fixups, STI);
 -}
 -
 -unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
@@ -1832,16 +2180,241 @@ index f4eaf06f622..00000000000
 -
 -  const MCOperand &MO = MI.getOperand(OpNo);
 -
+-  MCInstrDesc const &Desc = MCII.get(MI.getOpcode());
+-  unsigned MIFrm = Desc.TSFlags & RISCVII::InstFormatMask;
+-
 -  // If the destination is an immediate, there is nothing to do
 -  if (MO.isImm())
 -    return MO.getImm();
 -
--  llvm_unreachable("Unhandled expression!");
+-  assert(MO.isExpr() &&
+-         "getImmOpValue expects only expressions or immediates");
+-  const MCExpr *Expr = MO.getExpr();
+-  MCExpr::ExprKind Kind = Expr->getKind();
+-  RISCV::Fixups FixupKind = RISCV::fixup_riscv_invalid;
+-  if (Kind == MCExpr::Target) {
+-    const RISCVMCExpr *RVExpr = cast<RISCVMCExpr>(Expr);
+-
+-    switch (RVExpr->getKind()) {
+-    case RISCVMCExpr::VK_RISCV_None:
+-    case RISCVMCExpr::VK_RISCV_Invalid:
+-      llvm_unreachable("Unhandled fixup kind!");
+-    case RISCVMCExpr::VK_RISCV_LO:
+-      FixupKind = MIFrm == RISCVII::InstFormatI ? RISCV::fixup_riscv_lo12_i
+-                                                : RISCV::fixup_riscv_lo12_s;
+-      break;
+-    case RISCVMCExpr::VK_RISCV_HI:
+-      FixupKind = RISCV::fixup_riscv_hi20;
+-      break;
+-    case RISCVMCExpr::VK_RISCV_PCREL_HI:
+-      FixupKind = RISCV::fixup_riscv_pcrel_hi20;
+-      break;
+-    }
+-  } else if (Kind == MCExpr::SymbolRef &&
+-             cast<MCSymbolRefExpr>(Expr)->getKind() == MCSymbolRefExpr::VK_None) {
+-    if (Desc.getOpcode() == RISCV::JAL) {
+-      FixupKind = RISCV::fixup_riscv_jal;
+-    } else if (MIFrm == RISCVII::InstFormatSB) {
+-      FixupKind = RISCV::fixup_riscv_branch;
+-    }
+-  }
+-
+-  assert(FixupKind != RISCV::fixup_riscv_invalid && "Unhandled expression!");
+-
+-  Fixups.push_back(
+-      MCFixup::create(0, Expr, MCFixupKind(FixupKind), MI.getLoc()));
+-  ++MCNumFixups;
 -
 -  return 0;
 -}
 -
 -#include "RISCVGenMCCodeEmitter.inc"
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
+deleted file mode 100644
+index b36236ea155..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
++++ /dev/null
+@@ -1,99 +0,0 @@
+-//===-- RISCVMCExpr.cpp - RISCV specific MC expression classes ------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file contains the implementation of the assembly expression modifiers
+-// accepted by the RISCV architecture (e.g. ":lo12:", ":gottprel_g1:", ...).
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "RISCVMCExpr.h"
+-#include "llvm/MC/MCAssembler.h"
+-#include "llvm/MC/MCContext.h"
+-#include "llvm/MC/MCStreamer.h"
+-#include "llvm/MC/MCSymbolELF.h"
+-#include "llvm/MC/MCValue.h"
+-#include "llvm/Object/ELF.h"
+-#include "llvm/Support/ErrorHandling.h"
+-
+-using namespace llvm;
+-
+-#define DEBUG_TYPE "riscvmcexpr"
+-
+-const RISCVMCExpr *RISCVMCExpr::create(const MCExpr *Expr, VariantKind Kind,
+-                                       MCContext &Ctx) {
+-  return new (Ctx) RISCVMCExpr(Expr, Kind);
+-}
+-
+-void RISCVMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+-  bool HasVariant = getKind() != VK_RISCV_None;
+-  if (HasVariant)
+-    OS << '%' << getVariantKindName(getKind()) << '(';
+-  Expr->print(OS, MAI);
+-  if (HasVariant)
+-    OS << ')';
+-}
+-
+-bool RISCVMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
+-                                            const MCAsmLayout *Layout,
+-                                            const MCFixup *Fixup) const {
+-  return getSubExpr()->evaluateAsRelocatable(Res, Layout, Fixup);
+-}
+-
+-void RISCVMCExpr::visitUsedExpr(MCStreamer &Streamer) const {
+-  Streamer.visitUsedExpr(*getSubExpr());
+-}
+-
+-RISCVMCExpr::VariantKind RISCVMCExpr::getVariantKindForName(StringRef name) {
+-  return StringSwitch<RISCVMCExpr::VariantKind>(name)
+-      .Case("lo", VK_RISCV_LO)
+-      .Case("hi", VK_RISCV_HI)
+-      .Case("pcrel_hi", VK_RISCV_PCREL_HI)
+-      .Default(VK_RISCV_Invalid);
+-}
+-
+-StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
+-  switch (Kind) {
+-  default:
+-    llvm_unreachable("Invalid ELF symbol kind");
+-  case VK_RISCV_LO:
+-    return "lo";
+-  case VK_RISCV_HI:
+-    return "hi";
+-  case VK_RISCV_PCREL_HI:
+-    return "pcrel_hi";
+-  }
+-}
+-
+-bool RISCVMCExpr::evaluateAsConstant(int64_t &Res) const {
+-  MCValue Value;
+-
+-  if (Kind == VK_RISCV_PCREL_HI)
+-    return false;
+-
+-  if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))
+-    return false;
+-
+-  if (!Value.isAbsolute())
+-    return false;
+-
+-  Res = evaluateAsInt64(Value.getConstant());
+-  return true;
+-}
+-
+-int64_t RISCVMCExpr::evaluateAsInt64(int64_t Value) const {
+-  switch (Kind) {
+-  default:
+-    llvm_unreachable("Invalid kind");
+-  case VK_RISCV_LO:
+-    return SignExtend64<12>(Value);
+-  case VK_RISCV_HI:
+-    // Add 1 if bit 11 is 1, to compensate for low 12 bits being negative.
+-    return ((Value + 0x800) >> 12) & 0xfffff;
+-  }
+-}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
+deleted file mode 100644
+index 69b55ca6f7c..00000000000
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
++++ /dev/null
+@@ -1,75 +0,0 @@
+-//===-- RISCVMCExpr.h - RISCV specific MC expression classes ----*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file describes RISCV-specific MCExprs, used for modifiers like
+-// "%hi" or "%lo" etc.,
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCEXPR_H
+-#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVMCEXPR_H
+-
+-#include "llvm/MC/MCExpr.h"
+-
+-namespace llvm {
+-
+-class StringRef;
+-class RISCVMCExpr : public MCTargetExpr {
+-public:
+-  enum VariantKind {
+-    VK_RISCV_None,
+-    VK_RISCV_LO,
+-    VK_RISCV_HI,
+-    VK_RISCV_PCREL_HI,
+-    VK_RISCV_Invalid
+-  };
+-
+-private:
+-  const MCExpr *Expr;
+-  const VariantKind Kind;
+-
+-  int64_t evaluateAsInt64(int64_t Value) const;
+-
+-  explicit RISCVMCExpr(const MCExpr *Expr, VariantKind Kind)
+-      : Expr(Expr), Kind(Kind) {}
+-
+-public:
+-  static const RISCVMCExpr *create(const MCExpr *Expr, VariantKind Kind,
+-                                   MCContext &Ctx);
+-
+-  VariantKind getKind() const { return Kind; }
+-
+-  const MCExpr *getSubExpr() const { return Expr; }
+-
+-  void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
+-  bool evaluateAsRelocatableImpl(MCValue &Res, const MCAsmLayout *Layout,
+-                                 const MCFixup *Fixup) const override;
+-  void visitUsedExpr(MCStreamer &Streamer) const override;
+-  MCFragment *findAssociatedFragment() const override {
+-    return getSubExpr()->findAssociatedFragment();
+-  }
+-
+-  // There are no TLS RISCVMCExprs at the moment.
+-  void fixELFSymbolsInTLSFixups(MCAssembler &Asm) const override {}
+-
+-  bool evaluateAsConstant(int64_t &Res) const;
+-
+-  static bool classof(const MCExpr *E) {
+-    return E->getKind() == MCExpr::Target;
+-  }
+-
+-  static bool classof(const RISCVMCExpr *) { return true; }
+-
+-  static VariantKind getVariantKindForName(StringRef name);
+-  static StringRef getVariantKindName(VariantKind Kind);
+-};
+-
+-} // end namespace llvm.
+-
+-#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
 deleted file mode 100644
 index 2b35eab577b..00000000000
@@ -1922,10 +2495,10 @@ index 2b35eab577b..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 deleted file mode 100644
-index 9891fd52b2f..00000000000
+index bea2f8800fa..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 +++ /dev/null
-@@ -1,61 +0,0 @@
+@@ -1,62 +0,0 @@
 -//===-- RISCVMCTargetDesc.h - RISCV Target Descriptions ---------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1945,6 +2518,7 @@ index 9891fd52b2f..00000000000
 -#include "llvm/Config/config.h"
 -#include "llvm/MC/MCTargetOptions.h"
 -#include "llvm/Support/DataTypes.h"
+-#include <memory>
 -
 -namespace llvm {
 -class MCAsmBackend;
@@ -1971,8 +2545,8 @@ index 9891fd52b2f..00000000000
 -                                    const Triple &TT, StringRef CPU,
 -                                    const MCTargetOptions &Options);
 -
--MCObjectWriter *createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
--                                           bool Is64Bit);
+-std::unique_ptr<MCObjectWriter>
+-createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI, bool Is64Bit);
 -}
 -
 -// Defines symbolic names for RISC-V registers.
@@ -2027,10 +2601,10 @@ index 19e11839ac3..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
 deleted file mode 100644
-index d77f3874c7d..00000000000
+index 383b73cf4e0..00000000000
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ /dev/null
-@@ -1,158 +0,0 @@
+@@ -1,175 +0,0 @@
 -//===-- RISCVInstrFormats.td - RISCV Instruction Formats ---*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2058,7 +2632,22 @@ index d77f3874c7d..00000000000
 -//
 -//===----------------------------------------------------------------------===//
 -
--class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+-// Format specifies the encoding used by the instruction. This is used by
+-// RISCVMCCodeEmitter to determine which form of fixup to use. These
+-// definitions must be kept in-sync with RISCVBaseInfo.h.
+-class InstFormat<bits<4> val> {
+-  bits<4> Value = val;
+-}
+-def InstFormatPseudo : InstFormat<0>;
+-def InstFormatR      : InstFormat<1>;
+-def InstFormatI      : InstFormat<2>;
+-def InstFormatS      : InstFormat<3>;
+-def InstFormatSB     : InstFormat<4>;
+-def InstFormatU      : InstFormat<5>;
+-def InstFormatOther  : InstFormat<6>;
+-
+-class RISCVInst<dag outs, dag ins, string asmstr, list<dag> pattern,
+-                InstFormat format>
 -    : Instruction {
 -  field bits<32> Inst;
 -  // SoftFail is a field the disassembler can use to provide a way for
@@ -2078,17 +2667,19 @@ index d77f3874c7d..00000000000
 -  dag InOperandList = ins;
 -  let AsmString = asmstr;
 -  let Pattern = pattern;
+-
+-  let TSFlags{3-0} = format.Value;
 -}
 -
 -// Pseudo instructions
--class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, "", pattern> {
+-class Pseudo<dag outs, dag ins, list<dag> pattern>
+-    : RISCVInst<outs, ins, "", pattern, InstFormatPseudo> {
 -  let isPseudo = 1;
 -  let isCodeGenOnly = 1;
 -}
 -
 -class FR<bits<7> funct7, bits<3> funct3, bits<7> opcode, dag outs, dag ins,
--         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern>
+-         string asmstr, list<dag> pattern> : RISCVInst<outs, ins, asmstr, pattern, InstFormatR>
 -{
 -  bits<5> rs2;
 -  bits<5> rs1;
@@ -2103,7 +2694,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FI<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatI>
 -{
 -  bits<12> imm12;
 -  bits<5> rs1;
@@ -2117,7 +2708,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FI32Shift<bit arithshift, bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatI>
 -{
 -  bits<5> shamt;
 -  bits<5> rs1;
@@ -2134,7 +2725,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FS<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatS>
 -{
 -  bits<12> imm12;
 -  bits<5> rs2;
@@ -2149,7 +2740,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FSB<bits<3> funct3, bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatSB>
 -{
 -  bits<12> imm12;
 -  bits<5> rs2;
@@ -2166,7 +2757,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FU<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatU>
 -{
 -  bits<20> imm20;
 -  bits<5> rd;
@@ -2177,7 +2768,7 @@ index d77f3874c7d..00000000000
 -}
 -
 -class FUJ<bits<7> opcode, dag outs, dag ins, string asmstr, list<dag> pattern>
--    : RISCVInst<outs, ins, asmstr, pattern>
+-    : RISCVInst<outs, ins, asmstr, pattern, InstFormatU>
 -{
 -  bits<20> imm20;
 -  bits<5> rd;
@@ -2191,10 +2782,10 @@ index d77f3874c7d..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
 deleted file mode 100644
-index e84e4dabb94..00000000000
+index 1a5f32ecabe..00000000000
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ /dev/null
-@@ -1,214 +0,0 @@
+@@ -1,215 +0,0 @@
 -//===-- RISCVInstrInfo.td - Target Description for RISCV ---*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2243,6 +2834,7 @@ index e84e4dabb94..00000000000
 -
 -def simm12 : Operand<i32> {
 -  let ParserMatchClass = SImmAsmOperand<12>;
+-  let EncoderMethod = "getImmOpValue";
 -  let DecoderMethod = "decodeSImmOperand<12>";
 -}
 -
@@ -2698,6 +3290,130 @@ index 34932c25915..00000000000
 -  RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
 -                                    "64-bit RISC-V");
 -}
+diff --git a/test/MC/RISCV/fixups-diagnostics.s b/test/MC/RISCV/fixups-diagnostics.s
+deleted file mode 100644
+index d346605221c..00000000000
+--- a/test/MC/RISCV/fixups-diagnostics.s
++++ /dev/null
+@@ -1,18 +0,0 @@
+-# RUN: not llvm-mc -triple riscv32 -filetype obj < %s -o /dev/null 2>&1 | FileCheck %s
+-
+-  jal a0, far_distant # CHECK: :[[@LINE]]:3: error: fixup value out of range
+-  jal a0, unaligned # CHECK: :[[@LINE]]:3: error: fixup value must be 2-byte aligned
+-
+-  beq a0, a1, distant # CHECK: :[[@LINE]]:3: error: fixup value out of range
+-  blt t0, t1, unaligned # CHECK: :[[@LINE]]:3: error: fixup value must be 2-byte aligned
+-
+-  .byte 0
+-unaligned:
+-  .byte 0
+-  .byte 0
+-  .byte 0
+-
+-  .space 1<<12
+-distant:
+-  .space 1<<20
+-far_distant:
+diff --git a/test/MC/RISCV/fixups.s b/test/MC/RISCV/fixups.s
+deleted file mode 100644
+index 19cc6922d6d..00000000000
+--- a/test/MC/RISCV/fixups.s
++++ /dev/null
+@@ -1,49 +0,0 @@
+-# RUN: llvm-mc -triple riscv32 < %s -show-encoding \
+-# RUN:     | FileCheck -check-prefix=CHECK-FIXUP %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
+-# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INSTR %s
+-# RUN: llvm-mc -filetype=obj -triple=riscv32 %s \
+-# RUN:     | llvm-readobj -r | FileCheck %s -check-prefix=CHECK-REL
+-
+-# Checks that fixups that can be resolved within the same object file are
+-# applied correctly
+-
+-.LBB0:
+-lui t1, %hi(val)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %hi(val), kind: fixup_riscv_hi20
+-# CHECK-INSTR: lui t1, 74565
+-
+-lw a0, %lo(val)(t1)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %lo(val), kind: fixup_riscv_lo12_i
+-# CHECK-INSTR: lw a0, 1656(t1)
+-addi a1, t1, %lo(val)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %lo(val), kind: fixup_riscv_lo12_i
+-# CHECK-INSTR: addi a1, t1, 1656
+-sw a0, %lo(val)(t1)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %lo(val), kind: fixup_riscv_lo12_s
+-# CHECK-INSTR: sw a0, 1656(t1)
+-
+-jal zero, .LBB0
+-# CHECK-FIXUP: fixup A - offset: 0, value: .LBB0, kind: fixup_riscv_jal
+-# CHECK-INSTR: jal zero, -16
+-jal zero, .LBB2
+-# CHECK-FIXUP: fixup A - offset: 0, value: .LBB2, kind: fixup_riscv_jal
+-# CHECK-INSTR: jal zero, 330996
+-beq a0, a1, .LBB0
+-# CHECK-FIXUP: fixup A - offset: 0, value: .LBB0, kind: fixup_riscv_branch
+-# CHECK-INSTR: beq a0, a1, -24
+-blt a0, a1, .LBB1
+-# CHECK-FIXUP: fixup A - offset: 0, value: .LBB1, kind: fixup_riscv_branch
+-# CHECK-INSTR: blt a0, a1, 1108
+-
+-.fill 1104
+-
+-.LBB1:
+-
+-.fill 329876
+-addi zero, zero, 0
+-.LBB2:
+-
+-.set val, 0x12345678
+-
+-# CHECK-REL-NOT: R_RISCV
+diff --git a/test/MC/RISCV/hilo-constaddr.s b/test/MC/RISCV/hilo-constaddr.s
+deleted file mode 100644
+index 691401f0bab..00000000000
+--- a/test/MC/RISCV/hilo-constaddr.s
++++ /dev/null
+@@ -1,39 +0,0 @@
+-# RUN: llvm-mc -filetype=obj -triple=riscv32 %s \
+-# RUN:  | llvm-objdump -d - | FileCheck %s -check-prefix=CHECK-INSTR
+-
+-# RUN: llvm-mc -filetype=obj -triple=riscv32 %s \
+-# RUN:  | llvm-readobj -r | FileCheck %s -check-prefix=CHECK-REL
+-
+-# Check the assembler can handle hi and lo expressions with a constant 
+-# address, and constant expressions involving labels. Test case derived from 
+-# test/MC/Mips/hilo-addressing.s
+-
+-# Check that 1 is added to the high 20 bits if bit 11 of the low part is 1.
+-.equ addr, 0xdeadbeef
+-  lui t0, %hi(addr)
+-  lw ra, %lo(addr)(t0)
+-# CHECK-INSTR: lui t0, 912092
+-# CHECK-INSTR: lw ra, -273(t0)
+-
+-# Check that assembler can handle %hi(label1 - label2) and %lo(label1 - label2)
+-# expressions.
+-
+-tmp1:
+-  # Emit zeros so that difference between tmp1 and tmp3 is 0x30124 bytes.
+-  .fill 0x30124-8
+-tmp2:
+-  lui t0, %hi(tmp3-tmp1)
+-  lw ra, %lo(tmp3-tmp1)(t0)
+-# CHECK-INSTR: lui t0, 48
+-# CHECK-INSTR: lw ra, 292(t0)
+-
+-tmp3:
+-  lui t1, %hi(tmp2-tmp3)
+-  lw sp, %lo(tmp2-tmp3)(t1)
+-# CHECK-INSTR: lui t1, 0
+-# CHECK-INSTR: lw sp, -8(t1)
+-
+-# Check that a relocation isn't emitted for %hi(label1 - label2) and
+-# %lo(label1 - label2) expressions.
+-
+-# CHECK-REL-NOT: R_RISCV
 diff --git a/test/MC/RISCV/lit.local.cfg b/test/MC/RISCV/lit.local.cfg
 deleted file mode 100644
 index d0b081e3e8b..00000000000
@@ -2707,12 +3423,83 @@ index d0b081e3e8b..00000000000
 -if not 'RISCV' in config.root.targets:
 -    config.unsupported = True
 -
+diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
+deleted file mode 100644
+index c11e2f38dfc..00000000000
+--- a/test/MC/RISCV/relocations.s
++++ /dev/null
+@@ -1,65 +0,0 @@
+-# RUN: llvm-mc -triple riscv32 < %s -show-encoding \
+-# RUN:     | FileCheck -check-prefix=INSTR -check-prefix=FIXUP %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
+-# RUN:     | llvm-readobj -r | FileCheck -check-prefix=RELOC %s
+-
+-# Check prefixes:
+-# RELOC - Check the relocation in the object.
+-# FIXUP - Check the fixup on the instruction.
+-# INSTR - Check the instruction is handled properly by the ASMPrinter
+-
+-.long foo
+-# RELOC: R_RISCV_32 foo
+-
+-.quad foo
+-# RELOC: R_RISCV_64 foo
+-
+-lui t1, %hi(foo)
+-# RELOC: R_RISCV_HI20 foo 0x0
+-# INSTR: lui t1, %hi(foo)
+-# FIXUP: fixup A - offset: 0, value: %hi(foo), kind: fixup_riscv_hi20
+-
+-lui t1, %hi(foo+4)
+-# RELOC: R_RISCV_HI20 foo 0x4
+-# INSTR: lui t1, %hi(foo+4)
+-# FIXUP: fixup A - offset: 0, value: %hi(foo+4), kind: fixup_riscv_hi20
+-
+-addi t1, t1, %lo(foo)
+-# RELOC: R_RISCV_LO12_I foo 0x0
+-# INSTR: addi t1, t1, %lo(foo)
+-# FIXUP: fixup A - offset: 0, value: %lo(foo), kind: fixup_riscv_lo12_i
+-
+-addi t1, t1, %lo(foo+4)
+-# RELOC: R_RISCV_LO12_I foo 0x4
+-# INSTR: addi t1, t1, %lo(foo+4)
+-# FIXUP: fixup A - offset: 0, value: %lo(foo+4), kind: fixup_riscv_lo12_i
+-
+-sb t1, %lo(foo)(a2)
+-# RELOC: R_RISCV_LO12_S foo 0x0
+-# INSTR: sb t1, %lo(foo)(a2)
+-# FIXUP: fixup A - offset: 0, value: %lo(foo), kind: fixup_riscv_lo12_s
+-
+-sb t1, %lo(foo+4)(a2)
+-# RELOC: R_RISCV_LO12_S foo 0x4
+-# INSTR: sb t1, %lo(foo+4)(a2)
+-# FIXUP: fixup A - offset: 0, value: %lo(foo+4), kind: fixup_riscv_lo12_s
+-
+-auipc t1, %pcrel_hi(foo)
+-# RELOC: R_RISCV_PCREL_HI20 foo 0x0
+-# INSTR: auipc t1, %pcrel_hi(foo)
+-# FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo), kind: fixup_riscv_pcrel_hi20
+-
+-auipc t1, %pcrel_hi(foo+4)
+-# RELOC: R_RISCV_PCREL_HI20 foo 0x4
+-# INSTR: auipc t1, %pcrel_hi(foo+4)
+-# FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo+4), kind: fixup_riscv_pcrel_hi20
+-
+-jal zero, foo
+-# RELOC: R_RISCV_JAL
+-# INSTR: jal zero, foo
+-# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_jal
+-
+-bgeu a0, a1, foo
+-# RELOC: R_RISCV_BRANCH
+-# INSTR: bgeu a0, a1, foo
+-# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_branch
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
 deleted file mode 100644
-index faafbfb3ebc..00000000000
+index da49b93bb62..00000000000
 --- a/test/MC/RISCV/rv32i-invalid.s
 +++ /dev/null
-@@ -1,74 +0,0 @@
+@@ -1,127 +0,0 @@
 -# RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
 -
 -# Out of range immediates
@@ -2730,6 +3517,10 @@ index faafbfb3ebc..00000000000
 -csrrsi t1, 999, 32 # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
 -csrrci x0, 43, -90 # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
 -
+-## simm12
+-ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+-andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+-
 -## uimm12
 -csrrw a0, -1, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
 -csrrs a0, 4096, a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
@@ -2738,10 +3529,6 @@ index faafbfb3ebc..00000000000
 -csrrwi a0, -50, 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 -csrrsi a0, 4097, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
 -csrrci a0, 0xffff, a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
--
--## simm12
--ori a0, a1, -2049 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
--andi ra, sp, 2048 # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
 -
 -## simm13_lsb0
 -beq t0, t1, -4098 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
@@ -2762,6 +3549,59 @@ index faafbfb3ebc..00000000000
 -jal gp, 1048575 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
 -jal gp, 1048576 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
 -jal gp, 1 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-
+-# Illegal operand modifier
+-## fencearg
+-fence %hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+-fence %lo(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+-fence %pcrel_hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+-
+-## uimm5
+-slli a0, a0, %lo(1) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
+-srli a0, a0, %lo(a) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
+-srai a0, a0, %hi(2) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
+-csrrwi a1, 0x1, %hi(b) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
+-csrrsi t1, 999, %pcrel_hi(3) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
+-csrrci x0, 43, %pcrel_hi(c) # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
+-
+-## simm12
+-ori a0, a1, %hi(foo) # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+-andi ra, sp, %pcrel_hi(123) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+-xori a2, a3, %hi(345) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [-2048, 2047]
+-
+-## uimm12
+-csrrw a0, %lo(1), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+-csrrs a0, %lo(a), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+-csrrs a0, %hi(2), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+-csrrc a0, %hi(b), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+-csrrwi a0, %pcrel_hi(3), 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+-csrrsi a0, %pcrel_hi(c), a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+-
+-## simm13_lsb0
+-beq t0, t1, %lo(1) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-bne t0, t1, %lo(a) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-blt t0, t1, %hi(2) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-bge t0, t1, %hi(b) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-bltu t0, t1, %pcrel_hi(3) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-bgeu t0, t1, %pcrel_hi(c) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+-
+-## uimm20
+-lui a0, %lo(1) # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
+-auipc a1, %lo(foo) # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 1048575]
+-
+-## simm21_lsb0
+-jal gp, %lo(1) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-jal gp, %lo(a) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-jal gp, %hi(2) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-jal gp, %hi(b) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-jal gp, %pcrel_hi(3) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-jal gp, %pcrel_hi(c) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+-
+-# Unrecognized operand modifier
+-addi t0, sp, %modifer(255) # CHECK: :[[@LINE]]:15: error: unrecognized operand modifier
+-
+-# Use of operand modifier on register name
+-addi t1, %lo(t2), 1 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
 -
 -# Invalid mnemonics
 -subs t0, t2, t1 # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
@@ -2789,10 +3629,10 @@ index faafbfb3ebc..00000000000
 -xor s2, s2 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
 deleted file mode 100644
-index 95d9da4bb51..00000000000
+index be6560062bb..00000000000
 --- a/test/MC/RISCV/rv32i-valid.s
 +++ /dev/null
-@@ -1,217 +0,0 @@
+@@ -1,238 +0,0 @@
 -# RUN: llvm-mc %s -triple=riscv32 -show-encoding \
 -# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
 -# RUN: llvm-mc %s -triple=riscv64 -show-encoding \
@@ -2808,6 +3648,15 @@ index 95d9da4bb51..00000000000
 -# CHECK-INST: lui s11, 552960
 -# CHECK: encoding: [0xb7,0x0d,0x00,0x87]
 -lui s11, (0x87000000>>12)
+-# CHECK-INST: lui a0, 0
+-# CHECK: encoding: [0x37,0x05,0x00,0x00]
+-lui a0, %hi(2)
+-# CHECK-INST: lui s11, 552960
+-# CHECK: encoding: [0xb7,0x0d,0x00,0x87]
+-lui s11, (0x87000000>>12)
+-# CHECK-INST: lui s11, 552960
+-# CHECK: encoding: [0xb7,0x0d,0x00,0x87]
+-lui s11, %hi(0x87000000)
 -# CHECK-INST: lui t0, 1048575
 -# CHECK: encoding: [0xb7,0xf2,0xff,0xff]
 -lui t0, 1048575
@@ -2838,6 +3687,9 @@ index 95d9da4bb51..00000000000
 -# CHECK-INST: jalr a0, a1, -2048
 -# CHECK: encoding: [0x67,0x85,0x05,0x80]
 -jalr a0, a1, -2048
+-# CHECK-INST: jalr a0, a1, -2048
+-# CHECK: encoding: [0x67,0x85,0x05,0x80]
+-jalr a0, a1, %lo(2048)
 -# CHECK-INST: jalr t2, t1, 2047
 -# CHECK: encoding: [0xe7,0x03,0xf3,0x7f]
 -jalr t2, t1, 2047
@@ -2873,6 +3725,9 @@ index 95d9da4bb51..00000000000
 -# CHECK-INST: lh t1, -2048(zero)
 -# CHECK: encoding: [0x03,0x13,0x00,0x80]
 -lh t1, -2048(zero)
+-# CHECK-INST: lh t1, -2048(zero)
+-# CHECK: encoding: [0x03,0x13,0x00,0x80]
+-lh t1, %lo(2048)(zero)
 -# CHECK-INST: lh sp, 2047(a0)
 -# CHECK: encoding: [0x03,0x11,0xf5,0x7f]
 -lh sp, 2047(a0)
@@ -2892,6 +3747,9 @@ index 95d9da4bb51..00000000000
 -# CHECK-INST: sh t3, -2048(t5)
 -# CHECK: encoding: [0x23,0x10,0xcf,0x81]
 -sh t3, -2048(t5)
+-# CHECK-INST: sh t3, -2048(t5)
+-# CHECK: encoding: [0x23,0x10,0xcf,0x81]
+-sh t3, %lo(2048)(t5)
 -# CHECK-INST: sw ra, 999(zero)
 -# CHECK: encoding: [0xa3,0x23,0x10,0x3e]
 -sw ra, 999(zero)
@@ -2911,6 +3769,9 @@ index 95d9da4bb51..00000000000
 -# CHECK-INST: ori a0, a1, -2048
 -# CHECK: encoding: [0x13,0xe5,0x05,0x80]
 -ori a0, a1, -2048
+-# CHECK-INST: ori a0, a1, -2048
+-# CHECK: encoding: [0x13,0xe5,0x05,0x80]
+-ori a0, a1, %lo(2048)
 -# CHECK-INST: andi ra, sp, 2047
 -# CHECK: encoding: [0x93,0x70,0xf1,0x7f]
 -andi ra, sp, 2047
@@ -3023,10 +3884,10 @@ index 09396466c40..7006c6393b6 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index a826e041ecd..a43e988e387 100644
+index be976ca8826..64b88809f7c 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -984,7 +984,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -995,7 +995,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -3035,12 +3896,12 @@ index a826e041ecd..a43e988e387 100644
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index db11f426490..970e1cc3a99 100644
+index b78aee4f33d..849d2ee12fb 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
-@@ -272,24 +272,6 @@ TEST(TripleTest, ParsedIDs) {
-   EXPECT_EQ(Triple::AMDHSA, T.getOS());
-   EXPECT_EQ(Triple::OpenCL, T.getEnvironment());
+@@ -278,24 +278,6 @@ TEST(TripleTest, ParsedIDs) {
+   EXPECT_EQ(Triple::AMDPAL, T.getOS());
+   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
  
 -  T = Triple("riscv32-unknown-unknown");
 -  EXPECT_EQ(Triple::riscv32, T.getArch());
@@ -3063,7 +3924,7 @@ index db11f426490..970e1cc3a99 100644
    T = Triple("armv7hl-suse-linux-gnueabi");
    EXPECT_EQ(Triple::arm, T.getArch());
    EXPECT_EQ(Triple::SUSE, T.getVendor());
-@@ -637,16 +619,6 @@ TEST(TripleTest, BitWidthPredicates) {
+@@ -643,16 +625,6 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -3080,7 +3941,7 @@ index db11f426490..970e1cc3a99 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -738,14 +710,6 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -744,14 +716,6 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  

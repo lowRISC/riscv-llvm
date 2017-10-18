@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [NFC] Ensure TargetOpcode::* instructions are compatible with
+ guessInstructionProperties=0
+
+rL162640 introduced CodeGenTarget::guessInstructionProperties. If a target
+sets guessInstructionProperties=0 in its FootgtInstrInfo, tablegen will error
+if it has to guess properties from patterns. Unfortunately, this can't be used
+with current upstream LLVM as instructions in the TargetOpcode namespace are
+always included and have inferred properties for mayLoad and mayStore. This
+patch provides the simplest possible fix to this problem, defaulting mayLoad
+and mayStore in the TargetOpcode scope. The local definitions take precedence,
+so definitions like G_LOAD or PatchPoint have their expected properties and
+there is no functional change. This patch also adds hasSideEffects definitions
+to those instructions where it is currently inferred.
+
+Differential Revision: https://reviews.llvm.org/D37065
+---
+ include/llvm/Target/Target.td | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
+index 955da7bd5c8..d36fd07b783 100644
+--- a/include/llvm/Target/Target.td
++++ b/include/llvm/Target/Target.td
+@@ -878,12 +878,16 @@ class InstrInfo {
+ // Standard Pseudo Instructions.
+ // This list must match TargetOpcodes.h and CodeGenTarget.cpp.
+ // Only these instructions are allowed in the TargetOpcode namespace.
+-let isCodeGenOnly = 1, isPseudo = 1, hasNoSchedulingInfo = 1,
+-    Namespace = "TargetOpcode" in {
++// Ensure mayLoad and mayStore have a default value, so as not to break
++// targets that set guessInstructionProperties=0. Any local definition of
++// mayLoad/mayStore takes precedence over these default values.
++let mayLoad = 0, mayStore = 0, isCodeGenOnly = 1, isPseudo = 1,
++    hasNoSchedulingInfo = 1, Namespace = "TargetOpcode" in {
+ def PHI : Instruction {
+   let OutOperandList = (outs unknown:$dst);
+   let InOperandList = (ins variable_ops);
+   let AsmString = "PHINODE";
++  let hasSideEffects = 1;
+ }
+ def INLINEASM : Instruction {
+   let OutOperandList = (outs);
+@@ -896,6 +900,7 @@ def CFI_INSTRUCTION : Instruction {
+   let InOperandList = (ins i32imm:$id);
+   let AsmString = "";
+   let hasCtrlDep = 1;
++  let hasSideEffects = 1;
+   let isNotDuplicable = 1;
+ }
+ def EH_LABEL : Instruction {
+@@ -903,6 +908,7 @@ def EH_LABEL : Instruction {
+   let InOperandList = (ins i32imm:$id);
+   let AsmString = "";
+   let hasCtrlDep = 1;
++  let hasSideEffects = 1;
+   let isNotDuplicable = 1;
+ }
+ def GC_LABEL : Instruction {
+@@ -910,6 +916,7 @@ def GC_LABEL : Instruction {
+   let InOperandList = (ins i32imm:$id);
+   let AsmString = "";
+   let hasCtrlDep = 1;
++  let hasSideEffects = 1;
+   let isNotDuplicable = 1;
+ }
+ def ANNOTATION_LABEL : Instruction {
+@@ -917,6 +924,7 @@ def ANNOTATION_LABEL : Instruction {
+   let InOperandList = (ins i32imm:$id);
+   let AsmString = "";
+   let hasCtrlDep = 1;
++  let hasSideEffects = 1;
+   let isNotDuplicable = 1;
+ }
+ def KILL : Instruction {
+@@ -984,6 +992,7 @@ def BUNDLE : Instruction {
+   let OutOperandList = (outs);
+   let InOperandList = (ins variable_ops);
+   let AsmString = "BUNDLE";
++  let hasSideEffects = 1;
+ }
+ def LIFETIME_START : Instruction {
+   let OutOperandList = (outs);
+@@ -1000,6 +1009,7 @@ def LIFETIME_END : Instruction {
+ def STACKMAP : Instruction {
+   let OutOperandList = (outs);
+   let InOperandList = (ins i64imm:$id, i32imm:$nbytes, variable_ops);
++  let hasSideEffects = 1;
+   let isCall = 1;
+   let mayLoad = 1;
+   let usesCustomInserter = 1;
+@@ -1008,6 +1018,7 @@ def PATCHPOINT : Instruction {
+   let OutOperandList = (outs unknown:$dst);
+   let InOperandList = (ins i64imm:$id, i32imm:$nbytes, unknown:$callee,
+                        i32imm:$nargs, i32imm:$cc, variable_ops);
++  let hasSideEffects = 1;
+   let isCall = 1;
+   let mayLoad = 1;
+   let usesCustomInserter = 1;
+@@ -1042,6 +1053,7 @@ def FAULTING_OP : Instruction {
+   let OutOperandList = (outs unknown:$dst);
+   let InOperandList = (ins variable_ops);
+   let usesCustomInserter = 1;
++  let hasSideEffects = 1;
+   let mayLoad = 1;
+   let mayStore = 1;
+   let isTerminator = 1;
+-- 
+2.14.2
+

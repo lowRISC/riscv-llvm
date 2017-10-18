@@ -26,7 +26,7 @@ https://reviews.llvm.org/D36455 https://reviews.llvm.org/rL310914
  create mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index 8bc376c3024..c22cb19391d 100644
+index ac56102ab04..99d81358f34 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -37,8 +37,8 @@ index 8bc376c3024..c22cb19391d 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -611,6 +612,11 @@ enum {
- #include "ELFRelocs/Lanai.def"
+@@ -626,6 +627,11 @@ enum : unsigned {
+   EF_RISCV_RVE = 0x0008
  };
  
 +// ELF Relocation types for RISC-V
@@ -115,10 +115,10 @@ index 00000000000..5cc4c0ec302
 +ELF_RELOC(R_RISCV_SET32,             56)
 +ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 13fe4a2ec46..f436e4534ce 100644
+index 75006dcf031..905ce450f7f 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -962,6 +962,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -981,6 +981,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return "ELF32-mips";
      case ELF::EM_PPC:
        return "ELF32-ppc";
@@ -127,7 +127,7 @@ index 13fe4a2ec46..f436e4534ce 100644
      case ELF::EM_SPARC:
      case ELF::EM_SPARC32PLUS:
        return "ELF32-sparc";
-@@ -982,6 +984,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
+@@ -1001,6 +1003,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
        return (IsLittleEndian ? "ELF64-aarch64-little" : "ELF64-aarch64-big");
      case ELF::EM_PPC64:
        return "ELF64-ppc64";
@@ -136,7 +136,7 @@ index 13fe4a2ec46..f436e4534ce 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -1037,6 +1041,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1054,6 +1058,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;
@@ -153,7 +153,7 @@ index 13fe4a2ec46..f436e4534ce 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index e7dbcfcc7df..4b177540a50 100644
+index 8d985001f6f..cb8ac04a867 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -58,6 +58,7 @@ module LLVM_BinaryFormat {
@@ -183,7 +183,7 @@ index 258842c35a7..130fb2d9ecc 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 0f777addb7b..d6123499a22 100644
+index a4268ea1915..dee820c21cb 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -194,7 +194,7 @@ index 0f777addb7b..d6123499a22 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -579,6 +580,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -592,6 +593,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARC:
  #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
@@ -217,10 +217,10 @@ index 7006c6393b6..09396466c40 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index a43e988e387..a826e041ecd 100644
+index 64b88809f7c..be976ca8826 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -984,6 +984,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -995,6 +995,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
