@@ -1,0 +1,278 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Codegen support for memory operations on global addresses
+
+---
+ lib/Target/RISCV/RISCV.h               | 12 ++++--
+ lib/Target/RISCV/RISCVAsmPrinter.cpp   |  7 +++-
+ lib/Target/RISCV/RISCVISelLowering.cpp | 25 +++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  1 +
+ lib/Target/RISCV/RISCVMCInstLower.cpp  | 76 ++++++++++++++++++++++++++--------
+ test/CodeGen/RISCV/mem.ll              | 22 ++++++++++
+ test/CodeGen/RISCV/wide-mem.ll         | 14 +++++++
+ 7 files changed, 135 insertions(+), 22 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
+index 1b6140203c8..884cb2e5014 100644
+--- a/lib/Target/RISCV/RISCV.h
++++ b/lib/Target/RISCV/RISCV.h
+@@ -15,15 +15,21 @@
+ #ifndef LLVM_LIB_TARGET_RISCV_RISCV_H
+ #define LLVM_LIB_TARGET_RISCV_RISCV_H
+ 
+-#include "MCTargetDesc/RISCVMCTargetDesc.h"
+-#include "llvm/Target/TargetMachine.h"
++#include "MCTargetDesc/RISCVBaseInfo.h"
+ 
+ namespace llvm {
+ class RISCVTargetMachine;
++class AsmPrinter;
++class FunctionPass;
+ class MCInst;
++class MCOperand;
+ class MachineInstr;
++class MachineOperand;
+ 
+-void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI);
++void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
++                                    const AsmPrinter &AP);
++bool LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
++                                         MCOperand &MCOp, const AsmPrinter &AP);
+ 
+ FunctionPass *createRISCVISelDag(RISCVTargetMachine &TM);
+ }
+diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
+index 1c213b6c7e9..4808e6c73c5 100644
+--- a/lib/Target/RISCV/RISCVAsmPrinter.cpp
++++ b/lib/Target/RISCV/RISCVAsmPrinter.cpp
+@@ -43,6 +43,11 @@ public:
+ 
+   bool emitPseudoExpansionLowering(MCStreamer &OutStreamer,
+                                    const MachineInstr *MI);
++
++  // Wrapper needed for tblgenned pseudo lowering.
++  bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp) const {
++    return LowerRISCVMachineOperandToMCOperand(MO, MCOp, *this);
++  }
+ };
+ }
+ 
+@@ -56,7 +61,7 @@ void RISCVAsmPrinter::EmitInstruction(const MachineInstr *MI) {
+     return;
+ 
+   MCInst TmpInst;
+-  LowerRISCVMachineInstrToMCInst(MI, TmpInst);
++  LowerRISCVMachineInstrToMCInst(MI, TmpInst, *this);
+   EmitToStreamer(*OutStreamer, TmpInst);
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 70e33a25941..49bc6a29e45 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -53,6 +53,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+     setLoadExtAction(N, XLenVT, MVT::i1, Promote);
+ 
+   // TODO: add all necessary setOperationAction calls.
++  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+ 
+   setBooleanContents(ZeroOrOneBooleanContent);
+ 
+@@ -66,6 +67,30 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+   switch (Op.getOpcode()) {
+   default:
+     report_fatal_error("unimplemented operand");
++  case ISD::GlobalAddress:
++    return lowerGlobalAddress(Op, DAG);
++  }
++}
++
++SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
++                                                SelectionDAG &DAG) const {
++  SDLoc DL(Op);
++  EVT Ty = Op.getValueType();
++  GlobalAddressSDNode *N = cast<GlobalAddressSDNode>(Op);
++  const GlobalValue *GV = N->getGlobal();
++  int64_t Offset = N->getOffset();
++
++  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
++    SDValue GAHi =
++        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
++    SDValue GALo =
++        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_LO);
++    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
++    SDValue MNLo =
++        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
++    return MNLo;
++  } else {
++    report_fatal_error("Unable to lowerGlobalAddress");
+   }
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 9fed48fc04e..2bd5717ca0c 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -56,6 +56,7 @@ private:
+                                          Type *Ty) const override {
+     return true;
+   }
++  SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+ };
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
+index 1ac8d982ff9..4cc8cc8c0c2 100644
+--- a/lib/Target/RISCV/RISCVMCInstLower.cpp
++++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
+@@ -13,6 +13,8 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "RISCV.h"
++#include "MCTargetDesc/RISCVMCExpr.h"
++#include "llvm/CodeGen/AsmPrinter.h"
+ #include "llvm/CodeGen/MachineBasicBlock.h"
+ #include "llvm/CodeGen/MachineInstr.h"
+ #include "llvm/MC/MCAsmInfo.h"
+@@ -24,27 +26,65 @@
+ 
+ using namespace llvm;
+ 
+-void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI,
+-                                          MCInst &OutMI) {
++static MCOperand lowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym,
++                                    const AsmPrinter &AP) {
++  MCContext &Ctx = AP.OutContext;
++  RISCVMCExpr::VariantKind Kind;
++
++  switch (MO.getTargetFlags()) {
++  default:
++    llvm_unreachable("Unknown target flag on GV operand");
++  case RISCVII::MO_None:
++    Kind = RISCVMCExpr::VK_RISCV_None;
++    break;
++  case RISCVII::MO_LO:
++    Kind = RISCVMCExpr::VK_RISCV_LO;
++    break;
++  case RISCVII::MO_HI:
++    Kind = RISCVMCExpr::VK_RISCV_HI;
++    break;
++  }
++
++  const MCExpr *ME =
++      MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
++
++  if (!MO.isJTI() && MO.getOffset())
++    ME = MCBinaryExpr::createAdd(
++        ME, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
++
++  ME = RISCVMCExpr::create(ME, Kind, Ctx);
++  return MCOperand::createExpr(ME);
++}
++
++bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
++                                               MCOperand &MCOp,
++                                               const AsmPrinter &AP) {
++  switch (MO.getType()) {
++  default:
++    report_fatal_error("LowerRISCVMachineInstrToMCInst: unknown operand type");
++  case MachineOperand::MO_Register:
++    // Ignore all implicit register operands.
++    if (MO.isImplicit())
++      return false;
++    MCOp = MCOperand::createReg(MO.getReg());
++    break;
++  case MachineOperand::MO_Immediate:
++    MCOp = MCOperand::createImm(MO.getImm());
++    break;
++  case MachineOperand::MO_GlobalAddress:
++    MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
++    break;
++  }
++  return true;
++}
++
++void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
++                                          const AsmPrinter &AP) {
+   OutMI.setOpcode(MI->getOpcode());
+ 
+   for (const MachineOperand &MO : MI->operands()) {
+     MCOperand MCOp;
+-    switch (MO.getType()) {
+-    default:
+-      report_fatal_error(
+-          "LowerRISCVMachineInstrToMCInst: unknown operand type");
+-    case MachineOperand::MO_Register:
+-      // Ignore all implicit register operands.
+-      if (MO.isImplicit())
+-        continue;
+-      MCOp = MCOperand::createReg(MO.getReg());
+-      break;
+-    case MachineOperand::MO_Immediate:
+-      MCOp = MCOperand::createImm(MO.getImm());
+-      break;
+-    }
+-
+-    OutMI.addOperand(MCOp);
++    if (LowerRISCVMachineOperandToMCOperand(MO, MCOp, AP))
++      OutMI.addOperand(MCOp);
+   }
+ }
+diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
+index c22835096bf..b76d7b1841c 100644
+--- a/test/CodeGen/RISCV/mem.ll
++++ b/test/CodeGen/RISCV/mem.ll
+@@ -138,6 +138,28 @@ define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
+   ret i16 %7
+ }
+ 
++; Check load and store to a global
++@G = global i32 0
++
++define i32 @lw_sw_global(i32 %a) nounwind {
++; TODO: the addi should be folded in to the lw/sw operations
++; RV32I-LABEL: lw_sw_global:
++; RV32I: lui a1, %hi(G)
++; RV32I: addi a2, a1, %lo(G)
++; RV32I: lw a1, 0(a2)
++; RV32I: sw a0, 0(a2)
++; RV32I: lui a2, %hi(G+36)
++; RV32I: addi a2, a2, %lo(G+36)
++; RV32I: lw a3, 0(a2)
++; RV32I: sw a0, 0(a2)
++  %1 = load volatile i32, i32* @G
++  store i32 %a, i32* @G
++  %2 = getelementptr i32, i32* @G, i32 9
++  %3 = load volatile i32, i32* %2
++  store i32 %a, i32* %2
++  ret i32 %1
++}
++
+ ; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
+ define i32 @lw_sw_constant(i32 %a) nounwind {
+ ; TODO: the addi should be folded in to the lw/sw
+diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
+index 5ad9194b6c7..8c987d68454 100644
+--- a/test/CodeGen/RISCV/wide-mem.ll
++++ b/test/CodeGen/RISCV/wide-mem.ll
+@@ -10,3 +10,17 @@ define i64 @load_i64(i64 *%a) nounwind {
+   %1 = load i64, i64* %a
+   ret i64 %1
+ }
++
++@val64 = local_unnamed_addr global i64 2863311530, align 8
++
++; TODO: codegen on this should be improved. It shouldn't be necessary to
++; generate two addi
++define i64 @load_i64_global() nounwind {
++; RV32I-LABEL: load_i64_global:
++; RV32I: addi a0, a0, %lo(val64)
++; RV32I: lw a0, 0(a0)
++; RV32I: addi a1, a1, %lo(val64+4)
++; RV32I: lw a1, 0(a1)
++  %1 = load i64, i64* @val64
++  ret i64 %1
++}
+-- 
+2.14.2
+

@@ -20,7 +20,7 @@ target-specific generation of libc functions like strcmp.
 
 Differential Revision: https://reviews.llvm.org/D29933
 ---
- lib/Target/RISCV/CMakeLists.txt         |  11 ++
+ lib/Target/RISCV/CMakeLists.txt         |  11 +++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
  lib/Target/RISCV/RISCV.h                |  31 ++++++
  lib/Target/RISCV/RISCV.td               |   7 +-
@@ -29,12 +29,12 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++++
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 ++++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 171 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 170 ++++++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h    |  62 ++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
  lib/Target/RISCV/RISCVInstrInfo.h       |  32 ++++++
  lib/Target/RISCV/RISCVInstrInfo.td      |  60 ++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp   |  52 ++++++++++
+ lib/Target/RISCV/RISCVMCInstLower.cpp   |  50 ++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 ++++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td   |  13 ++-
@@ -44,7 +44,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu32.ll             | 163 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1106 insertions(+), 11 deletions(-)
+ 24 files changed, 1103 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -425,10 +425,10 @@ index 00000000000..78f61fa4184
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..575619fb521
+index 00000000000..d76170b7b78
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -0,0 +1,171 @@
+@@ -0,0 +1,170 @@
 +//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -526,23 +526,22 @@ index 00000000000..575619fb521
 +  CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV32);
 +
 +  for (auto &VA : ArgLocs) {
-+    if (VA.isRegLoc()) {
-+      // Arguments passed in registers.
-+      EVT RegVT = VA.getLocVT();
-+      if (RegVT != XLenVT) {
-+        DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
-+                     << RegVT.getEVTString() << "\n");
-+        report_fatal_error("unhandled argument type");
-+      }
-+      const unsigned VReg =
-+          RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-+      RegInfo.addLiveIn(VA.getLocReg(), VReg);
-+      SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
-+
-+      InVals.push_back(ArgIn);
-+    } else {
++    if (!VA.isRegLoc())
 +      report_fatal_error("Defined with too many args");
++
++    // Arguments passed in registers.
++    EVT RegVT = VA.getLocVT();
++    if (RegVT != XLenVT) {
++      DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
++          << RegVT.getEVTString() << "\n");
++      report_fatal_error("unhandled argument type");
 +    }
++    const unsigned VReg =
++      RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
++    RegInfo.addLiveIn(VA.getLocReg(), VReg);
++    SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
++
++    InVals.push_back(ArgIn);
 +  }
 +  return Chain;
 +}
@@ -831,10 +830,10 @@ index 213ef63f5f9..23adf1eda9d 100644
 +                PseudoInstExpansion<(JALR X0, X1, 0)>;
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 new file mode 100644
-index 00000000000..9837b46532b
+index 00000000000..1ac8d982ff9
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,50 @@
 +//===-- RISCVMCInstLower.cpp - Convert RISCV MachineInstr to an MCInst ------=//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -865,9 +864,7 @@ index 00000000000..9837b46532b
 +                                          MCInst &OutMI) {
 +  OutMI.setOpcode(MI->getOpcode());
 +
-+  for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
-+    const MachineOperand &MO = MI->getOperand(i);
-+
++  for (const MachineOperand &MO : MI->operands()) {
 +    MCOperand MCOp;
 +    switch (MO.getType()) {
 +    default:

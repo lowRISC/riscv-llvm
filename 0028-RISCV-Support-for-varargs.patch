@@ -65,7 +65,7 @@ index 6811633d7ea..a61ec7feb9e 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 856168d0e5e..f24e5ff465e 100644
+index 4a5349b6fcc..caebcad98d7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -88,15 +88,15 @@ index 856168d0e5e..f24e5ff465e 100644
    for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
      setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
  
-@@ -156,6 +162,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -158,6 +164,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerBlockAddress(Op, DAG);
    case ISD::SELECT_CC:
      return lowerSELECT_CC(Op, DAG);
 +  case ISD::VASTART:
 +    return lowerVASTART(Op, DAG);
-   default:
-     report_fatal_error("unimplemented operand");
    }
+ }
+ 
 @@ -243,6 +251,21 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
    return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
  }

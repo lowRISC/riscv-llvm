@@ -10,10 +10,10 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 6fc73697a57..bfd5dbbf3da 100644
+index e18261923e5..2bdbeaa892f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -164,6 +164,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -166,6 +166,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerSELECT_CC(Op, DAG);
    case ISD::VASTART:
      return lowerVASTART(Op, DAG);
@@ -21,9 +21,9 @@ index 6fc73697a57..bfd5dbbf3da 100644
 +    return LowerFRAMEADDR(Op, DAG);
 +  case ISD::RETURNADDR:
 +    return LowerRETURNADDR(Op, DAG);
-   default:
-     report_fatal_error("unimplemented operand");
    }
+ }
+ 
 @@ -266,6 +270,59 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
                        MachinePointerInfo(SV));
  }

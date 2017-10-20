@@ -1,0 +1,286 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Codegen support for memory operations
+
+This required the implementation of RISCVTargetInstrInfo::copyPhysReg. Support
+for lowring global addresses follow in the next patch.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp |   3 +
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |  15 ++++
+ lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
+ lib/Target/RISCV/RISCVInstrInfo.td     |  28 ++++++
+ test/CodeGen/RISCV/mem.ll              | 154 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/wide-mem.ll         |  12 +++
+ 6 files changed, 216 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/mem.ll
+ create mode 100644 test/CodeGen/RISCV/wide-mem.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index d76170b7b78..70e33a25941 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -49,6 +49,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+   setStackPointerRegisterToSaveRestore(RISCV::X2);
+ 
++  for (auto N : {ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD})
++    setLoadExtAction(N, XLenVT, MVT::i1, Promote);
++
+   // TODO: add all necessary setOperationAction calls.
+ 
+   setBooleanContents(ZeroOrOneBooleanContent);
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
+index 92db5358ce4..77206a80640 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.cpp
++++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
+@@ -29,3 +29,18 @@
+ using namespace llvm;
+ 
+ RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
++
++void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
++                                 MachineBasicBlock::iterator Position,
++                                 const DebugLoc &DL,
++                                 unsigned DestinationRegister,
++                                 unsigned SourceRegister,
++                                 bool KillSource) const {
++  if (!RISCV::GPRRegClass.contains(DestinationRegister, SourceRegister)) {
++    llvm_unreachable("Impossible reg-to-reg copy");
++  }
++
++  BuildMI(MBB, Position, DL, get(RISCV::ADDI), DestinationRegister)
++      .addReg(SourceRegister, getKillRegState(KillSource))
++      .addImm(0);
++}
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
+index 50404d5554d..5da3d010215 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.h
++++ b/lib/Target/RISCV/RISCVInstrInfo.h
+@@ -26,6 +26,10 @@ class RISCVInstrInfo : public RISCVGenInstrInfo {
+ 
+ public:
+   RISCVInstrInfo();
++
++  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator Position,
++                   const DebugLoc &DL, unsigned DestinationRegister,
++                   unsigned SourceRegister, bool KillSource) const override;
+ };
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 8f24176ce4f..5a129ce72a9 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -310,3 +310,31 @@ def : PatGprSimm12<setult, SLTIU>;
+ let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
++
++/// Loads
++
++multiclass LdPat<PatFrag LoadOp, RVInst Inst> {
++  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
++  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)),
++            (Inst GPR:$rs1, simm12:$imm12)>;
++}
++
++defm : LdPat<sextloadi8, LB>;
++defm : LdPat<extloadi8, LB>;
++defm : LdPat<sextloadi16, LH>;
++defm : LdPat<extloadi16, LH>;
++defm : LdPat<load, LW>;
++defm : LdPat<zextloadi8, LBU>;
++defm : LdPat<zextloadi16, LHU>;
++
++/// Stores
++
++multiclass StPat<PatFrag StoreOp, RVInst Inst> {
++  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
++  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)),
++            (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;
++}
++
++defm : StPat<truncstorei8, SB>;
++defm : StPat<truncstorei16, SH>;
++defm : StPat<store, SW>;
+diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
+new file mode 100644
+index 00000000000..c22835096bf
+--- /dev/null
++++ b/test/CodeGen/RISCV/mem.ll
+@@ -0,0 +1,154 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck %s -check-prefix=RV32I
++
++; Check indexed and unindexed, sext, zext and anyext loads
++
++define i32 @lb(i8 *%a) nounwind {
++; RV32I-LABEL: lb:
++; RV32I: lb a1, 0(a0)
++; RV32I: lb a0, 1(a0)
++  %1 = getelementptr i8, i8* %a, i32 1
++  %2 = load i8, i8* %1
++  %3 = sext i8 %2 to i32
++  ; the unused load will produce an anyext for selection
++  %4 = load volatile i8, i8* %a
++  ret i32 %3
++}
++
++define i32 @lh(i16 *%a) nounwind {
++; RV32I-LABEL: lh:
++; RV32I: lh a1, 0(a0)
++; RV32I: lh a0, 4(a0)
++  %1 = getelementptr i16, i16* %a, i32 2
++  %2 = load i16, i16* %1
++  %3 = sext i16 %2 to i32
++  ; the unused load will produce an anyext for selection
++  %4 = load volatile i16, i16* %a
++  ret i32 %3
++}
++
++define i32 @lw(i32 *%a) nounwind {
++; RV32I-LABEL: lw:
++; RV32I: lw a1, 0(a0)
++; RV32I: lw a0, 12(a0)
++  %1 = getelementptr i32, i32* %a, i32 3
++  %2 = load i32, i32* %1
++  %3 = load volatile i32, i32* %a
++  ret i32 %2
++}
++
++define i32 @lbu(i8 *%a) nounwind {
++; RV32I-LABEL: lbu:
++; RV32I: lbu a1, 0(a0)
++; RV32I: lbu a0, 4(a0)
++  %1 = getelementptr i8, i8* %a, i32 4
++  %2 = load i8, i8* %1
++  %3 = zext i8 %2 to i32
++  %4 = load volatile i8, i8* %a
++  %5 = zext i8 %4 to i32
++  %6 = add i32 %3, %5
++  ret i32 %6
++}
++
++define i32 @lhu(i16 *%a) nounwind {
++; RV32I-LABEL: lhu:
++; RV32I: lhu a1, 0(a0)
++; RV32I: lhu a0, 10(a0)
++  %1 = getelementptr i16, i16* %a, i32 5
++  %2 = load i16, i16* %1
++  %3 = zext i16 %2 to i32
++  %4 = load volatile i16, i16* %a
++  %5 = zext i16 %4 to i32
++  %6 = add i32 %3, %5
++  ret i32 %6
++}
++
++; Check indexed and unindexed stores
++
++define void @sb(i8 *%a, i8 %b) nounwind {
++; RV32I-LABEL: sb:
++; RV32I: sb a1, 6(a0)
++; RV32I: sb a1, 0(a0)
++  store i8 %b, i8* %a
++  %1 = getelementptr i8, i8* %a, i32 6
++  store i8 %b, i8* %1
++  ret void
++}
++
++define void @sh(i16 *%a, i16 %b) nounwind {
++; RV32I-LABEL: sh:
++; RV32I: sh a1, 14(a0)
++; RV32I: sh a1, 0(a0)
++  store i16 %b, i16* %a
++  %1 = getelementptr i16, i16* %a, i32 7
++  store i16 %b, i16* %1
++  ret void
++}
++
++define void @sw(i32 *%a, i32 %b) nounwind {
++; RV32I-LABEL: sw:
++; RV32I: sw a1, 32(a0)
++; RV32I: sw a1, 0(a0)
++  store i32 %b, i32* %a
++  %1 = getelementptr i32, i32* %a, i32 8
++  store i32 %b, i32* %1
++  ret void
++}
++
++; Check load and store to an i1 location
++define i32 @load_sext_zext_anyext_i1(i1 *%a) nounwind {
++; RV32I-LABEL: load_sext_zext_anyext_i1:
++; RV32I: lb a1, 0(a0)
++; RV32I: lbu a1, 1(a0)
++; RV32I: lbu a0, 2(a0)
++; RV32I: sub a0, a0, a1
++; RV32I: jalr zero, ra, 0
++  ; sextload i1
++  %1 = getelementptr i1, i1* %a, i32 1
++  %2 = load i1, i1* %1
++  %3 = sext i1 %2 to i32
++  ; zextload i1
++  %4 = getelementptr i1, i1* %a, i32 2
++  %5 = load i1, i1* %4
++  %6 = zext i1 %5 to i32
++  %7 = add i32 %3, %6
++  ; extload i1 (anyext). Produced as the load is unused.
++  %8 = load volatile i1, i1* %a
++  ret i32 %7
++}
++
++define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
++; RV32I-LABEL: load_sext_zext_anyext_i1_i16:
++; RV32I: lb a1, 0(a0)
++; RV32I: lbu a1, 1(a0)
++; RV32I: lbu a0, 2(a0)
++; RV32I: sub a0, a0, a1
++; RV32I: jalr zero, ra, 0
++  ; sextload i1
++  %1 = getelementptr i1, i1* %a, i32 1
++  %2 = load i1, i1* %1
++  %3 = sext i1 %2 to i16
++  ; zextload i1
++  %4 = getelementptr i1, i1* %a, i32 2
++  %5 = load i1, i1* %4
++  %6 = zext i1 %5 to i16
++  %7 = add i16 %3, %6
++  ; extload i1 (anyext). Produced as the load is unused.
++  %8 = load volatile i1, i1* %a
++  ret i16 %7
++}
++
++; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
++define i32 @lw_sw_constant(i32 %a) nounwind {
++; TODO: the addi should be folded in to the lw/sw
++; RV32I-LABEL: lw_sw_constant:
++; RV32I: lui a1, 912092
++; RV32I: addi a2, a1, -273
++; RV32I: lw a1, 0(a2)
++; RV32I: sw a0, 0(a2)
++; RV32I: addi a0, a1, 0
++  %1 = inttoptr i32 3735928559 to i32*
++  %2 = load volatile i32, i32* %1
++  store i32 %a, i32* %1
++  ret i32 %2
++}
+diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
+new file mode 100644
+index 00000000000..5ad9194b6c7
+--- /dev/null
++++ b/test/CodeGen/RISCV/wide-mem.ll
+@@ -0,0 +1,12 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck %s -check-prefix=RV32I
++
++; Check load/store operations on values wider than what is natively supported
++
++define i64 @load_i64(i64 *%a) nounwind {
++; RV32I-LABEL: load_i64:
++; RV32I: lw a2, 0(a0)
++; RV32I: lw a1, 4(a0)
++  %1 = load i64, i64* %a
++  ret i64 %1
++}
+-- 
+2.14.2
+

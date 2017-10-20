@@ -20,7 +20,7 @@ for a number of these cases:
 * rotl, rotr
 * BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  90 ++++++++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      |  89 ++++++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   2 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +++
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
@@ -38,7 +38,7 @@ for a number of these cases:
  test/CodeGen/RISCV/setcc.ll                 |  93 +++++++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 234 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  29 ++++
- 18 files changed, 881 insertions(+), 6 deletions(-)
+ 18 files changed, 882 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
@@ -54,17 +54,18 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 5991ec51cfd..3a9ea3dcdde 100644
+index 4f692baaa36..7b84d82989e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -53,18 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -53,15 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
      setLoadExtAction(N, XLenVT, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
--  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
+-  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+-
 +  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
-+  setOperationAction(ISD::BR_CC, XLenVT, Expand);
-+  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
+   setOperationAction(ISD::BR_CC, XLenVT, Expand);
+   setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
 +  setOperationAction(ISD::SELECT, XLenVT, Expand);
 +
 +  for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
@@ -98,15 +99,12 @@ index 5991ec51cfd..3a9ea3dcdde 100644
 +  setOperationAction(ISD::CTTZ, XLenVT, Expand);
 +  setOperationAction(ISD::CTLZ, XLenVT, Expand);
 +  setOperationAction(ISD::CTPOP, XLenVT, Expand);
- 
-   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
++
++  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
 +  setOperationAction(ISD::BlockAddress, XLenVT, Custom);
- 
--  setOperationAction(ISD::BR_CC, XLenVT, Expand);
--  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
++
    setBooleanContents(ZeroOrOneBooleanContent);
  
--
    // Function alignments (log2).
    setMinFunctionAlignment(3);
    setPrefFunctionAlignment(3);
@@ -116,16 +114,16 @@ index 5991ec51cfd..3a9ea3dcdde 100644
  }
  
  // Changes the condition code and swaps operands if necessary, so the SetCC
-@@ -111,6 +147,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
-   switch (Op.getOpcode()) {
+@@ -110,6 +149,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+     report_fatal_error("unimplemented operand");
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
 +  case ISD::BlockAddress:
 +    return lowerBlockAddress(Op, DAG);
    case ISD::SELECT_CC:
      return lowerSELECT_CC(Op, DAG);
-   default:
-@@ -140,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+   }
+@@ -137,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -173,7 +171,7 @@ index 5991ec51cfd..3a9ea3dcdde 100644
  SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
                                              SelectionDAG &DAG) const {
    SDValue LHS = Op.getOperand(0);
-@@ -349,8 +428,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -345,8 +427,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
@@ -235,7 +233,7 @@ index bc615d74298..d32f4ac0727 100644
                   PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
  
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index a6f103e8f57..f2e903f756d 100644
+index ef0051ed56e..d8ae11f2bd9 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
 @@ -81,6 +81,14 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,

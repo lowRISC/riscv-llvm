@@ -12,7 +12,7 @@ TODO: tests for the 64-bit ABI.
  create mode 100644 test/CodeGen/riscv32-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 99079f9b27..4fce04cef9 100644
+index 2651d87389..da40ef976c 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -8744,6 +8744,122 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,

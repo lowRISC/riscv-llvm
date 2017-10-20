@@ -9,7 +9,7 @@ Subject: [RISCV] Allow lowering of dynamic_stackalloc, stacksave, stackrestore
  create mode 100644 test/CodeGen/RISCV/alloca.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 3a9ea3dcdde..c4ea48f53e6 100644
+index 7b84d82989e..d24e8d2d3dd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -53,11 +53,16 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

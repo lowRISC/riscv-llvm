@@ -11,18 +11,18 @@ Subject: [RISCV] Implement lowering of ISD::SELECT_CC
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 5e52f4c2539..5991ec51cfd 100644
+index 98f7aa16e2e..4f692baaa36 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -58,6 +58,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -56,6 +56,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
    setOperationAction(ISD::BR_CC, XLenVT, Expand);
 +  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
    setBooleanContents(ZeroOrOneBooleanContent);
  
- 
-@@ -66,11 +67,52 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   // Function alignments (log2).
+@@ -63,6 +64,45 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setPrefFunctionAlignment(3);
  }
  
@@ -68,14 +68,16 @@ index 5e52f4c2539..5991ec51cfd 100644
  SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
    switch (Op.getOpcode()) {
+@@ -70,6 +110,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+     report_fatal_error("unimplemented operand");
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
 +  case ISD::SELECT_CC:
 +    return lowerSELECT_CC(Op, DAG);
-   default:
-     report_fatal_error("unimplemented operand");
    }
-@@ -98,6 +140,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+ }
+ 
+@@ -95,6 +137,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -166,7 +168,7 @@ index 5e52f4c2539..5991ec51cfd 100644
  // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -330,6 +456,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -326,6 +452,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";

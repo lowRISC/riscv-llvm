@@ -11,22 +11,28 @@ Upstream commit: https://reviews.llvm.org/rL285708
 Upstream commit: https://reviews.llvm.org/rL285709
 Upstream commit: https://reviews.llvm.org/rL285730
 
-Includes additional relocation types submitted by Chih-Mao Chen,
+Includes additional relocation types and eflags support in ObjectYAML
+submitted by Chih-Mao Chen,
 https://reviews.llvm.org/D36455 https://reviews.llvm.org/rL310914
+https://reviews.llvm.org/D38311
 ---
- include/llvm/BinaryFormat/ELF.h               |  6 +++
+ include/llvm/BinaryFormat/ELF.h               | 17 ++++++++
  include/llvm/BinaryFormat/ELFRelocs/RISCV.def | 59 +++++++++++++++++++++++++++
  include/llvm/Object/ELFObjectFile.h           | 13 ++++++
  include/llvm/module.modulemap                 |  1 +
  lib/Object/ELF.cpp                            |  7 ++++
- lib/ObjectYAML/ELFYAML.cpp                    |  4 ++
+ lib/ObjectYAML/ELFYAML.cpp                    | 12 ++++++
+ test/Object/RISCV/elf-flags.yaml              | 24 +++++++++++
+ test/Object/RISCV/lit.local.cfg               |  2 +
  tools/llvm-objdump/llvm-objdump.cpp           |  1 +
- tools/llvm-readobj/ELFDumper.cpp              |  1 +
- 8 files changed, 92 insertions(+)
+ tools/llvm-readobj/ELFDumper.cpp              | 11 +++++
+ 10 files changed, 147 insertions(+)
  create mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
+ create mode 100644 test/Object/RISCV/elf-flags.yaml
+ create mode 100644 test/Object/RISCV/lit.local.cfg
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index ac56102ab04..99d81358f34 100644
+index a73550b6e12..99d81358f34 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -37,10 +43,21 @@ index ac56102ab04..99d81358f34 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -626,6 +627,11 @@ enum : unsigned {
-   EF_RISCV_RVE = 0x0008
+@@ -615,6 +616,22 @@ enum {
+ #include "ELFRelocs/Lanai.def"
  };
  
++// RISCV Specific e_flags
++enum : unsigned {
++  EF_RISCV_RVC = 0x0001,
++  EF_RISCV_FLOAT_ABI = 0x0006,
++  EF_RISCV_FLOAT_ABI_SOFT = 0x0000,
++  EF_RISCV_FLOAT_ABI_SINGLE = 0x0002,
++  EF_RISCV_FLOAT_ABI_DOUBLE = 0x0004,
++  EF_RISCV_FLOAT_ABI_QUAD = 0x0006,
++  EF_RISCV_RVE = 0x0008
++};
++
 +// ELF Relocation types for RISC-V
 +enum {
 +#include "ELFRelocs/RISCV.def"
@@ -183,7 +200,7 @@ index 258842c35a7..130fb2d9ecc 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index a4268ea1915..dee820c21cb 100644
+index cb86c27fd4f..dee820c21cb 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -194,7 +211,22 @@ index a4268ea1915..dee820c21cb 100644
    ECase(EM_LANAI);
    ECase(EM_BPF);
  #undef ECase
-@@ -592,6 +593,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -359,6 +360,14 @@ void ScalarBitSetTraits<ELFYAML::ELF_EF>::bitset(IO &IO,
+     BCase(EF_AVR_ARCH_XMEGA6);
+     BCase(EF_AVR_ARCH_XMEGA7);
+     break;
++  case ELF::EM_RISCV:
++    BCase(EF_RISCV_RVC);
++    BCaseMask(EF_RISCV_FLOAT_ABI_SOFT, EF_RISCV_FLOAT_ABI);
++    BCaseMask(EF_RISCV_FLOAT_ABI_SINGLE, EF_RISCV_FLOAT_ABI);
++    BCaseMask(EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_FLOAT_ABI);
++    BCaseMask(EF_RISCV_FLOAT_ABI_QUAD, EF_RISCV_FLOAT_ABI);
++    BCase(EF_RISCV_RVE);
++    break;
+   case ELF::EM_AMDGPU:
+     BCaseMask(EF_AMDGPU_ARCH_R600, EF_AMDGPU_ARCH);
+     BCaseMask(EF_AMDGPU_ARCH_GCN, EF_AMDGPU_ARCH);
+@@ -584,6 +593,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARC:
  #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
@@ -204,6 +236,44 @@ index a4268ea1915..dee820c21cb 100644
    case ELF::EM_LANAI:
  #include "llvm/BinaryFormat/ELFRelocs/Lanai.def"
      break;
+diff --git a/test/Object/RISCV/elf-flags.yaml b/test/Object/RISCV/elf-flags.yaml
+new file mode 100644
+index 00000000000..ff8637f000a
+--- /dev/null
++++ b/test/Object/RISCV/elf-flags.yaml
+@@ -0,0 +1,24 @@
++# RUN: yaml2obj %s > %t
++# RUN: llvm-readobj -file-headers %t | FileCheck -check-prefix=OBJ %s
++# RUN: obj2yaml %t | FileCheck -check-prefix=YAML %s
++
++# OBJ: Flags [ (0xD)
++# OBJ-NEXT:   EF_RISCV_FLOAT_ABI_DOUBLE (0x4)
++# OBJ-NEXT:   EF_RISCV_RVC (0x1)
++# OBJ-NEXT:   EF_RISCV_RVE (0x8)
++# OBJ-NEXT: ]
++
++# YAML:      FileHeader:
++# YAML-NEXT:   Class:           ELFCLASS32
++# YAML-NEXT:   Data:            ELFDATA2LSB
++# YAML-NEXT:   Type:            ET_EXEC
++# YAML-NEXT:   Machine:         EM_RISCV
++# YAML-NEXT:   Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE ]
++
++--- !ELF
++FileHeader:
++  Class:           ELFCLASS32
++  Data:            ELFDATA2LSB
++  Type:            ET_EXEC
++  Machine:         EM_RISCV
++  Flags:           [ EF_RISCV_RVC, EF_RISCV_FLOAT_ABI_DOUBLE, EF_RISCV_RVE ]
+diff --git a/test/Object/RISCV/lit.local.cfg b/test/Object/RISCV/lit.local.cfg
+new file mode 100644
+index 00000000000..c63820126f8
+--- /dev/null
++++ b/test/Object/RISCV/lit.local.cfg
+@@ -0,0 +1,2 @@
++if not 'RISCV' in config.root.targets:
++    config.unsupported = True
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
 index 7006c6393b6..09396466c40 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
@@ -217,7 +287,7 @@ index 7006c6393b6..09396466c40 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 64b88809f7c..be976ca8826 100644
+index 3ea94a5154e..be976ca8826 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -995,6 +995,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -228,6 +298,30 @@ index 64b88809f7c..be976ca8826 100644
    ENUM_ENT(EM_WEBASSEMBLY,   "EM_WEBASSEMBLY"),
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
+@@ -1248,6 +1249,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
+   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_ARCH_GCN)
+ };
+ 
++static const EnumEntry<unsigned> ElfHeaderRISCVFlags[] = {
++  LLVM_READOBJ_ENUM_ENT(ELF, EF_RISCV_RVC),
++  LLVM_READOBJ_ENUM_ENT(ELF, EF_RISCV_FLOAT_ABI_SINGLE),
++  LLVM_READOBJ_ENUM_ENT(ELF, EF_RISCV_FLOAT_ABI_DOUBLE),
++  LLVM_READOBJ_ENUM_ENT(ELF, EF_RISCV_FLOAT_ABI_QUAD),
++  LLVM_READOBJ_ENUM_ENT(ELF, EF_RISCV_RVE)
++};
++
+ static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
+   LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
+   LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
+@@ -3589,6 +3598,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+     else if (e->e_machine == EM_AMDGPU)
+       W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
+                    unsigned(ELF::EF_AMDGPU_ARCH));
++    else if (e->e_machine == EM_RISCV)
++      W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderRISCVFlags));
+     else
+       W.printFlags("Flags", e->e_flags);
+     W.printNumber("HeaderSize", e->e_ehsize);
 -- 
 2.14.2
 

@@ -7,11 +7,11 @@ instruction's immediate field.
 ---
  lib/Target/RISCV/RISCVInstrInfo.cpp     | 114 ++++++++++++++++++++++++++++++--
  lib/Target/RISCV/RISCVInstrInfo.h       |  12 ++++
- lib/Target/RISCV/RISCVMCInstLower.cpp   |  10 +--
+ lib/Target/RISCV/RISCVMCInstLower.cpp   |   8 +--
  lib/Target/RISCV/RISCVRegisterInfo.h    |   4 ++
  lib/Target/RISCV/RISCVTargetMachine.cpp |   3 +
  test/CodeGen/RISCV/branch-relaxation.ll |  37 +++++++++++
- 6 files changed, 170 insertions(+), 10 deletions(-)
+ 6 files changed, 169 insertions(+), 9 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
@@ -227,17 +227,10 @@ index 0d80885d121..2dd4e321aa9 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
-index f2e903f756d..b413ee4079a 100644
+index d8ae11f2bd9..b72b45c3dcc 100644
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
-@@ -42,17 +42,18 @@ static MCOperand lowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym,
-     Kind = RISCVMCExpr::VK_RISCV_HI;
-     break;
-   default:
--    llvm_unreachable("Unknown target flag on GV operand");
-+    llvm_unreachable("Unknown target flag on operand");
-   }
- 
+@@ -48,11 +48,12 @@ static MCOperand lowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym,
    const MCExpr *ME =
        MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
  

@@ -30,7 +30,7 @@ index b12ab2abeb3..69b9c5d4360 100644
  def RV64           : HwMode<"+64bit">;
  def RV32           : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index a988fbc7097..9ff9af9a664 100644
+index 287840ab624..740aa259616 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,

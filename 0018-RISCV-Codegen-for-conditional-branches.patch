@@ -3,34 +3,18 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen for conditional branches
 
 ---
- lib/Target/RISCV/RISCV.h               |  3 ++
  lib/Target/RISCV/RISCVCallingConv.td   |  3 ++
  lib/Target/RISCV/RISCVISelLowering.cpp |  1 +
  lib/Target/RISCV/RISCVInstrInfo.cpp    | 33 +++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h      | 11 +++++
  lib/Target/RISCV/RISCVInstrInfo.td     | 36 ++++++++++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  4 ++
  lib/Target/RISCV/RISCVRegisterInfo.cpp | 31 ++++++++++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |  2 +
  test/CodeGen/RISCV/branch.ll           | 84 ++++++++++++++++++++++++++++++++++
- 9 files changed, 201 insertions(+), 3 deletions(-)
+ 9 files changed, 202 insertions(+), 3 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
-diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
-index a6bf14f9a7d..56c0abdab32 100644
---- a/lib/Target/RISCV/RISCV.h
-+++ b/lib/Target/RISCV/RISCV.h
-@@ -24,8 +24,11 @@
- namespace llvm {
- class RISCVTargetMachine;
- class AsmPrinter;
-+class MCContext;
- class MCInst;
-+class MCOperand;
- class MachineInstr;
-+class MachineOperand;
- 
- void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
-                                     const AsmPrinter &AP);
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
 index e0c25e32e01..0b7a523424c 100644
 --- a/lib/Target/RISCV/RISCVCallingConv.td
@@ -43,17 +27,17 @@ index e0c25e32e01..0b7a523424c 100644
 +// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
 +def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 59dc06bc888..216c2817d25 100644
+index 49bc6a29e45..9f19cda8910 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -57,6 +57,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
- 
+@@ -55,6 +55,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   // TODO: add all necessary setOperationAction calls.
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
 +  setOperationAction(ISD::BR_CC, XLenVT, Expand);
    setBooleanContents(ZeroOrOneBooleanContent);
  
- 
+   // Function alignments (log2).
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
 index 77206a80640..b756c69124b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
@@ -178,6 +162,21 @@ index 5a129ce72a9..7cb3ffe7372 100644
  let isBarrier = 1, isReturn = 1, isTerminator = 1 in
  def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
                  PseudoInstExpansion<(JALR X0, X1, 0)>;
+diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
+index 4cc8cc8c0c2..a354a34fb43 100644
+--- a/lib/Target/RISCV/RISCVMCInstLower.cpp
++++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
+@@ -71,6 +71,10 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+   case MachineOperand::MO_Immediate:
+     MCOp = MCOperand::createImm(MO.getImm());
+     break;
++  case MachineOperand::MO_MachineBasicBlock:
++    MCOp = MCOperand::createExpr(
++        MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), AP.OutContext));
++    break;
+   case MachineOperand::MO_GlobalAddress:
+     MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
+     break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 index 4f6c528061c..fb1cf6d198b 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
