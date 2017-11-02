@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for the standard RV64D instruction set
+ extension
+
+---
+ lib/Target/RISCV/RISCVInstrInfoD.td | 26 ++++++++++++++++++++++++++
+ test/MC/RISCV/rv64d-invalid.s       | 11 +++++++++++
+ test/MC/RISCV/rv64d-valid.s         | 31 +++++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+)
+ create mode 100644 test/MC/RISCV/rv64d-invalid.s
+ create mode 100644 test/MC/RISCV/rv64d-valid.s
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
+index 476af8aed22..62d06cced91 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoD.td
++++ b/lib/Target/RISCV/RISCVInstrInfoD.td
+@@ -106,3 +106,29 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.wu"> {
+   let rs2 = 0b00001;
+ }
+ } // Predicates = [HasStdExtD]
++
++let Predicates = [HasStdExtD, IsRV64] in {
++def FCVT_L_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.l.d"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_LU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.lu.d"> {
++  let rs2 = 0b00011;
++}
++
++def FMV_X_D : FPUnaryOp_r<0b1110001, 0b000, GPR, FPR64, "fmv.x.d"> {
++  let rs2 = 0b00000;
++}
++
++def FCVT_D_L : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.l"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_D_LU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.lu"> {
++  let rs2 = 0b00011;
++}
++
++def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
++  let rs2 = 0b00000;
++}
++} // Predicates = [HasStdExtD, IsRV64]
+diff --git a/test/MC/RISCV/rv64d-invalid.s b/test/MC/RISCV/rv64d-invalid.s
+new file mode 100644
+index 00000000000..0f508aafd9b
+--- /dev/null
++++ b/test/MC/RISCV/rv64d-invalid.s
+@@ -0,0 +1,11 @@
++# RUN: not llvm-mc -triple riscv64 -mattr=+d < %s 2>&1 | FileCheck %s
++
++# Integer registers where FP regs are expected
++fcvt.l.d ft0, a0 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++fcvt.lu.d ft1, a1 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
++fmv.x.d ft2, a2 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++
++# FP registers where integer regs are expected
++fcvt.d.l a3, ft3 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++fcvt.d.lu a4, ft4 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
++fmv.d.x a5, ft5 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/rv64d-valid.s b/test/MC/RISCV/rv64d-valid.s
+new file mode 100644
+index 00000000000..43dc23d9c40
+--- /dev/null
++++ b/test/MC/RISCV/rv64d-valid.s
+@@ -0,0 +1,31 @@
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+d -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+d < %s \
++# RUN:     | llvm-objdump -mattr=+d -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: not llvm-mc -triple riscv32 -mattr=+d < %s 2>&1 \
++# RUN:     | FileCheck -check-prefix=CHECK-RV32 %s
++
++# CHECK-INST: fcvt.l.d a0, ft0
++# CHECK: encoding: [0x53,0x75,0x20,0xc2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.l.d a0, ft0
++# CHECK-INST: fcvt.lu.d a1, ft1
++# CHECK: encoding: [0xd3,0xf5,0x30,0xc2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.lu.d a1, ft1
++# CHECK-INST: fmv.x.d a2, ft2
++# CHECK: encoding: [0x53,0x06,0x01,0xe2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fmv.x.d a2, ft2
++# CHECK-INST: fcvt.d.l ft3, a3
++# CHECK: encoding: [0xd3,0x81,0x26,0xd2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.d.l ft3, a3
++# CHECK-INST: fcvt.d.lu ft4, a4
++# CHECK: encoding: [0x53,0x02,0x37,0xd2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.d.lu ft4, a4
++# CHECK-INST: fmv.d.x ft5, a5
++# CHECK: encoding: [0xd3,0x82,0x07,0xf2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fmv.d.x ft5, a5
+-- 
+2.15.0
+

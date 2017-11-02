@@ -5,16 +5,40 @@ Subject: [RISCV] Implement frame pointer elimination
 TODO: properly update tests to have a version with and without fp elimination
 when necessary.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp      | 33 ++++++++++++------------
- lib/Target/RISCV/RISCVRegisterInfo.cpp       | 13 +++++-----
- test/CodeGen/RISCV/byval.ll                  |  2 +-
- test/CodeGen/RISCV/calling-conv-sext-zext.ll |  1 -
- test/CodeGen/RISCV/calling-conv.ll           |  2 +-
- test/CodeGen/RISCV/fp128.ll                  |  2 +-
- test/CodeGen/RISCV/frame.ll                  | 38 +++++++++++++++++++++-------
- test/CodeGen/RISCV/large-stack.ll            |  2 +-
- test/CodeGen/RISCV/vararg.ll                 |  2 +-
- 9 files changed, 58 insertions(+), 37 deletions(-)
+ lib/Target/RISCV/RISCVFrameLowering.cpp      |  33 +++--
+ lib/Target/RISCV/RISCVRegisterInfo.cpp       |  13 +-
+ test/CodeGen/RISCV/addc-adde-sube-subc.ll    |  14 --
+ test/CodeGen/RISCV/alu32.ll                  | 133 -----------------
+ test/CodeGen/RISCV/analyze-branch.ll         |   6 -
+ test/CodeGen/RISCV/bare-select.ll            |   7 -
+ test/CodeGen/RISCV/blockaddress.ll           |   3 -
+ test/CodeGen/RISCV/branch-relaxation.ll      |  20 +--
+ test/CodeGen/RISCV/branch.ll                 |   7 -
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll  | 115 ++++-----------
+ test/CodeGen/RISCV/byval.ll                  |   2 +-
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll | 117 ---------------
+ test/CodeGen/RISCV/calling-conv.ll           |   2 +-
+ test/CodeGen/RISCV/calls.ll                  |  65 ++-------
+ test/CodeGen/RISCV/div.ll                    |  38 -----
+ test/CodeGen/RISCV/fp128.ll                  |   2 +-
+ test/CodeGen/RISCV/frame.ll                  |  40 +++--
+ test/CodeGen/RISCV/frameaddr-returnaddr.ll   |   7 -
+ test/CodeGen/RISCV/imm.ll                    |  35 -----
+ test/CodeGen/RISCV/indirectbr.ll             |   6 -
+ test/CodeGen/RISCV/inline-asm.ll             |  28 ----
+ test/CodeGen/RISCV/jumptable.ll              |  13 +-
+ test/CodeGen/RISCV/large-stack.ll            |   2 +-
+ test/CodeGen/RISCV/mem.ll                    |  84 -----------
+ test/CodeGen/RISCV/mul.ll                    |  22 ---
+ test/CodeGen/RISCV/rem.ll                    |   6 -
+ test/CodeGen/RISCV/rotl-rotr.ll              |  14 --
+ test/CodeGen/RISCV/select-cc.ll              |   7 -
+ test/CodeGen/RISCV/setcc.ll                  |  70 ---------
+ test/CodeGen/RISCV/sext-zext-trunc.ll        | 210 ---------------------------
+ test/CodeGen/RISCV/shifts.ll                 |   9 --
+ test/CodeGen/RISCV/vararg.ll                 |   2 +-
+ test/CodeGen/RISCV/wide-mem.ll               |  14 --
+ 33 files changed, 111 insertions(+), 1035 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index 33de593d6ce..47003c9fe2e 100644
@@ -140,53 +164,1535 @@ index b55d823cce9..f9ff0ccb8d2 100644
  }
  
  const uint32_t *
+diff --git a/test/CodeGen/RISCV/addc-adde-sube-subc.ll b/test/CodeGen/RISCV/addc-adde-sube-subc.ll
+index 7866b206d73..50de47d7c1f 100644
+--- a/test/CodeGen/RISCV/addc-adde-sube-subc.ll
++++ b/test/CodeGen/RISCV/addc-adde-sube-subc.ll
+@@ -7,18 +7,11 @@
+ define i64 @addc_adde(i64 %a, i64 %b) {
+ ; RV32I-LABEL: addc_adde:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    add a1, a1, a3
+ ; RV32I-NEXT:    add a2, a0, a2
+ ; RV32I-NEXT:    sltu a0, a2, a0
+ ; RV32I-NEXT:    add a1, a1, a0
+ ; RV32I-NEXT:    addi a0, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = add i64 %a, %b
+   ret i64 %1
+@@ -27,17 +20,10 @@ define i64 @addc_adde(i64 %a, i64 %b) {
+ define i64 @subc_sube(i64 %a, i64 %b) {
+ ; RV32I-LABEL: subc_sube:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sub a1, a1, a3
+ ; RV32I-NEXT:    sltu a3, a0, a2
+ ; RV32I-NEXT:    sub a1, a1, a3
+ ; RV32I-NEXT:    sub a0, a0, a2
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sub i64 %a, %b
+   ret i64 %1
+diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
+index bb57a5ca29d..9aa6058c2a0 100644
+--- a/test/CodeGen/RISCV/alu32.ll
++++ b/test/CodeGen/RISCV/alu32.ll
+@@ -11,14 +11,7 @@
+ define i32 @addi(i32 %a) nounwind {
+ ; RV32I-LABEL: addi:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = add i32 %a, 1
+   ret i32 %1
+@@ -27,14 +20,7 @@ define i32 @addi(i32 %a) nounwind {
+ define i32 @slti(i32 %a) nounwind {
+ ; RV32I-LABEL: slti:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slti a0, a0, 2
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp slt i32 %a, 2
+   %2 = zext i1 %1 to i32
+@@ -44,14 +30,7 @@ define i32 @slti(i32 %a) nounwind {
+ define i32 @sltiu(i32 %a) nounwind {
+ ; RV32I-LABEL: sltiu:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltiu a0, a0, 3
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ult i32 %a, 3
+   %2 = zext i1 %1 to i32
+@@ -61,14 +40,7 @@ define i32 @sltiu(i32 %a) nounwind {
+ define i32 @xori(i32 %a) nounwind {
+ ; RV32I-LABEL: xori:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    xori a0, a0, 4
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = xor i32 %a, 4
+   ret i32 %1
+@@ -77,14 +49,7 @@ define i32 @xori(i32 %a) nounwind {
+ define i32 @ori(i32 %a) nounwind {
+ ; RV32I-LABEL: ori:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    ori a0, a0, 5
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = or i32 %a, 5
+   ret i32 %1
+@@ -93,14 +58,7 @@ define i32 @ori(i32 %a) nounwind {
+ define i32 @andi(i32 %a) nounwind {
+ ; RV32I-LABEL: andi:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 6
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = and i32 %a, 6
+   ret i32 %1
+@@ -109,14 +67,7 @@ define i32 @andi(i32 %a) nounwind {
+ define i32 @slli(i32 %a) nounwind {
+ ; RV32I-LABEL: slli:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 7
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = shl i32 %a, 7
+   ret i32 %1
+@@ -125,14 +76,7 @@ define i32 @slli(i32 %a) nounwind {
+ define i32 @srli(i32 %a) nounwind {
+ ; RV32I-LABEL: srli:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srli a0, a0, 8
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = lshr i32 %a, 8
+   ret i32 %1
+@@ -141,14 +85,7 @@ define i32 @srli(i32 %a) nounwind {
+ define i32 @srai(i32 %a) nounwind {
+ ; RV32I-LABEL: srai:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srai a0, a0, 9
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = ashr i32 %a, 9
+   ret i32 %1
+@@ -159,14 +96,7 @@ define i32 @srai(i32 %a) nounwind {
+ define i32 @add(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: add:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = add i32 %a, %b
+   ret i32 %1
+@@ -175,14 +105,7 @@ define i32 @add(i32 %a, i32 %b) nounwind {
+ define i32 @sub(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sub:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sub i32 %a, %b
+   ret i32 %1
+@@ -191,14 +114,7 @@ define i32 @sub(i32 %a, i32 %b) nounwind {
+ define i32 @sll(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sll:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sll a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = shl i32 %a, %b
+   ret i32 %1
+@@ -207,14 +123,7 @@ define i32 @sll(i32 %a, i32 %b) nounwind {
+ define i32 @slt(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: slt:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slt a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp slt i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -224,14 +133,7 @@ define i32 @slt(i32 %a, i32 %b) nounwind {
+ define i32 @sltu(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sltu:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltu a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ult i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -241,14 +143,7 @@ define i32 @sltu(i32 %a, i32 %b) nounwind {
+ define i32 @xor(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: xor:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    xor a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = xor i32 %a, %b
+   ret i32 %1
+@@ -257,14 +152,7 @@ define i32 @xor(i32 %a, i32 %b) nounwind {
+ define i32 @srl(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: srl:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srl a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = lshr i32 %a, %b
+   ret i32 %1
+@@ -273,14 +161,7 @@ define i32 @srl(i32 %a, i32 %b) nounwind {
+ define i32 @sra(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sra:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sra a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = ashr i32 %a, %b
+   ret i32 %1
+@@ -289,14 +170,7 @@ define i32 @sra(i32 %a, i32 %b) nounwind {
+ define i32 @or(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: or:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    or a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = or i32 %a, %b
+   ret i32 %1
+@@ -305,14 +179,7 @@ define i32 @or(i32 %a, i32 %b) nounwind {
+ define i32 @and(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: and:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    and a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = and i32 %a, %b
+   ret i32 %1
+diff --git a/test/CodeGen/RISCV/analyze-branch.ll b/test/CodeGen/RISCV/analyze-branch.ll
+index b15edff61f7..4cc572eda7e 100644
+--- a/test/CodeGen/RISCV/analyze-branch.ll
++++ b/test/CodeGen/RISCV/analyze-branch.ll
+@@ -17,8 +17,6 @@ define void @test_bcc_fallthrough_taken(i32 %in) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, zero, 42
+ ; RV32I-NEXT:    bne a0, a1, .LBB0_3
+ ; RV32I-NEXT:  # BB#1: # %true
+@@ -26,7 +24,6 @@ define void @test_bcc_fallthrough_taken(i32 %in) nounwind {
+ ; RV32I-NEXT:    addi a0, a0, %lo(test_true)
+ ; RV32I-NEXT:  .LBB0_2: # %true
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -55,8 +52,6 @@ define void @test_bcc_fallthrough_nottaken(i32 %in) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, zero, 42
+ ; RV32I-NEXT:    beq a0, a1, .LBB1_3
+ ; RV32I-NEXT:  # BB#1: # %false
+@@ -64,7 +59,6 @@ define void @test_bcc_fallthrough_nottaken(i32 %in) nounwind {
+ ; RV32I-NEXT:    addi a0, a0, %lo(test_false)
+ ; RV32I-NEXT:  .LBB1_2: # %true
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+diff --git a/test/CodeGen/RISCV/bare-select.ll b/test/CodeGen/RISCV/bare-select.ll
+index f80698e1c30..ec98b6d18b2 100644
+--- a/test/CodeGen/RISCV/bare-select.ll
++++ b/test/CodeGen/RISCV/bare-select.ll
+@@ -5,19 +5,12 @@
+ define i32 @bare_select(i1 %a, i32 %b, i32 %c) {
+ ; RV32I-LABEL: bare_select:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    bne a0, zero, .LBB0_2
+ ; RV32I-NEXT:  # BB#1:
+ ; RV32I-NEXT:    addi a1, a2, 0
+ ; RV32I-NEXT:  .LBB0_2:
+ ; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = select i1 %a, i32 %b, i32 %c
+   ret i32 %1
+diff --git a/test/CodeGen/RISCV/blockaddress.ll b/test/CodeGen/RISCV/blockaddress.ll
+index b028de5e160..3c5c183019e 100644
+--- a/test/CodeGen/RISCV/blockaddress.ll
++++ b/test/CodeGen/RISCV/blockaddress.ll
+@@ -9,8 +9,6 @@ define void @test_blockaddress() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(addr)
+ ; RV32I-NEXT:    addi a0, a0, %lo(addr)
+ ; RV32I-NEXT:    lui a1, %hi(.Ltmp0)
+@@ -20,7 +18,6 @@ define void @test_blockaddress() nounwind {
+ ; RV32I-NEXT:    jalr zero, a0, 0
+ ; RV32I-NEXT:  .Ltmp0: # Block address taken
+ ; RV32I-NEXT:  .LBB0_1: # %block
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+diff --git a/test/CodeGen/RISCV/branch-relaxation.ll b/test/CodeGen/RISCV/branch-relaxation.ll
+index eaf1dcb6356..67e125076b8 100644
+--- a/test/CodeGen/RISCV/branch-relaxation.ll
++++ b/test/CodeGen/RISCV/branch-relaxation.ll
+@@ -6,10 +6,6 @@
+ define void @relax_bcc(i1 %a) {
+ ; CHECK-LABEL: relax_bcc:
+ ; CHECK:       # BB#0:
+-; CHECK-NEXT:    addi sp, sp, -16
+-; CHECK-NEXT:    sw ra, 12(sp)
+-; CHECK-NEXT:    sw s0, 8(sp)
+-; CHECK-NEXT:    addi s0, sp, 16
+ ; CHECK-NEXT:    andi a0, a0, 1
+ ; CHECK-NEXT:    bne a0, zero, .LBB0_1
+ ; CHECK-NEXT:    jal zero, .LBB0_2
+@@ -18,9 +14,6 @@ define void @relax_bcc(i1 %a) {
+ ; CHECK-NEXT:    .space 4096
+ ; CHECK-NEXT:    #NO_APP
+ ; CHECK-NEXT:  .LBB0_2: # %tail
+-; CHECK-NEXT:    lw s0, 8(sp)
+-; CHECK-NEXT:    lw ra, 12(sp)
+-; CHECK-NEXT:    addi sp, sp, 16
+ ; CHECK-NEXT:    jalr zero, ra, 0
+   br i1 %a, label %iftrue, label %tail
+ 
+@@ -35,13 +28,9 @@ tail:
+ define i32 @relax_jal(i1 %a) {
+ ; CHECK-LABEL: relax_jal:
+ ; CHECK:       # BB#0:
+-; CHECK-NEXT:    addi sp, sp, -16
+-; CHECK-NEXT:    sw ra, 12(sp)
+-; CHECK-NEXT:    sw s0, 8(sp)
+-; CHECK-NEXT:    addi s0, sp, 16
+ ; CHECK-NEXT:    andi a0, a0, 1
+ ; CHECK-NEXT:    bne a0, zero, .LBB1_1
+-; CHECK-NEXT:  # BB#4:
++; CHECK-NEXT:  # BB#3:
+ ; CHECK-NEXT:    lui a0, %hi(.LBB1_2)
+ ; CHECK-NEXT:    jalr zero, a0, %lo(.LBB1_2)
+ ; CHECK-NEXT:  .LBB1_1: # %iftrue
+@@ -50,15 +39,12 @@ define i32 @relax_jal(i1 %a) {
+ ; CHECK-NEXT:    #APP
+ ; CHECK-NEXT:    .space 1048576
+ ; CHECK-NEXT:    #NO_APP
+-; CHECK-NEXT:    jal zero, .LBB1_3
++; CHECK-NEXT:    addi a0, zero, 1
++; CHECK-NEXT:    jalr zero, ra, 0
+ ; CHECK-NEXT:  .LBB1_2: # %jmp
+ ; CHECK-NEXT:    #APP
+ ; CHECK-NEXT:    #NO_APP
+-; CHECK-NEXT:  .LBB1_3: # %tail
+ ; CHECK-NEXT:    addi a0, zero, 1
+-; CHECK-NEXT:    lw s0, 8(sp)
+-; CHECK-NEXT:    lw ra, 12(sp)
+-; CHECK-NEXT:    addi sp, sp, 16
+ ; CHECK-NEXT:    jalr zero, ra, 0
+   br i1 %a, label %iftrue, label %jmp
+ 
+diff --git a/test/CodeGen/RISCV/branch.ll b/test/CodeGen/RISCV/branch.ll
+index 509e2d2c16b..cc754bd96ae 100644
+--- a/test/CodeGen/RISCV/branch.ll
++++ b/test/CodeGen/RISCV/branch.ll
+@@ -5,10 +5,6 @@
+ define void @foo(i32 %a, i32 *%b, i1 %c) {
+ ; RV32I-LABEL: foo:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lw a3, 0(a1)
+ ; RV32I-NEXT:    beq a3, a0, .LBB0_12
+ ; RV32I-NEXT:  # BB#1: # %test2
+@@ -45,9 +41,6 @@ define void @foo(i32 %a, i32 *%b, i1 %c) {
+ ; RV32I-NEXT:  # BB#11: # %test12
+ ; RV32I-NEXT:    lw a0, 0(a1)
+ ; RV32I-NEXT:  .LBB0_12: # %end
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+ 
+   %val1 = load volatile i32, i32* %b
+diff --git a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
+index 760abe8b130..ba1fbb87064 100644
+--- a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
++++ b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
+@@ -15,10 +15,6 @@ declare i32 @llvm.ctpop.i32(i32)
+ define i16 @test_bswap_i16(i16 %a) nounwind {
+ ; RV32I-LABEL: test_bswap_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 4080
+ ; RV32I-NEXT:    addi a1, a1, 0
+ ; RV32I-NEXT:    slli a2, a0, 8
+@@ -26,9 +22,6 @@ define i16 @test_bswap_i16(i16 %a) nounwind {
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    or a0, a0, a1
+ ; RV32I-NEXT:    srli a0, a0, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %tmp = call i16 @llvm.bswap.i16(i16 %a)
+   ret i16 %tmp
+@@ -37,10 +30,6 @@ define i16 @test_bswap_i16(i16 %a) nounwind {
+ define i32 @test_bswap_i32(i32 %a) nounwind {
+ ; RV32I-LABEL: test_bswap_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 16
+ ; RV32I-NEXT:    addi a1, a1, -256
+ ; RV32I-NEXT:    srli a2, a0, 8
+@@ -54,9 +43,6 @@ define i32 @test_bswap_i32(i32 %a) nounwind {
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    or a0, a0, a2
+ ; RV32I-NEXT:    or a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %tmp = call i32 @llvm.bswap.i32(i32 %a)
+   ret i32 %tmp
+@@ -65,10 +51,6 @@ define i32 @test_bswap_i32(i32 %a) nounwind {
+ define i64 @test_bswap_i64(i64 %a) nounwind {
+ ; RV32I-LABEL: test_bswap_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, 16
+ ; RV32I-NEXT:    addi a3, a2, -256
+ ; RV32I-NEXT:    srli a2, a1, 8
+@@ -92,9 +74,6 @@ define i64 @test_bswap_i64(i64 %a) nounwind {
+ ; RV32I-NEXT:    or a0, a0, a3
+ ; RV32I-NEXT:    or a1, a0, a1
+ ; RV32I-NEXT:    addi a0, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %tmp = call i64 @llvm.bswap.i64(i64 %a)
+   ret i64 %tmp
+@@ -105,8 +84,6 @@ define i8 @test_cttz_i8(i8 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a1, a0, 255
+ ; RV32I-NEXT:    beq a1, zero, .LBB3_2
+ ; RV32I-NEXT:  # BB#1: # %cond.false
+@@ -139,7 +116,6 @@ define i8 @test_cttz_i8(i8 %a) nounwind {
+ ; RV32I-NEXT:  .LBB3_2:
+ ; RV32I-NEXT:    addi a0, zero, 8
+ ; RV32I-NEXT:  .LBB3_3: # %cond.end
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -152,8 +128,6 @@ define i16 @test_cttz_i16(i16 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 16
+ ; RV32I-NEXT:    addi a1, a1, -1
+ ; RV32I-NEXT:    and a1, a0, a1
+@@ -188,7 +162,6 @@ define i16 @test_cttz_i16(i16 %a) nounwind {
+ ; RV32I-NEXT:  .LBB4_2:
+ ; RV32I-NEXT:    addi a0, zero, 16
+ ; RV32I-NEXT:  .LBB4_3: # %cond.end
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -201,8 +174,6 @@ define i32 @test_cttz_i32(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    beq a0, zero, .LBB5_2
+ ; RV32I-NEXT:  # BB#1: # %cond.false
+ ; RV32I-NEXT:    addi a1, a0, -1
+@@ -234,7 +205,6 @@ define i32 @test_cttz_i32(i32 %a) nounwind {
+ ; RV32I-NEXT:  .LBB5_2:
+ ; RV32I-NEXT:    addi a0, zero, 32
+ ; RV32I-NEXT:  .LBB5_3: # %cond.end
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -247,8 +217,6 @@ define i32 @test_ctlz_i32(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    beq a0, zero, .LBB6_2
+ ; RV32I-NEXT:  # BB#1: # %cond.false
+ ; RV32I-NEXT:    srli a1, a0, 1
+@@ -288,7 +256,6 @@ define i32 @test_ctlz_i32(i32 %a) nounwind {
+ ; RV32I-NEXT:  .LBB6_2:
+ ; RV32I-NEXT:    addi a0, zero, 32
+ ; RV32I-NEXT:  .LBB6_3: # %cond.end
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -301,16 +268,14 @@ define i64 @test_cttz_i64(i64 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -48
+ ; RV32I-NEXT:    sw ra, 44(sp)
+-; RV32I-NEXT:    sw s0, 40(sp)
+-; RV32I-NEXT:    sw s1, 36(sp)
+-; RV32I-NEXT:    sw s2, 32(sp)
+-; RV32I-NEXT:    sw s3, 28(sp)
+-; RV32I-NEXT:    sw s4, 24(sp)
+-; RV32I-NEXT:    sw s5, 20(sp)
+-; RV32I-NEXT:    sw s6, 16(sp)
+-; RV32I-NEXT:    sw s7, 12(sp)
+-; RV32I-NEXT:    sw s8, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 48
++; RV32I-NEXT:    sw s1, 40(sp)
++; RV32I-NEXT:    sw s2, 36(sp)
++; RV32I-NEXT:    sw s3, 32(sp)
++; RV32I-NEXT:    sw s4, 28(sp)
++; RV32I-NEXT:    sw s5, 24(sp)
++; RV32I-NEXT:    sw s6, 20(sp)
++; RV32I-NEXT:    sw s7, 16(sp)
++; RV32I-NEXT:    sw s8, 12(sp)
+ ; RV32I-NEXT:    addi s2, a1, 0
+ ; RV32I-NEXT:    addi s3, a0, 0
+ ; RV32I-NEXT:    addi a0, s3, -1
+@@ -363,15 +328,14 @@ define i64 @test_cttz_i64(i64 %a) nounwind {
+ ; RV32I-NEXT:    srli a0, s1, 24
+ ; RV32I-NEXT:  .LBB7_3:
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s8, 8(sp)
+-; RV32I-NEXT:    lw s7, 12(sp)
+-; RV32I-NEXT:    lw s6, 16(sp)
+-; RV32I-NEXT:    lw s5, 20(sp)
+-; RV32I-NEXT:    lw s4, 24(sp)
+-; RV32I-NEXT:    lw s3, 28(sp)
+-; RV32I-NEXT:    lw s2, 32(sp)
+-; RV32I-NEXT:    lw s1, 36(sp)
+-; RV32I-NEXT:    lw s0, 40(sp)
++; RV32I-NEXT:    lw s8, 12(sp)
++; RV32I-NEXT:    lw s7, 16(sp)
++; RV32I-NEXT:    lw s6, 20(sp)
++; RV32I-NEXT:    lw s5, 24(sp)
++; RV32I-NEXT:    lw s4, 28(sp)
++; RV32I-NEXT:    lw s3, 32(sp)
++; RV32I-NEXT:    lw s2, 36(sp)
++; RV32I-NEXT:    lw s1, 40(sp)
+ ; RV32I-NEXT:    lw ra, 44(sp)
+ ; RV32I-NEXT:    addi sp, sp, 48
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -384,8 +348,6 @@ define i8 @test_cttz_i8_zero_undef(i8 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, a0, -1
+ ; RV32I-NEXT:    xori a0, a0, -1
+ ; RV32I-NEXT:    and a0, a0, a1
+@@ -411,7 +373,6 @@ define i8 @test_cttz_i8_zero_undef(i8 %a) nounwind {
+ ; RV32I-NEXT:    addi a2, a2, %lo(__mulsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+ ; RV32I-NEXT:    srli a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -424,8 +385,6 @@ define i16 @test_cttz_i16_zero_undef(i16 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, a0, -1
+ ; RV32I-NEXT:    xori a0, a0, -1
+ ; RV32I-NEXT:    and a0, a0, a1
+@@ -451,7 +410,6 @@ define i16 @test_cttz_i16_zero_undef(i16 %a) nounwind {
+ ; RV32I-NEXT:    addi a2, a2, %lo(__mulsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+ ; RV32I-NEXT:    srli a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -464,8 +422,6 @@ define i32 @test_cttz_i32_zero_undef(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, a0, -1
+ ; RV32I-NEXT:    xori a0, a0, -1
+ ; RV32I-NEXT:    and a0, a0, a1
+@@ -491,7 +447,6 @@ define i32 @test_cttz_i32_zero_undef(i32 %a) nounwind {
+ ; RV32I-NEXT:    addi a2, a2, %lo(__mulsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+ ; RV32I-NEXT:    srli a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -504,16 +459,14 @@ define i64 @test_cttz_i64_zero_undef(i64 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -48
+ ; RV32I-NEXT:    sw ra, 44(sp)
+-; RV32I-NEXT:    sw s0, 40(sp)
+-; RV32I-NEXT:    sw s1, 36(sp)
+-; RV32I-NEXT:    sw s2, 32(sp)
+-; RV32I-NEXT:    sw s3, 28(sp)
+-; RV32I-NEXT:    sw s4, 24(sp)
+-; RV32I-NEXT:    sw s5, 20(sp)
+-; RV32I-NEXT:    sw s6, 16(sp)
+-; RV32I-NEXT:    sw s7, 12(sp)
+-; RV32I-NEXT:    sw s8, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 48
++; RV32I-NEXT:    sw s1, 40(sp)
++; RV32I-NEXT:    sw s2, 36(sp)
++; RV32I-NEXT:    sw s3, 32(sp)
++; RV32I-NEXT:    sw s4, 28(sp)
++; RV32I-NEXT:    sw s5, 24(sp)
++; RV32I-NEXT:    sw s6, 20(sp)
++; RV32I-NEXT:    sw s7, 16(sp)
++; RV32I-NEXT:    sw s8, 12(sp)
+ ; RV32I-NEXT:    addi s2, a1, 0
+ ; RV32I-NEXT:    addi s3, a0, 0
+ ; RV32I-NEXT:    addi a0, s3, -1
+@@ -566,15 +519,14 @@ define i64 @test_cttz_i64_zero_undef(i64 %a) nounwind {
+ ; RV32I-NEXT:    srli a0, s1, 24
+ ; RV32I-NEXT:  .LBB11_3:
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s8, 8(sp)
+-; RV32I-NEXT:    lw s7, 12(sp)
+-; RV32I-NEXT:    lw s6, 16(sp)
+-; RV32I-NEXT:    lw s5, 20(sp)
+-; RV32I-NEXT:    lw s4, 24(sp)
+-; RV32I-NEXT:    lw s3, 28(sp)
+-; RV32I-NEXT:    lw s2, 32(sp)
+-; RV32I-NEXT:    lw s1, 36(sp)
+-; RV32I-NEXT:    lw s0, 40(sp)
++; RV32I-NEXT:    lw s8, 12(sp)
++; RV32I-NEXT:    lw s7, 16(sp)
++; RV32I-NEXT:    lw s6, 20(sp)
++; RV32I-NEXT:    lw s5, 24(sp)
++; RV32I-NEXT:    lw s4, 28(sp)
++; RV32I-NEXT:    lw s3, 32(sp)
++; RV32I-NEXT:    lw s2, 36(sp)
++; RV32I-NEXT:    lw s1, 40(sp)
+ ; RV32I-NEXT:    lw ra, 44(sp)
+ ; RV32I-NEXT:    addi sp, sp, 48
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -587,8 +539,6 @@ define i32 @test_ctpop_i32(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 349525
+ ; RV32I-NEXT:    addi a1, a1, 1365
+ ; RV32I-NEXT:    srli a2, a0, 1
+@@ -611,7 +561,6 @@ define i32 @test_ctpop_i32(i32 %a) nounwind {
+ ; RV32I-NEXT:    addi a2, a2, %lo(__mulsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+ ; RV32I-NEXT:    srli a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
-index 988d2e4173f..8b516e847ed 100644
+index 22ce562852c..4593fd4a8d8 100644
 --- a/test/CodeGen/RISCV/byval.ll
 +++ b/test/CodeGen/RISCV/byval.ll
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
  
  %struct.Foo = type { i32, i32, i32, i16, i8 }
 diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
-index d91a45b09f7..a6edc043f83 100644
+index b06d2129801..e86aa06d2b7 100644
 --- a/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 +++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
-@@ -130,7 +130,6 @@ define void @pass_sint8_as_anyint32(i8 signext %a) {
- define signext i32 @ret_callresult_sint8_as_anyint32() {
- ; RV32I-LABEL: ret_callresult_sint8_as_anyint32:
- ; RV32I: jalr ra, a0, 0
--; RV32I-NEXT: lw s0, 8(sp)
-   %1 = call signext i8 @return_sint8()
-   %2 = sext i8 %1 to i32
-   ret i32 %2
+@@ -5,13 +5,6 @@
+ define zeroext i8 @uint8_arg_to_uint8_ret(i8 zeroext %a) nounwind {
+ ; RV32I-LABEL: uint8_arg_to_uint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i8 %a
+ }
+@@ -23,12 +16,9 @@ define void @pass_uint8_as_uint8(i8 zeroext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_uint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_uint8)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -43,12 +33,9 @@ define zeroext i8 @ret_callresult_uint8_as_uint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_uint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_uint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -59,15 +46,8 @@ define zeroext i8 @ret_callresult_uint8_as_uint8() nounwind {
+ define signext i8 @uint8_arg_to_sint8_ret(i8 zeroext %a) nounwind {
+ ; RV32I-LABEL: uint8_arg_to_sint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i8 %a
+ }
+@@ -79,14 +59,11 @@ define void @pass_uint8_as_sint8(i8 zeroext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_sint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_sint8)
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -100,14 +77,11 @@ define signext i8 @ret_callresult_uint8_as_sint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_uint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_uint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -118,13 +92,6 @@ define signext i8 @ret_callresult_uint8_as_sint8() nounwind {
+ define signext i32 @uint8_arg_to_anyint32_ret(i8 zeroext %a) nounwind {
+ ; RV32I-LABEL: uint8_arg_to_anyint32_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i8 %a to i32
+   ret i32 %1
+@@ -137,12 +104,9 @@ define void @pass_uint8_as_anyint32(i8 zeroext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_anyint32)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_anyint32)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -156,12 +120,9 @@ define signext i32 @ret_callresult_uint8_as_anyint32() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_uint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_uint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -173,14 +134,7 @@ define signext i32 @ret_callresult_uint8_as_anyint32() nounwind {
+ define zeroext i8 @sint8_arg_to_uint8_ret(i8 signext %a) nounwind {
+ ; RV32I-LABEL: sint8_arg_to_uint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i8 %a
+ }
+@@ -190,13 +144,10 @@ define void @pass_sint8_as_uint8(i8 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+ ; RV32I-NEXT:    lui a1, %hi(receive_uint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_uint8)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -211,13 +162,10 @@ define zeroext i8 @ret_callresult_sint8_as_uint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_sint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_sint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -228,13 +176,6 @@ define zeroext i8 @ret_callresult_sint8_as_uint8() nounwind {
+ define signext i8 @sint8_arg_to_sint8_ret(i8 signext %a) nounwind {
+ ; RV32I-LABEL: sint8_arg_to_sint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i8 %a
+ }
+@@ -244,12 +185,9 @@ define void @pass_sint8_as_sint8(i8 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_sint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_sint8)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -262,12 +200,9 @@ define signext i8 @ret_callresult_sint8_as_sint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_sint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_sint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -278,13 +213,6 @@ define signext i8 @ret_callresult_sint8_as_sint8() nounwind {
+ define signext i32 @sint8_arg_to_anyint32_ret(i8 signext %a) nounwind {
+ ; RV32I-LABEL: sint8_arg_to_anyint32_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i8 %a to i32
+   ret i32 %1
+@@ -295,12 +223,9 @@ define void @pass_sint8_as_anyint32(i8 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_anyint32)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_anyint32)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -314,12 +239,9 @@ define signext i32 @ret_callresult_sint8_as_anyint32() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_sint8)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_sint8)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -331,14 +253,7 @@ define signext i32 @ret_callresult_sint8_as_anyint32() nounwind {
+ define zeroext i8 @anyint32_arg_to_uint8_ret(i32 signext %a) nounwind {
+ ; RV32I-LABEL: anyint32_arg_to_uint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i32 %a to i8
+   ret i8 %1
+@@ -349,13 +264,10 @@ define void @pass_anyint32_as_uint8(i32 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+ ; RV32I-NEXT:    lui a1, %hi(receive_uint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_uint8)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -371,13 +283,10 @@ define zeroext i8 @ret_callresult_anyint32_as_uint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_anyint32)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_anyint32)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -389,15 +298,8 @@ define zeroext i8 @ret_callresult_anyint32_as_uint8() nounwind {
+ define signext i8 @anyint32_arg_to_sint8_ret(i32 signext %a) nounwind {
+ ; RV32I-LABEL: anyint32_arg_to_sint8_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i32 %a to i8
+   ret i8 %1
+@@ -408,14 +310,11 @@ define void @pass_anyint32_as_sint8(i32 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_sint8)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_sint8)
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -429,14 +328,11 @@ define signext i8 @ret_callresult_anyint32_as_sint8() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_anyint32)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_anyint32)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -448,13 +344,6 @@ define signext i8 @ret_callresult_anyint32_as_sint8() nounwind {
+ define signext i32 @anyint32_arg_to_anyint32_ret(i32 signext %a) nounwind {
+ ; RV32I-LABEL: anyint32_arg_to_anyint32_ret:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 %a
+ }
+@@ -464,12 +353,9 @@ define void @pass_anyint32_as_anyint32(i32 signext %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(receive_anyint32)
+ ; RV32I-NEXT:    addi a1, a1, %lo(receive_anyint32)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -482,12 +368,9 @@ define signext i32 @ret_callresult_anyint32_as_anyint32() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(return_anyint32)
+ ; RV32I-NEXT:    addi a0, a0, %lo(return_anyint32)
+ ; RV32I-NEXT:    jalr ra, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
-index 0fb1436e8e5..4fc61a543ed 100644
+index eb9e1ff72af..a067374699e 100644
 --- a/test/CodeGen/RISCV/calling-conv.ll
 +++ b/test/CodeGen/RISCV/calling-conv.ll
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs -disable-fp-elim < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
  
  ; As well as calling convention details, we check that ra and fp are
+diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
+index a5da4c60b67..6c1cb5aa60c 100644
+--- a/test/CodeGen/RISCV/calls.ll
++++ b/test/CodeGen/RISCV/calls.ll
+@@ -9,12 +9,9 @@ define i32 @test_call_external(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(external_function)
+ ; RV32I-NEXT:    addi a1, a1, %lo(external_function)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -25,14 +22,7 @@ define i32 @test_call_external(i32 %a) nounwind {
+ define i32 @defined_function(i32 %a) nounwind {
+ ; RV32I-LABEL: defined_function:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = add i32 %a, 1
+   ret i32 %1
+@@ -43,12 +33,9 @@ define i32 @test_call_defined(i32 %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(defined_function)
+ ; RV32I-NEXT:    addi a1, a1, %lo(defined_function)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -61,12 +48,9 @@ define i32 @test_call_indirect(i32 (i32)* %a, i32 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a2, a0, 0
+ ; RV32I-NEXT:    addi a0, a1, 0
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -80,14 +64,7 @@ define i32 @test_call_indirect(i32 (i32)* %a, i32 %b) nounwind {
+ define fastcc i32 @fastcc_function(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: fastcc_function:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+  %1 = add i32 %a, %b
+  ret i32 %1
+@@ -98,17 +75,14 @@ define i32 @test_call_fastcc(i32 %a, i32 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    sw s1, 4(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
++; RV32I-NEXT:    sw s1, 8(sp)
+ ; RV32I-NEXT:    addi s1, a0, 0
+ ; RV32I-NEXT:    lui a0, %hi(fastcc_function)
+ ; RV32I-NEXT:    addi a2, a0, %lo(fastcc_function)
+ ; RV32I-NEXT:    addi a0, s1, 0
+ ; RV32I-NEXT:    jalr ra, a2, 0
+ ; RV32I-NEXT:    addi a0, s1, 0
+-; RV32I-NEXT:    lw s1, 4(sp)
+-; RV32I-NEXT:    lw s0, 8(sp)
++; RV32I-NEXT:    lw s1, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -121,11 +95,9 @@ declare i32 @external_many_args(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32
+ define i32 @test_call_external_many_args(i32 %a) nounwind {
+ ; RV32I-LABEL: test_call_external_many_args:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -32
+-; RV32I-NEXT:    sw ra, 28(sp)
+-; RV32I-NEXT:    sw s0, 24(sp)
+-; RV32I-NEXT:    sw s1, 20(sp)
+-; RV32I-NEXT:    addi s0, sp, 32
++; RV32I-NEXT:    addi sp, sp, -16
++; RV32I-NEXT:    sw ra, 12(sp)
++; RV32I-NEXT:    sw s1, 8(sp)
+ ; RV32I-NEXT:    addi s1, a0, 0
+ ; RV32I-NEXT:    sw s1, 4(sp)
+ ; RV32I-NEXT:    sw s1, 0(sp)
+@@ -141,10 +113,9 @@ define i32 @test_call_external_many_args(i32 %a) nounwind {
+ ; RV32I-NEXT:    addi a7, s1, 0
+ ; RV32I-NEXT:    jalr ra, t0, 0
+ ; RV32I-NEXT:    addi a0, s1, 0
+-; RV32I-NEXT:    lw s1, 20(sp)
+-; RV32I-NEXT:    lw s0, 24(sp)
+-; RV32I-NEXT:    lw ra, 28(sp)
+-; RV32I-NEXT:    addi sp, sp, 32
++; RV32I-NEXT:    lw s1, 8(sp)
++; RV32I-NEXT:    lw ra, 12(sp)
++; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = call i32 @external_many_args(i32 %a, i32 %a, i32 %a, i32 %a, i32 %a,
+                                     i32 %a, i32 %a, i32 %a, i32 %a, i32 %a)
+@@ -154,15 +125,8 @@ define i32 @test_call_external_many_args(i32 %a) nounwind {
+ define i32 @defined_many_args(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 %j) nounwind {
+ ; RV32I-LABEL: defined_many_args:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw a0, 4(s0)
++; RV32I-NEXT:    lw a0, 4(sp)
+ ; RV32I-NEXT:    addi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %added = add i32 %j, 1
+   ret i32 %added
+@@ -171,10 +135,8 @@ define i32 @defined_many_args(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 %
+ define i32 @test_call_defined_many_args(i32 %a) nounwind {
+ ; RV32I-LABEL: test_call_defined_many_args:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -32
+-; RV32I-NEXT:    sw ra, 28(sp)
+-; RV32I-NEXT:    sw s0, 24(sp)
+-; RV32I-NEXT:    addi s0, sp, 32
++; RV32I-NEXT:    addi sp, sp, -16
++; RV32I-NEXT:    sw ra, 12(sp)
+ ; RV32I-NEXT:    sw a0, 4(sp)
+ ; RV32I-NEXT:    sw a0, 0(sp)
+ ; RV32I-NEXT:    lui a1, %hi(defined_many_args)
+@@ -187,9 +149,8 @@ define i32 @test_call_defined_many_args(i32 %a) nounwind {
+ ; RV32I-NEXT:    addi a6, a0, 0
+ ; RV32I-NEXT:    addi a7, a0, 0
+ ; RV32I-NEXT:    jalr ra, t0, 0
+-; RV32I-NEXT:    lw s0, 24(sp)
+-; RV32I-NEXT:    lw ra, 28(sp)
+-; RV32I-NEXT:    addi sp, sp, 32
++; RV32I-NEXT:    lw ra, 12(sp)
++; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = call i32 @defined_many_args(i32 %a, i32 %a, i32 %a, i32 %a, i32 %a,
+                                    i32 %a, i32 %a, i32 %a, i32 %a, i32 %a)
+diff --git a/test/CodeGen/RISCV/div.ll b/test/CodeGen/RISCV/div.ll
+index 83bf396f1cd..4949188070f 100644
+--- a/test/CodeGen/RISCV/div.ll
++++ b/test/CodeGen/RISCV/div.ll
+@@ -7,12 +7,9 @@ define i32 @udiv(i32 %a, i32 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__udivsi3)
+ ; RV32I-NEXT:    addi a2, a2, %lo(__udivsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -25,13 +22,10 @@ define i32 @udiv_constant(i32 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(__udivsi3)
+ ; RV32I-NEXT:    addi a2, a1, %lo(__udivsi3)
+ ; RV32I-NEXT:    addi a1, zero, 5
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -42,14 +36,7 @@ define i32 @udiv_constant(i32 %a) {
+ define i32 @udiv_pow2(i32 %a) {
+ ; RV32I-LABEL: udiv_pow2:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srli a0, a0, 3
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = udiv i32 %a, 8
+   ret i32 %1
+@@ -60,12 +47,9 @@ define i64 @udiv64(i64 %a, i64 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a4, %hi(__udivdi3)
+ ; RV32I-NEXT:    addi a4, a4, %lo(__udivdi3)
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -78,14 +62,11 @@ define i64 @udiv64_constant(i64 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__udivdi3)
+ ; RV32I-NEXT:    addi a4, a2, %lo(__udivdi3)
+ ; RV32I-NEXT:    addi a2, zero, 5
+ ; RV32I-NEXT:    addi a3, zero, 0
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -98,12 +79,9 @@ define i32 @sdiv(i32 %a, i32 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__divsi3)
+ ; RV32I-NEXT:    addi a2, a2, %lo(__divsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -116,13 +94,10 @@ define i32 @sdiv_constant(i32 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(__divsi3)
+ ; RV32I-NEXT:    addi a2, a1, %lo(__divsi3)
+ ; RV32I-NEXT:    addi a1, zero, 5
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -133,17 +108,10 @@ define i32 @sdiv_constant(i32 %a) {
+ define i32 @sdiv_pow2(i32 %a) {
+ ; RV32I-LABEL: sdiv_pow2:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srai a1, a0, 31
+ ; RV32I-NEXT:    srli a1, a1, 29
+ ; RV32I-NEXT:    add a0, a0, a1
+ ; RV32I-NEXT:    srai a0, a0, 3
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sdiv i32 %a, 8
+   ret i32 %1
+@@ -154,12 +122,9 @@ define i64 @sdiv64(i64 %a, i64 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a4, %hi(__divdi3)
+ ; RV32I-NEXT:    addi a4, a4, %lo(__divdi3)
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -172,14 +137,11 @@ define i64 @sdiv64_constant(i64 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__divdi3)
+ ; RV32I-NEXT:    addi a4, a2, %lo(__divdi3)
+ ; RV32I-NEXT:    addi a2, zero, 5
+ ; RV32I-NEXT:    addi a3, zero, 0
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
-index 9a7a08fb703..028252be4cc 100644
+index ce3f81f439a..9c5cb861395 100644
 --- a/test/CodeGen/RISCV/fp128.ll
 +++ b/test/CodeGen/RISCV/fp128.ll
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
  
  @x = local_unnamed_addr global fp128 0xL00000000000000007FFF000000000000, align 16
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
-index 5d759d01381..24e001f4077 100644
+index 14bc7b1e10d..46577bf8a20 100644
 --- a/test/CodeGen/RISCV/frame.ll
 +++ b/test/CodeGen/RISCV/frame.ll
-@@ -1,5 +1,7 @@
+@@ -1,6 +1,8 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
  ; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
 +; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
@@ -194,77 +1700,1431 @@ index 5d759d01381..24e001f4077 100644
  
  %struct.key_t = type { i32, [16 x i8] }
  
-@@ -8,23 +10,41 @@ define i32 @test() {
- ; RV32I-LABEL: test:
- ; RV32I: addi sp, sp, -32
- ; RV32I: sw ra, 28(sp)
--; RV32I: sw s0, 24(sp)
--; RV32I: addi s0, sp, 32
--; RV32I: sw zero, -16(s0)
--; RV32I: sw zero, -20(s0)
--; RV32I: sw zero, -24(s0)
--; RV32I: sw zero, -28(s0)
--; RV32I: sw zero, -32(s0)
--; RV32I: addi a0, s0, -32
-+; RV32I: sw zero, 24(sp)
-+; RV32I: sw zero, 20(sp)
-+; RV32I: sw zero, 16(sp)
-+; RV32I: sw zero, 12(sp)
-+; RV32I: sw zero, 8(sp)
-+; RV32I: addi a0, sp, 8
- ; RV32I: ori a0, a0, 4
- ; RV32I: lui a1, %hi(test1)
- ; RV32I: addi a1, a1, %lo(test1)
- ; RV32I: jalr ra, a1, 0
- ; RV32I: addi a0, zero, 0
--; RV32I: lw s0, 24(sp)
- ; RV32I: lw ra, 28(sp)
- ; RV32I: addi sp, sp, 32
- ; RV32I: jalr zero, ra, 0
-+
+@@ -9,23 +11,43 @@ define i32 @test() nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -32
+ ; RV32I-NEXT:    sw ra, 28(sp)
+-; RV32I-NEXT:    sw s0, 24(sp)
+-; RV32I-NEXT:    addi s0, sp, 32
+-; RV32I-NEXT:    sw zero, -16(s0)
+-; RV32I-NEXT:    sw zero, -20(s0)
+-; RV32I-NEXT:    sw zero, -24(s0)
+-; RV32I-NEXT:    sw zero, -28(s0)
+-; RV32I-NEXT:    sw zero, -32(s0)
+-; RV32I-NEXT:    addi a0, s0, -32
++; RV32I-NEXT:    sw zero, 24(sp)
++; RV32I-NEXT:    sw zero, 20(sp)
++; RV32I-NEXT:    sw zero, 16(sp)
++; RV32I-NEXT:    sw zero, 12(sp)
++; RV32I-NEXT:    sw zero, 8(sp)
++; RV32I-NEXT:    addi a0, sp, 8
+ ; RV32I-NEXT:    ori a0, a0, 4
+ ; RV32I-NEXT:    lui a1, %hi(test1)
+ ; RV32I-NEXT:    addi a1, a1, %lo(test1)
+ ; RV32I-NEXT:    jalr ra, a1, 0
+ ; RV32I-NEXT:    addi a0, zero, 0
+-; RV32I-NEXT:    lw s0, 24(sp)
+ ; RV32I-NEXT:    lw ra, 28(sp)
+ ; RV32I-NEXT:    addi sp, sp, 32
+ ; RV32I-NEXT:    jalr zero, ra, 0
++;
 +; RV32I-FPTR-LABEL: test:
-+; RV32I-FPTR: addi sp, sp, -32
-+; RV32I-FPTR: sw ra, 28(sp)
-+; RV32I-FPTR: sw s0, 24(sp)
-+; RV32I-FPTR: addi s0, sp, 32
-+; RV32I-FPTR: sw zero, -16(s0)
-+; RV32I-FPTR: sw zero, -20(s0)
-+; RV32I-FPTR: sw zero, -24(s0)
-+; RV32I-FPTR: sw zero, -28(s0)
-+; RV32I-FPTR: sw zero, -32(s0)
-+; RV32I-FPTR: addi a0, s0, -32
-+; RV32I-FPTR: ori a0, a0, 4
-+; RV32I-FPTR: lui a1, %hi(test1)
-+; RV32I-FPTR: addi a1, a1, %lo(test1)
-+; RV32I-FPTR: jalr ra, a1, 0
-+; RV32I-FPTR: addi a0, zero, 0
-+; RV32I-FPTR: lw s0, 24(sp)
-+; RV32I-FPTR: lw ra, 28(sp)
-+; RV32I-FPTR: addi sp, sp, 32
-+; RV32I-FPTR: jalr zero, ra, 0
++; RV32I-FPTR:       # BB#0:
++; RV32I-FPTR-NEXT:    addi sp, sp, -32
++; RV32I-FPTR-NEXT:    sw ra, 28(sp)
++; RV32I-FPTR-NEXT:    sw s0, 24(sp)
++; RV32I-FPTR-NEXT:    addi s0, sp, 32
++; RV32I-FPTR-NEXT:    sw zero, -16(s0)
++; RV32I-FPTR-NEXT:    sw zero, -20(s0)
++; RV32I-FPTR-NEXT:    sw zero, -24(s0)
++; RV32I-FPTR-NEXT:    sw zero, -28(s0)
++; RV32I-FPTR-NEXT:    sw zero, -32(s0)
++; RV32I-FPTR-NEXT:    addi a0, s0, -32
++; RV32I-FPTR-NEXT:    ori a0, a0, 4
++; RV32I-FPTR-NEXT:    lui a1, %hi(test1)
++; RV32I-FPTR-NEXT:    addi a1, a1, %lo(test1)
++; RV32I-FPTR-NEXT:    jalr ra, a1, 0
++; RV32I-FPTR-NEXT:    addi a0, zero, 0
++; RV32I-FPTR-NEXT:    lw s0, 24(sp)
++; RV32I-FPTR-NEXT:    lw ra, 28(sp)
++; RV32I-FPTR-NEXT:    addi sp, sp, 32
++; RV32I-FPTR-NEXT:    jalr zero, ra, 0
++
    %key = alloca %struct.key_t, align 4
    %1 = bitcast %struct.key_t* %key to i8*
    call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 20, i32 4, i1 false)
+diff --git a/test/CodeGen/RISCV/frameaddr-returnaddr.ll b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
+index 62e36100b8e..09e95efd761 100644
+--- a/test/CodeGen/RISCV/frameaddr-returnaddr.ll
++++ b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
+@@ -67,14 +67,7 @@ define i8* @test_frameaddress_3_alloca() nounwind {
+ define i8* @test_returnaddress_0() nounwind {
+ ; RV32I-LABEL: test_returnaddress_0:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, ra, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = call i8* @llvm.returnaddress(i32 0)
+   ret i8* %1
+diff --git a/test/CodeGen/RISCV/imm.ll b/test/CodeGen/RISCV/imm.ll
+index 9fae97706ca..c52638da02e 100644
+--- a/test/CodeGen/RISCV/imm.ll
++++ b/test/CodeGen/RISCV/imm.ll
+@@ -7,14 +7,7 @@
+ define i32 @zero() nounwind {
+ ; RV32I-LABEL: zero:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 0
+ }
+@@ -22,14 +15,7 @@ define i32 @zero() nounwind {
+ define i32 @pos_small() nounwind {
+ ; RV32I-LABEL: pos_small:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, zero, 2047
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 2047
+ }
+@@ -37,14 +23,7 @@ define i32 @pos_small() nounwind {
+ define i32 @neg_small() nounwind {
+ ; RV32I-LABEL: neg_small:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a0, zero, -2048
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 -2048
+ }
+@@ -52,15 +31,8 @@ define i32 @neg_small() nounwind {
+ define i32 @pos_i32() nounwind {
+ ; RV32I-LABEL: pos_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, 423811
+ ; RV32I-NEXT:    addi a0, a0, -1297
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 1735928559
+ }
+@@ -68,15 +40,8 @@ define i32 @pos_i32() nounwind {
+ define i32 @neg_i32() nounwind {
+ ; RV32I-LABEL: neg_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, 912092
+ ; RV32I-NEXT:    addi a0, a0, -273
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ret i32 -559038737
+ }
+diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
+index ae4036d3df2..ac89c09606b 100644
+--- a/test/CodeGen/RISCV/indirectbr.ll
++++ b/test/CodeGen/RISCV/indirectbr.ll
+@@ -7,12 +7,9 @@ define i32 @indirectbr(i8* %target) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    jalr zero, a0, 0
+ ; RV32I-NEXT:  .LBB0_1: # %ret
+ ; RV32I-NEXT:    addi a0, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -28,12 +25,9 @@ define i32 @indirectbr_with_offset(i8* %a) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    jalr zero, a0, 1380
+ ; RV32I-NEXT:  .LBB1_1: # %ret
+ ; RV32I-NEXT:    addi a0, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+diff --git a/test/CodeGen/RISCV/inline-asm.ll b/test/CodeGen/RISCV/inline-asm.ll
+index eea7fa90199..c3ce8cdfc17 100644
+--- a/test/CodeGen/RISCV/inline-asm.ll
++++ b/test/CodeGen/RISCV/inline-asm.ll
+@@ -7,19 +7,12 @@
+ define i32 @constraint_r(i32 %a) {
+ ; RV32I-LABEL: constraint_r:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(gi)
+ ; RV32I-NEXT:    addi a1, a1, %lo(gi)
+ ; RV32I-NEXT:    lw a1, 0(a1)
+ ; RV32I-NEXT:    #APP
+ ; RV32I-NEXT:    add a0, a0, a1
+ ; RV32I-NEXT:    #NO_APP
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = load i32, i32* @gi
+   %2 = tail call i32 asm "add $0, $1, $2", "=r,r,r"(i32 %a, i32 %1)
+@@ -29,16 +22,9 @@ define i32 @constraint_r(i32 %a) {
+ define i32 @constraint_i(i32 %a) {
+ ; RV32I-LABEL: constraint_i:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    #APP
+ ; RV32I-NEXT:    addi a0, a0, 113
+ ; RV32I-NEXT:    #NO_APP
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = load i32, i32* @gi
+   %2 = tail call i32 asm "addi $0, $1, $2", "=r,r,i"(i32 %a, i32 113)
+@@ -48,15 +34,8 @@ define i32 @constraint_i(i32 %a) {
+ define void @constraint_m(i32* %a) {
+ ; RV32I-LABEL: constraint_m:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    #APP
+ ; RV32I-NEXT:    #NO_APP
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   call void asm sideeffect "", "=*m"(i32* %a)
+   ret void
+@@ -65,16 +44,9 @@ define void @constraint_m(i32* %a) {
+ define i32 @constraint_m2(i32* %a) {
+ ; RV32I-LABEL: constraint_m2:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    #APP
+ ; RV32I-NEXT:    lw a0, 0(a0)
+ ; RV32I-NEXT:    #NO_APP
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = tail call i32 asm "lw $0, $1", "=r,*m"(i32* %a) nounwind
+   ret i32 %1
+diff --git a/test/CodeGen/RISCV/jumptable.ll b/test/CodeGen/RISCV/jumptable.ll
+index 51609c93e28..c44d3e6631a 100644
+--- a/test/CodeGen/RISCV/jumptable.ll
++++ b/test/CodeGen/RISCV/jumptable.ll
+@@ -5,10 +5,6 @@
+ define void @jt(i32 %in, i32* %out) {
+ ; RV32I-LABEL: jt:
+ ; RV32I:       # BB#0: # %entry
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a2, zero, 2
+ ; RV32I-NEXT:    blt a2, a0, .LBB0_4
+ ; RV32I-NEXT:  # BB#1: # %entry
+@@ -19,7 +15,7 @@ define void @jt(i32 %in, i32* %out) {
+ ; RV32I-NEXT:  # BB#3: # %bb2
+ ; RV32I-NEXT:    addi a0, zero, 3
+ ; RV32I-NEXT:    sw a0, 0(a1)
+-; RV32I-NEXT:    jal zero, .LBB0_9
++; RV32I-NEXT:    jalr zero, ra, 0
+ ; RV32I-NEXT:  .LBB0_4: # %entry
+ ; RV32I-NEXT:    addi a3, zero, 3
+ ; RV32I-NEXT:    beq a0, a3, .LBB0_8
+@@ -29,17 +25,14 @@ define void @jt(i32 %in, i32* %out) {
+ ; RV32I-NEXT:  # BB#6: # %bb4
+ ; RV32I-NEXT:    addi a0, zero, 1
+ ; RV32I-NEXT:    sw a0, 0(a1)
+-; RV32I-NEXT:    jal zero, .LBB0_9
++; RV32I-NEXT:    jalr zero, ra, 0
+ ; RV32I-NEXT:  .LBB0_7: # %bb1
+ ; RV32I-NEXT:    addi a0, zero, 4
+ ; RV32I-NEXT:    sw a0, 0(a1)
+-; RV32I-NEXT:    jal zero, .LBB0_9
++; RV32I-NEXT:    jalr zero, ra, 0
+ ; RV32I-NEXT:  .LBB0_8: # %bb3
+ ; RV32I-NEXT:    sw a2, 0(a1)
+ ; RV32I-NEXT:  .LBB0_9: # %exit
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+ entry:
+   switch i32 %in, label %exit [
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index 680228ff7ef..384a80fb27a 100644
+index 0f478850eab..f8efe583d4c 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
  
  ; TODO: the quality of the generated code is poor
+diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
+index 82fe5fd2a45..b06382f8742 100644
+--- a/test/CodeGen/RISCV/mem.ll
++++ b/test/CodeGen/RISCV/mem.ll
+@@ -7,15 +7,8 @@
+ define i32 @lb(i8 *%a) nounwind {
+ ; RV32I-LABEL: lb:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lb a1, 0(a0)
+ ; RV32I-NEXT:    lb a0, 1(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = getelementptr i8, i8* %a, i32 1
+   %2 = load i8, i8* %1
+@@ -28,15 +21,8 @@ define i32 @lb(i8 *%a) nounwind {
+ define i32 @lh(i16 *%a) nounwind {
+ ; RV32I-LABEL: lh:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lh a1, 0(a0)
+ ; RV32I-NEXT:    lh a0, 4(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = getelementptr i16, i16* %a, i32 2
+   %2 = load i16, i16* %1
+@@ -49,15 +35,8 @@ define i32 @lh(i16 *%a) nounwind {
+ define i32 @lw(i32 *%a) nounwind {
+ ; RV32I-LABEL: lw:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lw a1, 0(a0)
+ ; RV32I-NEXT:    lw a0, 12(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = getelementptr i32, i32* %a, i32 3
+   %2 = load i32, i32* %1
+@@ -68,16 +47,9 @@ define i32 @lw(i32 *%a) nounwind {
+ define i32 @lbu(i8 *%a) nounwind {
+ ; RV32I-LABEL: lbu:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lbu a1, 0(a0)
+ ; RV32I-NEXT:    lbu a0, 4(a0)
+ ; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = getelementptr i8, i8* %a, i32 4
+   %2 = load i8, i8* %1
+@@ -91,16 +63,9 @@ define i32 @lbu(i8 *%a) nounwind {
+ define i32 @lhu(i16 *%a) nounwind {
+ ; RV32I-LABEL: lhu:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lhu a1, 0(a0)
+ ; RV32I-NEXT:    lhu a0, 10(a0)
+ ; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = getelementptr i16, i16* %a, i32 5
+   %2 = load i16, i16* %1
+@@ -116,15 +81,8 @@ define i32 @lhu(i16 *%a) nounwind {
+ define void @sb(i8 *%a, i8 %b) nounwind {
+ ; RV32I-LABEL: sb:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sb a1, 6(a0)
+ ; RV32I-NEXT:    sb a1, 0(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   store i8 %b, i8* %a
+   %1 = getelementptr i8, i8* %a, i32 6
+@@ -135,15 +93,8 @@ define void @sb(i8 *%a, i8 %b) nounwind {
+ define void @sh(i16 *%a, i16 %b) nounwind {
+ ; RV32I-LABEL: sh:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sh a1, 14(a0)
+ ; RV32I-NEXT:    sh a1, 0(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   store i16 %b, i16* %a
+   %1 = getelementptr i16, i16* %a, i32 7
+@@ -154,15 +105,8 @@ define void @sh(i16 *%a, i16 %b) nounwind {
+ define void @sw(i32 *%a, i32 %b) nounwind {
+ ; RV32I-LABEL: sw:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sw a1, 32(a0)
+ ; RV32I-NEXT:    sw a1, 0(a0)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   store i32 %b, i32* %a
+   %1 = getelementptr i32, i32* %a, i32 8
+@@ -174,17 +118,10 @@ define void @sw(i32 *%a, i32 %b) nounwind {
+ define i32 @load_sext_zext_anyext_i1(i1 *%a) nounwind {
+ ; RV32I-LABEL: load_sext_zext_anyext_i1:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lb a1, 0(a0)
+ ; RV32I-NEXT:    lbu a1, 1(a0)
+ ; RV32I-NEXT:    lbu a0, 2(a0)
+ ; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ; sextload i1
+   %1 = getelementptr i1, i1* %a, i32 1
+@@ -203,17 +140,10 @@ define i32 @load_sext_zext_anyext_i1(i1 *%a) nounwind {
+ define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
+ ; RV32I-LABEL: load_sext_zext_anyext_i1_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lb a1, 0(a0)
+ ; RV32I-NEXT:    lbu a1, 1(a0)
+ ; RV32I-NEXT:    lbu a0, 2(a0)
+ ; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   ; sextload i1
+   %1 = getelementptr i1, i1* %a, i32 1
+@@ -236,10 +166,6 @@ define i32 @lw_sw_global(i32 %a) nounwind {
+ ; TODO: the addi should be folded in to the lw/sw operations
+ ; RV32I-LABEL: lw_sw_global:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(G)
+ ; RV32I-NEXT:    addi a2, a1, %lo(G)
+ ; RV32I-NEXT:    lw a1, 0(a2)
+@@ -249,9 +175,6 @@ define i32 @lw_sw_global(i32 %a) nounwind {
+ ; RV32I-NEXT:    lw a3, 0(a2)
+ ; RV32I-NEXT:    sw a0, 0(a2)
+ ; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = load volatile i32, i32* @G
+   store i32 %a, i32* @G
+@@ -266,18 +189,11 @@ define i32 @lw_sw_constant(i32 %a) nounwind {
+ ; TODO: the addi should be folded in to the lw/sw
+ ; RV32I-LABEL: lw_sw_constant:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 912092
+ ; RV32I-NEXT:    addi a2, a1, -273
+ ; RV32I-NEXT:    lw a1, 0(a2)
+ ; RV32I-NEXT:    sw a0, 0(a2)
+ ; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = inttoptr i32 3735928559 to i32*
+   %2 = load volatile i32, i32* %1
+diff --git a/test/CodeGen/RISCV/mul.ll b/test/CodeGen/RISCV/mul.ll
+index 2fd772830cd..5b466123dbb 100644
+--- a/test/CodeGen/RISCV/mul.ll
++++ b/test/CodeGen/RISCV/mul.ll
+@@ -7,13 +7,10 @@ define i32 @square(i32 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(__mulsi3)
+ ; RV32I-NEXT:    addi a2, a1, %lo(__mulsi3)
+ ; RV32I-NEXT:    addi a1, a0, 0
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -26,12 +23,9 @@ define i32 @mul(i32 %a, i32 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__mulsi3)
+ ; RV32I-NEXT:    addi a2, a2, %lo(__mulsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -44,13 +38,10 @@ define i32 @mul_constant(i32 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, %hi(__mulsi3)
+ ; RV32I-NEXT:    addi a2, a1, %lo(__mulsi3)
+ ; RV32I-NEXT:    addi a1, zero, 5
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -61,14 +52,7 @@ define i32 @mul_constant(i32 %a) {
+ define i32 @mul_pow2(i32 %a) {
+ ; RV32I-LABEL: mul_pow2:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 3
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = mul i32 %a, 8
+   ret i32 %1
+@@ -79,12 +63,9 @@ define i64 @mul64(i64 %a, i64 %b) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a4, %hi(__muldi3)
+ ; RV32I-NEXT:    addi a4, a4, %lo(__muldi3)
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -97,14 +78,11 @@ define i64 @mul64_constant(i64 %a) {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__muldi3)
+ ; RV32I-NEXT:    addi a4, a2, %lo(__muldi3)
+ ; RV32I-NEXT:    addi a2, zero, 5
+ ; RV32I-NEXT:    addi a3, zero, 0
+ ; RV32I-NEXT:    jalr ra, a4, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+diff --git a/test/CodeGen/RISCV/rem.ll b/test/CodeGen/RISCV/rem.ll
+index b9653390736..bbbd8e7d6a6 100644
+--- a/test/CodeGen/RISCV/rem.ll
++++ b/test/CodeGen/RISCV/rem.ll
+@@ -7,12 +7,9 @@ define i32 @urem(i32 %a, i32 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__umodsi3)
+ ; RV32I-NEXT:    addi a2, a2, %lo(__umodsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -25,12 +22,9 @@ define i32 @srem(i32 %a, i32 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a2, %hi(__modsi3)
+ ; RV32I-NEXT:    addi a2, a2, %lo(__modsi3)
+ ; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+diff --git a/test/CodeGen/RISCV/rotl-rotr.ll b/test/CodeGen/RISCV/rotl-rotr.ll
+index 77413661e30..bf0689feafa 100644
+--- a/test/CodeGen/RISCV/rotl-rotr.ll
++++ b/test/CodeGen/RISCV/rotl-rotr.ll
+@@ -8,18 +8,11 @@
+ define i32 @rotl(i32 %x, i32 %y) {
+ ; RV32I-LABEL: rotl:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a2, zero, 32
+ ; RV32I-NEXT:    sub a2, a2, a1
+ ; RV32I-NEXT:    sll a1, a0, a1
+ ; RV32I-NEXT:    srl a0, a0, a2
+ ; RV32I-NEXT:    or a0, a1, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %z = sub i32 32, %y
+   %b = shl i32 %x, %y
+@@ -31,18 +24,11 @@ define i32 @rotl(i32 %x, i32 %y) {
+ define i32 @rotr(i32 %x, i32 %y) {
+ ; RV32I-LABEL: rotr:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a2, zero, 32
+ ; RV32I-NEXT:    sub a2, a2, a1
+ ; RV32I-NEXT:    srl a1, a0, a1
+ ; RV32I-NEXT:    sll a0, a0, a2
+ ; RV32I-NEXT:    or a0, a1, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %z = sub i32 32, %y
+   %b = lshr i32 %x, %y
+diff --git a/test/CodeGen/RISCV/select-cc.ll b/test/CodeGen/RISCV/select-cc.ll
+index 17ffcb19f7a..464183d3920 100644
+--- a/test/CodeGen/RISCV/select-cc.ll
++++ b/test/CodeGen/RISCV/select-cc.ll
+@@ -5,10 +5,6 @@
+ define i32 @foo(i32 %a, i32 *%b) {
+ ; RV32I-LABEL: foo:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lw a2, 0(a1)
+ ; RV32I-NEXT:    beq a0, a2, .LBB0_2
+ ; RV32I-NEXT:  # BB#1:
+@@ -59,9 +55,6 @@ define i32 @foo(i32 %a, i32 *%b) {
+ ; RV32I-NEXT:  # BB#19:
+ ; RV32I-NEXT:    addi a0, a1, 0
+ ; RV32I-NEXT:  .LBB0_20:
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %val1 = load volatile i32, i32* %b
+   %tst1 = icmp eq i32 %a, %val1
+diff --git a/test/CodeGen/RISCV/setcc.ll b/test/CodeGen/RISCV/setcc.ll
+index 3f3065a3720..9a379f2bfa1 100644
+--- a/test/CodeGen/RISCV/setcc.ll
++++ b/test/CodeGen/RISCV/setcc.ll
+@@ -8,15 +8,8 @@
+ define i32 @eq(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: eq:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    xor a0, a0, a1
+ ; RV32I-NEXT:    sltiu a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp eq i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -26,15 +19,8 @@ define i32 @eq(i32 %a, i32 %b) nounwind {
+ define i32 @ne(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: ne:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    xor a0, a0, a1
+ ; RV32I-NEXT:    sltu a0, zero, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ne i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -44,14 +30,7 @@ define i32 @ne(i32 %a, i32 %b) nounwind {
+ define i32 @ugt(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: ugt:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltu a0, a1, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ugt i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -61,15 +40,8 @@ define i32 @ugt(i32 %a, i32 %b) nounwind {
+ define i32 @uge(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: uge:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltu a0, a0, a1
+ ; RV32I-NEXT:    xori a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp uge i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -79,14 +51,7 @@ define i32 @uge(i32 %a, i32 %b) nounwind {
+ define i32 @ult(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: ult:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltu a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ult i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -96,15 +61,8 @@ define i32 @ult(i32 %a, i32 %b) nounwind {
+ define i32 @ule(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: ule:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    sltu a0, a1, a0
+ ; RV32I-NEXT:    xori a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp ule i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -114,14 +72,7 @@ define i32 @ule(i32 %a, i32 %b) nounwind {
+ define i32 @sgt(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sgt:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slt a0, a1, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp sgt i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -131,15 +82,8 @@ define i32 @sgt(i32 %a, i32 %b) nounwind {
+ define i32 @sge(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sge:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slt a0, a0, a1
+ ; RV32I-NEXT:    xori a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp sge i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -149,14 +93,7 @@ define i32 @sge(i32 %a, i32 %b) nounwind {
+ define i32 @slt(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: slt:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slt a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp slt i32 %a, %b
+   %2 = zext i1 %1 to i32
+@@ -166,15 +103,8 @@ define i32 @slt(i32 %a, i32 %b) nounwind {
+ define i32 @sle(i32 %a, i32 %b) nounwind {
+ ; RV32I-LABEL: sle:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slt a0, a1, a0
+ ; RV32I-NEXT:    xori a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = icmp sle i32 %a, %b
+   %2 = zext i1 %1 to i32
+diff --git a/test/CodeGen/RISCV/sext-zext-trunc.ll b/test/CodeGen/RISCV/sext-zext-trunc.ll
+index 2642b07ba04..7c5f1205b76 100644
+--- a/test/CodeGen/RISCV/sext-zext-trunc.ll
++++ b/test/CodeGen/RISCV/sext-zext-trunc.ll
+@@ -5,15 +5,8 @@
+ define i8 @sext_i1_to_i8(i1 %a) {
+ ; RV32I-LABEL: sext_i1_to_i8:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    sub a0, zero, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i1 %a to i8
+   ret i8 %1
+@@ -22,15 +15,8 @@ define i8 @sext_i1_to_i8(i1 %a) {
+ define i16 @sext_i1_to_i16(i1 %a) {
+ ; RV32I-LABEL: sext_i1_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    sub a0, zero, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i1 %a to i16
+   ret i16 %1
+@@ -39,15 +25,8 @@ define i16 @sext_i1_to_i16(i1 %a) {
+ define i32 @sext_i1_to_i32(i1 %a) {
+ ; RV32I-LABEL: sext_i1_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    sub a0, zero, a0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i1 %a to i32
+   ret i32 %1
+@@ -56,16 +35,9 @@ define i32 @sext_i1_to_i32(i1 %a) {
+ define i64 @sext_i1_to_i64(i1 %a) {
+ ; RV32I-LABEL: sext_i1_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    sub a0, zero, a0
+ ; RV32I-NEXT:    addi a1, a0, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i1 %a to i64
+   ret i64 %1
+@@ -74,15 +46,8 @@ define i64 @sext_i1_to_i64(i1 %a) {
+ define i16 @sext_i8_to_i16(i8 %a) {
+ ; RV32I-LABEL: sext_i8_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i8 %a to i16
+   ret i16 %1
+@@ -91,15 +56,8 @@ define i16 @sext_i8_to_i16(i8 %a) {
+ define i32 @sext_i8_to_i32(i8 %a) {
+ ; RV32I-LABEL: sext_i8_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 24
+ ; RV32I-NEXT:    srai a0, a0, 24
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i8 %a to i32
+   ret i32 %1
+@@ -108,16 +66,9 @@ define i32 @sext_i8_to_i32(i8 %a) {
+ define i64 @sext_i8_to_i64(i8 %a) {
+ ; RV32I-LABEL: sext_i8_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a1, a0, 24
+ ; RV32I-NEXT:    srai a0, a1, 24
+ ; RV32I-NEXT:    srai a1, a1, 31
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i8 %a to i64
+   ret i64 %1
+@@ -126,15 +77,8 @@ define i64 @sext_i8_to_i64(i8 %a) {
+ define i32 @sext_i16_to_i32(i16 %a) {
+ ; RV32I-LABEL: sext_i16_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a0, a0, 16
+ ; RV32I-NEXT:    srai a0, a0, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i16 %a to i32
+   ret i32 %1
+@@ -143,16 +87,9 @@ define i32 @sext_i16_to_i32(i16 %a) {
+ define i64 @sext_i16_to_i64(i16 %a) {
+ ; RV32I-LABEL: sext_i16_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    slli a1, a0, 16
+ ; RV32I-NEXT:    srai a0, a1, 16
+ ; RV32I-NEXT:    srai a1, a1, 31
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i16 %a to i64
+   ret i64 %1
+@@ -161,14 +98,7 @@ define i64 @sext_i16_to_i64(i16 %a) {
+ define i64 @sext_i32_to_i64(i32 %a) {
+ ; RV32I-LABEL: sext_i32_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    srai a1, a0, 31
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = sext i32 %a to i64
+   ret i64 %1
+@@ -177,14 +107,7 @@ define i64 @sext_i32_to_i64(i32 %a) {
+ define i8 @zext_i1_to_i8(i1 %a) {
+ ; RV32I-LABEL: zext_i1_to_i8:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i1 %a to i8
+   ret i8 %1
+@@ -193,14 +116,7 @@ define i8 @zext_i1_to_i8(i1 %a) {
+ define i16 @zext_i1_to_i16(i1 %a) {
+ ; RV32I-LABEL: zext_i1_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i1 %a to i16
+   ret i16 %1
+@@ -209,14 +125,7 @@ define i16 @zext_i1_to_i16(i1 %a) {
+ define i32 @zext_i1_to_i32(i1 %a) {
+ ; RV32I-LABEL: zext_i1_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i1 %a to i32
+   ret i32 %1
+@@ -225,15 +134,8 @@ define i32 @zext_i1_to_i32(i1 %a) {
+ define i64 @zext_i1_to_i64(i1 %a) {
+ ; RV32I-LABEL: zext_i1_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 1
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i1 %a to i64
+   ret i64 %1
+@@ -242,14 +144,7 @@ define i64 @zext_i1_to_i64(i1 %a) {
+ define i16 @zext_i8_to_i16(i8 %a) {
+ ; RV32I-LABEL: zext_i8_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i8 %a to i16
+   ret i16 %1
+@@ -258,14 +153,7 @@ define i16 @zext_i8_to_i16(i8 %a) {
+ define i32 @zext_i8_to_i32(i8 %a) {
+ ; RV32I-LABEL: zext_i8_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i8 %a to i32
+   ret i32 %1
+@@ -274,15 +162,8 @@ define i32 @zext_i8_to_i32(i8 %a) {
+ define i64 @zext_i8_to_i64(i8 %a) {
+ ; RV32I-LABEL: zext_i8_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    andi a0, a0, 255
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i8 %a to i64
+   ret i64 %1
+@@ -291,16 +172,9 @@ define i64 @zext_i8_to_i64(i8 %a) {
+ define i32 @zext_i16_to_i32(i16 %a) {
+ ; RV32I-LABEL: zext_i16_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 16
+ ; RV32I-NEXT:    addi a1, a1, -1
+ ; RV32I-NEXT:    and a0, a0, a1
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i16 %a to i32
+   ret i32 %1
+@@ -309,17 +183,10 @@ define i32 @zext_i16_to_i32(i16 %a) {
+ define i64 @zext_i16_to_i64(i16 %a) {
+ ; RV32I-LABEL: zext_i16_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a1, 16
+ ; RV32I-NEXT:    addi a1, a1, -1
+ ; RV32I-NEXT:    and a0, a0, a1
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i16 %a to i64
+   ret i64 %1
+@@ -328,14 +195,7 @@ define i64 @zext_i16_to_i64(i16 %a) {
+ define i64 @zext_i32_to_i64(i32 %a) {
+ ; RV32I-LABEL: zext_i32_to_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    addi a1, zero, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = zext i32 %a to i64
+   ret i64 %1
+@@ -347,13 +207,6 @@ define i64 @zext_i32_to_i64(i32 %a) {
+ define i1 @trunc_i8_to_i1(i8 %a) {
+ ; RV32I-LABEL: trunc_i8_to_i1:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i8 %a to i1
+   ret i1 %1
+@@ -362,13 +215,6 @@ define i1 @trunc_i8_to_i1(i8 %a) {
+ define i1 @trunc_i16_to_i1(i16 %a) {
+ ; RV32I-LABEL: trunc_i16_to_i1:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i16 %a to i1
+   ret i1 %1
+@@ -377,13 +223,6 @@ define i1 @trunc_i16_to_i1(i16 %a) {
+ define i1 @trunc_i32_to_i1(i32 %a) {
+ ; RV32I-LABEL: trunc_i32_to_i1:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i32 %a to i1
+   ret i1 %1
+@@ -392,13 +231,6 @@ define i1 @trunc_i32_to_i1(i32 %a) {
+ define i1 @trunc_i64_to_i1(i64 %a) {
+ ; RV32I-LABEL: trunc_i64_to_i1:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i64 %a to i1
+   ret i1 %1
+@@ -407,13 +239,6 @@ define i1 @trunc_i64_to_i1(i64 %a) {
+ define i8 @trunc_i16_to_i8(i16 %a) {
+ ; RV32I-LABEL: trunc_i16_to_i8:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i16 %a to i8
+   ret i8 %1
+@@ -422,13 +247,6 @@ define i8 @trunc_i16_to_i8(i16 %a) {
+ define i8 @trunc_i32_to_i8(i32 %a) {
+ ; RV32I-LABEL: trunc_i32_to_i8:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i32 %a to i8
+   ret i8 %1
+@@ -437,13 +255,6 @@ define i8 @trunc_i32_to_i8(i32 %a) {
+ define i8 @trunc_i64_to_i8(i64 %a) {
+ ; RV32I-LABEL: trunc_i64_to_i8:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i64 %a to i8
+   ret i8 %1
+@@ -452,13 +263,6 @@ define i8 @trunc_i64_to_i8(i64 %a) {
+ define i16 @trunc_i32_to_i16(i32 %a) {
+ ; RV32I-LABEL: trunc_i32_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i32 %a to i16
+   ret i16 %1
+@@ -467,13 +271,6 @@ define i16 @trunc_i32_to_i16(i32 %a) {
+ define i16 @trunc_i64_to_i16(i64 %a) {
+ ; RV32I-LABEL: trunc_i64_to_i16:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i64 %a to i16
+   ret i16 %1
+@@ -482,13 +279,6 @@ define i16 @trunc_i64_to_i16(i64 %a) {
+ define i32 @trunc_i64_to_i32(i64 %a) {
+ ; RV32I-LABEL: trunc_i64_to_i32:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = trunc i64 %a to i32
+   ret i32 %1
+diff --git a/test/CodeGen/RISCV/shifts.ll b/test/CodeGen/RISCV/shifts.ll
+index 326c374537f..60bf2294a70 100644
+--- a/test/CodeGen/RISCV/shifts.ll
++++ b/test/CodeGen/RISCV/shifts.ll
+@@ -10,12 +10,9 @@ define i64 @lshr64(i64 %a, i64 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a3, %hi(__lshrdi3)
+ ; RV32I-NEXT:    addi a3, a3, %lo(__lshrdi3)
+ ; RV32I-NEXT:    jalr ra, a3, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -28,12 +25,9 @@ define i64 @ashr64(i64 %a, i64 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a3, %hi(__ashrdi3)
+ ; RV32I-NEXT:    addi a3, a3, %lo(__ashrdi3)
+ ; RV32I-NEXT:    jalr ra, a3, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+@@ -46,12 +40,9 @@ define i64 @shl64(i64 %a, i64 %b) nounwind {
+ ; RV32I:       # BB#0:
+ ; RV32I-NEXT:    addi sp, sp, -16
+ ; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a3, %hi(__ashldi3)
+ ; RV32I-NEXT:    addi a3, a3, %lo(__ashldi3)
+ ; RV32I-NEXT:    jalr ra, a3, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+ ; RV32I-NEXT:    lw ra, 12(sp)
+ ; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index 9b46f08934d..c4ccf7189da 100644
+index ead88a71daa..71a0528d28a 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
-@@ -1,4 +1,4 @@
+@@ -1,5 +1,5 @@
+ ; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN: llc -mtriple=riscv32 -disable-fp-elim -verify-machineinstrs < %s \
  ; RUN:   | FileCheck -check-prefix=RV32I %s
  
  declare void @llvm.va_start(i8*)
+diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
+index 334f67dae7d..18ab52aaf13 100644
+--- a/test/CodeGen/RISCV/wide-mem.ll
++++ b/test/CodeGen/RISCV/wide-mem.ll
+@@ -7,16 +7,9 @@
+ define i64 @load_i64(i64 *%a) nounwind {
+ ; RV32I-LABEL: load_i64:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lw a2, 0(a0)
+ ; RV32I-NEXT:    lw a1, 4(a0)
+ ; RV32I-NEXT:    addi a0, a2, 0
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = load i64, i64* %a
+   ret i64 %1
+@@ -29,19 +22,12 @@ define i64 @load_i64(i64 *%a) nounwind {
+ define i64 @load_i64_global() nounwind {
+ ; RV32I-LABEL: load_i64_global:
+ ; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi sp, sp, -16
+-; RV32I-NEXT:    sw ra, 12(sp)
+-; RV32I-NEXT:    sw s0, 8(sp)
+-; RV32I-NEXT:    addi s0, sp, 16
+ ; RV32I-NEXT:    lui a0, %hi(val64)
+ ; RV32I-NEXT:    addi a0, a0, %lo(val64)
+ ; RV32I-NEXT:    lw a0, 0(a0)
+ ; RV32I-NEXT:    lui a1, %hi(val64+4)
+ ; RV32I-NEXT:    addi a1, a1, %lo(val64+4)
+ ; RV32I-NEXT:    lw a1, 0(a1)
+-; RV32I-NEXT:    lw s0, 8(sp)
+-; RV32I-NEXT:    lw ra, 12(sp)
+-; RV32I-NEXT:    addi sp, sp, 16
+ ; RV32I-NEXT:    jalr zero, ra, 0
+   %1 = load i64, i64* @val64
+   ret i64 %1
 -- 
-2.14.2
+2.15.0
 

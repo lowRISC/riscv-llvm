@@ -1,0 +1,289 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Support stack frames and offsets up to 32-bits
+
+Also, factor out stack pointer manipulation to use the new 'adjustReg' helper
+function.
+---
+ lib/Target/RISCV/RISCVFrameLowering.cpp | 78 +++++++++++++++++++++------------
+ lib/Target/RISCV/RISCVFrameLowering.h   |  3 ++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  | 32 +++++++++++---
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  8 ++++
+ test/CodeGen/RISCV/large-stack.ll       | 38 ++++++++++++++++
+ 5 files changed, 125 insertions(+), 34 deletions(-)
+ create mode 100644 test/CodeGen/RISCV/large-stack.ll
+
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
+index a61ec7feb9e..d9ca59c2200 100644
+--- a/lib/Target/RISCV/RISCVFrameLowering.cpp
++++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
+@@ -57,6 +57,49 @@ void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
+   MFI.setStackSize(FrameSize);
+ }
+ 
++void RISCVFrameLowering::adjustReg(MachineBasicBlock &MBB,
++                                   MachineBasicBlock::iterator MBBI,
++                                   const DebugLoc &DL, unsigned DestReg,
++                                   unsigned SrcReg, int64_t Val,
++                                   MachineInstr::MIFlag Flag) const {
++  MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
++  const RISCVInstrInfo *TII = STI.getInstrInfo();
++
++  if (DestReg == SrcReg && Val == 0)
++    return;
++
++  if (isInt<12>(Val)) {
++    BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), DestReg)
++        .addReg(SrcReg)
++        .addImm(Val)
++        .setMIFlag(Flag);
++  } else if (isInt<32>(Val)) {
++    unsigned Opc = RISCV::ADD;
++    bool isSub = Val < 0;
++    if (isSub) {
++      Val = -Val;
++      Opc = RISCV::SUB;
++    }
++
++    unsigned ScratchReg = MRI.createVirtualRegister(&RISCV::GPRRegClass);
++    uint64_t Hi20 = ((Val + 0x800) >> 12) & 0xfffff;
++    uint64_t Lo12 = SignExtend64<12>(Val);
++    BuildMI(MBB, MBBI, DL, TII->get(RISCV::LUI), ScratchReg)
++        .addImm(Hi20)
++        .setMIFlag(Flag);
++    BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), ScratchReg)
++        .addReg(ScratchReg, RegState::Kill)
++        .addImm(Lo12)
++        .setMIFlag(Flag);
++    BuildMI(MBB, MBBI, DL, TII->get(Opc), DestReg)
++        .addReg(SrcReg)
++        .addReg(ScratchReg, RegState::Kill)
++        .setMIFlag(Flag);
++  } else {
++    report_fatal_error("adjustReg cannot yet handle adjustments >32 bits");
++  }
++}
++
+ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+                                       MachineBasicBlock &MBB) const {
+   assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+@@ -67,7 +110,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   }
+ 
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+-  const RISCVInstrInfo *TII = STI.getInstrInfo();
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineBasicBlock::iterator MBBI = MBB.begin();
+ 
+@@ -89,17 +131,8 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   if (StackSize == 0 && !MFI.adjustsStack())
+     return;
+ 
+-  if (!isInt<12>(StackSize)) {
+-    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
+-  }
+-
+   // Allocate space on the stack if necessary
+-  if (StackSize != 0) {
+-    BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), SPReg)
+-        .addReg(SPReg)
+-        .addImm(-StackSize)
+-        .setMIFlag(MachineInstr::FrameSetup);
+-  }
++  adjustReg(MBB, MBBI, DL, SPReg, SPReg, -StackSize, MachineInstr::FrameSetup);
+ 
+   // The frame pointer is callee-saved, and code has been generated for us to
+   // save it to the stack. We need to skip over the storing of callee-saved
+@@ -111,10 +144,8 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   std::advance(MBBI, CSI.size());
+ 
+   // Generate new FP
+-  BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), FPReg)
+-      .addReg(SPReg)
+-      .addImm(StackSize - RVFI->getVarArgsSaveSize())
+-      .setMIFlag(MachineInstr::FrameSetup);
++  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
++            MachineInstr::FrameSetup);
+ }
+ 
+ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+@@ -125,7 +156,6 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   }
+ 
+   MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
+-  const RISCVInstrInfo *TII = STI.getInstrInfo();
+   const RISCVRegisterInfo *RI = STI.getRegisterInfo();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+@@ -145,21 +175,13 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   // necessary if the stack pointer was modified, meaning the stack size is
+   // unknown.
+   if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
+-    BuildMI(MBB, LastFrameDestroy, DL, TII->get(RISCV::ADDI), SPReg)
+-        .addReg(FPReg)
+-        .addImm(-StackSize + RVFI->getVarArgsSaveSize())
+-        .setMIFlag(MachineInstr::FrameDestroy);
+-  }
+-
+-  if (!isInt<12>(StackSize)) {
+-    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
++    adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
++              -StackSize + RVFI->getVarArgsSaveSize(),
++              MachineInstr::FrameDestroy);
+   }
+ 
+   // Deallocate stack
+-  BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), SPReg)
+-      .addReg(SPReg)
+-      .addImm(StackSize)
+-      .setMIFlag(MachineInstr::FrameDestroy);
++  adjustReg(MBB, MBBI, DL, SPReg, SPReg, StackSize, MachineInstr::FrameDestroy);
+ }
+ 
+ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
+index 98325ffd571..f4c9c6e6540 100644
+--- a/lib/Target/RISCV/RISCVFrameLowering.h
++++ b/lib/Target/RISCV/RISCVFrameLowering.h
+@@ -46,6 +46,9 @@ protected:
+ 
+ private:
+   void determineFrameLayout(MachineFunction &MF) const;
++  void adjustReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
++                 const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
++                 int64_t Val, MachineInstr::MIFlag Flag) const;
+ };
+ }
+ #endif
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index d783bae3272..b55d823cce9 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -64,6 +64,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+   MachineFunction &MF = *MI.getParent()->getParent();
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
++  MachineRegisterInfo &MRI = MF.getRegInfo();
+   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   DebugLoc DL = MI.getDebugLoc();
+@@ -98,28 +99,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+ 
+   assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+ 
+-  // Offsets must be directly encoded in a 12-bit immediate field
+-  if (!isInt<12>(Offset)) {
++  if (!isInt<32>(Offset)) {
+     report_fatal_error(
+-        "Frame offsets outside of the signed 12-bit range not supported");
++        "Frame offsets outside of the signed 32-bit range not supported");
+   }
+ 
+   MachineBasicBlock &MBB = *MI.getParent();
++  unsigned FrameRegFlags = 0;
++
++  if (!isInt<12>(Offset)) {
++    // The offset won't fit in an immediate, so use a scratch register instead
++    // Modify Offset and FrameReg appropriately
++    unsigned ScratchReg = MRI.createVirtualRegister(&RISCV::GPRRegClass);
++    uint64_t Hi20 = ((Offset + 0x800) >> 12) & 0xfffff;
++    uint64_t Lo12 = SignExtend64<12>(Offset);
++    BuildMI(MBB, II, DL, TII->get(RISCV::LUI), ScratchReg).addImm(Hi20);
++    BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), ScratchReg)
++        .addReg(ScratchReg, RegState::Kill)
++        .addImm(Lo12);
++    BuildMI(MBB, II, DL, TII->get(RISCV::ADD), ScratchReg)
++        .addReg(FrameReg)
++        .addReg(ScratchReg, RegState::Kill);
++    Offset = 0;
++    FrameReg = ScratchReg;
++    FrameRegFlags = RegState::Kill;
++  }
++
+   switch (MI.getOpcode()) {
+   case RISCV::LW_FI:
+     BuildMI(MBB, II, DL, TII->get(RISCV::LW), Reg)
+-        .addReg(FrameReg)
++        .addReg(FrameReg, FrameRegFlags)
+         .addImm(Offset);
+     break;
+   case RISCV::SW_FI:
+     BuildMI(MBB, II, DL, TII->get(RISCV::SW))
+         .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
+-        .addReg(FrameReg)
++        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
+         .addImm(Offset);
+     break;
+   case RISCV::LEA_FI:
+     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
+-        .addReg(FrameReg)
++        .addReg(FrameReg, FrameRegFlags)
+         .addImm(Offset);
+     break;
+   default:
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
+index d9de9bf8c76..ba4c729f490 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.h
++++ b/lib/Target/RISCV/RISCVRegisterInfo.h
+@@ -39,6 +39,14 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
+                            RegScavenger *RS = nullptr) const override;
+ 
+   unsigned getFrameRegister(const MachineFunction &MF) const override;
++
++  bool requiresRegisterScavenging(const MachineFunction &MF) const override {
++    return true;
++  }
++
++  bool requiresFrameIndexScavenging(const MachineFunction &MF) const override {
++    return true;
++  }
+ };
+ }
+ 
+diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
+new file mode 100644
+index 00000000000..1b8fb1bdb9d
+--- /dev/null
++++ b/test/CodeGen/RISCV/large-stack.ll
+@@ -0,0 +1,38 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32I %s
++
++; TODO: the quality of the generated code is poor
++
++define void @test() nounwind {
++; RV32I-LABEL: test:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1664
++; RV32I-NEXT:    sub sp, sp, a0
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1660
++; RV32I-NEXT:    add a0, sp, a0
++; RV32I-NEXT:    sw ra, 0(a0)
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1656
++; RV32I-NEXT:    add a0, sp, a0
++; RV32I-NEXT:    sw s0, 0(a0)
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1664
++; RV32I-NEXT:    add s0, sp, a0
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1656
++; RV32I-NEXT:    add a0, sp, a0
++; RV32I-NEXT:    lw s0, 0(a0)
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1660
++; RV32I-NEXT:    add a0, sp, a0
++; RV32I-NEXT:    lw ra, 0(a0)
++; RV32I-NEXT:    lui a0, 74565
++; RV32I-NEXT:    addi a0, a0, 1664
++; RV32I-NEXT:    add sp, sp, a0
++; RV32I-NEXT:    jalr zero, ra, 0
++  %tmp = alloca [ 305419896 x i8 ] , align 4
++  ret void
++}
+-- 
+2.15.0
+

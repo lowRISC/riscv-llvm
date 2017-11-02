@@ -48,5 +48,5 @@ index c46d1b04804..20afd5831b1 100644
    void PromoteSetCCOperands(SDValue &LHS,SDValue &RHS, ISD::CondCode Code);
  
 -- 
-2.14.2
+2.15.0
 

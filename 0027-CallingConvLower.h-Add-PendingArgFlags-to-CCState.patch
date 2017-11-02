@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: CallingConvLower.h: Add PendingArgFlags to CCState
+
+The PendingLocs vector is used by a number of backends to handle arguments
+that are split during legalisation. However CCValAssign doesn't keep track of
+the original argument alignment. Therefore, add a PendingArgFlags vector which
+can be used to keep track of the ISD::ArgFlagsTy for every value added to
+PendingLocs.
+---
+ include/llvm/CodeGen/CallingConvLower.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/include/llvm/CodeGen/CallingConvLower.h b/include/llvm/CodeGen/CallingConvLower.h
+index 6d65b878540..dbcbf03d8e4 100644
+--- a/include/llvm/CodeGen/CallingConvLower.h
++++ b/include/llvm/CodeGen/CallingConvLower.h
+@@ -201,6 +201,7 @@ private:
+   unsigned MaxStackArgAlign;
+   SmallVector<uint32_t, 16> UsedRegs;
+   SmallVector<CCValAssign, 4> PendingLocs;
++  SmallVector<ISD::ArgFlagsTy, 4> PendingArgFlags;
+ 
+   // ByValInfo and SmallVector<ByValInfo, 4> ByValRegs:
+   //
+@@ -508,6 +509,11 @@ public:
+     return PendingLocs;
+   }
+ 
++  // Get a list of argflags for pending assignments.
++  SmallVectorImpl<ISD::ArgFlagsTy> &getPendingArgFlags() {
++    return PendingArgFlags;
++  }
++
+   /// Compute the remaining unused register parameters that would be used for
+   /// the given value type. This is useful when varargs are passed in the
+   /// registers that normal prototyped parameters would be passed in, or for
+-- 
+2.15.0
+

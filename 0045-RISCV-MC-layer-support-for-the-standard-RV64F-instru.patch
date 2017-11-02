@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for the standard RV64F instruction set
+ extension
+
+---
+ lib/Target/RISCV/RISCVInstrInfoF.td | 18 ++++++++++++++++++
+ test/MC/RISCV/rv32f-invalid.s       |  2 ++
+ test/MC/RISCV/rv64f-invalid.s       |  9 +++++++++
+ test/MC/RISCV/rv64f-valid.s         | 23 +++++++++++++++++++++++
+ 4 files changed, 52 insertions(+)
+ create mode 100644 test/MC/RISCV/rv64f-invalid.s
+ create mode 100644 test/MC/RISCV/rv64f-valid.s
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
+index 23d66620be7..f21df218398 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoF.td
++++ b/lib/Target/RISCV/RISCVInstrInfoF.td
+@@ -111,3 +111,21 @@ def FMV_W_X : FPUnaryOp_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x"> {
+   let rs2 = 0b00000;
+ }
+ } // Predicates = [HasStdExtF]
++
++let Predicates = [HasStdExtF, IsRV64] in {
++def FCVT_L_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.l.s"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_LU_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.lu.s"> {
++  let rs2 = 0b00011;
++}
++
++def FCVT_S_L : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.l"> {
++  let rs2 = 0b00010;
++}
++
++def FCVT_S_LU : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.lu"> {
++  let rs2 = 0b00011;
++}
++} // Predicates = [HasStdExtF, IsRV64]
+diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
+index 1a209a2b19b..cbc8d8c374a 100644
+--- a/test/MC/RISCV/rv32f-invalid.s
++++ b/test/MC/RISCV/rv32f-invalid.s
+@@ -22,3 +22,5 @@ fmv.w.x a8, ft2 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+ 
+ # Using 'D' instructions for an 'F'-only target
+ fadd.d ft0, ft1, ft2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++
++# Using RV64F instructions for RV32 is tested in rv64f-valid.s
+diff --git a/test/MC/RISCV/rv64f-invalid.s b/test/MC/RISCV/rv64f-invalid.s
+new file mode 100644
+index 00000000000..698da796a7e
+--- /dev/null
++++ b/test/MC/RISCV/rv64f-invalid.s
+@@ -0,0 +1,9 @@
++# RUN: not llvm-mc -triple riscv64 -mattr=+f < %s 2>&1 | FileCheck %s
++
++# Integer registers where FP regs are expected
++fcvt.l.s ft0, a0 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++fcvt.lu.s ft1, a1 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
++
++# FP registers where integer regs are expected
++fcvt.s.l a2, ft2 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++fcvt.s.lu a3, ft3 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/rv64f-valid.s b/test/MC/RISCV/rv64f-valid.s
+new file mode 100644
+index 00000000000..c48aa3c6090
+--- /dev/null
++++ b/test/MC/RISCV/rv64f-valid.s
+@@ -0,0 +1,23 @@
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+f -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
++# RUN:     | llvm-objdump -mattr=+f -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: not llvm-mc -triple riscv32 -mattr=+f < %s 2>&1 \
++# RUN:     | FileCheck -check-prefix=CHECK-RV32 %s
++
++# CHECK-INST: fcvt.l.s a0, ft0
++# CHECK: encoding: [0x53,0x75,0x20,0xc0]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.l.s a0, ft0
++# CHECK-INST: fcvt.lu.s a1, ft1
++# CHECK: encoding: [0xd3,0xf5,0x30,0xc0]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.lu.s a1, ft1
++# CHECK-INST: fcvt.s.l ft2, a2
++# CHECK: encoding: [0x53,0x71,0x26,0xd0]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.s.l ft2, a2
++# CHECK-INST: fcvt.s.lu ft3, a3
++# CHECK: encoding: [0xd3,0xf1,0x36,0xd0]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.s.lu ft3, a3
+-- 
+2.15.0
+

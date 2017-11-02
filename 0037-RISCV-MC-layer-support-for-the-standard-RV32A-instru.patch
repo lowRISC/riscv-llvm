@@ -1,0 +1,431 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for the standard RV32A instruction set
+ extension
+
+---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  37 +++++--
+ lib/Target/RISCV/RISCV.td                     |   5 +
+ lib/Target/RISCV/RISCVInstrFormats.td         |  18 ++++
+ lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
+ lib/Target/RISCV/RISCVInstrInfoA.td           |  63 +++++++++++
+ lib/Target/RISCV/RISCVSubtarget.h             |   4 +-
+ test/MC/RISCV/rv32a-invalid.s                 |  14 +++
+ test/MC/RISCV/rv32a-valid.s                   | 146 ++++++++++++++++++++++++++
+ test/MC/RISCV/rv32i-invalid.s                 |   2 +
+ 9 files changed, 283 insertions(+), 7 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfoA.td
+ create mode 100644 test/MC/RISCV/rv32a-invalid.s
+ create mode 100644 test/MC/RISCV/rv32a-valid.s
+
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index 486784859bd..3f76ce3b24a 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -52,7 +52,8 @@ class RISCVAsmParser : public MCTargetAsmParser {
+ #include "RISCVGenAsmMatcher.inc"
+ 
+   OperandMatchResultTy parseImmediate(OperandVector &Operands);
+-  OperandMatchResultTy parseRegister(OperandVector &Operands);
++  OperandMatchResultTy parseRegister(OperandVector &Operands,
++                                     bool AllowParens = false);
+   OperandMatchResultTy parseMemOpBaseReg(OperandVector &Operands);
+   OperandMatchResultTy parseOperandWithModifier(OperandVector &Operands);
+ 
+@@ -431,9 +432,20 @@ bool RISCVAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
+   return Error(StartLoc, "invalid register name");
+ }
+ 
+-OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
+-  SMLoc S = getLoc();
+-  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
++OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
++                                                   bool AllowParens) {
++  SMLoc FirstS = getLoc();
++  bool HadParens = false;
++  AsmToken Buf[2];
++
++  // If this a parenthesised register name is allowed, parse it atomically
++  if (AllowParens && getLexer().is(AsmToken::LParen)) {
++    size_t ReadCount = getLexer().peekTokens(Buf);
++    if (ReadCount == 2 && Buf[1].getKind() == AsmToken::RParen) {
++      HadParens = true;
++      getParser().Lex(); // Eat '('
++    }
++  }
+ 
+   switch (getLexer().getKind()) {
+   default:
+@@ -443,12 +455,25 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
+     unsigned RegNo = MatchRegisterName(Name);
+     if (RegNo == 0) {
+       RegNo = MatchRegisterAltName(Name);
+-      if (RegNo == 0)
++      if (RegNo == 0) {
++        if (HadParens)
++          getLexer().UnLex(Buf[0]);
+         return MatchOperand_NoMatch;
++      }
+     }
++    if (HadParens)
++      Operands.push_back(RISCVOperand::createToken("(", FirstS));
++    SMLoc S = getLoc();
++    SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+     getLexer().Lex();
+     Operands.push_back(RISCVOperand::createReg(RegNo, S, E));
+   }
++
++  if (HadParens) {
++    getParser().Lex(); // Eat ')'
++    Operands.push_back(RISCVOperand::createToken(")", getLoc()));
++  }
++
+   return MatchOperand_Success;
+ }
+ 
+@@ -555,7 +580,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
+ /// If operand was parsed, returns false, else true.
+ bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
+   // Attempt to parse token as register
+-  if (parseRegister(Operands) == MatchOperand_Success)
++  if (parseRegister(Operands, true) == MatchOperand_Success)
+     return false;
+ 
+   // Attempt to parse token as an immediate
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index d8581f8d03c..e9a7501e920 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -18,6 +18,11 @@ def FeatureStdExtM : SubtargetFeature<"m", "HasStdExtM", "true",
+ def HasStdExtM     : Predicate<"Subtarget->hasStdExtM()">,
+                            AssemblerPredicate<"FeatureStdExtM">;
+ 
++def FeatureStdExtA : SubtargetFeature<"a", "HasStdExtA", "true",
++                           "'A' (Atomic Instructions)">;
++def HasStdExtA     :  Predicate<"Subtarget->hasStdExtA()">,
++                           AssemblerPredicate<"FeatureStdExtA">;
++
+ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
+                            "Implements RV64">;
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
+index 48f6cf8762d..3dca957e31f 100644
+--- a/lib/Target/RISCV/RISCVInstrFormats.td
++++ b/lib/Target/RISCV/RISCVInstrFormats.td
+@@ -118,6 +118,24 @@ class RVInstR<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode, dag outs,
+   let Opcode = opcode.Value;
+ }
+ 
++class RVInstRAtomic<bits<5> funct5, bit aq, bit rl, bits<3> funct3,
++                    RISCVOpcode opcode, dag outs, dag ins, string opcodestr,
++                    string argstr>
++    : RVInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
++  bits<5> rs2;
++  bits<5> rs1;
++  bits<5> rd;
++
++  let Inst{31-27} = funct5;
++  let Inst{26} = aq;
++  let Inst{25} = rl;
++  let Inst{24-20} = rs2;
++  let Inst{19-15} = rs1;
++  let Inst{14-12} = funct3;
++  let Inst{11-7} = rd;
++  let Opcode = opcode.Value;
++}
++
+ class RVInstI<bits<3> funct3, RISCVOpcode opcode, dag outs, dag ins,
+               string opcodestr, string argstr>
+     : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index d2323962b6f..3cef22ca19a 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -459,3 +459,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+ //===----------------------------------------------------------------------===//
+ 
+ include "RISCVInstrInfoM.td"
++include "RISCVInstrInfoA.td"
+diff --git a/lib/Target/RISCV/RISCVInstrInfoA.td b/lib/Target/RISCV/RISCVInstrInfoA.td
+new file mode 100644
+index 00000000000..54f35c3c0ba
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfoA.td
+@@ -0,0 +1,63 @@
++//===-- RISCVInstrInfoA.td - RISC-V 'A' instructions -------*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file describes the RISC-V instructions from the standard 'A', Atomic
++// Instructions extension.
++//
++//===----------------------------------------------------------------------===//
++
++//===----------------------------------------------------------------------===//
++// Instruction class templates
++//===----------------------------------------------------------------------===//
++
++let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
++class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
++    : RVInstRAtomic<0b00010, aq, rl, funct3, OPC_AMO,
++                    (outs GPR:$rd), (ins GPR:$rs1),
++                    opcodestr, "$rd, (${rs1})"> {
++  let rs2 = 0;
++}
++
++multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr> {
++  def ""     : LR_r<0, 0, funct3, opcodestr>;
++  def _AQ    : LR_r<1, 0, funct3, opcodestr # ".aq">;
++  def _RL    : LR_r<0, 1, funct3, opcodestr # ".rl">;
++  def _AQ_RL : LR_r<1, 1, funct3, opcodestr # ".aqrl">;
++}
++
++let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in
++class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr>
++    : RVInstRAtomic<funct5, aq, rl, funct3, OPC_AMO,
++                    (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
++                    opcodestr, "$rd, $rs2, (${rs1})">;
++
++multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr> {
++  def ""     : AMO_rr<funct5, 0, 0, funct3, opcodestr>;
++  def _AQ    : AMO_rr<funct5, 1, 0, funct3, opcodestr # ".aq">;
++  def _RL    : AMO_rr<funct5, 0, 1, funct3, opcodestr # ".rl">;
++  def _AQ_RL : AMO_rr<funct5, 1, 1, funct3, opcodestr # ".aqrl">;
++}
++
++//===----------------------------------------------------------------------===//
++// Instructions
++//===----------------------------------------------------------------------===//
++
++let Predicates = [HasStdExtA] in {
++defm LR_W       : LR_r_aq_rl<0b010, "lr.w">;
++defm SC_W       : AMO_rr_aq_rl<0b00011, 0b010, "sc.w">;
++defm AMOSWAP_W  : AMO_rr_aq_rl<0b00001, 0b010, "amoswap.w">;
++defm AMOADD_W   : AMO_rr_aq_rl<0b00000, 0b010, "amoadd.w">;
++defm AMOXOR_W   : AMO_rr_aq_rl<0b00100, 0b010, "amoxor.w">;
++defm AMOAND_W   : AMO_rr_aq_rl<0b01100, 0b010, "amoand.w">;
++defm AMOOR_W    : AMO_rr_aq_rl<0b01000, 0b010, "amoor.w">;
++defm AMOMIN_W   : AMO_rr_aq_rl<0b10000, 0b010, "amomin.w">;
++defm AMOMAX_W   : AMO_rr_aq_rl<0b10100, 0b010, "amomax.w">;
++defm AMOMINU_W  : AMO_rr_aq_rl<0b11000, 0b010, "amominu.w">;
++defm AMOMAXU_W  : AMO_rr_aq_rl<0b11100, 0b010, "amomaxu.w">;
++} // Predicates = [HasStdExtA]
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index be9b04990ca..14b25c14dbe 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -30,7 +30,8 @@ class StringRef;
+ 
+ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   virtual void anchor();
+-  bool HasStdExtM;
++  bool HasStdExtM = false;
++  bool HasStdExtA = false;
+   bool HasRV64 = false;
+   unsigned XLen = 32;
+   MVT XLenVT = MVT::i32;
+@@ -68,6 +69,7 @@ public:
+     return &TSInfo;
+   }
+   bool hasStdExtM() const { return HasStdExtM; }
++  bool hasStdExtA() const { return HasStdExtA; }
+   bool is64Bit() const { return HasRV64; }
+   MVT getXLenVT() const { return XLenVT; }
+   unsigned getXLen() const { return XLen; }
+diff --git a/test/MC/RISCV/rv32a-invalid.s b/test/MC/RISCV/rv32a-invalid.s
+new file mode 100644
+index 00000000000..0b293ac26fa
+--- /dev/null
++++ b/test/MC/RISCV/rv32a-invalid.s
+@@ -0,0 +1,14 @@
++# RUN: not llvm-mc -triple riscv32 -mattr=+a < %s 2>&1 | FileCheck %s
++
++# Final operand must have parentheses
++amoswap.w a1, a2, a3 # CHECK: :[[@LINE]]:19: error: invalid operand for instruction
++amomin.w a1, a2, 1 # CHECK: :[[@LINE]]:18: error: invalid operand for instruction
++lr.w a4, a5 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
++
++# Only .aq, .rl, and .aqrl suffixes are valid
++amoxor.w.rlqa a2, a3, (a4) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
++amoor.w.aq.rl a4, a5, (a6) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
++amoor.w. a4, a5, (a6) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
++
++# lr only takes two operands
++lr.w s0, (s1), s2 # CHECK: :[[@LINE]]:16: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/rv32a-valid.s b/test/MC/RISCV/rv32a-valid.s
+new file mode 100644
+index 00000000000..cf94218a94e
+--- /dev/null
++++ b/test/MC/RISCV/rv32a-valid.s
+@@ -0,0 +1,146 @@
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+a -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+a -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+a < %s \
++# RUN:     | llvm-objdump -mattr=+a -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+a < %s \
++# RUN:     | llvm-objdump -mattr=+a -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# CHECK-INST: lr.w t0, (t1)
++# CHECK: encoding: [0xaf,0x22,0x03,0x10]
++lr.w t0, (t1)
++# CHECK-INST: lr.w.aq t1, (t2)
++# CHECK: encoding: [0x2f,0xa3,0x03,0x14]
++lr.w.aq t1, (t2)
++# CHECK-INST: lr.w.rl t2, (t3)
++# CHECK: encoding: [0xaf,0x23,0x0e,0x12]
++lr.w.rl t2, (t3)
++# CHECK-INST: lr.w.aqrl t3, (t4)
++# CHECK: encoding: [0x2f,0xae,0x0e,0x16]
++lr.w.aqrl t3, (t4)
++
++# CHECK-INST: sc.w t6, t5, (t4)
++# CHECK: encoding: [0xaf,0xaf,0xee,0x19]
++sc.w t6, t5, (t4)
++# CHECK-INST: sc.w.aq t5, t4, (t3)
++# CHECK: encoding: [0x2f,0x2f,0xde,0x1d]
++sc.w.aq t5, t4, (t3)
++# CHECK-INST: sc.w.rl t4, t3, (t2)
++# CHECK: encoding: [0xaf,0xae,0xc3,0x1b]
++sc.w.rl t4, t3, (t2)
++# CHECK-INST: sc.w.aqrl t3, t2, (t1)
++# CHECK: encoding: [0x2f,0x2e,0x73,0x1e]
++sc.w.aqrl t3, t2, (t1)
++
++# CHECK-INST: amoswap.w a4, ra, (s0)
++# CHECK: encoding: [0x2f,0x27,0x14,0x08]
++amoswap.w a4, ra, (s0)
++# CHECK-INST: amoadd.w a1, a2, (a3)
++# CHECK: encoding: [0xaf,0xa5,0xc6,0x00]
++amoadd.w a1, a2, (a3)
++# CHECK-INST: amoxor.w a2, a3, (a4)
++# CHECK: encoding: [0x2f,0x26,0xd7,0x20]
++amoxor.w a2, a3, (a4)
++# CHECK-INST: amoand.w a3, a4, (a5)
++# CHECK: encoding: [0xaf,0xa6,0xe7,0x60]
++amoand.w a3, a4, (a5)
++# CHECK-INST: amoor.w a4, a5, (a6)
++# CHECK: encoding: [0x2f,0x27,0xf8,0x40]
++amoor.w a4, a5, (a6)
++# CHECK-INST: amomin.w a5, a6, (a7)
++# CHECK: encoding: [0xaf,0xa7,0x08,0x81]
++amomin.w a5, a6, (a7)
++# CHECK-INST: amomax.w s7, s6, (s5)
++# CHECK: encoding: [0xaf,0xab,0x6a,0xa1]
++amomax.w s7, s6, (s5)
++# CHECK-INST: amominu.w s6, s5, (s4)
++# CHECK: encoding: [0x2f,0x2b,0x5a,0xc1]
++amominu.w s6, s5, (s4)
++# CHECK-INST: amomaxu.w s5, s4, (s3)
++# CHECK: encoding: [0xaf,0xaa,0x49,0xe1]
++amomaxu.w s5, s4, (s3)
++
++# CHECK-INST: amoswap.w.aq a4, ra, (s0)
++# CHECK: encoding: [0x2f,0x27,0x14,0x0c]
++amoswap.w.aq a4, ra, (s0)
++# CHECK-INST: amoadd.w.aq a1, a2, (a3)
++# CHECK: encoding: [0xaf,0xa5,0xc6,0x04]
++amoadd.w.aq a1, a2, (a3)
++# CHECK-INST: amoxor.w.aq a2, a3, (a4)
++# CHECK: encoding: [0x2f,0x26,0xd7,0x24]
++amoxor.w.aq a2, a3, (a4)
++# CHECK-INST: amoand.w.aq a3, a4, (a5)
++# CHECK: encoding: [0xaf,0xa6,0xe7,0x64]
++amoand.w.aq a3, a4, (a5)
++# CHECK-INST: amoor.w.aq a4, a5, (a6)
++# CHECK: encoding: [0x2f,0x27,0xf8,0x44]
++amoor.w.aq a4, a5, (a6)
++# CHECK-INST: amomin.w.aq a5, a6, (a7)
++# CHECK: encoding: [0xaf,0xa7,0x08,0x85]
++amomin.w.aq a5, a6, (a7)
++# CHECK-INST: amomax.w.aq s7, s6, (s5)
++# CHECK: encoding: [0xaf,0xab,0x6a,0xa5]
++amomax.w.aq s7, s6, (s5)
++# CHECK-INST: amominu.w.aq s6, s5, (s4)
++# CHECK: encoding: [0x2f,0x2b,0x5a,0xc5]
++amominu.w.aq s6, s5, (s4)
++# CHECK-INST: amomaxu.w.aq s5, s4, (s3)
++# CHECK: encoding: [0xaf,0xaa,0x49,0xe5]
++amomaxu.w.aq s5, s4, (s3)
++
++# CHECK-INST: amoswap.w.rl a4, ra, (s0)
++# CHECK: encoding: [0x2f,0x27,0x14,0x0a]
++amoswap.w.rl a4, ra, (s0)
++# CHECK-INST: amoadd.w.rl a1, a2, (a3)
++# CHECK: encoding: [0xaf,0xa5,0xc6,0x02]
++amoadd.w.rl a1, a2, (a3)
++# CHECK-INST: amoxor.w.rl a2, a3, (a4)
++# CHECK: encoding: [0x2f,0x26,0xd7,0x22]
++amoxor.w.rl a2, a3, (a4)
++# CHECK-INST: amoand.w.rl a3, a4, (a5)
++# CHECK: encoding: [0xaf,0xa6,0xe7,0x62]
++amoand.w.rl a3, a4, (a5)
++# CHECK-INST: amoor.w.rl a4, a5, (a6)
++# CHECK: encoding: [0x2f,0x27,0xf8,0x42]
++amoor.w.rl a4, a5, (a6)
++# CHECK-INST: amomin.w.rl a5, a6, (a7)
++# CHECK: encoding: [0xaf,0xa7,0x08,0x83]
++amomin.w.rl a5, a6, (a7)
++# CHECK-INST: amomax.w.rl s7, s6, (s5)
++# CHECK: encoding: [0xaf,0xab,0x6a,0xa3]
++amomax.w.rl s7, s6, (s5)
++# CHECK-INST: amominu.w.rl s6, s5, (s4)
++# CHECK: encoding: [0x2f,0x2b,0x5a,0xc3]
++amominu.w.rl s6, s5, (s4)
++# CHECK-INST: amomaxu.w.rl s5, s4, (s3)
++# CHECK: encoding: [0xaf,0xaa,0x49,0xe3]
++amomaxu.w.rl s5, s4, (s3)
++
++# CHECK-INST: amoswap.w.aqrl a4, ra, (s0)
++# CHECK: encoding: [0x2f,0x27,0x14,0x0e]
++amoswap.w.aqrl a4, ra, (s0)
++# CHECK-INST: amoadd.w.aqrl a1, a2, (a3)
++# CHECK: encoding: [0xaf,0xa5,0xc6,0x06]
++amoadd.w.aqrl a1, a2, (a3)
++# CHECK-INST: amoxor.w.aqrl a2, a3, (a4)
++# CHECK: encoding: [0x2f,0x26,0xd7,0x26]
++amoxor.w.aqrl a2, a3, (a4)
++# CHECK-INST: amoand.w.aqrl a3, a4, (a5)
++# CHECK: encoding: [0xaf,0xa6,0xe7,0x66]
++amoand.w.aqrl a3, a4, (a5)
++# CHECK-INST: amoor.w.aqrl a4, a5, (a6)
++# CHECK: encoding: [0x2f,0x27,0xf8,0x46]
++amoor.w.aqrl a4, a5, (a6)
++# CHECK-INST: amomin.w.aqrl a5, a6, (a7)
++# CHECK: encoding: [0xaf,0xa7,0x08,0x87]
++amomin.w.aqrl a5, a6, (a7)
++# CHECK-INST: amomax.w.aqrl s7, s6, (s5)
++# CHECK: encoding: [0xaf,0xab,0x6a,0xa7]
++amomax.w.aqrl s7, s6, (s5)
++# CHECK-INST: amominu.w.aqrl s6, s5, (s4)
++# CHECK: encoding: [0x2f,0x2b,0x5a,0xc7]
++amominu.w.aqrl s6, s5, (s4)
++# CHECK-INST: amomaxu.w.aqrl s5, s4, (s3)
++# CHECK: encoding: [0xaf,0xaa,0x49,0xe7]
++amomaxu.w.aqrl s5, s4, (s3)
+diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
+index 763d4c547a2..c321d0481ca 100644
+--- a/test/MC/RISCV/rv32i-invalid.s
++++ b/test/MC/RISCV/rv32i-invalid.s
+@@ -117,6 +117,7 @@ sraw t0, s2, zero # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemoni
+ # Invalid operand types
+ xori sp, 22, 220 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
+ sub t0, t2, 1 # CHECK: :[[@LINE]]:13: error: invalid operand for instruction
++add a1, a2, (a3) # CHECK: :[[@LINE]]:13: error: invalid operand for instruction
+ 
+ # Too many operands
+ add ra, zero, zero, zero # CHECK: :[[@LINE]]:21: error: invalid operand for instruction
+@@ -131,3 +132,4 @@ xor s2, s2 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
+ 
+ # Instruction not in the base ISA
+ mul a4, ra, s0 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++amomaxu.w s5, s4, (s3) # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
+-- 
+2.15.0
+
