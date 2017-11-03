@@ -3,12 +3,12 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [LegalizeDAG] promote PREFETCH operands to native integer width
 
 ---
- lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp | 15 +++++++++++++++
+ lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp | 14 ++++++++++++++
  lib/CodeGen/SelectionDAG/LegalizeTypes.h          |  1 +
- 2 files changed, 16 insertions(+)
+ 2 files changed, 15 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 09f4db82142..91abb34b22e 100644
+index 09f4db82142..c89df71cb56 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 @@ -948,6 +948,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
@@ -21,14 +21,13 @@ index 09f4db82142..91abb34b22e 100644
    }
  
    // If the result is null, the sub-method took care of registering results etc.
-@@ -1331,6 +1334,18 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
+@@ -1331,6 +1334,17 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
    return SDValue(DAG.UpdateNodeOperands(N, Op), 0);
  }
  
 +SDValue DAGTypeLegalizer::PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo) {
 +  // Promote the rw, locality, and cache type arguments to a supported integer
 +  // width.
-+  N->dump(&DAG);
 +  SDValue Op2 = GetPromotedInteger(N->getOperand(2));
 +  SDValue Op3 = GetPromotedInteger(N->getOperand(3));
 +  SDValue Op4 = GetPromotedInteger(N->getOperand(4));
