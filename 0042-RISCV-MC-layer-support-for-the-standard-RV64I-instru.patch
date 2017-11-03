@@ -15,7 +15,7 @@ Subject: [RISCV] MC layer support for the standard RV64I instructions
  create mode 100644 test/MC/RISCV/rv64i-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 202582e11ef..1dffdb27da3 100644
+index 1dcea6fbb26..767a453bc97 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -31,6 +31,7 @@ struct RISCVOperand;
@@ -43,8 +43,8 @@ index 202582e11ef..1dffdb27da3 100644
      StartLoc = o.StartLoc;
      EndLoc = o.EndLoc;
      switch (Kind) {
-@@ -188,6 +192,16 @@ public:
-     return true;
+@@ -216,6 +220,16 @@ public:
+     return parseFRM(Str) != RISCVFPRndMode::Invalid;
    }
  
 +  bool isUImmLog2XLen() const {
@@ -60,7 +60,7 @@ index 202582e11ef..1dffdb27da3 100644
    bool isUImm5() const {
      int64_t Imm;
      RISCVMCExpr::VariantKind VK;
-@@ -245,6 +259,8 @@ public:
+@@ -273,6 +287,8 @@ public:
    SMLoc getStartLoc() const override { return StartLoc; }
    /// getEndLoc - Gets location of the last token of this operand
    SMLoc getEndLoc() const override { return EndLoc; }
@@ -69,7 +69,7 @@ index 202582e11ef..1dffdb27da3 100644
  
    unsigned getReg() const override {
      assert(Kind == Register && "Invalid type access!");
-@@ -276,29 +292,33 @@ public:
+@@ -304,29 +320,33 @@ public:
      }
    }
  
@@ -106,7 +106,7 @@ index 202582e11ef..1dffdb27da3 100644
      return Op;
    }
  
-@@ -451,6 +471,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -489,6 +509,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      }
      return Error(ErrorLoc, "invalid operand for instruction");
    }
@@ -117,7 +117,7 @@ index 202582e11ef..1dffdb27da3 100644
    case Match_InvalidUImm5:
      return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
    case Match_InvalidSImm12:
-@@ -525,16 +549,16 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
+@@ -569,16 +593,16 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
        }
      }
      if (HadParens)
@@ -137,7 +137,7 @@ index 202582e11ef..1dffdb27da3 100644
    }
  
    return MatchOperand_Success;
-@@ -568,7 +592,7 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -612,7 +636,7 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      return parseOperandWithModifier(Operands);
    }
  
@@ -146,7 +146,7 @@ index 202582e11ef..1dffdb27da3 100644
    return MatchOperand_Success;
  }
  
-@@ -608,7 +632,7 @@ RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
+@@ -652,7 +676,7 @@ RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
    }
  
    const MCExpr *ModExpr = RISCVMCExpr::create(SubExpr, VK, getContext());
@@ -155,7 +155,7 @@ index 202582e11ef..1dffdb27da3 100644
    return MatchOperand_Success;
  }
  
-@@ -620,7 +644,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
+@@ -664,7 +688,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
    }
  
    getParser().Lex(); // Eat '('
@@ -164,7 +164,7 @@ index 202582e11ef..1dffdb27da3 100644
  
    if (parseRegister(Operands) != MatchOperand_Success) {
      Error(getLoc(), "expected register");
-@@ -633,7 +657,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
+@@ -677,7 +701,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
    }
  
    getParser().Lex(); // Eat ')'
@@ -173,7 +173,7 @@ index 202582e11ef..1dffdb27da3 100644
  
    return MatchOperand_Success;
  }
-@@ -663,7 +687,7 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -707,7 +731,7 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
                                        StringRef Name, SMLoc NameLoc,
                                        OperandVector &Operands) {
    // First operand is token for instruction
@@ -196,10 +196,10 @@ index f5632b875a9..b12ab2abeb3 100644
  def RV64           : HwMode<"+64bit">;
  def RV32           : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
-index 0cc5f0793cc..ca339442f60 100644
+index ca368792340..83a62cdb52f 100644
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ b/lib/Target/RISCV/RISCVInstrFormats.td
-@@ -171,6 +171,23 @@ class RVInstI<bits<3> funct3, RISCVOpcode opcode, dag outs, dag ins,
+@@ -188,6 +188,23 @@ class RVInstI<bits<3> funct3, RISCVOpcode opcode, dag outs, dag ins,
  class RVInstIShift<bit arithshift, bits<3> funct3, RISCVOpcode opcode,
                     dag outs, dag ins, string opcodestr, string argstr>
      : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
@@ -224,7 +224,7 @@ index 0cc5f0793cc..ca339442f60 100644
    bits<5> rs1;
    bits<5> rd;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9bfeb60595a..bbc2cf7c7bd 100644
+index b140ea93269..3d78922a1f3 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -69,6 +69,22 @@ def fencearg : Operand<XLenVT> {

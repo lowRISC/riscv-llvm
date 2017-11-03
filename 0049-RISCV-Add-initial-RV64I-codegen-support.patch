@@ -31,7 +31,7 @@ index b12ab2abeb3..69b9c5d4360 100644
  def RV64           : HwMode<"+64bit">;
  def RV32           : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 61c67092f0b..5737f023a1a 100644
+index 5c34a301fdc..0522d1f57a6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -61,7 +61,7 @@ index 61c67092f0b..5737f023a1a 100644
      SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
      SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
      SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
-@@ -666,9 +666,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -688,9 +688,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
  
    MachineFunction &MF = DAG.getMachineFunction();
    MVT XLenVT = Subtarget.getXLenVT();
@@ -106,7 +106,7 @@ index c78406afc06..0347f22dfe7 100644
  
    if (!isInt<32>(BrOffset))
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index bbc2cf7c7bd..c632285aa71 100644
+index 3d78922a1f3..0413128b8fa 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -26,7 +26,6 @@ def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,

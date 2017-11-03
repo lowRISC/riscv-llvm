@@ -4,42 +4,46 @@ Subject: [RISCV] MC layer support for the standard RV64D instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCVInstrInfoD.td | 26 ++++++++++++++++++++++++++
- test/MC/RISCV/rv64d-invalid.s       | 11 +++++++++++
- test/MC/RISCV/rv64d-valid.s         | 31 +++++++++++++++++++++++++++++++
- 3 files changed, 68 insertions(+)
+ lib/Target/RISCV/RISCVInstrInfoD.td | 30 +++++++++++++++++++++++
+ test/MC/RISCV/rv64d-invalid.s       | 11 +++++++++
+ test/MC/RISCV/rv64d-valid.s         | 49 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 90 insertions(+)
  create mode 100644 test/MC/RISCV/rv64d-invalid.s
  create mode 100644 test/MC/RISCV/rv64d-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 476af8aed22..62d06cced91 100644
+index aa194320d99..8a78e372e8b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -106,3 +106,29 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.wu"> {
+@@ -129,3 +129,33 @@ def FCVT_D_WU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.wu"> {
    let rs2 = 0b00001;
  }
  } // Predicates = [HasStdExtD]
 +
 +let Predicates = [HasStdExtD, IsRV64] in {
-+def FCVT_L_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.l.d"> {
++def FCVT_L_D : FPUnaryOp_r_frm<0b1100001, GPR, FPR64, "fcvt.l.d"> {
 +  let rs2 = 0b00010;
 +}
++def          : FPUnaryOpDynFrmAlias<FCVT_L_D, "fcvt.l.d", GPR, FPR64>;
 +
-+def FCVT_LU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.lu.d"> {
++def FCVT_LU_D : FPUnaryOp_r_frm<0b1100001, GPR, FPR64, "fcvt.lu.d"> {
 +  let rs2 = 0b00011;
 +}
++def           : FPUnaryOpDynFrmAlias<FCVT_LU_D, "fcvt.lu.d", GPR, FPR64>;
 +
 +def FMV_X_D : FPUnaryOp_r<0b1110001, 0b000, GPR, FPR64, "fmv.x.d"> {
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_D_L : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.l"> {
++def FCVT_D_L : FPUnaryOp_r_frm<0b1101001, FPR64, GPR, "fcvt.d.l"> {
 +  let rs2 = 0b00010;
 +}
++def          : FPUnaryOpDynFrmAlias<FCVT_D_L, "fcvt.d.l", FPR64, GPR>;
 +
-+def FCVT_D_LU : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.lu"> {
++def FCVT_D_LU : FPUnaryOp_r_frm<0b1101001, FPR64, GPR, "fcvt.d.lu"> {
 +  let rs2 = 0b00011;
 +}
++def           : FPUnaryOpDynFrmAlias<FCVT_D_LU, "fcvt.d.lu", FPR64, GPR>;
 +
 +def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
 +  let rs2 = 0b00000;
@@ -64,10 +68,10 @@ index 00000000000..0f508aafd9b
 +fmv.d.x a5, ft5 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
 diff --git a/test/MC/RISCV/rv64d-valid.s b/test/MC/RISCV/rv64d-valid.s
 new file mode 100644
-index 00000000000..43dc23d9c40
+index 00000000000..e24fd250d43
 --- /dev/null
 +++ b/test/MC/RISCV/rv64d-valid.s
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,49 @@
 +# RUN: llvm-mc %s -triple=riscv64 -mattr=+d -show-encoding \
 +# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
 +# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+d < %s \
@@ -88,17 +92,35 @@ index 00000000000..43dc23d9c40
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fmv.x.d a2, ft2
 +# CHECK-INST: fcvt.d.l ft3, a3
-+# CHECK: encoding: [0xd3,0x81,0x26,0xd2]
++# CHECK: encoding: [0xd3,0xf1,0x26,0xd2]
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fcvt.d.l ft3, a3
 +# CHECK-INST: fcvt.d.lu ft4, a4
-+# CHECK: encoding: [0x53,0x02,0x37,0xd2]
++# CHECK: encoding: [0x53,0x72,0x37,0xd2]
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fcvt.d.lu ft4, a4
 +# CHECK-INST: fmv.d.x ft5, a5
 +# CHECK: encoding: [0xd3,0x82,0x07,0xf2]
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fmv.d.x ft5, a5
++
++# Rounding modes
++# CHECK-INST: fcvt.d.l ft3, a3, rne
++# CHECK: encoding: [0xd3,0x81,0x26,0xd2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.d.l ft3, a3, rne
++# CHECK-INST: fcvt.d.lu ft4, a4, rtz
++# CHECK: encoding: [0x53,0x12,0x37,0xd2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.d.lu ft4, a4, rtz
++# CHECK-INST: fcvt.l.d a0, ft0, rdn
++# CHECK: encoding: [0x53,0x25,0x20,0xc2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.l.d a0, ft0, rdn
++# CHECK-INST: fcvt.lu.d a1, ft1, rup
++# CHECK: encoding: [0xd3,0xb5,0x30,0xc2]
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.lu.d a1, ft1, rup
 -- 
 2.15.0
 

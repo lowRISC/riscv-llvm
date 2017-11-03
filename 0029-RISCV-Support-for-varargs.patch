@@ -65,7 +65,7 @@ index 6811633d7ea..a61ec7feb9e 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 52ed6e6234f..aacbffd73d4 100644
+index c3f90ae0db4..26fa321664d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -90,14 +90,14 @@ index 52ed6e6234f..aacbffd73d4 100644
  
 @@ -158,6 +164,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      return lowerBlockAddress(Op, DAG);
-   case ISD::SELECT_CC:
-     return lowerSELECT_CC(Op, DAG);
+   case ISD::SELECT:
+     return lowerSELECT(Op, DAG);
 +  case ISD::VASTART:
 +    return lowerVASTART(Op, DAG);
    }
  }
  
-@@ -243,6 +251,21 @@ SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
+@@ -264,6 +272,21 @@ SDValue RISCVTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
    return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
  }
  
@@ -119,7 +119,7 @@ index 52ed6e6234f..aacbffd73d4 100644
  MachineBasicBlock *
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
-@@ -378,19 +401,33 @@ static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
+@@ -400,19 +423,33 @@ static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
  
  static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
@@ -155,7 +155,7 @@ index 52ed6e6234f..aacbffd73d4 100644
    SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
    SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
        State.getPendingArgFlags();
-@@ -414,6 +451,7 @@ static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
+@@ -436,6 +473,7 @@ static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
    // in registers or on the stack
    if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
      assert(PendingMembers.size() == 2);
@@ -163,7 +163,7 @@ index 52ed6e6234f..aacbffd73d4 100644
      // Apply the normal calling convention rules to the first half of the
      // split argument
      CCValAssign VA = PendingMembers[0];
-@@ -461,13 +499,20 @@ void RISCVTargetLowering::analyzeInputArgs(
+@@ -483,13 +521,20 @@ void RISCVTargetLowering::analyzeInputArgs(
      MachineFunction &MF, CCState &CCInfo,
      const SmallVectorImpl<ISD::InputArg> &Ins, bool IsRet) const {
    unsigned NumArgs = Ins.size();
@@ -185,7 +185,7 @@ index 52ed6e6234f..aacbffd73d4 100644
        DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << '\n');
        llvm_unreachable(nullptr);
-@@ -484,9 +529,10 @@ void RISCVTargetLowering::analyzeOutputArgs(
+@@ -506,9 +551,10 @@ void RISCVTargetLowering::analyzeOutputArgs(
    for (unsigned i = 0; i != NumArgs; i++) {
      MVT ArgVT = Outs[i].VT;
      ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
@@ -197,7 +197,7 @@ index 52ed6e6234f..aacbffd73d4 100644
        DEBUG(dbgs() << "OutputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << "\n");
        llvm_unreachable(nullptr);
-@@ -562,9 +608,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -584,9 +630,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    MachineFunction &MF = DAG.getMachineFunction();
    MVT XLenVT = Subtarget.getXLenVT();
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -211,7 +211,7 @@ index 52ed6e6234f..aacbffd73d4 100644
  
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
-@@ -601,6 +648,69 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -623,6 +670,69 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
      }
      InVals.push_back(ArgValue);
    }
@@ -281,7 +281,7 @@ index 52ed6e6234f..aacbffd73d4 100644
    return Chain;
  }
  
-@@ -621,10 +731,6 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -643,10 +753,6 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
    MVT XLenVT = Subtarget.getXLenVT();
  
@@ -292,7 +292,7 @@ index 52ed6e6234f..aacbffd73d4 100644
    MachineFunction &MF = DAG.getMachineFunction();
  
    // Analyze the operands of the call, assigning locations to each operand.
-@@ -804,7 +910,7 @@ bool RISCVTargetLowering::CanLowerReturn(
+@@ -826,7 +932,7 @@ bool RISCVTargetLowering::CanLowerReturn(
      MVT VT = Outs[i].VT;
      ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
      if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
@@ -301,7 +301,7 @@ index 52ed6e6234f..aacbffd73d4 100644
        return false;
    }
    return true;
-@@ -816,10 +922,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -838,10 +944,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -313,13 +313,13 @@ index 52ed6e6234f..aacbffd73d4 100644
    SmallVector<CCValAssign, 16> RVLocs;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 3d63482388f..3e82c586f20 100644
+index a796684b234..35af90b4414 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -78,6 +78,7 @@ private:
    SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
-   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
  };
  }

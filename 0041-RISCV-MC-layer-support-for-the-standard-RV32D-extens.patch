@@ -6,22 +6,22 @@ As the FPR32 and FPR64 registers have the same names, use
 validateTargetOperandClass in RISCVAsmParser to coerce a parsed FPR32 to an
 FPR64 when necessary.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  63 +++++++++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 +++++
- lib/Target/RISCV/RISCV.td                          |   6 ++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  63 ++++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 ++++
+ lib/Target/RISCV/RISCV.td                          |   6 +
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- lib/Target/RISCV/RISCVInstrInfoD.td                | 108 +++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td                | 131 +++++++++++++++++
  lib/Target/RISCV/RISCVSubtarget.h                  |   1 +
- test/MC/RISCV/rv32d-invalid.s                      |  21 ++++
- test/MC/RISCV/rv32d-valid.s                        | 118 +++++++++++++++++++++
- test/MC/RISCV/rv32f-invalid.s                      |   5 +-
- 9 files changed, 348 insertions(+), 1 deletion(-)
+ test/MC/RISCV/rv32d-invalid.s                      |  21 +++
+ test/MC/RISCV/rv32d-valid.s                        | 159 +++++++++++++++++++++
+ test/MC/RISCV/rv32f-invalid.s                      |   6 +-
+ 9 files changed, 412 insertions(+), 2 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 3f76ce3b24a..202582e11ef 100644
+index e0cb8512b49..1dcea6fbb26 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -32,6 +32,9 @@ struct RISCVOperand;
@@ -34,7 +34,7 @@ index 3f76ce3b24a..202582e11ef 100644
    bool generateImmOutOfRangeError(OperandVector &Operands, uint64_t ErrorInfo,
                                    int Lower, int Upper, Twine Msg);
  
-@@ -351,6 +354,66 @@ public:
+@@ -389,6 +392,66 @@ public:
  #define GET_MATCHER_IMPLEMENTATION
  #include "RISCVGenAsmMatcher.inc"
  
@@ -156,7 +156,7 @@ index 2c91bc69125..f5632b875a9 100644
                             "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index ba26cd3d1b8..9bfeb60595a 100644
+index 32396c0b513..b140ea93269 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -461,3 +461,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
@@ -166,10 +166,10 @@ index ba26cd3d1b8..9bfeb60595a 100644
 +include "RISCVInstrInfoD.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
 new file mode 100644
-index 00000000000..476af8aed22
+index 00000000000..aa194320d99
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,131 @@
 +//===-- RISCVInstrInfoD.td - RISC-V 'D' instructions -------*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -189,15 +189,29 @@ index 00000000000..476af8aed22
 +//===----------------------------------------------------------------------===//
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-+class FPFMAD_rrr<bits<3> funct3, RISCVOpcode opcode, string opcodestr>
-+    : RVInstR4<0b01, funct3, opcode, (outs FPR64:$rd),
-+               (ins FPR64:$rs1, FPR64:$rs2, FPR64:$rs3),
-+               opcodestr, "$rd, $rs1, $rs2, $rs3">;
++class FPFMAD_rrr_frm<RISCVOpcode opcode, string opcodestr>
++    : RVInstR4<0b01, opcode, (outs FPR64:$rd),
++               (ins FPR64:$rs1, FPR64:$rs2, FPR64:$rs3, frmarg:$funct3),
++                opcodestr, "$rd, $rs1, $rs2, $rs3, $funct3">;
++
++class FPFMADDynFrmAlias<FPFMAD_rrr_frm Inst, string OpcodeStr>
++    : InstAlias<OpcodeStr#" $rd, $rs1, $rs2, $rs3",
++                (Inst FPR64:$rd, FPR64:$rs1, FPR64:$rs2, FPR64:$rs3, 0b111)>;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class FPALUD_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
 +    : RVInstR<funct7, funct3, OPC_OP_FP, (outs FPR64:$rd),
 +              (ins FPR64:$rs1, FPR64:$rs2), opcodestr, "$rd, $rs1, $rs2">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++class FPALUD_rr_frm<bits<7> funct7, string opcodestr>
++    : RVInstRFrm<funct7, OPC_OP_FP, (outs FPR64:$rd),
++                (ins FPR64:$rs1, FPR64:$rs2, frmarg:$funct3), opcodestr,
++                 "$rd, $rs1, $rs2, $funct3">;
++
++class FPALUDDynFrmAlias<FPALUD_rr_frm Inst, string OpcodeStr>
++    : InstAlias<OpcodeStr#" $rd, $rs1, $rs2",
++                (Inst FPR64:$rd, FPR64:$rs1, FPR64:$rs2, 0b111)>;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class FPCmpD_rr<bits<3> funct3, string opcodestr>
@@ -221,24 +235,30 @@ index 00000000000..476af8aed22
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 +def FSD : RVInstS<0b011, OPC_STORE_FP, (outs),
 +                  (ins FPR64:$rs2, GPR:$rs1, simm12:$imm12),
-+                  "fsd", "$rs2, ${imm12}(${rs1})">;
++                   "fsd", "$rs2, ${imm12}(${rs1})">;
 +
-+// Hard-code the rounding mode to dynamic, as there doesn't seem to be any
-+// standard RISC-V assembly syntax for specifying the rounding mode field
++def FMADD_D  : FPFMAD_rrr_frm<OPC_MADD, "fmadd.d">;
++def          : FPFMADDynFrmAlias<FMADD_D, "fmadd.d">;
++def FMSUB_D  : FPFMAD_rrr_frm<OPC_MSUB, "fmsub.d">;
++def          : FPFMADDynFrmAlias<FMSUB_D, "fmsub.d">;
++def FNMSUB_D : FPFMAD_rrr_frm<OPC_NMSUB, "fnmsub.d">;
++def          : FPFMADDynFrmAlias<FNMSUB_D, "fnmsub.d">;
++def FNMADD_D : FPFMAD_rrr_frm<OPC_NMADD, "fnmadd.d">;
++def          : FPFMADDynFrmAlias<FNMADD_D, "fnmadd.d">;
 +
-+def FMADD_D  : FPFMAD_rrr<0b111, OPC_MADD, "fmadd.d">;
-+def FMSUB_D  : FPFMAD_rrr<0b111, OPC_MSUB, "fmsub.d">;
-+def FNMSUB_D : FPFMAD_rrr<0b111, OPC_NMSUB, "fnmsub.d">;
-+def FNMADD_D : FPFMAD_rrr<0b111, OPC_NMADD, "fnmadd.d">;
++def FADD_D : FPALUD_rr_frm<0b0000001, "fadd.d">;
++def        : FPALUDDynFrmAlias<FADD_D, "fadd.d">;
++def FSUB_D : FPALUD_rr_frm<0b0000101, "fsub.d">;
++def        : FPALUDDynFrmAlias<FSUB_D, "fsub.d">;
++def FMUL_D : FPALUD_rr_frm<0b0001001, "fmul.d">;
++def        : FPALUDDynFrmAlias<FMUL_D, "fmul.d">;
++def FDIV_D : FPALUD_rr_frm<0b0001101, "fdiv.d">;
++def        : FPALUDDynFrmAlias<FDIV_D, "fdiv.d">;
 +
-+def FADD_D : FPALUD_rr<0b0000001, 0b111, "fadd.d">;
-+def FSUB_D : FPALUD_rr<0b0000101, 0b111, "fsub.d">;
-+def FMUL_D : FPALUD_rr<0b0001001, 0b111, "fmul.d">;
-+def FDIV_D : FPALUD_rr<0b0001101, 0b111, "fdiv.d">;
-+
-+def FSQRT_D : FPUnaryOp_r<0b0101101, 0b111, FPR64, FPR64, "fsqrt.d"> {
++def FSQRT_D : FPUnaryOp_r_frm<0b0101101, FPR64, FPR64, "fsqrt.d"> {
 +  let rs2 = 0b00000;
 +}
++def         : FPUnaryOpDynFrmAlias<FSQRT_D, "fsqrt.d", FPR64, FPR64>;
 +
 +def FSGNJ_D  : FPALUD_rr<0b0010001, 0b000, "fsgnj.d">;
 +def FSGNJN_D : FPALUD_rr<0b0010001, 0b001, "fsgnjn.d">;
@@ -246,9 +266,10 @@ index 00000000000..476af8aed22
 +def FMIN_D   : FPALUD_rr<0b0010101, 0b000, "fmin.d">;
 +def FMAX_D   : FPALUD_rr<0b0010101, 0b001, "fmax.d">;
 +
-+def FCVT_S_D : FPUnaryOp_r<0b0100000, 0b111, FPR32, FPR64, "fcvt.s.d"> {
++def FCVT_S_D : FPUnaryOp_r_frm<0b0100000, FPR32, FPR64, "fcvt.s.d"> {
 +  let rs2 = 0b00001;
 +}
++def          : FPUnaryOpDynFrmAlias<FCVT_S_D, "fcvt.s.d", FPR32, FPR64>;
 +
 +def FCVT_D_S : FPUnaryOp_r<0b0100001, 0b000, FPR64, FPR32, "fcvt.d.s"> {
 +  let rs2 = 0b00000;
@@ -262,13 +283,15 @@ index 00000000000..476af8aed22
 +  let rs2 = 0b00000;
 +}
 +
-+def FCVT_W_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.w.d"> {
++def FCVT_W_D : FPUnaryOp_r_frm<0b1100001, GPR, FPR64, "fcvt.w.d"> {
 +  let rs2 = 0b00000;
 +}
++def          : FPUnaryOpDynFrmAlias<FCVT_W_D, "fcvt.w.d", GPR, FPR64>;
 +
-+def FCVT_WU_D : FPUnaryOp_r<0b1100001, 0b111, GPR, FPR64, "fcvt.wu.d"> {
++def FCVT_WU_D : FPUnaryOp_r_frm<0b1100001, GPR, FPR64, "fcvt.wu.d"> {
 +  let rs2 = 0b00001;
 +}
++def           : FPUnaryOpDynFrmAlias<FCVT_WU_D, "fcvt.wu.d", GPR, FPR64>;
 +
 +def FCVT_D_W : FPUnaryOp_r<0b1101001, 0b000, FPR64, GPR, "fcvt.d.w"> {
 +  let rs2 = 0b00000;
@@ -319,10 +342,10 @@ index 00000000000..3c3e265bd28
 +fcvt.wu.d ft2, a1 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
 diff --git a/test/MC/RISCV/rv32d-valid.s b/test/MC/RISCV/rv32d-valid.s
 new file mode 100644
-index 00000000000..c62fdb7e029
+index 00000000000..8fbe96295f7
 --- /dev/null
 +++ b/test/MC/RISCV/rv32d-valid.s
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,159 @@
 +# RUN: llvm-mc %s -triple=riscv32 -mattr=+d -show-encoding \
 +# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
 +# RUN: llvm-mc %s -triple=riscv64 -mattr=+d -show-encoding \
@@ -441,8 +464,49 @@ index 00000000000..c62fdb7e029
 +# CHECK-INST: fcvt.d.wu ft1, a6
 +# CHECK: encoding: [0xd3,0x00,0x18,0xd2]
 +fcvt.d.wu ft1, a6
++
++# Rounding modes
++
++# CHECK-INST: fmadd.d fa0, fa1, fa2, fa3, rne
++# CHECK: encoding: [0x43,0x85,0xc5,0x6a]
++fmadd.d f10, f11, f12, f13, rne
++# CHECK-INST: fmsub.d fa4, fa5, fa6, fa7, rtz
++# CHECK: encoding: [0x47,0x97,0x07,0x8b]
++fmsub.d f14, f15, f16, f17, rtz
++# CHECK-INST: fnmsub.d fs2, fs3, fs4, fs5, rdn
++# CHECK: encoding: [0x4b,0xa9,0x49,0xab]
++fnmsub.d f18, f19, f20, f21, rdn
++# CHECK-INST: fnmadd.d fs6, fs7, fs8, fs9, rup
++# CHECK: encoding: [0x4f,0xbb,0x8b,0xcb]
++fnmadd.d f22, f23, f24, f25, rup
++
++# CHECK-INST: fadd.d fs10, fs11, ft8, rmm
++# CHECK: encoding: [0x53,0xcd,0xcd,0x03]
++fadd.d f26, f27, f28, rmm
++# CHECK-INST: fsub.d ft9, ft10, ft11
++# CHECK: encoding: [0xd3,0x7e,0xff,0x0b]
++fsub.d f29, f30, f31, dyn
++# CHECK-INST: fmul.d ft0, ft1, ft2, rne
++# CHECK: encoding: [0x53,0x80,0x20,0x12]
++fmul.d ft0, ft1, ft2, rne
++# CHECK-INST: fdiv.d ft3, ft4, ft5, rtz
++# CHECK: encoding: [0xd3,0x11,0x52,0x1a]
++fdiv.d ft3, ft4, ft5, rtz
++
++# CHECK-INST: fsqrt.d ft6, ft7, rdn
++# CHECK: encoding: [0x53,0xa3,0x03,0x5a]
++fsqrt.d ft6, ft7, rdn
++# CHECK-INST: fcvt.s.d fs5, fs6, rup
++# CHECK: encoding: [0xd3,0x3a,0x1b,0x40]
++fcvt.s.d fs5, fs6, rup
++# CHECK-INST: fcvt.w.d a4, ft11, rmm
++# CHECK: encoding: [0x53,0xc7,0x0f,0xc2]
++fcvt.w.d a4, ft11, rmm
++# CHECK-INST: fcvt.wu.d a5, ft10
++# CHECK: encoding: [0xd3,0x77,0x1f,0xc2]
++fcvt.wu.d a5, ft10, dyn
 diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
-index a5654bd1c22..1a209a2b19b 100644
+index f9e722d6c44..f22fa7ac5dd 100644
 --- a/test/MC/RISCV/rv32f-invalid.s
 +++ b/test/MC/RISCV/rv32f-invalid.s
 @@ -1,4 +1,4 @@
@@ -451,10 +515,12 @@ index a5654bd1c22..1a209a2b19b 100644
  
  # Out of range immediates
  ## simm12
-@@ -19,3 +19,6 @@ fmv.x.w fs7, a2 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
- 
- # FP registers where integer regs are expected
- fmv.w.x a8, ft2 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+@@ -26,5 +26,7 @@ fmadd.s f10, f11, f12, ree # CHECK: :[[@LINE]]:24: error: invalid operand for in
+ # Invalid rounding modes
+ fmadd.s f10, f11, f12, f13, ree # CHECK: :[[@LINE]]:29: error: operand must be a valid floating point rounding mode mnemonic
+ fmsub.s f14, f15, f16, f17, 0 # CHECK: :[[@LINE]]:29: error: operand must be a valid floating point rounding mode mnemonic
+-
+ fnmsub.s f18, f19, f20, f21, 0b111 # CHECK: :[[@LINE]]:30: error: operand must be a valid floating point rounding mode mnemonic
 +
 +# Using 'D' instructions for an 'F'-only target
 +fadd.d ft0, ft1, ft2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled

@@ -10,11 +10,11 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b3247287ff8..2f4b18d563e 100644
+index d4044c555c6..64cc1900c2c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -166,6 +166,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
-     return lowerSELECT_CC(Op, DAG);
+     return lowerSELECT(Op, DAG);
    case ISD::VASTART:
      return lowerVASTART(Op, DAG);
 +  case ISD::FRAMEADDR:
@@ -24,7 +24,7 @@ index b3247287ff8..2f4b18d563e 100644
    }
  }
  
-@@ -266,6 +270,59 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+@@ -287,6 +291,59 @@ SDValue RISCVTargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
                        MachinePointerInfo(SV));
  }
  
@@ -85,12 +85,12 @@ index b3247287ff8..2f4b18d563e 100644
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 73afc155407..035d5ef5b3c 100644
+index d83ffb43c66..3aa88424a02 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -83,6 +83,8 @@ private:
    SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
-   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;

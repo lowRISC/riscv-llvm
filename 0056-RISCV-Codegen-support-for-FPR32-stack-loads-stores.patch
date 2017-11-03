@@ -1,0 +1,181 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
+
+---
+ lib/Target/RISCV/RISCVInstrInfo.cpp    | 22 ++++++++++----
+ lib/Target/RISCV/RISCVInstrInfoF.td    |  6 ++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp | 12 +++++++-
+ test/CodeGen/RISCV/float-mem.ll        | 55 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 89 insertions(+), 6 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
+index 0347f22dfe7..de6b8666bb1 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.cpp
++++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
+@@ -54,13 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+   if (I != MBB.end())
+     DL = I->getDebugLoc();
+ 
++  unsigned Opcode;
++
+   if (RC == &RISCV::GPRRegClass)
+-    BuildMI(MBB, I, DL, get(RISCV::StXLEN_FI))
+-        .addReg(SrcReg, getKillRegState(IsKill))
+-        .addFrameIndex(FI)
+-        .addImm(0);
++    Opcode = RISCV::StXLEN_FI;
++  else if (RC == &RISCV::FPR32RegClass)
++    Opcode = RISCV::StFPR32_FI;
+   else
+     llvm_unreachable("Can't store this register to stack slot");
++
++  BuildMI(MBB, I, DL, get(Opcode))
++      .addReg(SrcReg, getKillRegState(IsKill))
++      .addFrameIndex(FI)
++      .addImm(0);
+ }
+ 
+ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -72,10 +78,16 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+   if (I != MBB.end())
+     DL = I->getDebugLoc();
+ 
++  unsigned Opcode;
++
+   if (RC == &RISCV::GPRRegClass)
+-    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg).addFrameIndex(FI).addImm(0);
++    Opcode = RISCV::LdXLEN_FI;
++  else if (RC == &RISCV::FPR32RegClass)
++    Opcode = RISCV::LdFPR32_FI;
+   else
+     llvm_unreachable("Can't load this register from stack slot");
++
++  BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
+ }
+ 
+ // The contents of values added to Cond are not examined outside of
+diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
+index 0b4fc31fe75..dab2a76e52b 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoF.td
++++ b/lib/Target/RISCV/RISCVInstrInfoF.td
+@@ -247,10 +247,16 @@ def : PatFpr32Fpr32<setole, FLE_S>;
+ 
+ defm : LdPat<load, FLW>;
+ 
++def LdFPR32_FI : Pseudo<(outs FPR32:$dst), (ins MEMii:$addr),
++                        [(set FPR32:$dst, (load ADDRii:$addr))]>;
++
+ /// Stores
+ 
+ def : Pat<(store FPR32:$rs2, GPR:$rs1), (FSW FPR32:$rs2, GPR:$rs1, 0)>;
+ def : Pat<(store FPR32:$rs2, (add GPR:$rs1, simm12:$imm12)),
+             (FSW FPR32:$rs2, GPR:$rs1, simm12:$imm12)>;
+ 
++def StFPR32_FI : Pseudo<(outs), (ins FPR32:$src, MEMii:$addr),
++                        [(store FPR32:$src, ADDRii:$addr)]>;
++
+ } // Predicates = [HasStdExtF]
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index 980d9ce299e..3506b69a41e 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -98,7 +98,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+   }
+ 
+   unsigned Reg = MI.getOperand(0).getReg();
+-  assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
+ 
+   if (!isInt<32>(Offset)) {
+     report_fatal_error(
+@@ -137,6 +136,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+         .addReg(FrameReg, FrameRegFlags)
+         .addImm(Offset);
+     break;
++  case RISCV::LdFPR32_FI:
++    BuildMI(MBB, II, DL, TII->get(RISCV::FLW), Reg)
++        .addReg(FrameReg, FrameRegFlags)
++        .addImm(Offset);
++    break;
+   case RISCV::StXLEN_FI:
+     Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
+     BuildMI(MBB, II, DL, TII->get(Opc))
+@@ -144,6 +148,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+         .addReg(FrameReg, FrameRegFlags | RegState::Kill)
+         .addImm(Offset);
+     break;
++  case RISCV::StFPR32_FI:
++    BuildMI(MBB, II, DL, TII->get(RISCV::FSW))
++        .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
++        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
++        .addImm(Offset);
++    break;
+   case RISCV::LEA_FI:
+     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
+         .addReg(FrameReg, FrameRegFlags)
+diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
+index b808a927804..bcae592b57e 100644
+--- a/test/CodeGen/RISCV/float-mem.ll
++++ b/test/CodeGen/RISCV/float-mem.ll
+@@ -82,3 +82,58 @@ define float @flw_fsw_constant(float %a) nounwind {
+   store float %3, float* %1
+   ret float %3
+ }
++
++declare void @notdead(i8*)
++
++define float @flw_stack(float %a) nounwind {
++; Tests RISCV::LdFPR32_FI
++; RV32IF-LABEL: flw_stack:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    addi sp, sp, -16
++; RV32IF-NEXT:    sw ra, 12(sp)
++; RV32IF-NEXT:    sw s1, 8(sp)
++; RV32IF-NEXT:    addi s1, a0, 0
++; RV32IF-NEXT:    lui a0, %hi(notdead)
++; RV32IF-NEXT:    addi a1, a0, %lo(notdead)
++; RV32IF-NEXT:    addi a0, sp, 4
++; RV32IF-NEXT:    jalr ra, a1, 0
++; RV32IF-NEXT:    fmv.w.x ft0, s1
++; RV32IF-NEXT:    flw ft1, 4(sp)
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    lw s1, 8(sp)
++; RV32IF-NEXT:    lw ra, 12(sp)
++; RV32IF-NEXT:    addi sp, sp, 16
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = alloca float, align 4
++  %2 = bitcast float* %1 to i8*
++  call void @notdead(i8* %2)
++  %3 = load float, float* %1
++  %4 = fadd float %3, %a ; force load in to FPR32
++  ret float %4
++}
++
++define void @fsw_stack(float %a, float %b) nounwind {
++; Tests RISCV::StFPR32_FI
++; RV32IF-LABEL: fsw_stack:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    addi sp, sp, -16
++; RV32IF-NEXT:    sw ra, 12(sp)
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fsw ft0, 8(sp)
++; RV32IF-NEXT:    lui a0, %hi(notdead)
++; RV32IF-NEXT:    addi a1, a0, %lo(notdead)
++; RV32IF-NEXT:    addi a0, sp, 8
++; RV32IF-NEXT:    jalr ra, a1, 0
++; RV32IF-NEXT:    lw ra, 12(sp)
++; RV32IF-NEXT:    addi sp, sp, 16
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %a, %b ; force store from FPR32
++  %2 = alloca float, align 4
++  store float %1, float* %2
++  %3 = bitcast float* %2 to i8*
++  call void @notdead(i8* %3)
++  ret void
++}
+-- 
+2.15.0
+

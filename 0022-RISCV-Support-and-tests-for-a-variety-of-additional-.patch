@@ -20,7 +20,7 @@ for a number of these cases:
 * rotl, rotr
 * BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  89 ++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      |  87 ++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   2 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
@@ -30,34 +30,34 @@ for a number of these cases:
  test/CodeGen/RISCV/blockaddress.ll          |  28 ++
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 547 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/div.ll                   | 134 +++++++
+ test/CodeGen/RISCV/i32-icmp.ll              | 114 ++++++
  test/CodeGen/RISCV/indirectbr.ll            |  36 ++
  test/CodeGen/RISCV/jumptable.ll             |  63 ++++
  test/CodeGen/RISCV/mul.ll                   |  81 ++++
  test/CodeGen/RISCV/rem.ll                   |  29 ++
  test/CodeGen/RISCV/rotl-rotr.ll             |  38 ++
- test/CodeGen/RISCV/setcc.ll                 | 114 ++++++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  45 +++
- 18 files changed, 1578 insertions(+), 4 deletions(-)
+ 18 files changed, 1576 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
  create mode 100644 test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
  create mode 100644 test/CodeGen/RISCV/div.ll
+ create mode 100644 test/CodeGen/RISCV/i32-icmp.ll
  create mode 100644 test/CodeGen/RISCV/indirectbr.ll
  create mode 100644 test/CodeGen/RISCV/jumptable.ll
  create mode 100644 test/CodeGen/RISCV/mul.ll
  create mode 100644 test/CodeGen/RISCV/rem.ll
  create mode 100644 test/CodeGen/RISCV/rotl-rotr.ll
- create mode 100644 test/CodeGen/RISCV/setcc.ll
  create mode 100644 test/CodeGen/RISCV/sext-zext-trunc.ll
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4f692baaa36..7b84d82989e 100644
+index 606365ea59b..704783269ae 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -53,15 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -53,17 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
      setLoadExtAction(N, XLenVT, MVT::i1, Promote);
  
    // TODO: add all necessary setOperationAction calls.
@@ -65,9 +65,9 @@ index 4f692baaa36..7b84d82989e 100644
 -
 +  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
    setOperationAction(ISD::BR_CC, XLenVT, Expand);
-   setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
-+  setOperationAction(ISD::SELECT, XLenVT, Expand);
-+
+   setOperationAction(ISD::SELECT, XLenVT, Custom);
+   setOperationAction(ISD::SELECT_CC, XLenVT, Expand);
+ 
 +  for (auto VT : {MVT::i1, MVT::i8, MVT::i16})
 +    setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
 +
@@ -114,16 +114,16 @@ index 4f692baaa36..7b84d82989e 100644
  }
  
  // Changes the condition code and swaps operands if necessary, so the SetCC
-@@ -110,6 +149,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -112,6 +149,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      report_fatal_error("unimplemented operand");
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
 +  case ISD::BlockAddress:
 +    return lowerBlockAddress(Op, DAG);
-   case ISD::SELECT_CC:
-     return lowerSELECT_CC(Op, DAG);
+   case ISD::SELECT:
+     return lowerSELECT(Op, DAG);
    }
-@@ -137,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -139,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
@@ -168,10 +168,10 @@ index 4f692baaa36..7b84d82989e 100644
 +  }
 +}
 +
- SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
-                                             SelectionDAG &DAG) const {
-   SDValue LHS = Op.getOperand(0);
-@@ -345,8 +427,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+ SDValue RISCVTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
+   SDValue CondV = Op.getOperand(0);
+   SDValue TrueV = Op.getOperand(1);
+@@ -369,8 +449,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {
@@ -182,7 +182,7 @@ index 4f692baaa36..7b84d82989e 100644
  
    // The first call operand is the chain and the second is the target address.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index f2e6c96044c..e688576ef88 100644
+index ab965195eb4..e2d6b1bcbc6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -65,6 +65,8 @@ private:
@@ -191,11 +191,11 @@ index f2e6c96044c..e688576ef88 100644
    SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
 +  SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
-   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 03e042fc632..9259846ef18 100644
+index bc1828ffbdc..72d21bde0f5 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -328,6 +328,17 @@ def : PatGprSimm12<setlt, SLTI>;
@@ -214,8 +214,8 @@ index 03e042fc632..9259846ef18 100644
 +def : Pat<(setle GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs2, GPR:$rs1), 1)>;
 +
  let usesCustomInserter = 1 in
- def Select : Pseudo<(outs GPR:$dst),
-                     (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src,
+ def Select_GPR_Using_CC_GPR
+     : Pseudo<(outs GPR:$dst),
 @@ -370,6 +381,15 @@ def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
                 PseudoInstExpansion<(JAL X0, simm21_lsb0:$imm20)>;
  
@@ -1053,6 +1053,126 @@ index 00000000000..4c0f5de0358
 +  %1 = sdiv i64 %a, 5
 +  ret i64 %1
 +}
+diff --git a/test/CodeGen/RISCV/i32-icmp.ll b/test/CodeGen/RISCV/i32-icmp.ll
+new file mode 100644
+index 00000000000..4d86ced2584
+--- /dev/null
++++ b/test/CodeGen/RISCV/i32-icmp.ll
+@@ -0,0 +1,114 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
++; RUN:   | FileCheck %s -check-prefix=RV32I
++
++; TODO: check the generated instructions for the equivalent of seqz, snez,
++; sltz, sgtz map to something simple
++
++define i32 @icmp_eq(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_eq:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    xor a0, a0, a1
++; RV32I-NEXT:    sltiu a0, a0, 1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp eq i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_ne(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_ne:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    xor a0, a0, a1
++; RV32I-NEXT:    sltu a0, zero, a0
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp ne i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_ugt(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_ugt:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    sltu a0, a1, a0
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp ugt i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_uge(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_uge:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    sltu a0, a0, a1
++; RV32I-NEXT:    xori a0, a0, 1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp uge i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_ult(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_ult:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    sltu a0, a0, a1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp ult i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_ule(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_ule:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    sltu a0, a1, a0
++; RV32I-NEXT:    xori a0, a0, 1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp ule i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_sgt(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_sgt:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    slt a0, a1, a0
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp sgt i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_sge(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_sge:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    slt a0, a0, a1
++; RV32I-NEXT:    xori a0, a0, 1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp sge i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_slt(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_slt:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    slt a0, a0, a1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp slt i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @icmp_sle(i32 %a, i32 %b) nounwind {
++; RV32I-LABEL: icmp_sle:
++; RV32I:       # BB#0:
++; RV32I-NEXT:    slt a0, a1, a0
++; RV32I-NEXT:    xori a0, a0, 1
++; RV32I-NEXT:    jalr zero, ra, 0
++  %1 = icmp sle i32 %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++; TODO: check variants with an immediate?
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
 new file mode 100644
 index 00000000000..0a51e3d0b2e
@@ -1330,126 +1450,6 @@ index 00000000000..bf0689feafa
 +  %d = or i32 %b, %c
 +  ret i32 %d
 +}
-diff --git a/test/CodeGen/RISCV/setcc.ll b/test/CodeGen/RISCV/setcc.ll
-new file mode 100644
-index 00000000000..9a379f2bfa1
---- /dev/null
-+++ b/test/CodeGen/RISCV/setcc.ll
-@@ -0,0 +1,114 @@
-+; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
-+; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
-+; RUN:   | FileCheck %s -check-prefix=RV32I
-+
-+; TODO: check the generated instructions for the equivalent of seqz, snez,
-+; sltz, sgtz map to something simple
-+
-+define i32 @eq(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: eq:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    xor a0, a0, a1
-+; RV32I-NEXT:    sltiu a0, a0, 1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp eq i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @ne(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: ne:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    xor a0, a0, a1
-+; RV32I-NEXT:    sltu a0, zero, a0
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp ne i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @ugt(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: ugt:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    sltu a0, a1, a0
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp ugt i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @uge(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: uge:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    sltu a0, a0, a1
-+; RV32I-NEXT:    xori a0, a0, 1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp uge i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @ult(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: ult:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    sltu a0, a0, a1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp ult i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @ule(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: ule:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    sltu a0, a1, a0
-+; RV32I-NEXT:    xori a0, a0, 1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp ule i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @sgt(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: sgt:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    slt a0, a1, a0
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp sgt i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @sge(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: sge:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    slt a0, a0, a1
-+; RV32I-NEXT:    xori a0, a0, 1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp sge i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @slt(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: slt:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    slt a0, a0, a1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp slt i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+define i32 @sle(i32 %a, i32 %b) nounwind {
-+; RV32I-LABEL: sle:
-+; RV32I:       # BB#0:
-+; RV32I-NEXT:    slt a0, a1, a0
-+; RV32I-NEXT:    xori a0, a0, 1
-+; RV32I-NEXT:    jalr zero, ra, 0
-+  %1 = icmp sle i32 %a, %b
-+  %2 = zext i1 %1 to i32
-+  ret i32 %2
-+}
-+
-+; TODO: check variants with an immediate?
 diff --git a/test/CodeGen/RISCV/sext-zext-trunc.ll b/test/CodeGen/RISCV/sext-zext-trunc.ll
 new file mode 100644
 index 00000000000..1855d55b4df

@@ -4,45 +4,49 @@ Subject: [RISCV] MC layer support for the standard RV64F instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCVInstrInfoF.td | 18 ++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoF.td | 22 ++++++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s       |  2 ++
  test/MC/RISCV/rv64f-invalid.s       |  9 +++++++++
- test/MC/RISCV/rv64f-valid.s         | 23 +++++++++++++++++++++++
- 4 files changed, 52 insertions(+)
+ test/MC/RISCV/rv64f-valid.s         | 37 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 70 insertions(+)
  create mode 100644 test/MC/RISCV/rv64f-invalid.s
  create mode 100644 test/MC/RISCV/rv64f-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index 23d66620be7..f21df218398 100644
+index 69cdc8d9ece..f231d6cc6d1 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
-@@ -111,3 +111,21 @@ def FMV_W_X : FPUnaryOp_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x"> {
+@@ -165,3 +165,25 @@ def FMV_W_X : FPUnaryOp_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x"> {
    let rs2 = 0b00000;
  }
  } // Predicates = [HasStdExtF]
 +
 +let Predicates = [HasStdExtF, IsRV64] in {
-+def FCVT_L_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.l.s"> {
++def FCVT_L_S  : FPUnaryOp_r_frm<0b1100000, GPR, FPR32, "fcvt.l.s"> {
 +  let rs2 = 0b00010;
 +}
++def           : FPUnaryOpDynFrmAlias<FCVT_L_S, "fcvt.l.s", GPR, FPR32>;
 +
-+def FCVT_LU_S  : FPUnaryOp_r<0b1100000, 0b111, GPR, FPR32, "fcvt.lu.s"> {
++def FCVT_LU_S  : FPUnaryOp_r_frm<0b1100000, GPR, FPR32, "fcvt.lu.s"> {
 +  let rs2 = 0b00011;
 +}
++def            : FPUnaryOpDynFrmAlias<FCVT_LU_S, "fcvt.lu.s", GPR, FPR32>;
 +
-+def FCVT_S_L : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.l"> {
++def FCVT_S_L : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.l"> {
 +  let rs2 = 0b00010;
 +}
++def          : FPUnaryOpDynFrmAlias<FCVT_S_L, "fcvt.s.l", FPR32, GPR>;
 +
-+def FCVT_S_LU : FPUnaryOp_r<0b1101000, 0b111, FPR32, GPR, "fcvt.s.lu"> {
++def FCVT_S_LU : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.lu"> {
 +  let rs2 = 0b00011;
 +}
++def           : FPUnaryOpDynFrmAlias<FCVT_S_LU, "fcvt.s.lu", FPR32, GPR>;
 +} // Predicates = [HasStdExtF, IsRV64]
 diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
-index 1a209a2b19b..cbc8d8c374a 100644
+index f22fa7ac5dd..ed9aaed1bca 100644
 --- a/test/MC/RISCV/rv32f-invalid.s
 +++ b/test/MC/RISCV/rv32f-invalid.s
-@@ -22,3 +22,5 @@ fmv.w.x a8, ft2 # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+@@ -30,3 +30,5 @@ fnmsub.s f18, f19, f20, f21, 0b111 # CHECK: :[[@LINE]]:30: error: operand must b
  
  # Using 'D' instructions for an 'F'-only target
  fadd.d ft0, ft1, ft2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
@@ -65,10 +69,10 @@ index 00000000000..698da796a7e
 +fcvt.s.lu a3, ft3 # CHECK: :[[@LINE]]:11: error: invalid operand for instruction
 diff --git a/test/MC/RISCV/rv64f-valid.s b/test/MC/RISCV/rv64f-valid.s
 new file mode 100644
-index 00000000000..c48aa3c6090
+index 00000000000..eda826dfd97
 --- /dev/null
 +++ b/test/MC/RISCV/rv64f-valid.s
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,37 @@
 +# RUN: llvm-mc %s -triple=riscv64 -mattr=+f -show-encoding \
 +# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
 +# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
@@ -92,6 +96,20 @@ index 00000000000..c48aa3c6090
 +# CHECK: encoding: [0xd3,0xf1,0x36,0xd0]
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fcvt.s.lu ft3, a3
++
++# Rounding modes
++# CHECK-INST: fcvt.l.s a4, ft4, rne
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.l.s a4, ft4, rne
++# CHECK-INST: fcvt.lu.s a5, ft5, rtz
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.lu.s a5, ft5, rtz
++# CHECK-INST: fcvt.s.l ft6, a6, rdn
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.s.l ft6, a6, rdn
++# CHECK-INST: fcvt.s.lu ft7, a7, rup
++# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
++fcvt.s.lu ft7, a7, rup
 -- 
 2.15.0
 

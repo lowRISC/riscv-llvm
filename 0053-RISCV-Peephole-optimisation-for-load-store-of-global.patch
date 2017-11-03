@@ -11,10 +11,10 @@ Subject: [RISCV] Peephole optimisation for load/store of global value or
  test/CodeGen/RISCV/byval.ll            | 12 ++---
  test/CodeGen/RISCV/fp128.ll            | 48 ++++++------------
  test/CodeGen/RISCV/inline-asm.ll       |  3 +-
- test/CodeGen/RISCV/mem.ll              | 19 +++----
+ test/CodeGen/RISCV/mem.ll              | 21 +++-----
  test/CodeGen/RISCV/mem64.ll            | 12 ++---
  test/CodeGen/RISCV/wide-mem.ll         |  6 +--
- 8 files changed, 132 insertions(+), 70 deletions(-)
+ 8 files changed, 132 insertions(+), 72 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 index 4119506fc21..ed41de2569e 100644
@@ -295,11 +295,14 @@ index c3ce8cdfc17..87723bcefd3 100644
  ; RV32I-NEXT:    add a0, a0, a1
  ; RV32I-NEXT:    #NO_APP
 diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
-index b06382f8742..ac95a57d11f 100644
+index b06382f8742..21f08c272ca 100644
 --- a/test/CodeGen/RISCV/mem.ll
 +++ b/test/CodeGen/RISCV/mem.ll
-@@ -166,14 +166,12 @@ define i32 @lw_sw_global(i32 %a) nounwind {
- ; TODO: the addi should be folded in to the lw/sw operations
+@@ -163,17 +163,14 @@ define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
+ @G = global i32 0
+ 
+ define i32 @lw_sw_global(i32 %a) nounwind {
+-; TODO: the addi should be folded in to the lw/sw operations
  ; RV32I-LABEL: lw_sw_global:
  ; RV32I:       # BB#0:
 -; RV32I-NEXT:    lui a1, %hi(G)
@@ -318,8 +321,11 @@ index b06382f8742..ac95a57d11f 100644
  ; RV32I-NEXT:    addi a0, a1, 0
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = load volatile i32, i32* @G
-@@ -189,10 +187,9 @@ define i32 @lw_sw_constant(i32 %a) nounwind {
- ; TODO: the addi should be folded in to the lw/sw
+@@ -186,13 +183,11 @@ define i32 @lw_sw_global(i32 %a) nounwind {
+ 
+ ; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
+ define i32 @lw_sw_constant(i32 %a) nounwind {
+-; TODO: the addi should be folded in to the lw/sw
  ; RV32I-LABEL: lw_sw_constant:
  ; RV32I:       # BB#0:
 -; RV32I-NEXT:    lui a1, 912092

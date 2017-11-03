@@ -1,0 +1,479 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add codegen for RV32F arithmetic and conversion operations
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp |  53 ++++++++-
+ lib/Target/RISCV/RISCVInstrInfoF.td    |  56 ++++++++++
+ test/CodeGen/RISCV/float-arith.ll      | 194 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/float-convert.ll    |  72 ++++++++++++
+ 4 files changed, 370 insertions(+), 5 deletions(-)
+ create mode 100644 test/CodeGen/RISCV/float-arith.ll
+ create mode 100644 test/CodeGen/RISCV/float-convert.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 0522d1f57a6..47d7f257106 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -45,6 +45,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   // Set up the register classes.
+   addRegisterClass(XLenVT, &RISCV::GPRRegClass);
+ 
++  if (Subtarget.hasStdExtF())
++    addRegisterClass(MVT::f32, &RISCV::FPR32RegClass);
++
+   // Compute derived properties from the register classes.
+   computeRegisterProperties(STI.getRegisterInfo());
+ 
+@@ -103,6 +106,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setOperationAction(ISD::CTLZ, XLenVT, Expand);
+   setOperationAction(ISD::CTPOP, XLenVT, Expand);
+ 
++  if (Subtarget.hasStdExtF()) {
++    setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
++    setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
++  }
++
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+   setOperationAction(ISD::BlockAddress, XLenVT, Custom);
+ 
+@@ -486,7 +494,10 @@ static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
+   unsigned XLen = DL.getLargestLegalIntTypeSizeInBits();
+   assert(XLen == 32 || XLen == 64);
+   MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
+-  assert(ValVT == XLenVT);
++  if (ValVT == MVT::f32) {
++    LocVT = MVT::i32;
++    LocInfo = CCValAssign::BCvt;
++  }
+   assert(LocVT == XLenVT);
+ 
+   // Any return value split in to more than two values can't be returned
+@@ -628,6 +639,7 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
+   MachineFunction &MF = DAG.getMachineFunction();
+   MachineRegisterInfo &RegInfo = MF.getRegInfo();
+   EVT LocVT = VA.getLocVT();
++  EVT ValVT = VA.getValVT();
+   SDValue Val;
+ 
+   unsigned VReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+@@ -639,8 +651,12 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
+     llvm_unreachable("Unexpected CCValAssign::LocInfo");
+   case CCValAssign::Full:
+   case CCValAssign::Indirect:
+-    return Val;
++    break;
++  case CCValAssign::BCvt:
++    Val = DAG.getNode(ISD::BITCAST, DL, ValVT, Val);
++    break;
+   }
++  return Val;
+ }
+ 
+ // The caller is responsible for loading the full value if the argument is
+@@ -860,6 +876,9 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+     switch (VA.getLocInfo()) {
+     case CCValAssign::Full:
+       break;
++    case CCValAssign::BCvt:
++      ArgValue = DAG.getNode(ISD::BITCAST, DL, VA.getLocVT(), ArgValue);
++      break;
+     case CCValAssign::Indirect: {
+       // Store the argument in a stack slot and pass its address.
+       SDValue SpillSlot = DAG.CreateStackTemporary(Outs[I].ArgVT);
+@@ -974,7 +993,16 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+     Chain = RetValue.getValue(1);
+     Glue = RetValue.getValue(2);
+ 
+-    assert(VA.getLocInfo() == CCValAssign::Full && "Unknown loc info!");
++    switch (VA.getLocInfo()) {
++    default:
++      llvm_unreachable("Unknown loc info!");
++    case CCValAssign::Full:
++      break;
++    case CCValAssign::BCvt:
++      RetValue = DAG.getNode(ISD::BITCAST, DL, VA.getValVT(), RetValue);
++      break;
++    }
++
+     InVals.push_back(RetValue);
+   }
+ 
+@@ -996,6 +1024,22 @@ bool RISCVTargetLowering::CanLowerReturn(
+   return true;
+ }
+ 
++static SDValue packIntoRegLoc(SelectionDAG &DAG, SDValue Val,
++                              const CCValAssign &VA, const SDLoc &DL) {
++  EVT LocVT = VA.getLocVT();
++
++  switch (VA.getLocInfo()) {
++  default:
++    llvm_unreachable("Unexpected CCValAssign::LocInfo");
++  case CCValAssign::Full:
++    break;
++  case CCValAssign::BCvt:
++    Val = DAG.getNode(ISD::BITCAST, DL, LocVT, Val);
++    break;
++  }
++  return Val;
++}
++
+ SDValue
+ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+                                  bool IsVarArg,
+@@ -1020,8 +1064,7 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+     SDValue Val = OutVals[i];
+     CCValAssign &VA = RVLocs[i];
+     assert(VA.isRegLoc() && "Can only return in registers!");
+-    assert(VA.getLocInfo() == CCValAssign::Full &&
+-           "Unexpected CCValAssign::LocInfo");
++    Val = packIntoRegLoc(DAG, Val, VA, DL);
+ 
+     Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), Val, Flag);
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
+index f231d6cc6d1..d77ba0832f5 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoF.td
++++ b/lib/Target/RISCV/RISCVInstrInfoF.td
+@@ -187,3 +187,59 @@ def FCVT_S_LU : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.lu"> {
+ }
+ def           : FPUnaryOpDynFrmAlias<FCVT_S_LU, "fcvt.s.lu", FPR32, GPR>;
+ } // Predicates = [HasStdExtF, IsRV64]
++
++//===----------------------------------------------------------------------===//
++// Pseudo-instructions and codegen patterns
++//===----------------------------------------------------------------------===//
++
++/// Generic pattern classes
++class PatFpr32Fpr32<SDPatternOperator OpNode, RVInstR Inst>
++    : Pat<(OpNode FPR32:$rs1, FPR32:$rs2), (Inst $rs1, $rs2)>;
++
++class PatFpr32Fpr32DynFrm<SDPatternOperator OpNode, RVInstRFrm Inst>
++    : Pat<(OpNode FPR32:$rs1, FPR32:$rs2), (Inst $rs1, $rs2, 0b111)>;
++
++let Predicates = [HasStdExtF] in {
++
++/// Float conversion operations
++
++// Moves (no conversion)
++def : Pat<(bitconvert GPR:$rs1), (FMV_W_X GPR:$rs1)>;
++def : Pat<(bitconvert FPR32:$rs1), (FMV_X_W FPR32:$rs1)>;
++
++// FP->[u]int. Round-to-zero must be used
++def : Pat<(fp_to_sint FPR32:$rs1), (FCVT_W_S $rs1, 0b001)>;
++def : Pat<(fp_to_uint FPR32:$rs1), (FCVT_WU_S $rs1, 0b001)>;
++
++// [u]int->fp. Match GCC and default to using dynamic rounding mode.
++def : Pat<(sint_to_fp GPR:$rs1), (FCVT_S_W $rs1, 0b111)>;
++def : Pat<(uint_to_fp GPR:$rs1), (FCVT_S_WU $rs1, 0b111)>;
++
++/// Float arithmetic operations
++
++def : PatFpr32Fpr32DynFrm<fadd, FADD_S>;
++def : PatFpr32Fpr32DynFrm<fsub, FSUB_S>;
++def : PatFpr32Fpr32DynFrm<fmul, FMUL_S>;
++def : PatFpr32Fpr32DynFrm<fdiv, FDIV_S>;
++
++def : Pat<(fsqrt FPR32:$rs1), (FSQRT_S FPR32:$rs1, 0b111)>;
++
++def : Pat<(fneg FPR32:$rs1), (FSGNJN_S $rs1, $rs1)>;
++def : Pat<(fabs FPR32:$rs1), (FSGNJX_S $rs1, $rs1)>;
++
++def : PatFpr32Fpr32<fcopysign, FSGNJ_S>;
++def : Pat<(fcopysign FPR32:$rs1, (fneg FPR32:$rs2)), (FSGNJN_S $rs1, $rs2)>;
++
++// The RISC-V 2.2 user-level ISA spec defines fmin and fmax as returning the
++// canonical NaN when giving a signaling NaN. This doesn't match the LLVM
++// behaviour (see https://bugs.llvm.org/show_bug.cgi?id=27363). However, the
++// draft 2.3 ISA spec changes the definition of fmin and fmax in a way that
++// matches LLVM's fminnum and fmaxnum
++// <https://github.com/riscv/riscv-isa-manual/commit/cd20cee7efd9bac7c5aa127ec3b451749d2b3cce>.
++def : PatFpr32Fpr32<fminnum, FMIN_S>;
++def : PatFpr32Fpr32<fmaxnum, FMAX_S>;
++
++def : PatFpr32Fpr32<setoeq, FEQ_S>;
++def : PatFpr32Fpr32<setolt, FLT_S>;
++def : PatFpr32Fpr32<setole, FLE_S>;
++} // Predicates = [HasStdExtF]
+diff --git a/test/CodeGen/RISCV/float-arith.ll b/test/CodeGen/RISCV/float-arith.ll
+new file mode 100644
+index 00000000000..af49e48a40d
+--- /dev/null
++++ b/test/CodeGen/RISCV/float-arith.ll
+@@ -0,0 +1,194 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+f -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IF %s
++
++define float @fadd_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fadd_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %a, %b
++  ret float %1
++}
++
++define float @fsub_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fsub_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fsub.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fsub float %a, %b
++  ret float %1
++}
++
++define float @fmul_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fmul_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fmul.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fmul float %a, %b
++  ret float %1
++}
++
++define float @fdiv_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fdiv_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fdiv.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fdiv float %a, %b
++  ret float %1
++}
++
++declare float @llvm.sqrt.f32(float)
++
++define float @fsqrt_s(float %a) nounwind {
++; RV32IF-LABEL: fsqrt_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a0
++; RV32IF-NEXT:    fsqrt.s ft0, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = call float @llvm.sqrt.f32(float %a)
++  ret float %1
++}
++
++declare float @llvm.copysign.f32(float, float)
++
++define float @fsgnj_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fsgnj_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fsgnj.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = call float @llvm.copysign.f32(float %a, float %b)
++  ret float %1
++}
++
++define float @fneg_s(float %a) nounwind {
++; TODO: doesn't test the fneg selection pattern because
++; DAGCombiner::visitBITCAST will generate a xor on the incoming integer
++; argument
++; RV32IF-LABEL: fneg_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    lui a1, 524288
++; RV32IF-NEXT:    addi a1, a1, 0
++; RV32IF-NEXT:    xor a0, a0, a1
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fsub float -0.0, %a
++  ret float %1
++}
++
++define float @fsgnjn_s(float %a, float %b) nounwind {
++; TODO: fsgnjn.s isn't selected because DAGCombiner::visitBITCAST will convert
++; (bitconvert (fneg x)) to a xor
++; RV32IF-LABEL: fsgnjn_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    lui a2, 524288
++; RV32IF-NEXT:    addi a2, a2, 0
++; RV32IF-NEXT:    xor a1, a1, a2
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fsgnj.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fsub float -0.0, %b
++  %2 = call float @llvm.copysign.f32(float %a, float %1)
++  ret float %2
++}
++
++declare float @llvm.fabs.f32(float)
++
++define float @fabs_s(float %a) nounwind {
++; TODO: doesn't test the fabs selection pattern because
++; DAGCombiner::visitBITCAST will generate an and on the incoming integer
++; argument
++; RV32IF-LABEL: fabs_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    lui a1, 524288
++; RV32IF-NEXT:    addi a1, a1, -1
++; RV32IF-NEXT:    and a0, a0, a1
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = call float @llvm.fabs.f32(float %a)
++  ret float %1
++}
++
++; TODO: implement a test for fsgnjx
++;define float @fsgnjx_s(float %a, float %b) nounwind {
++;}
++
++declare float @llvm.minnum.f32(float, float)
++
++define float @fmin_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fmin_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fmin.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = call float @llvm.minnum.f32(float %a, float %b)
++  ret float %1
++}
++
++declare float @llvm.maxnum.f32(float, float)
++
++define float @fmax_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fmax_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fmax.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = call float @llvm.maxnum.f32(float %a, float %b)
++  ret float %1
++}
++
++define i32 @feq_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: feq_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    feq.s a0, ft1, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fcmp oeq float %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @flt_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: flt_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    flt.s a0, ft1, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fcmp olt float %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @fle_s(float %a, float %b) nounwind {
++; RV32IF-LABEL: fle_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fle.s a0, ft1, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fcmp ole float %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
+diff --git a/test/CodeGen/RISCV/float-convert.ll b/test/CodeGen/RISCV/float-convert.ll
+new file mode 100644
+index 00000000000..066e987a005
+--- /dev/null
++++ b/test/CodeGen/RISCV/float-convert.ll
+@@ -0,0 +1,72 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+f -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IF %s
++
++define i32 @fcvt_w_s(float %a) nounwind {
++; RV32IF-LABEL: fcvt_w_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a0
++; RV32IF-NEXT:    fcvt.w.s a0, ft0, rtz
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fptosi float %a to i32
++  ret i32 %1
++}
++
++define i32 @fcvt_wu_s(float %a) nounwind {
++; RV32IF-LABEL: fcvt_wu_s:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a0
++; RV32IF-NEXT:    fcvt.wu.s a0, ft0, rtz
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fptoui float %a to i32
++  ret i32 %1
++}
++
++define i32 @fmv_x_w(float %a, float %b) nounwind {
++; Ensure fmv.x.w is generated even for a soft float calling convention
++; RV32IF-LABEL: fmv_x_w:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %a, %b
++  %2 = bitcast float %1 to i32
++  ret i32 %2
++}
++
++define float @fcvt_s_w(i32 %a) nounwind {
++; RV32IF-LABEL: fcvt_s_w:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fcvt.s.w ft0, a0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = sitofp i32 %a to float
++  ret float %1
++}
++
++define float @fcvt_s_wu(i32 %a) nounwind {
++; RV32IF-LABEL: fcvt_s_wu:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fcvt.s.wu ft0, a0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = uitofp i32 %a to float
++  ret float %1
++}
++
++define float @fmv_w_x(i32 %a, i32 %b) nounwind {
++; Ensure fmv.w.x is generated even for a soft float calling convention
++; RV32IF-LABEL: fmv_w_x:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = bitcast i32 %a to float
++  %2 = bitcast i32 %b to float
++  %3 = fadd float %1, %2
++  ret float %3
++}
+-- 
+2.15.0
+

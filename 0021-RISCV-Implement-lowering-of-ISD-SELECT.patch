@@ -1,28 +1,37 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] Implement lowering of ISD::SELECT_CC
+Subject: [RISCV] Implement lowering of ISD::SELECT
 
+Although ISD::SELECT_CC is a more natural match for RISCVISD::SELECT_CC (and
+ultimately the integer RISC-V conditional branch instructions), we choose to
+expand ISD::SELECT_CC and lower ISD::SELECT. The appropriate compare+branch
+will be created in the case where an ISD::SELECT condition value is created by
+an ISD::SETCC node, which operates on XLen types. Other datatypes such as
+floating point don't have conditional branch instructions, and lowering
+ISD::SELECT allows more flexibility for handling these cases.
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp | 128 +++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelLowering.h   |   8 ++-
+ lib/Target/RISCV/RISCVISelLowering.cpp | 152 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |   8 +-
  lib/Target/RISCV/RISCVInstrInfo.td     |  15 ++++
- test/CodeGen/RISCV/select-cc.ll        | 100 ++++++++++++++++++++++++++
- 4 files changed, 250 insertions(+), 1 deletion(-)
+ test/CodeGen/RISCV/select-cc.ll        | 100 ++++++++++++++++++++++
+ 4 files changed, 274 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 98f7aa16e2e..4f692baaa36 100644
+index 98f7aa16e2e..606365ea59b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -56,6 +56,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -56,6 +56,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
  
    setOperationAction(ISD::BR_CC, XLenVT, Expand);
-+  setOperationAction(ISD::SELECT_CC, XLenVT, Custom);
++  setOperationAction(ISD::SELECT, XLenVT, Custom);
++  setOperationAction(ISD::SELECT_CC, XLenVT, Expand);
++
    setBooleanContents(ZeroOrOneBooleanContent);
  
    // Function alignments (log2).
-@@ -63,6 +64,45 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+@@ -63,6 +66,45 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
    setPrefFunctionAlignment(3);
  }
  
@@ -68,34 +77,55 @@ index 98f7aa16e2e..4f692baaa36 100644
  SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
    switch (Op.getOpcode()) {
-@@ -70,6 +110,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+@@ -70,6 +112,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
      report_fatal_error("unimplemented operand");
    case ISD::GlobalAddress:
      return lowerGlobalAddress(Op, DAG);
-+  case ISD::SELECT_CC:
-+    return lowerSELECT_CC(Op, DAG);
++  case ISD::SELECT:
++    return lowerSELECT(Op, DAG);
    }
  }
  
-@@ -95,6 +137,90 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+@@ -95,6 +139,112 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    }
  }
  
-+SDValue RISCVTargetLowering::lowerSELECT_CC(SDValue Op,
-+                                            SelectionDAG &DAG) const {
-+  SDValue LHS = Op.getOperand(0);
-+  SDValue RHS = Op.getOperand(1);
-+  SDValue TrueV = Op.getOperand(2);
-+  SDValue FalseV = Op.getOperand(3);
-+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
++SDValue RISCVTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
++  SDValue CondV = Op.getOperand(0);
++  SDValue TrueV = Op.getOperand(1);
++  SDValue FalseV = Op.getOperand(2);
 +  SDLoc DL(Op);
++  MVT XLenVT = Subtarget.getXLenVT();
 +
-+  normaliseSetCC(LHS, RHS, CC);
++  // If the result type is XLenVT and CondV is the output of a SETCC node
++  // which also operated on XLenVT inputs, then merge the SETCC node into the
++  // lowered RISCVISD::SELECT_CC to take advantage of the integer
++  // compare+branch instructions. i.e.:
++  // (select (setcc lhs, rhs, cc), truev, falsev)
++  // -> (riscvisd::select_cc lhs, rhs, cc, truev, falsev)
++  if (Op.getSimpleValueType() == XLenVT && CondV.getOpcode() == ISD::SETCC &&
++      CondV.getOperand(0).getSimpleValueType() == XLenVT) {
++    SDValue LHS = CondV.getOperand(0);
++    SDValue RHS = CondV.getOperand(1);
++    auto CC = cast<CondCodeSDNode>(CondV.getOperand(2));
++    ISD::CondCode CCVal = CC->get();
 +
-+  SDValue TargetCC = DAG.getConstant(CC, DL, Subtarget.getXLenVT());
++    normaliseSetCC(LHS, RHS, CCVal);
++
++    SDValue TargetCC = DAG.getConstant(CCVal, DL, XLenVT);
++    SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
++    SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
++    return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
++  }
++
++  // Otherwise:
++  // (select condv, truev, falsev)
++  // -> (riscvisd::select_cc condv, zero, setne, truev, falsev)
++  SDValue Zero = DAG.getConstant(0, DL, XLenVT);
++  SDValue SetNE = DAG.getConstant(ISD::SETNE, DL, XLenVT);
 +
 +  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-+  SDValue Ops[] = {LHS, RHS, TargetCC, TrueV, FalseV};
++  SDValue Ops[] = {CondV, Zero, SetNE, TrueV, FalseV};
 +
 +  return DAG.getNode(RISCVISD::SELECT_CC, DL, VTs, Ops);
 +}
@@ -106,7 +136,8 @@ index 98f7aa16e2e..4f692baaa36 100644
 +  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
 +  DebugLoc DL = MI.getDebugLoc();
 +
-+  assert(MI.getOpcode() == RISCV::Select && "Unexpected instr type to insert");
++  assert(MI.getOpcode() == RISCV::Select_GPR_Using_CC_GPR &&
++         "Unexpected instr type to insert");
 +
 +  // To "insert" a SELECT instruction, we actually have to insert the triangle
 +  // control-flow pattern.  The incoming instruction knows the destination vreg
@@ -168,7 +199,7 @@ index 98f7aa16e2e..4f692baaa36 100644
  // Calling Convention Implementation.
  #include "RISCVGenCallingConv.inc"
  
-@@ -326,6 +452,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -326,6 +476,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
      return "RISCVISD::RET_FLAG";
    case RISCVISD::CALL:
      return "RISCVISD::CALL";
@@ -178,7 +209,7 @@ index 98f7aa16e2e..4f692baaa36 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index dfb4824cc18..f2e6c96044c 100644
+index dfb4824cc18..ab965195eb4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -25,7 +25,8 @@ namespace RISCVISD {
@@ -206,12 +237,12 @@ index dfb4824cc18..f2e6c96044c 100644
      return true;
    }
    SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
-+  SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
++  SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
  };
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 23f218fda8f..03e042fc632 100644
+index 23f218fda8f..bc1828ffbdc 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -22,6 +22,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
@@ -248,11 +279,11 @@ index 23f218fda8f..03e042fc632 100644
  def : PatGprSimm12<setult, SLTIU>;
  
 +let usesCustomInserter = 1 in
-+def Select : Pseudo<(outs GPR:$dst),
-+                    (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src,
-+                     GPR:$src2),
-+                    [(set XLenVT:$dst, (SelectCC GPR:$lhs, GPR:$rhs,
-+                     (XLenVT imm:$imm), GPR:$src, GPR:$src2))]>;
++def Select_GPR_Using_CC_GPR
++    : Pseudo<(outs GPR:$dst),
++             (ins GPR:$lhs, GPR:$rhs, ixlenimm:$imm, GPR:$src, GPR:$src2),
++             [(set XLenVT:$dst, (SelectCC GPR:$lhs, GPR:$rhs,
++              (XLenVT imm:$imm), GPR:$src, GPR:$src2))]>;
 +
  /// Branches and jumps
  

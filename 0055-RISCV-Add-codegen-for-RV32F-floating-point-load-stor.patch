@@ -1,0 +1,240 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add codegen for RV32F floating point load/store
+
+As part of this, offer support for load/store from the constant pool. This is
+used to materialise f32 constants.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 26 +++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  1 +
+ lib/Target/RISCV/RISCVInstrInfoF.td    | 11 +++++
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  3 ++
+ test/CodeGen/RISCV/float-imm.ll        | 27 +++++++++++
+ test/CodeGen/RISCV/float-mem.ll        | 84 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 152 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/float-imm.ll
+ create mode 100644 test/CodeGen/RISCV/float-mem.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 47d7f257106..acab7e89fd9 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -113,6 +113,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+   setOperationAction(ISD::BlockAddress, XLenVT, Custom);
++  setOperationAction(ISD::ConstantPool, XLenVT, Custom);
+ 
+   setBooleanContents(ZeroOrOneBooleanContent);
+ 
+@@ -172,6 +173,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
+     return lowerGlobalAddress(Op, DAG);
+   case ISD::BlockAddress:
+     return lowerBlockAddress(Op, DAG);
++  case ISD::ConstantPool:
++    return lowerConstantPool(Op, DAG);
+   case ISD::SELECT:
+     return lowerSELECT(Op, DAG);
+   case ISD::VASTART:
+@@ -225,6 +228,29 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
+   }
+ }
+ 
++SDValue RISCVTargetLowering::lowerConstantPool(SDValue Op,
++                                               SelectionDAG &DAG) const {
++  SDLoc DL(Op);
++  EVT Ty = Op.getValueType();
++  ConstantPoolSDNode *N = cast<ConstantPoolSDNode>(Op);
++  const Constant *CPA = N->getConstVal();
++  int64_t Offset = N->getOffset();
++  unsigned Alignment = N->getAlignment();
++
++  if (!isPositionIndependent()) {
++    SDValue CPAHi =
++        DAG.getTargetConstantPool(CPA, Ty, Alignment, Offset, RISCVII::MO_HI);
++    SDValue CPALo =
++        DAG.getTargetConstantPool(CPA, Ty, Alignment, Offset, RISCVII::MO_LO);
++    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, CPAHi), 0);
++    SDValue MNLo =
++        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, CPALo), 0);
++    return MNLo;
++  } else {
++    report_fatal_error("Unable to lowerConstantPool");
++  }
++}
++
+ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
+                                                  SelectionDAG &DAG) const {
+   SDLoc DL(Op);
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 3aa88424a02..6087baf6429 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -80,6 +80,7 @@ private:
+   }
+   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
++  SDValue lowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
+   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
+index d77ba0832f5..0b4fc31fe75 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoF.td
++++ b/lib/Target/RISCV/RISCVInstrInfoF.td
+@@ -242,4 +242,15 @@ def : PatFpr32Fpr32<fmaxnum, FMAX_S>;
+ def : PatFpr32Fpr32<setoeq, FEQ_S>;
+ def : PatFpr32Fpr32<setolt, FLT_S>;
+ def : PatFpr32Fpr32<setole, FLE_S>;
++
++/// Loads
++
++defm : LdPat<load, FLW>;
++
++/// Stores
++
++def : Pat<(store FPR32:$rs2, GPR:$rs1), (FSW FPR32:$rs2, GPR:$rs1, 0)>;
++def : Pat<(store FPR32:$rs2, (add GPR:$rs1, simm12:$imm12)),
++            (FSW FPR32:$rs2, GPR:$rs1, simm12:$imm12)>;
++
+ } // Predicates = [HasStdExtF]
+diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
+index b72b45c3dcc..e0100b1679b 100644
+--- a/lib/Target/RISCV/RISCVMCInstLower.cpp
++++ b/lib/Target/RISCV/RISCVMCInstLower.cpp
+@@ -89,6 +89,9 @@ bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+     MCOp = lowerSymbolOperand(
+         MO, AP.GetExternalSymbolSymbol(MO.getSymbolName()), AP);
+     break;
++  case MachineOperand::MO_ConstantPoolIndex:
++    MCOp = lowerSymbolOperand(MO, AP.GetCPISymbol(MO.getIndex()), AP);
++    break;
+   }
+   return true;
+ }
+diff --git a/test/CodeGen/RISCV/float-imm.ll b/test/CodeGen/RISCV/float-imm.ll
+new file mode 100644
+index 00000000000..cb84377e05d
+--- /dev/null
++++ b/test/CodeGen/RISCV/float-imm.ll
+@@ -0,0 +1,27 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+f -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IF %s
++
++define float @float_imm() nounwind {
++; RV32IF-LABEL: float_imm:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    lui a0, 263313
++; RV32IF-NEXT:    addi a0, a0, -37
++; RV32IF-NEXT:    jalr zero, ra, 0
++  ret float 3.14159274101257324218750
++}
++
++define float @float_imm_op(float %a) nounwind {
++; TODO: addi should be folded in to the flw
++; RV32IF-LABEL: float_imm_op:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a0
++; RV32IF-NEXT:    lui a0, %hi(.LCPI1_0)
++; RV32IF-NEXT:    addi a0, a0, %lo(.LCPI1_0)
++; RV32IF-NEXT:    flw ft1, 0(a0)
++; RV32IF-NEXT:    fadd.s ft0, ft0, ft1
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %a, 1.0
++  ret float %1
++}
+diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
+new file mode 100644
+index 00000000000..b808a927804
+--- /dev/null
++++ b/test/CodeGen/RISCV/float-mem.ll
+@@ -0,0 +1,84 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+f -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IF %s
++
++define float @flw(float *%a) nounwind {
++; RV32IF-LABEL: flw:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    flw ft0, 12(a0)
++; RV32IF-NEXT:    flw ft1, 0(a0)
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = load float, float* %a
++  %2 = getelementptr float, float* %a, i32 3
++  %3 = load float, float* %2
++; Use both loaded values in an FP op to ensure an flw is used, even for the
++; soft float ABI
++  %4 = fadd float %1, %3
++  ret float %4
++}
++
++define void @fsw(float *%a, float %b, float %c) nounwind {
++; Use %b and %c in an FP op to ensure floating point registers are used, even
++; for the soft float ABI
++; RV32IF-LABEL: fsw:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a2
++; RV32IF-NEXT:    fmv.w.x ft1, a1
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    fsw ft0, 32(a0)
++; RV32IF-NEXT:    fsw ft0, 0(a0)
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %b, %c
++  store float %1, float* %a
++  %2 = getelementptr float, float* %a, i32 8
++  store float %1, float* %2
++  ret void
++}
++
++; Check load and store to a global
++@G = global float 0.0
++
++define float @flw_fsw_global(float %a, float %b) nounwind {
++; Use %a and %b in an FP op to ensure floating point registers are used, even
++; for the soft float ABI
++; RV32IF-LABEL: flw_fsw_global:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a1
++; RV32IF-NEXT:    fmv.w.x ft1, a0
++; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
++; RV32IF-NEXT:    lui a0, %hi(G)
++; RV32IF-NEXT:    flw ft1, %lo(G)(a0)
++; RV32IF-NEXT:    fsw ft0, %lo(G)(a0)
++; RV32IF-NEXT:    lui a0, %hi(G+36)
++; RV32IF-NEXT:    flw ft1, %lo(G+36)(a0)
++; RV32IF-NEXT:    fsw ft0, %lo(G+36)(a0)
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = fadd float %a, %b
++  %2 = load volatile float, float* @G
++  store float %1, float* @G
++  %3 = getelementptr float, float* @G, i32 9
++  %4 = load volatile float, float* %3
++  store float %1, float* %3
++  ret float %1
++}
++
++; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
++define float @flw_fsw_constant(float %a) nounwind {
++; RV32IF-LABEL: flw_fsw_constant:
++; RV32IF:       # BB#0:
++; RV32IF-NEXT:    fmv.w.x ft0, a0
++; RV32IF-NEXT:    lui a0, 912092
++; RV32IF-NEXT:    flw ft1, -273(a0)
++; RV32IF-NEXT:    fadd.s ft0, ft0, ft1
++; RV32IF-NEXT:    fsw ft0, -273(a0)
++; RV32IF-NEXT:    fmv.x.w a0, ft0
++; RV32IF-NEXT:    jalr zero, ra, 0
++  %1 = inttoptr i32 3735928559 to float*
++  %2 = load volatile float, float* %1
++  %3 = fadd float %a, %2
++  store float %3, float* %1
++  ret float %3
++}
+-- 
+2.15.0
+

@@ -76,7 +76,7 @@ index e1b5036f491..65f80d77570 100644
      llvm_unreachable("Can't load this register from stack slot");
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9259846ef18..de369095867 100644
+index 72d21bde0f5..d873b6f3b1e 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -105,12 +105,20 @@ def simm21_lsb0 : Operand<OtherVT> {

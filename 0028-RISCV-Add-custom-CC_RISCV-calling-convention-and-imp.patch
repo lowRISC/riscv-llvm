@@ -72,10 +72,10 @@ index 0b7a523424c..d2b17c64c9c 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d24e8d2d3dd..52ed6e6234f 100644
+index 978366a3df4..c3f90ae0db4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -309,7 +309,241 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -331,7 +331,241 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -318,7 +318,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
  
  // Transform physical registers into virtual registers.
  SDValue RISCVTargetLowering::LowerFormalArguments(
-@@ -326,8 +560,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -348,8 +582,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -328,7 +328,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -335,25 +569,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -357,25 +591,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -384,7 +384,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
    }
    return Chain;
  }
-@@ -373,6 +619,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -395,6 +641,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    CallingConv::ID CallConv = CLI.CallConv;
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -392,7 +392,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
  
    if (IsVarArg) {
      report_fatal_error("LowerCall with varargs not implemented");
-@@ -383,44 +630,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -405,44 +652,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Analyze the operands of the call, assigning locations to each operand.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -505,7 +505,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -470,7 +778,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -492,7 +800,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Assign locations to each value returned by this call.
    SmallVector<CCValAssign, 16> RVLocs;
    CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
@@ -514,7 +514,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
  
    // Copy all of the result registers out of their specified physreg.
    for (auto &VA : RVLocs) {
-@@ -480,12 +788,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -502,12 +810,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      Chain = RetValue.getValue(1);
      Glue = RetValue.getValue(2);
  
@@ -544,7 +544,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -503,17 +827,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -525,17 +849,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
    CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                   *DAG.getContext());
  
@@ -569,7 +569,7 @@ index d24e8d2d3dd..52ed6e6234f 100644
      // Guarantee that all emitted copies are stuck together.
      Flag = Chain.getValue(1);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index e688576ef88..3d63482388f 100644
+index e2d6b1bcbc6..a796684b234 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -48,12 +48,22 @@ public:
