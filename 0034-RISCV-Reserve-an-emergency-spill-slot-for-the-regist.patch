@@ -44,7 +44,7 @@ index d9ca59c2200..33de593d6ce 100644
 +  }
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index f4c9c6e6540..fdd379fd7e6 100644
+index 35426cfc706..563156a91d0 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -33,6 +33,9 @@ public:

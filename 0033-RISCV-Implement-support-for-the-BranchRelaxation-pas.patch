@@ -195,7 +195,7 @@ index 958435ab32e..c78406afc06 100644
 +  }
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index b5ceb38f0bf..7547f8ba1c6 100644
+index 50f115bb1b9..533a11a4519 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -42,6 +42,8 @@ public:

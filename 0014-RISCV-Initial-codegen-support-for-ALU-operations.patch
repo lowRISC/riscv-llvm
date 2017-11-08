@@ -315,7 +315,7 @@ index 00000000000..fd3b258e26c
 +                                      MachineBasicBlock &MBB) const {}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
 new file mode 100644
-index 00000000000..14772ddac4a
+index 00000000000..71f85864a39
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -0,0 +1,35 @@
@@ -335,7 +335,7 @@ index 00000000000..14772ddac4a
 +#ifndef LLVM_LIB_TARGET_RISCV_RISCVFRAMELOWERING_H
 +#define LLVM_LIB_TARGET_RISCV_RISCVFRAMELOWERING_H
 +
-+#include "llvm/Target/TargetFrameLowering.h"
++#include "llvm/CodeGen/TargetFrameLowering.h"
 +
 +namespace llvm {
 +class RISCVSubtarget;
@@ -706,7 +706,7 @@ index 00000000000..92db5358ce4
 +RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
 new file mode 100644
-index 00000000000..50404d5554d
+index 00000000000..0b3cd4d2ed1
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -0,0 +1,32 @@
@@ -727,7 +727,7 @@ index 00000000000..50404d5554d
 +#define LLVM_LIB_TARGET_RISCV_RISCVINSTRINFO_H
 +
 +#include "RISCVRegisterInfo.h"
-+#include "llvm/Target/TargetInstrInfo.h"
++#include "llvm/CodeGen/TargetInstrInfo.h"
 +
 +#define GET_INSTRINFO_HEADER
 +#include "RISCVGenInstrInfo.inc"
@@ -886,7 +886,7 @@ index 00000000000..1ac8d982ff9
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 new file mode 100644
-index 00000000000..4f6c528061c
+index 00000000000..9447f9e7ec3
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -0,0 +1,61 @@
@@ -910,9 +910,9 @@ index 00000000000..4f6c528061c
 +#include "llvm/CodeGen/MachineFunction.h"
 +#include "llvm/CodeGen/MachineInstrBuilder.h"
 +#include "llvm/CodeGen/RegisterScavenging.h"
++#include "llvm/CodeGen/TargetFrameLowering.h"
++#include "llvm/CodeGen/TargetInstrInfo.h"
 +#include "llvm/Support/ErrorHandling.h"
-+#include "llvm/Target/TargetFrameLowering.h"
-+#include "llvm/Target/TargetInstrInfo.h"
 +
 +#define GET_REGINFO_TARGET_DESC
 +#include "RISCVGenRegisterInfo.inc"

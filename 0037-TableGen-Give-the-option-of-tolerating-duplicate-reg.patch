@@ -38,10 +38,10 @@ index 7c919ffec7b..09d2092d43b 100644
  
  } // end namespace llvm
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index d36fd07b783..4fd9b4e3dfb 100644
+index 7dc2aec324e..4a195221b23 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
-@@ -1154,6 +1154,12 @@ class AsmParser {
+@@ -1160,6 +1160,12 @@ class AsmParser {
    // several registers share the same alias (i.e. not a 1:1 mapping).
    bit ShouldEmitMatchRegisterAltName = 0;
  
@@ -123,7 +123,7 @@ index 7e510f0c2fd..d493dbbc372 100644
    }
    
 diff --git a/utils/TableGen/AsmMatcherEmitter.cpp b/utils/TableGen/AsmMatcherEmitter.cpp
-index fd1d7e0dba4..6781ab52e35 100644
+index d279e8c3ae9..25360cab08c 100644
 --- a/utils/TableGen/AsmMatcherEmitter.cpp
 +++ b/utils/TableGen/AsmMatcherEmitter.cpp
 @@ -2438,7 +2438,9 @@ static void emitMatchRegisterName(CodeGenTarget &Target, Record *AsmParser,

@@ -36,10 +36,10 @@ index 68cac22a99e..09f4db82142 100644
  //  Integer Result Expansion
  //===----------------------------------------------------------------------===//
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeTypes.h b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-index c46d1b04804..20afd5831b1 100644
+index 094afe2830b..2f13375e908 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeTypes.h
 +++ b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-@@ -313,6 +313,7 @@ private:
+@@ -314,6 +314,7 @@ private:
    SDValue PromoteIntOp_MSCATTER(MaskedScatterSDNode *N, unsigned OpNo);
    SDValue PromoteIntOp_MGATHER(MaskedGatherSDNode *N, unsigned OpNo);
    SDValue PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo);

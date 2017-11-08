@@ -16,7 +16,7 @@ Subject: [RISCV] Support for function calls
  create mode 100644 test/CodeGen/RISCV/calls.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 14772ddac4a..da4f266c931 100644
+index 71f85864a39..0b2c7a40298 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -30,6 +30,12 @@ public:
@@ -295,7 +295,7 @@ index a354a34fb43..ef0051ed56e 100644
      MCOp = MCOperand::createImm(MO.getImm());
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index fb1cf6d198b..cbb55206b5a 100644
+index 5d64de23ba2..cd658d7e2d9 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -88,3 +88,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

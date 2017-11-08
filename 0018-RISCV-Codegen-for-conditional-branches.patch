@@ -80,7 +80,7 @@ index bf93617115f..670a72047d2 100644
 +    llvm_unreachable("Can't load this register from stack slot");
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 541b8d0e25d..35dcefa761a 100644
+index 8f0c2c4f7eb..05c8378445c 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -30,7 +30,17 @@ public:
@@ -179,7 +179,7 @@ index 4cc8cc8c0c2..a354a34fb43 100644
      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 4f6c528061c..fb1cf6d198b 100644
+index 9447f9e7ec3..5d64de23ba2 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -50,10 +50,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {

@@ -142,7 +142,7 @@ index a61ec7feb9e..d9ca59c2200 100644
  
  void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 98325ffd571..f4c9c6e6540 100644
+index 9cde60f5352..35426cfc706 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -46,6 +46,9 @@ protected:
@@ -156,7 +156,7 @@ index 98325ffd571..f4c9c6e6540 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index d783bae3272..b55d823cce9 100644
+index a525359ed0a..4dc1892237e 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -64,6 +64,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

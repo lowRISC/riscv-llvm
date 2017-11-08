@@ -249,7 +249,7 @@ index 3d78922a1f3..0413128b8fa 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index f9ff0ccb8d2..980d9ce299e 100644
+index 7f118ddc21f..b6faabb7143 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

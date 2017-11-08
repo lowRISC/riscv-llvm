@@ -375,7 +375,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 4f15668311e..d783bae3272 100644
+index 719741dcbaa..a525359ed0a 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -13,6 +13,7 @@

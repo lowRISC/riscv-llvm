@@ -11,7 +11,7 @@ Upstream commit: https://reviews.llvm.org/rL285708
  3 files changed, 58 insertions(+)
 
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index a658f06a682..f8fec5d0da7 100644
+index 6ae866239b1..c2dd5f6fb73 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,6 +66,8 @@ public:
@@ -24,7 +24,7 @@ index a658f06a682..f8fec5d0da7 100644
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 65530e08ece..69c99ac907a 100644
+index 6412bc9511f..4f0a30042b7 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -41,6 +41,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -46,7 +46,7 @@ index 65530e08ece..69c99ac907a 100644
    }
  }
  
-@@ -273,6 +278,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -274,6 +279,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -55,7 +55,7 @@ index 65530e08ece..69c99ac907a 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -398,6 +405,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -399,6 +406,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -64,7 +64,7 @@ index 65530e08ece..69c99ac907a 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -647,6 +656,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -649,6 +658,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -73,7 +73,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1183,6 +1194,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1185,6 +1196,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -81,7 +81,7 @@ index 65530e08ece..69c99ac907a 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1212,6 +1224,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1214,6 +1226,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -89,7 +89,7 @@ index 65530e08ece..69c99ac907a 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1266,6 +1279,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1268,6 +1281,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -97,7 +97,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1289,6 +1303,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1291,6 +1305,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -105,7 +105,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1333,6 +1348,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1335,6 +1350,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -113,7 +113,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1349,6 +1365,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1351,6 +1367,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -121,7 +121,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1383,6 +1400,8 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1385,6 +1402,8 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -130,7 +130,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1469,6 +1488,8 @@ bool Triple::isLittleEndian() const {
+@@ -1471,6 +1490,8 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -140,7 +140,7 @@ index 65530e08ece..69c99ac907a 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index 849d2ee12fb..a881d711ee1 100644
+index 375993e8c1a..3b5c4b25aab 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
 @@ -276,6 +276,23 @@ TEST(TripleTest, ParsedIDs) {

@@ -190,7 +190,7 @@ index fd3b258e26c..6811633d7ea 100644
 +  return;
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index da4f266c931..98325ffd571 100644
+index 0b2c7a40298..9cde60f5352 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -24,11 +24,15 @@ public:
@@ -224,7 +224,7 @@ index da4f266c931..98325ffd571 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index c007577e629..4f15668311e 100644
+index 4e173b1edd6..719741dcbaa 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -61,14 +61,34 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

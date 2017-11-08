@@ -32,7 +32,7 @@ https://reviews.llvm.org/D38311
  create mode 100644 test/Object/RISCV/lit.local.cfg
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index a73550b6e12..99d81358f34 100644
+index 8bc0475a83c..5cedd99fdc0 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -170,10 +170,10 @@ index 75006dcf031..905ce450f7f 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 8d985001f6f..cb8ac04a867 100644
+index 120412bc173..b30fbcec7da 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -58,6 +58,7 @@ module LLVM_BinaryFormat {
+@@ -57,6 +57,7 @@ module LLVM_BinaryFormat {
      textual header "BinaryFormat/ELFRelocs/Mips.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC.def"
@@ -182,10 +182,10 @@ index 8d985001f6f..cb8ac04a867 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 258842c35a7..130fb2d9ecc 100644
+index 1caa0ccaa18..c72a1258c1e 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
-@@ -101,6 +101,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
+@@ -102,6 +102,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
        break;
      }
      break;
@@ -200,7 +200,7 @@ index 258842c35a7..130fb2d9ecc 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index cb86c27fd4f..dee820c21cb 100644
+index befafc6c904..ada9ff89b8e 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -226,7 +226,7 @@ index cb86c27fd4f..dee820c21cb 100644
    case ELF::EM_AMDGPU:
      BCaseMask(EF_AMDGPU_ARCH_R600, EF_AMDGPU_ARCH);
      BCaseMask(EF_AMDGPU_ARCH_GCN, EF_AMDGPU_ARCH);
-@@ -584,6 +593,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+@@ -586,6 +595,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARC:
  #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
@@ -275,7 +275,7 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index 7006c6393b6..09396466c40 100644
+index 1a797c499ee..02eaa89f088 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
 @@ -750,6 +750,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
@@ -287,7 +287,7 @@ index 7006c6393b6..09396466c40 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 3ea94a5154e..be976ca8826 100644
+index 4fbb8e104ad..9f56a28d934 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -995,6 +995,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -313,7 +313,7 @@ index 3ea94a5154e..be976ca8826 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3589,6 +3598,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3610,6 +3619,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));

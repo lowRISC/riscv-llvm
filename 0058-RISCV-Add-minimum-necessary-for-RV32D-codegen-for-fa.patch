@@ -112,7 +112,7 @@ index 8a78e372e8b..9c3f32d5a9f 100644
 +
 +} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 3506b69a41e..9b9600c5310 100644
+index ac7ecbef69d..9509a7889f6 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -141,6 +141,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

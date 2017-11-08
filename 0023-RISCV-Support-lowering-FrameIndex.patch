@@ -134,7 +134,7 @@ index 72d21bde0f5..d873b6f3b1e 100644
  
  // Pessimistically assume the stack pointer will be clobbered
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index cbb55206b5a..c007577e629 100644
+index cd658d7e2d9..4e173b1edd6 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -57,14 +57,12 @@ const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {

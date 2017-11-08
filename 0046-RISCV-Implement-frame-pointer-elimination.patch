@@ -118,7 +118,7 @@ index 33de593d6ce..47003c9fe2e 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index b55d823cce9..f9ff0ccb8d2 100644
+index 4dc1892237e..7f118ddc21f 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -65,7 +65,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

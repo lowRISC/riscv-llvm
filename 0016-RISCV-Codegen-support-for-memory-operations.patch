@@ -51,7 +51,7 @@ index 92db5358ce4..bf93617115f 100644
 +      .addImm(0);
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 50404d5554d..541b8d0e25d 100644
+index 0b3cd4d2ed1..8f0c2c4f7eb 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -26,6 +26,10 @@ class RISCVInstrInfo : public RISCVGenInstrInfo {
