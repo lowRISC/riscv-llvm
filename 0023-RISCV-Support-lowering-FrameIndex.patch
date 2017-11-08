@@ -54,10 +54,10 @@ index 4a85f719743..4c6e03a5918 100644
  // for instruction scheduling.
  FunctionPass *llvm::createRISCVISelDag(RISCVTargetMachine &TM) {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index e1b5036f491..65f80d77570 100644
+index 5b4f4fcbb88..b2d11d1f5ff 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -54,7 +54,7 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+@@ -53,7 +53,7 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
      DL = I->getDebugLoc();
  
    if (RC == &RISCV::GPRRegClass)
@@ -66,7 +66,7 @@ index e1b5036f491..65f80d77570 100644
          .addReg(SrcReg, getKillRegState(IsKill))
          .addFrameIndex(FI)
          .addImm(0);
-@@ -72,7 +72,7 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -71,7 +71,7 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
      DL = I->getDebugLoc();
  
    if (RC == &RISCV::GPRRegClass)

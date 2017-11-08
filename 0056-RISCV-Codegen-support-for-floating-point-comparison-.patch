@@ -6,20 +6,20 @@ This patch also includes extensive tests targeted at select and br+fcmp IR
 inputs.
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp  |  17 +-
- lib/Target/RISCV/RISCVInstrInfo.cpp     |  18 +-
+ lib/Target/RISCV/RISCVInstrInfo.cpp     |  19 +-
  lib/Target/RISCV/RISCVInstrInfo.td      |  13 +-
  lib/Target/RISCV/RISCVInstrInfoF.td     |  16 ++
  test/CodeGen/RISCV/bare-select.ll       |  14 +
  test/CodeGen/RISCV/float-br-fcmp.ll     | 496 ++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/float-fcmp.ll        | 232 +++++++++++++++
  test/CodeGen/RISCV/float-select-fcmp.ll | 321 +++++++++++++++++++++
- 8 files changed, 1115 insertions(+), 12 deletions(-)
+ 8 files changed, 1116 insertions(+), 12 deletions(-)
  create mode 100644 test/CodeGen/RISCV/float-br-fcmp.ll
  create mode 100644 test/CodeGen/RISCV/float-fcmp.ll
  create mode 100644 test/CodeGen/RISCV/float-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index acab7e89fd9..a68ada9aef3 100644
+index 58468a2ef85..23365b0e8b5 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -109,6 +109,14 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -37,7 +37,7 @@ index acab7e89fd9..a68ada9aef3 100644
    }
  
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
-@@ -386,8 +394,13 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -383,8 +391,13 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
    const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
  
@@ -54,21 +54,21 @@ index acab7e89fd9..a68ada9aef3 100644
    // To "insert" a SELECT instruction, we actually have to insert the triangle
    // control-flow pattern.  The incoming instruction knows the destination vreg
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index de6b8666bb1..4016f050d3b 100644
+index c02b37ae057..4016f050d3b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -36,13 +36,21 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+@@ -36,12 +36,21 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator MBBI,
                                   const DebugLoc &DL, unsigned DstReg,
                                   unsigned SrcReg, bool KillSrc) const {
--  if (!RISCV::GPRRegClass.contains(DstReg, SrcReg)) {
--    llvm_unreachable("Impossible reg-to-reg copy");
+-  assert(RISCV::GPRRegClass.contains(DstReg, SrcReg) &&
+-         "Impossible reg-to-reg copy");
 +  if (RISCV::GPRRegClass.contains(DstReg, SrcReg)) {
 +    BuildMI(MBB, MBBI, DL, get(RISCV::ADDI), DstReg)
 +        .addReg(SrcReg, getKillRegState(KillSrc))
 +        .addImm(0);
 +    return;
-   }
++  }
  
 -  BuildMI(MBB, MBBI, DL, get(RISCV::ADDI), DstReg)
 -      .addReg(SrcReg, getKillRegState(KillSrc))

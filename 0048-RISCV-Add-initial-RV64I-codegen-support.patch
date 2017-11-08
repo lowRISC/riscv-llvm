@@ -5,7 +5,7 @@ Subject: [RISCV] Add initial RV64I codegen support
 ---
  lib/Target/RISCV/RISCV.td                 |   1 +
  lib/Target/RISCV/RISCVISelLowering.cpp    |   9 +-
- lib/Target/RISCV/RISCVInstrInfo.cpp       |   7 +-
+ lib/Target/RISCV/RISCVInstrInfo.cpp       |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.td        |  79 ++++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp    |  17 +-
  lib/Target/RISCV/RISCVTargetMachine.cpp   |   2 +-
@@ -14,7 +14,7 @@ Subject: [RISCV] Add initial RV64I codegen support
  test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/imm.ll                 |  64 ++++
  test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
- 11 files changed, 1116 insertions(+), 26 deletions(-)
+ 11 files changed, 1118 insertions(+), 26 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
@@ -31,41 +31,41 @@ index b12ab2abeb3..69b9c5d4360 100644
  def RV64           : HwMode<"+64bit">;
  def RV32           : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 5c34a301fdc..0522d1f57a6 100644
+index 4e32449fa77..fa38047a49b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
    const GlobalValue *GV = N->getGlobal();
    int64_t Offset = N->getOffset();
  
--  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
-+  if (!isPositionIndependent()) {
-     SDValue GAHi =
-         DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
-     SDValue GALo =
-@@ -205,7 +205,7 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
+-  if (isPositionIndependent() || Subtarget.is64Bit())
++  if (isPositionIndependent())
+     report_fatal_error("Unable to lowerGlobalAddress");
+ 
+   SDValue GAHi =
+@@ -204,7 +204,7 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
    const BlockAddress *BA = N->getBlockAddress();
    int64_t Offset = N->getOffset();
  
--  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
-+  if (!isPositionIndependent()) {
-     SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
-     SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
-     SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
-@@ -226,7 +226,7 @@ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
+-  if (isPositionIndependent() || Subtarget.is64Bit())
++  if (isPositionIndependent())
+     report_fatal_error("Unable to lowerBlockAddress");
+ 
+   SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
+@@ -224,7 +224,7 @@ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
  
    // TODO: should also handle gp-relative loads
  
--  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
-+  if (!isPositionIndependent()) {
-     SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
-     SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
-     SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
-@@ -688,9 +688,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+-  if (isPositionIndependent() || Subtarget.is64Bit())
++  if (isPositionIndependent())
+     report_fatal_error("Unable to lowerExternalSymbol");
+ 
+   SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
+@@ -685,9 +685,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
  
    MachineFunction &MF = DAG.getMachineFunction();
    MVT XLenVT = Subtarget.getXLenVT();
-+  unsigned XLenInBytes = Subtarget.getXLen()/8;
++  unsigned XLenInBytes = Subtarget.getXLen() / 8;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
 -  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
 -  unsigned XLenInBytes = XLen / 8;
@@ -73,10 +73,10 @@ index 5c34a301fdc..0522d1f57a6 100644
    std::vector<SDValue> OutChains;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index c78406afc06..0347f22dfe7 100644
+index 98bd061bf5b..ac8affebb27 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -55,7 +55,7 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+@@ -54,7 +54,7 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
      DL = I->getDebugLoc();
  
    if (RC == &RISCV::GPRRegClass)
@@ -85,16 +85,18 @@ index c78406afc06..0347f22dfe7 100644
          .addReg(SrcReg, getKillRegState(IsKill))
          .addFrameIndex(FI)
          .addImm(0);
-@@ -73,7 +73,7 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -72,7 +72,9 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
      DL = I->getDebugLoc();
  
    if (RC == &RISCV::GPRRegClass)
 -    BuildMI(MBB, I, DL, get(RISCV::LW_FI), DstReg).addFrameIndex(FI).addImm(0);
-+    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg).addFrameIndex(FI).addImm(0);
++    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg)
++        .addFrameIndex(FI)
++        .addImm(0);
    else
      llvm_unreachable("Can't load this register from stack slot");
  }
-@@ -287,9 +287,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
+@@ -286,9 +288,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
    MachineFunction *MF = MBB.getParent();
    MachineRegisterInfo &MRI = MF->getRegInfo();
    const auto &TM = static_cast<const RISCVTargetMachine &>(MF->getTarget());

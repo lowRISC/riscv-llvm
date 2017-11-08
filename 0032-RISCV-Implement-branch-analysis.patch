@@ -16,10 +16,10 @@ optimisation passes (e.g. BranchFolding and MachineBlockPlacement) to work.
  create mode 100644 test/CodeGen/RISCV/analyze-branch.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 65f80d77570..958435ab32e 100644
+index b2d11d1f5ff..1f7aaea78b3 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -76,3 +76,193 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -75,3 +75,193 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
    else
      llvm_unreachable("Can't load this register from stack slot");
  }

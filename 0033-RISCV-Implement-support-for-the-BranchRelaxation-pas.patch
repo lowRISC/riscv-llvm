@@ -18,7 +18,7 @@ instruction's immediate field.
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 958435ab32e..c78406afc06 100644
+index 1f7aaea78b3..98bd061bf5b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -20,6 +20,7 @@
@@ -29,7 +29,7 @@ index 958435ab32e..c78406afc06 100644
  #include "llvm/Support/ErrorHandling.h"
  #include "llvm/Support/TargetRegistry.h"
  
-@@ -205,7 +206,8 @@ bool RISCVInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+@@ -204,7 +205,8 @@ bool RISCVInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
  
  unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
                                        int *BytesRemoved) const {
@@ -39,7 +39,7 @@ index 958435ab32e..c78406afc06 100644
    MachineBasicBlock::iterator I = MBB.getLastNonDebugInstr();
    if (I == MBB.end())
      return 0;
-@@ -216,6 +218,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
+@@ -215,6 +217,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
  
    // Remove the branch.
    I->eraseFromParent();
@@ -48,7 +48,7 @@ index 958435ab32e..c78406afc06 100644
  
    I = MBB.end();
  
-@@ -227,13 +231,16 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
+@@ -226,13 +230,16 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
  
    // Remove the branch.
    I->eraseFromParent();
@@ -66,7 +66,7 @@ index 958435ab32e..c78406afc06 100644
  
    // Shouldn't be a fall through.
    assert(TBB && "InsertBranch must not be told to insert a fallthrough");
-@@ -242,13 +249,18 @@ unsigned RISCVInstrInfo::insertBranch(
+@@ -241,13 +248,18 @@ unsigned RISCVInstrInfo::insertBranch(
  
    // Unconditional branch
    if (Cond.empty()) {
@@ -87,7 +87,7 @@ index 958435ab32e..c78406afc06 100644
  
    // One-way conditional branch
    if (!FBB) {
-@@ -256,13 +268,105 @@ unsigned RISCVInstrInfo::insertBranch(
+@@ -255,13 +267,105 @@ unsigned RISCVInstrInfo::insertBranch(
    }
  
    // Two-way conditional branch

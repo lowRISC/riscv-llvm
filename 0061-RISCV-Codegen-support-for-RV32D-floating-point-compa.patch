@@ -16,7 +16,7 @@ Subject: [RISCV] Codegen support for RV32D floating point comparison
  create mode 100644 test/CodeGen/RISCV/double-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 2b668ff350f..42296e205d1 100644
+index 8e3bfbca860..3038bd81c1e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -108,13 +108,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -51,7 +51,7 @@ index 2b668ff350f..42296e205d1 100644
    }
  
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
-@@ -406,6 +413,7 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -403,6 +410,7 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
      llvm_unreachable("Unexpected instr type to insert");
    case RISCV::Select_GPR_Using_CC_GPR:
    case RISCV::Select_FPR32_Using_CC_GPR:

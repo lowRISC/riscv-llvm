@@ -39,10 +39,10 @@ index 49bc6a29e45..9f19cda8910 100644
  
    // Function alignments (log2).
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index bf93617115f..670a72047d2 100644
+index ebb7174002d..63178bb668d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -42,3 +42,36 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+@@ -41,3 +41,36 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
        .addReg(SrcReg, getKillRegState(KillSrc))
        .addImm(0);
  }

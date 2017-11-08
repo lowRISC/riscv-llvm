@@ -213,7 +213,7 @@ index 2bd5717ca0c..dfb4824cc18 100644
                                           Type *Ty) const override {
      return true;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 670a72047d2..e1b5036f491 100644
+index 63178bb668d..5b4f4fcbb88 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -28,7 +28,8 @@

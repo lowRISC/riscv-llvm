@@ -7,10 +7,10 @@ Subject: Add RISC-V support to update_llc_test_checks.py
  1 file changed, 18 insertions(+)
 
 diff --git a/utils/update_llc_test_checks.py b/utils/update_llc_test_checks.py
-index e4e7e2ce41e..3ea8aed2ec5 100755
+index e4e7e2ce41e..c3320f204a0 100755
 --- a/utils/update_llc_test_checks.py
 +++ b/utils/update_llc_test_checks.py
-@@ -65,6 +65,12 @@ ASM_FUNCTION_SYSTEMZ_RE = re.compile(
+@@ -58,6 +58,12 @@ ASM_FUNCTION_PPC_RE = re.compile(
      r'.Lfunc_end[0-9]+:\n',
      flags=(re.M | re.S))
  
@@ -20,10 +20,10 @@ index e4e7e2ce41e..3ea8aed2ec5 100755
 +    r'.Lfunc_end[0-9]+:\n',
 +    flags=(re.M | re.S))
 +
- 
- SCRUB_WHITESPACE_RE = re.compile(r'(?!^(|  \w))[ \t]+', flags=re.M)
- SCRUB_TRAILING_WHITESPACE_RE = re.compile(r'[ \t]+$', flags=re.M)
-@@ -145,6 +151,16 @@ def scrub_asm_systemz(asm, args):
+ ASM_FUNCTION_SYSTEMZ_RE = re.compile(
+     r'^_?(?P<func>[^:]+):[ \t]*#+[ \t]*@(?P=func)\n'
+     r'[ \t]+.cfi_startproc\n'
+@@ -135,6 +141,16 @@ def scrub_asm_powerpc64(asm, args):
    asm = SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
    return asm
  
@@ -37,18 +37,18 @@ index e4e7e2ce41e..3ea8aed2ec5 100755
 +  asm = SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
 +  return asm
 +
- 
- # Build up a dictionary of all the function bodies.
- def build_function_body_dictionary(raw_tool_output, triple, prefixes, func_dict,
-@@ -162,6 +178,8 @@ def build_function_body_dictionary(raw_tool_output, triple, prefixes, func_dict,
+ def scrub_asm_systemz(asm, args):
+   # Scrub runs of whitespace out of the assembly, but leave the leading
+   # whitespace in place.
+@@ -161,6 +177,8 @@ def build_function_body_dictionary(raw_tool_output, triple, prefixes, func_dict,
+       'armeb-eabi': (scrub_asm_arm_eabi, ASM_FUNCTION_ARM_RE),
        'powerpc64': (scrub_asm_powerpc64, ASM_FUNCTION_PPC_RE),
        'powerpc64le': (scrub_asm_powerpc64, ASM_FUNCTION_PPC_RE),
-       's390x': (scrub_asm_systemz, ASM_FUNCTION_SYSTEMZ_RE),
 +      'riscv32': (scrub_asm_riscv, ASM_FUNCTION_RISCV_RE),
 +      'riscv64': (scrub_asm_riscv, ASM_FUNCTION_RISCV_RE),
+       's390x': (scrub_asm_systemz, ASM_FUNCTION_SYSTEMZ_RE),
    }
    handlers = None
-   for prefix, s in target_handlers.items():
 -- 
 2.15.0
 

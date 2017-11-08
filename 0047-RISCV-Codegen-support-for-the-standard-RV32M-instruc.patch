@@ -26,7 +26,7 @@ index 39f4560a50c..4119506fc21 100644
    StringRef getPassName() const override {
      return "RISCV DAG->DAG Pattern Instruction Selection";
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 64cc1900c2c..5c34a301fdc 100644
+index 52a74af37c9..4e32449fa77 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -77,18 +77,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

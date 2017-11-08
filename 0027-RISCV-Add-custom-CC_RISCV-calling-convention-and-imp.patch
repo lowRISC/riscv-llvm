@@ -72,10 +72,10 @@ index 0b7a523424c..d2b17c64c9c 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 978366a3df4..c3f90ae0db4 100644
+index dbe1b7ed8d0..99636d1cf04 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -331,7 +331,241 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -328,7 +328,241 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -318,7 +318,7 @@ index 978366a3df4..c3f90ae0db4 100644
  
  // Transform physical registers into virtual registers.
  SDValue RISCVTargetLowering::LowerFormalArguments(
-@@ -348,8 +582,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -345,8 +579,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -328,7 +328,7 @@ index 978366a3df4..c3f90ae0db4 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -357,25 +591,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -354,25 +588,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -384,7 +384,7 @@ index 978366a3df4..c3f90ae0db4 100644
    }
    return Chain;
  }
-@@ -395,6 +641,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -392,6 +638,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    CallingConv::ID CallConv = CLI.CallConv;
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -392,7 +392,7 @@ index 978366a3df4..c3f90ae0db4 100644
  
    if (IsVarArg) {
      report_fatal_error("LowerCall with varargs not implemented");
-@@ -405,44 +652,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -402,44 +649,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Analyze the operands of the call, assigning locations to each operand.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -505,7 +505,7 @@ index 978366a3df4..c3f90ae0db4 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -492,7 +800,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -489,7 +797,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Assign locations to each value returned by this call.
    SmallVector<CCValAssign, 16> RVLocs;
    CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
@@ -514,7 +514,7 @@ index 978366a3df4..c3f90ae0db4 100644
  
    // Copy all of the result registers out of their specified physreg.
    for (auto &VA : RVLocs) {
-@@ -502,12 +810,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -499,12 +807,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      Chain = RetValue.getValue(1);
      Glue = RetValue.getValue(2);
  
@@ -544,7 +544,7 @@ index 978366a3df4..c3f90ae0db4 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -525,17 +849,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -522,17 +846,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
    CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                   *DAG.getContext());
  

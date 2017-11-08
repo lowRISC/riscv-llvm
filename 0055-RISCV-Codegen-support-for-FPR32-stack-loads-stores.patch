@@ -3,17 +3,17 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
 
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp    | 22 ++++++++++----
+ lib/Target/RISCV/RISCVInstrInfo.cpp    | 24 ++++++++++-----
  lib/Target/RISCV/RISCVInstrInfoF.td    |  6 ++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp | 12 +++++++-
  test/CodeGen/RISCV/float-mem.ll        | 55 ++++++++++++++++++++++++++++++++++
- 4 files changed, 89 insertions(+), 6 deletions(-)
+ 4 files changed, 89 insertions(+), 8 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 0347f22dfe7..de6b8666bb1 100644
+index ac8affebb27..c02b37ae057 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -54,13 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+@@ -53,13 +53,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
@@ -37,14 +37,16 @@ index 0347f22dfe7..de6b8666bb1 100644
  }
  
  void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-@@ -72,10 +78,16 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -71,12 +77,16 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
 +  unsigned Opcode;
 +
    if (RC == &RISCV::GPRRegClass)
--    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg).addFrameIndex(FI).addImm(0);
+-    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg)
+-        .addFrameIndex(FI)
+-        .addImm(0);
 +    Opcode = RISCV::LdXLEN_FI;
 +  else if (RC == &RISCV::FPR32RegClass)
 +    Opcode = RISCV::LdFPR32_FI;

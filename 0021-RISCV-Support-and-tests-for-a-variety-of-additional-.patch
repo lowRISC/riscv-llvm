@@ -20,7 +20,7 @@ for a number of these cases:
 * rotl, rotr
 * BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  87 ++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 106 +++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   2 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
@@ -38,7 +38,7 @@ for a number of these cases:
  test/CodeGen/RISCV/rotl-rotr.ll             |  38 ++
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  45 +++
- 18 files changed, 1576 insertions(+), 4 deletions(-)
+ 18 files changed, 1584 insertions(+), 15 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
@@ -54,7 +54,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 606365ea59b..704783269ae 100644
+index 606365ea59b..62bc3b85ffc 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -53,17 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -123,10 +123,34 @@ index 606365ea59b..704783269ae 100644
    case ISD::SELECT:
      return lowerSELECT(Op, DAG);
    }
-@@ -139,6 +178,47 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
-   }
- }
+@@ -125,18 +164,56 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+   const GlobalValue *GV = N->getGlobal();
+   int64_t Offset = N->getOffset();
  
+-  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
+-    SDValue GAHi =
+-        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
+-    SDValue GALo =
+-        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_LO);
+-    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
+-    SDValue MNLo =
+-        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
+-    return MNLo;
+-  } else {
++  if (isPositionIndependent() || Subtarget.is64Bit())
+     report_fatal_error("Unable to lowerGlobalAddress");
+-  }
++
++  SDValue GAHi =
++    DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
++  SDValue GALo =
++    DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_LO);
++  SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
++  SDValue MNLo =
++    SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
++  return MNLo;
++}
++
 +SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
 +                                               SelectionDAG &DAG) const {
 +  SDLoc DL(Op);
@@ -135,16 +159,15 @@ index 606365ea59b..704783269ae 100644
 +  const BlockAddress *BA = N->getBlockAddress();
 +  int64_t Offset = N->getOffset();
 +
-+  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
-+    SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
-+    SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
-+    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
-+    SDValue MNLo =
-+        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
-+    return MNLo;
-+  } else {
++  if (isPositionIndependent() || Subtarget.is64Bit())
 +    report_fatal_error("Unable to lowerBlockAddress");
-+  }
++
++  SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
++  SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
++  SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
++  SDValue MNLo =
++    SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
++  return MNLo;
 +}
 +
 +SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
@@ -156,22 +179,19 @@ index 606365ea59b..704783269ae 100644
 +
 +  // TODO: should also handle gp-relative loads
 +
-+  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
-+    SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
-+    SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
-+    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
-+    SDValue MNLo =
-+        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
-+    return MNLo;
-+  } else {
++  if (isPositionIndependent() || Subtarget.is64Bit())
 +    report_fatal_error("Unable to lowerExternalSymbol");
-+  }
-+}
 +
++  SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
++  SDValue GALo = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_LO);
++  SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
++  SDValue MNLo =
++    SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
++  return MNLo;
+ }
+ 
  SDValue RISCVTargetLowering::lowerSELECT(SDValue Op, SelectionDAG &DAG) const {
-   SDValue CondV = Op.getOperand(0);
-   SDValue TrueV = Op.getOperand(1);
-@@ -369,8 +449,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -369,8 +446,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    if (isa<GlobalAddressSDNode>(Callee)) {
      Callee = lowerGlobalAddress(Callee, DAG);
    } else if (isa<ExternalSymbolSDNode>(Callee)) {

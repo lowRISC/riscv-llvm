@@ -16,7 +16,7 @@ used to materialise f32 constants.
  create mode 100644 test/CodeGen/RISCV/float-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 47d7f257106..acab7e89fd9 100644
+index 08356992048..58468a2ef85 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -113,6 +113,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -36,8 +36,8 @@ index 47d7f257106..acab7e89fd9 100644
    case ISD::SELECT:
      return lowerSELECT(Op, DAG);
    case ISD::VASTART:
-@@ -225,6 +228,29 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
-   }
+@@ -223,6 +226,29 @@ SDValue RISCVTargetLowering::lowerBlockAddress(SDValue Op,
+   return MNLo;
  }
  
 +SDValue RISCVTargetLowering::lowerConstantPool(SDValue Op,
