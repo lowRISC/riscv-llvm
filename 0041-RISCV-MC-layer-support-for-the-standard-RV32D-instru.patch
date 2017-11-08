@@ -1,6 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] MC layer support for the standard RV32D extension
+Subject: [RISCV] MC layer support for the standard RV32D instruction set
+ extension
 
 As the FPR32 and FPR64 registers have the same names, use
 validateTargetOperandClass in RISCVAsmParser to coerce a parsed FPR32 to an
@@ -11,11 +12,11 @@ FPR64 when necessary.
  lib/Target/RISCV/RISCV.td                          |   6 +
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  lib/Target/RISCV/RISCVInstrInfoD.td                | 131 +++++++++++++++++
- lib/Target/RISCV/RISCVSubtarget.h                  |   1 +
+ lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
  test/MC/RISCV/rv32d-invalid.s                      |  21 +++
  test/MC/RISCV/rv32d-valid.s                        | 159 +++++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s                      |   6 +-
- 9 files changed, 412 insertions(+), 2 deletions(-)
+ 9 files changed, 413 insertions(+), 2 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
@@ -302,7 +303,7 @@ index 00000000000..aa194320d99
 +}
 +} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 9d40c27aa3f..439702433d2 100644
+index 9d40c27aa3f..6eb9a459e1d 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -33,6 +33,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
@@ -313,6 +314,14 @@ index 9d40c27aa3f..439702433d2 100644
    bool HasRV64 = false;
    unsigned XLen = 32;
    MVT XLenVT = MVT::i32;
+@@ -72,6 +73,7 @@ public:
+   bool hasStdExtM() const { return HasStdExtM; }
+   bool hasStdExtA() const { return HasStdExtA; }
+   bool hasStdExtF() const { return HasStdExtF; }
++  bool hasStdExtD() const { return HasStdExtD; }
+   bool is64Bit() const { return HasRV64; }
+   MVT getXLenVT() const { return XLenVT; }
+   unsigned getXLen() const { return XLen; }
 diff --git a/test/MC/RISCV/rv32d-invalid.s b/test/MC/RISCV/rv32d-invalid.s
 new file mode 100644
 index 00000000000..3c3e265bd28

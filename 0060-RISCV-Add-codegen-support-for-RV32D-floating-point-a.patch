@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add codegen support for RV32D floating point arithmetic
+ operations
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp |  5 ++
+ lib/Target/RISCV/RISCVInstrInfoD.td    | 29 +++++++++++
+ test/CodeGen/RISCV/double-arith.ll     | 91 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 125 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index f9e2fb6456b..2b668ff350f 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -121,6 +121,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+     setOperationAction(ISD::BR_CC, MVT::f32, Expand);
+   }
+ 
++  if (Subtarget.hasStdExtD()) {
++    setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
++    setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
++  }
++
+   setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+   setOperationAction(ISD::BlockAddress, XLenVT, Custom);
+   setOperationAction(ISD::ConstantPool, XLenVT, Custom);
+diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
+index 9c3f32d5a9f..44502ec204c 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoD.td
++++ b/lib/Target/RISCV/RISCVInstrInfoD.td
+@@ -164,6 +164,9 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
+ // Pseudo-instructions and codegen patterns
+ //===----------------------------------------------------------------------===//
+ 
++class PatFpr64Fpr64<SDPatternOperator OpNode, RVInstR Inst>
++    : Pat<(OpNode FPR64:$rs1, FPR64:$rs2), (Inst $rs1, $rs2)>;
++
+ class PatFpr64Fpr64DynFrm<SDPatternOperator OpNode, RVInstRFrm Inst>
+     : Pat<(OpNode FPR64:$rs1, FPR64:$rs2), (Inst $rs1, $rs2, 0b111)>;
+ 
+@@ -172,6 +175,32 @@ let Predicates = [HasStdExtD] in {
+ /// Float arithmetic operations
+ 
+ def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
++def : PatFpr64Fpr64DynFrm<fsub, FSUB_D>;
++def : PatFpr64Fpr64DynFrm<fmul, FMUL_D>;
++def : PatFpr64Fpr64DynFrm<fdiv, FDIV_D>;
++
++def : Pat<(fsqrt FPR64:$rs1), (FSQRT_D FPR64:$rs1, 0b111)>;
++
++def : Pat<(fneg FPR64:$rs1), (FSGNJN_D $rs1, $rs1)>;
++def : Pat<(fabs FPR64:$rs1), (FSGNJX_D $rs1, $rs1)>;
++
++def : PatFpr64Fpr64<fcopysign, FSGNJ_D>;
++def : Pat<(fcopysign FPR64:$rs1, (fneg FPR64:$rs2)), (FSGNJN_D $rs1, $rs2)>;
++
++// The RISC-V 2.2 user-level ISA spec defines fmin and fmax as returning the
++// canonical NaN when giving a signaling NaN. This doesn't match the LLVM
++// behaviour (see https://bugs.llvm.org/show_bug.cgi?id=27363). However, the
++// draft 2.3 ISA spec changes the definition of fmin and fmax in a way that
++// matches LLVM's fminnum and fmaxnum
++// <https://github.com/riscv/riscv-isa-manual/commit/cd20cee7efd9bac7c5aa127ec3b451749d2b3cce>.
++def : PatFpr64Fpr64<fminnum, FMIN_D>;
++def : PatFpr64Fpr64<fmaxnum, FMAX_D>;
++
++/// Setcc
++
++def : PatFpr64Fpr64<setoeq, FEQ_D>;
++def : PatFpr64Fpr64<setolt, FLT_D>;
++def : PatFpr64Fpr64<setole, FLE_D>;
+ 
+ /// Loads
+ 
+diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
+index 958957da08d..79c1b8d7b6f 100644
+--- a/test/CodeGen/RISCV/double-arith.ll
++++ b/test/CodeGen/RISCV/double-arith.ll
+@@ -21,3 +21,94 @@ define double @fadd_d(double %a, double %b) nounwind {
+   %1 = fadd double %a, %b
+   ret double %1
+ }
++
++define double @fsub_d(double %a, double %b) nounwind {
++  %1 = fsub double %a, %b
++  ret double %1
++}
++
++define double @fmul_d(double %a, double %b) nounwind {
++  %1 = fmul double %a, %b
++  ret double %1
++}
++
++define double @fdiv_d(double %a, double %b) nounwind {
++  %1 = fdiv double %a, %b
++  ret double %1
++}
++
++declare double @llvm.sqrt.f32(double)
++
++define double @fsqrt_d(double %a) nounwind {
++  %1 = call double @llvm.sqrt.f32(double %a)
++  ret double %1
++}
++
++declare double @llvm.copysign.f32(double, double)
++
++define double @fsgnj_d(double %a, double %b) nounwind {
++  %1 = call double @llvm.copysign.f32(double %a, double %b)
++  ret double %1
++}
++
++define double @fneg_d(double %a) nounwind {
++; TODO: doesn't test the fneg selection pattern because
++; DAGCombiner::visitBITCAST will generate a xor on the incoming integer
++; argument
++  %1 = fsub double -0.0, %a
++  ret double %1
++}
++
++define double @fsgnjn_d(double %a, double %b) nounwind {
++; TODO: fsgnjn.s isn't selected because DAGCombiner::visitBITCAST will convert
++; (bitconvert (fneg x)) to a xor
++  %1 = fsub double -0.0, %b
++  %2 = call double @llvm.copysign.f32(double %a, double %1)
++  ret double %2
++}
++
++declare double @llvm.fabs.f32(double)
++
++define double @fabs_d(double %a) nounwind {
++; TODO: doesn't test the fabs selection pattern because
++; DAGCombiner::visitBITCAST will generate an and on the incoming integer
++; argument
++  %1 = call double @llvm.fabs.f32(double %a)
++  ret double %1
++}
++
++; TODO: implement a test for fsgnjx
++;define double @fsgnjx_d(double %a, double %b) nounwind {
++;}
++
++declare double @llvm.minnum.f32(double, double)
++
++define double @fmin_d(double %a, double %b) nounwind {
++  %1 = call double @llvm.minnum.f32(double %a, double %b)
++  ret double %1
++}
++
++declare double @llvm.maxnum.f32(double, double)
++
++define double @fmax_d(double %a, double %b) nounwind {
++  %1 = call double @llvm.maxnum.f32(double %a, double %b)
++  ret double %1
++}
++
++define i32 @feq_d(double %a, double %b) nounwind {
++  %1 = fcmp oeq double %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @flt_d(double %a, double %b) nounwind {
++  %1 = fcmp olt double %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
++
++define i32 @fle_d(double %a, double %b) nounwind {
++  %1 = fcmp ole double %a, %b
++  %2 = zext i1 %1 to i32
++  ret i32 %2
++}
+-- 
+2.15.0
+

@@ -1,0 +1,243 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
+ load/store from stack locations
+
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 32 +++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  6 ++++
+ lib/Target/RISCV/RISCVInstrInfoD.td    | 25 ++++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp | 11 ++++++
+ test/CodeGen/RISCV/double-arith.ll     | 23 +++++++++++++
+ test/CodeGen/RISCV/double-mem.ll       | 63 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 160 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/double-arith.ll
+ create mode 100644 test/CodeGen/RISCV/double-mem.ll
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index a68ada9aef3..f9e2fb6456b 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+ 
+   if (Subtarget.hasStdExtF())
+     addRegisterClass(MVT::f32, &RISCV::FPR32RegClass);
++  if (Subtarget.hasStdExtD())
++    addRegisterClass(MVT::f64, &RISCV::FPR64RegClass);
+ 
+   // Compute derived properties from the register classes.
+   computeRegisterProperties(STI.getRegisterInfo());
+@@ -1153,3 +1155,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+ 
+   return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+ }
++
++MVT RISCVTargetLowering::getRegisterTypeForCallingConv(MVT VT) const {
++  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
++  // the value is split into i32 parts despite f64 being legal.
++  // TODO: adjust when hard-float ABI is implemented.
++  if (!Subtarget.is64Bit() && VT == MVT::f64)
++    return MVT::i32;
++  return getRegisterType(VT);
++}
++
++MVT RISCVTargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
++                                                       EVT VT) const {
++  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
++  // the value is split into i32 parts despite f64 being legal.
++  // TODO: adjust when hard-float ABI is implemented.
++  if (!Subtarget.is64Bit() && VT.getSimpleVT() == MVT::f64)
++    return MVT::i32;
++  return getRegisterType(Context, VT);
++}
++
++unsigned
++RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
++                                                   EVT VT) const {
++  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
++  // the value is split into i32 parts despite f64 being legal.
++  // TODO: adjust when hard-float ABI is implemented.
++  if (!Subtarget.is64Bit() && VT.getSimpleVT() == MVT::f64)
++    return 2;
++  return getNumRegisters(Context, VT);
++}
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 6087baf6429..054f9c4bf36 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -51,6 +51,12 @@ public:
+   EmitInstrWithCustomInserter(MachineInstr &MI,
+                               MachineBasicBlock *BB) const override;
+ 
++  MVT getRegisterTypeForCallingConv(MVT VT) const override;
++  MVT getRegisterTypeForCallingConv(LLVMContext &Context,
++                                    EVT VT) const override;
++  unsigned getNumRegistersForCallingConv(LLVMContext &Context,
++                                         EVT VT) const override;
++
+ private:
+   void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,
+                         const SmallVectorImpl<ISD::InputArg> &Ins,
+diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
+index 8a78e372e8b..9c3f32d5a9f 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoD.td
++++ b/lib/Target/RISCV/RISCVInstrInfoD.td
+@@ -159,3 +159,28 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
+   let rs2 = 0b00000;
+ }
+ } // Predicates = [HasStdExtD, IsRV64]
++
++//===----------------------------------------------------------------------===//
++// Pseudo-instructions and codegen patterns
++//===----------------------------------------------------------------------===//
++
++class PatFpr64Fpr64DynFrm<SDPatternOperator OpNode, RVInstRFrm Inst>
++    : Pat<(OpNode FPR64:$rs1, FPR64:$rs2), (Inst $rs1, $rs2, 0b111)>;
++
++let Predicates = [HasStdExtD] in {
++
++/// Float arithmetic operations
++
++def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
++
++/// Loads
++
++def LdFPR64_FI : Pseudo<(outs FPR64:$dst), (ins MEMii:$addr),
++                        [(set FPR64:$dst, (load ADDRii:$addr))]>;
++
++/// Stores
++
++def StFPR64_FI : Pseudo<(outs), (ins FPR64:$src, MEMii:$addr),
++                        [(store FPR64:$src, ADDRii:$addr)]>;
++
++} // Predicates = [HasStdExtD]
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index 3506b69a41e..9b9600c5310 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -141,6 +141,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+         .addReg(FrameReg, FrameRegFlags)
+         .addImm(Offset);
+     break;
++  case RISCV::LdFPR64_FI:
++    BuildMI(MBB, II, DL, TII->get(RISCV::FLD), Reg)
++        .addReg(FrameReg, FrameRegFlags)
++        .addImm(Offset);
++    break;
+   case RISCV::StXLEN_FI:
+     Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
+     BuildMI(MBB, II, DL, TII->get(Opc))
+@@ -154,6 +159,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+         .addReg(FrameReg, FrameRegFlags | RegState::Kill)
+         .addImm(Offset);
+     break;
++  case RISCV::StFPR64_FI:
++    BuildMI(MBB, II, DL, TII->get(RISCV::FSD))
++        .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
++        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
++        .addImm(Offset);
++    break;
+   case RISCV::LEA_FI:
+     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
+         .addReg(FrameReg, FrameRegFlags)
+diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
+new file mode 100644
+index 00000000000..958957da08d
+--- /dev/null
++++ b/test/CodeGen/RISCV/double-arith.ll
+@@ -0,0 +1,23 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+d -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IFD %s
++
++define double @fadd_d(double %a, double %b) nounwind {
++; RV32IFD-LABEL: fadd_d:
++; RV32IFD:       # BB#0:
++; RV32IFD-NEXT:    addi sp, sp, -32
++; RV32IFD-NEXT:    sw a3, 20(sp)
++; RV32IFD-NEXT:    sw a2, 16(sp)
++; RV32IFD-NEXT:    sw a1, 28(sp)
++; RV32IFD-NEXT:    sw a0, 24(sp)
++; RV32IFD-NEXT:    fld ft0, 16(sp)
++; RV32IFD-NEXT:    fld ft1, 24(sp)
++; RV32IFD-NEXT:    fadd.d ft0, ft1, ft0
++; RV32IFD-NEXT:    fsd ft0, 8(sp)
++; RV32IFD-NEXT:    lw a0, 8(sp)
++; RV32IFD-NEXT:    lw a1, 12(sp)
++; RV32IFD-NEXT:    addi sp, sp, 32
++; RV32IFD-NEXT:    jalr zero, ra, 0
++  %1 = fadd double %a, %b
++  ret double %1
++}
+diff --git a/test/CodeGen/RISCV/double-mem.ll b/test/CodeGen/RISCV/double-mem.ll
+new file mode 100644
+index 00000000000..28a3790ef7c
+--- /dev/null
++++ b/test/CodeGen/RISCV/double-mem.ll
+@@ -0,0 +1,63 @@
++; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
++; RUN: llc -mtriple=riscv32 -mattr=+d -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IFD %s
++
++declare void @notdead(i8*)
++
++define double @fld_stack(double %a) nounwind {
++; Tests RISCV::LdFPR64_FI
++; RV32IFD-LABEL: fld_stack:
++; RV32IFD:       # BB#0:
++; RV32IFD-NEXT:    addi sp, sp, -32
++; RV32IFD-NEXT:    sw ra, 28(sp)
++; RV32IFD-NEXT:    sw a1, 12(sp)
++; RV32IFD-NEXT:    sw a0, 8(sp)
++; RV32IFD-NEXT:    lui a0, %hi(notdead)
++; RV32IFD-NEXT:    addi a1, a0, %lo(notdead)
++; RV32IFD-NEXT:    addi a0, sp, 16
++; RV32IFD-NEXT:    jalr ra, a1, 0
++; RV32IFD-NEXT:    fld ft0, 8(sp)
++; RV32IFD-NEXT:    fld ft1, 16(sp)
++; RV32IFD-NEXT:    fadd.d ft0, ft1, ft0
++; RV32IFD-NEXT:    fsd ft0, 0(sp)
++; RV32IFD-NEXT:    lw a0, 0(sp)
++; RV32IFD-NEXT:    lw a1, 4(sp)
++; RV32IFD-NEXT:    lw ra, 28(sp)
++; RV32IFD-NEXT:    addi sp, sp, 32
++; RV32IFD-NEXT:    jalr zero, ra, 0
++  %1 = alloca double, align 8
++  %2 = bitcast double* %1 to i8*
++  call void @notdead(i8* %2)
++  %3 = load double, double* %1
++  %4 = fadd double %3, %a ; force load in to FPR64
++  ret double %4
++}
++
++define void @fsd_stack(double %a, double %b) nounwind {
++; Tests RISCV::StFPR64_FI
++; RV32IFD-LABEL: fsd_stack:
++; RV32IFD:       # BB#0:
++; RV32IFD-NEXT:    addi sp, sp, -32
++; RV32IFD-NEXT:    sw ra, 28(sp)
++; RV32IFD-NEXT:    sw a3, 4(sp)
++; RV32IFD-NEXT:    sw a2, 0(sp)
++; RV32IFD-NEXT:    sw a1, 12(sp)
++; RV32IFD-NEXT:    sw a0, 8(sp)
++; RV32IFD-NEXT:    fld ft0, 0(sp)
++; RV32IFD-NEXT:    fld ft1, 8(sp)
++; RV32IFD-NEXT:    fadd.d ft0, ft1, ft0
++; RV32IFD-NEXT:    fsd ft0, 16(sp)
++; RV32IFD-NEXT:    lui a0, %hi(notdead)
++; RV32IFD-NEXT:    addi a1, a0, %lo(notdead)
++; RV32IFD-NEXT:    addi a0, sp, 16
++; RV32IFD-NEXT:    jalr ra, a1, 0
++; RV32IFD-NEXT:    lw ra, 28(sp)
++; RV32IFD-NEXT:    addi sp, sp, 32
++; RV32IFD-NEXT:    jalr zero, ra, 0
++  %1 = fadd double %a, %b ; force store from FPR64
++  %2 = alloca double, align 8
++  store double %1, double* %2
++  %3 = bitcast double* %2 to i8*
++  call void @notdead(i8* %3)
++  ret void
++}
+-- 
+2.15.0
+

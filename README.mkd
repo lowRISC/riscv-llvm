@@ -29,11 +29,13 @@ a fantastic way to help out.
 
 The current patchset allows the entirety of the GCC torture suite to compile
 and run for {RV32I, RV32IM, RV32IF} at all optimisation levels (1390/1390
-compile and run without error). Additionally, all torture suite tests compile
-and run for RV64I at O1, O2, O3, and Os (there is one compilation failure at
-O0).  MC-layer support is present for RV32IMAFD+RV64IMAFD, and codegen support
-for RV32IMF and RV64I.  See the [lowRISC RISC-V LLVM status
-page](http://www.lowrisc.org/llvm/status) for more details.
+compile and run without error). There are currently 3 compilation failures
+across O0, O1, O2, O3 and Os for RV32IFD. Additionally, all torture suite
+tests compile and run for RV64I at O1, O2, O3, and Os (there is one
+compilation failure at O0). MC-layer support is present for
+RV32IMAFD+RV64IMAFD, and codegen support for RV32IMF and RV64I. See the
+[lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
+details.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 

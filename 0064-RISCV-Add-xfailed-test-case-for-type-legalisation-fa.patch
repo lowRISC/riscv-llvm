@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add xfailed test-case for type legalisation failure
+
+---
+ test/CodeGen/RISCV/double-intrinsics.ll | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/double-intrinsics.ll
+
+diff --git a/test/CodeGen/RISCV/double-intrinsics.ll b/test/CodeGen/RISCV/double-intrinsics.ll
+new file mode 100644
+index 00000000000..99250a8363b
+--- /dev/null
++++ b/test/CodeGen/RISCV/double-intrinsics.ll
+@@ -0,0 +1,13 @@
++; RUN: llc -mtriple=riscv32 -mattr=+d -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IFD %s
++; XFAIL: *
++
++declare double @llvm.floor.f64(double)
++
++; Generates a bitcast to the illegal i64 type while lowering a libcall to
++; ffloor.
++
++define double @foo(double %a) nounwind {
++  %1 = call double @llvm.floor.f64(double %a)
++  ret double %1
++}
+-- 
+2.15.0
+

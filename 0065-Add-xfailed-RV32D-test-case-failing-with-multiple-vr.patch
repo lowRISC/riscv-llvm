@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: Add xfailed RV32D test case, failing with multiple vreg definitions
+
+---
+ .../RISCV/double-fail-multiple-vreg-defs.ll        | 30 ++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+ create mode 100644 test/CodeGen/RISCV/double-fail-multiple-vreg-defs.ll
+
+diff --git a/test/CodeGen/RISCV/double-fail-multiple-vreg-defs.ll b/test/CodeGen/RISCV/double-fail-multiple-vreg-defs.ll
+new file mode 100644
+index 00000000000..3ab034ccfc5
+--- /dev/null
++++ b/test/CodeGen/RISCV/double-fail-multiple-vreg-defs.ll
+@@ -0,0 +1,30 @@
++; RUN: llc -mtriple=riscv32 -mattr=+d -verify-machineinstrs < %s \
++; RUN:   | FileCheck -check-prefix=RV32IFD %s
++; XFAIL: *
++
++define double @test(double %a) nounwind {
++  ret double %a
++}
++
++define i32 @main() nounwind {
++entry:
++; Note: test succeeds if loading the double from a global rather than calling
++; 'test'
++  %call = call double @test(double 2.000000e+00)
++  %cmp = fcmp olt double %call, 2.400000e-01
++  %cmp2 = fcmp ogt double %call, 2.600000e-01
++  %or.cond = or i1 %cmp, %cmp2
++  br i1 %or.cond, label %if.then, label %if.end
++
++if.then:                                          ; preds = %entry
++  call void @abort()
++  unreachable
++
++if.end:                                           ; preds = %entry
++  call void @exit(i32 0)
++  unreachable
++}
++
++declare void @abort()
++
++declare void @exit(i32)
+-- 
+2.15.0
+
