@@ -158,6 +158,9 @@ vprintf-chk-1.c
 20040409-1.c
 20040409-2.c
 20040409-3.c
+
+# clang complains the array is too large on RV64
+991014-1.c
 EOF
 )
 
@@ -174,16 +177,23 @@ EOF
 
 CFLAGS=${CFLAGS:-}
 
+if [ -z "$CLANG" ]; then
+  printf "Must set environment variable CLANG to point to a clang binary configured to target RISC-V\n"
+  exit 1
+fi
+
 printf "Compiling with CFLAGS: %s\n" "$CFLAGS"
 
 for FILE in $TESTS; do
+  OLDCFLAGS="$CFLAGS"
   head -1 $FILE | grep -q fwrapv
   if [ $? -eq 0 ]; then
     CFLAGS="$CFLAGS -fwrapv"
   fi
   echo "Compiling $FILE"
   BASEFILE="${FILE%.*}"
-  timelimit -s1 -t 8 ./rvcc.sh $FILE $CFLAGS
+  timelimit -s1 -t 8 "$CLANG" $CFLAGS $FILE -o output/$BASEFILE
+  CFLAGS="$OLDCFLAGS"
   if [ -e output/$BASEFILE ]; then
     echo ":)";
     echo $BASEFILE >> comppass

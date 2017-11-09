@@ -118,6 +118,9 @@ guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
       -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
       -DLLVM_OPTIMIZED_TABLEGEN=True \
       -DLLVM_BUILD_TESTS=True \
+      -DDEFAULT_SYSROOT="/path/to/riscv-gcc-install-path/riscv32-unknown-elf" \
+      -DGCC_INSTALL_PREFIX="/path/to/riscv-gcc-install-path" \
+      -DLLVM_DEFAULT_TARGET_TRIPLE="riscv32" \
       -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../
     cmake --build .
 

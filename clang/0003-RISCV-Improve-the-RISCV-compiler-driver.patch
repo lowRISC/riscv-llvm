@@ -1,0 +1,150 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Improve the RISCV compiler driver
+
+When given a valid sysroot and gcc install prefix, clang can now compile and
+link a RISC-V executable without needing extra linker arguments or include
+paths.
+
+TODO: tests
+---
+ lib/Driver/ToolChains/Gnu.cpp   |  9 ++++++
+ lib/Driver/ToolChains/RISCV.cpp | 62 +++++++++++++++++++++++++++++++++++++++--
+ lib/Driver/ToolChains/RISCV.h   |  3 ++
+ 3 files changed, 71 insertions(+), 3 deletions(-)
+
+diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
+index 08282ff003..856c9264d7 100644
+--- a/lib/Driver/ToolChains/Gnu.cpp
++++ b/lib/Driver/ToolChains/Gnu.cpp
+@@ -1773,6 +1773,9 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+       "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
+       "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
+ 
++  static const char *const RISCV32LibDirs[] = {"/lib"};
++  static const char *const RISCVTriples[] = {"riscv32-unknown-elf"};
++
+   static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
+   static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
+                                                "sparcv8-linux-gnu"};
+@@ -1918,6 +1921,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+     LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
+     TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
+     break;
++  case llvm::Triple::riscv32:
++    LibDirs.append(begin(RISCV32LibDirs), end(RISCV32LibDirs));
++    BiarchLibDirs.append(begin(RISCV32LibDirs), end(RISCV32LibDirs));
++    TripleAliases.append(begin(RISCVTriples), end(RISCVTriples));
++    BiarchTripleAliases.append(begin(RISCVTriples), end(RISCVTriples));
++    break;
+   case llvm::Triple::sparc:
+   case llvm::Triple::sparcel:
+     LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
+diff --git a/lib/Driver/ToolChains/RISCV.cpp b/lib/Driver/ToolChains/RISCV.cpp
+index 6973bbfc11..460893c732 100644
+--- a/lib/Driver/ToolChains/RISCV.cpp
++++ b/lib/Driver/ToolChains/RISCV.cpp
+@@ -11,7 +11,9 @@
+ #include "CommonArgs.h"
+ #include "InputInfo.h"
+ #include "clang/Driver/Compilation.h"
++#include "clang/Driver/Options.h"
+ #include "llvm/Option/ArgList.h"
++#include "llvm/Support/Path.h"
+ 
+ using namespace clang::driver;
+ using namespace clang::driver::toolchains;
+@@ -22,19 +24,73 @@ using namespace llvm::opt;
+ /// RISCV Toolchain
+ RISCVToolChain::RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
+                                const ArgList &Args)
+-    : Generic_ELF(D, Triple, Args) {}
++    : Generic_ELF(D, Triple, Args) {
++  GCCInstallation.init(Triple, Args);
++  getFilePaths().push_back(D.SysRoot + "/lib");
++  if (GCCInstallation.isValid())
++    getFilePaths().push_back(GCCInstallation.getInstallPath().str());
++}
++
+ Tool *RISCVToolChain::buildLinker() const {
+   return new tools::RISCV::Linker(*this);
+ }
+ 
++void RISCVToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
++                                               ArgStringList &CC1Args) const {
++  if (DriverArgs.hasArg(options::OPT_nostdinc))
++    return;
++
++  if (!DriverArgs.hasArg(options::OPT_nostdlibinc)) {
++    SmallString<128> Dir(getDriver().SysRoot);
++    llvm::sys::path::append(Dir, "include");
++    addSystemInclude(DriverArgs, CC1Args, Dir.str());
++  }
++}
++
+ void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+                                  const InputInfo &Output,
+                                  const InputInfoList &Inputs,
+                                  const ArgList &Args,
+                                  const char *LinkingOutput) const {
+-  std::string Linker = getToolChain().GetProgramPath(getShortName());
++  const ToolChain &ToolChain = getToolChain();
++  const Driver &D = ToolChain.getDriver();
+   ArgStringList CmdArgs;
+-  AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
++
++  if (!D.SysRoot.empty())
++    CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
++
++  std::string Linker = getToolChain().GetProgramPath(getShortName());
++
++  bool WantCRTs =
++      !Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles);
++
++  if (WantCRTs) {
++    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt0.o")));
++    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtbegin.o")));
++  }
++
++  Args.AddAllArgs(CmdArgs, options::OPT_L);
++  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
++  Args.AddAllArgs(CmdArgs,
++                  {options::OPT_T_Group, options::OPT_e, options::OPT_s,
++                   options::OPT_t, options::OPT_Z_Flag, options::OPT_r});
++
++  AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
++
++  // TODO: add C++ includes and libs if compiling C++.
++
++  if (!Args.hasArg(options::OPT_nostdlib) &&
++      !Args.hasArg(options::OPT_nodefaultlibs)) {
++    CmdArgs.push_back("--start-group");
++    CmdArgs.push_back("-lc");
++    CmdArgs.push_back("-lgloss");
++    CmdArgs.push_back("--end-group");
++    CmdArgs.push_back("-lgcc");
++  }
++
++  if (WantCRTs)
++    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtend.o")));
++
+   CmdArgs.push_back("-o");
+   CmdArgs.push_back(Output.getFilename());
+   C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
+diff --git a/lib/Driver/ToolChains/RISCV.h b/lib/Driver/ToolChains/RISCV.h
+index 7fe7775de0..15feeee74d 100644
+--- a/lib/Driver/ToolChains/RISCV.h
++++ b/lib/Driver/ToolChains/RISCV.h
+@@ -23,6 +23,9 @@ public:
+                  const llvm::opt::ArgList &Args);
+ 
+   bool IsIntegratedAssemblerDefault() const override { return true; }
++  void
++  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
++                            llvm::opt::ArgStringList &CC1Args) const override;
+ 
+ protected:
+   Tool *buildLinker() const override;
+-- 
+2.15.0
+
