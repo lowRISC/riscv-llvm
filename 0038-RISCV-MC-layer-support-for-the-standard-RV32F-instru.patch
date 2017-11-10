@@ -4,46 +4,33 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
  extension
 
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  44 ++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  31 ++++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 ++++
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  34 ++++-
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  12 +-
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   4 +
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  26 +++-
- lib/Target/RISCV/RISCV.td                          |   5 +
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  58 ++++++-
+ lib/Target/RISCV/RISCV.td                          |   6 +
  lib/Target/RISCV/RISCVInstrFormats.td              |  47 +++++-
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  lib/Target/RISCV/RISCVInstrInfoF.td                | 167 +++++++++++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td              |  52 +++++++
  lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
- test/MC/RISCV/rv32f-invalid.s                      |  30 ++++
+ test/MC/RISCV/rv32f-invalid.s                      |  29 ++++
  test/MC/RISCV/rv32f-valid.s                        | 164 ++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   4 +
- 13 files changed, 541 insertions(+), 13 deletions(-)
+ 14 files changed, 590 insertions(+), 13 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoF.td
  create mode 100644 test/MC/RISCV/rv32f-invalid.s
  create mode 100644 test/MC/RISCV/rv32f-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 3f76ce3b24a..e0cb8512b49 100644
+index 3f76ce3b24a..e3abae82aca 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -185,6 +185,34 @@ public:
+@@ -185,6 +185,20 @@ public:
      return true;
    }
  
-+  // If the given string is a valid floating point rounding mode, return the
-+  // matching RISCVFPRndMode::RoundingMode value. Otherwise, return
-+  // RISCVFPRndMode::Invalid.
-+  RISCVFPRndMode::RoundingMode parseFRM(StringRef Str) const {
-+    return StringSwitch<RISCVFPRndMode::RoundingMode>(Str)
-+        .Case("rne", RISCVFPRndMode::RNE)
-+        .Case("rtz", RISCVFPRndMode::RTZ)
-+        .Case("rdn", RISCVFPRndMode::RDN)
-+        .Case("rup", RISCVFPRndMode::RUP)
-+        .Case("rmm", RISCVFPRndMode::RMM)
-+        .Case("dyn", RISCVFPRndMode::DYN)
-+        .Default(RISCVFPRndMode::Invalid);
-+  }
-+
 +  /// Return true if the operand is a valid floating point rounding mode.
 +  bool isFRMArg() const {
 +    if (!isImm())
@@ -55,30 +42,31 @@ index 3f76ce3b24a..e0cb8512b49 100644
 +
 +    StringRef Str = SVal->getSymbol().getName();
 +
-+    return parseFRM(Str) != RISCVFPRndMode::Invalid;
++    return RISCVFPRndMode::stringToRoundingMode(Str) != RISCVFPRndMode::Invalid;
 +  }
 +
    bool isUImm5() const {
      int64_t Imm;
      RISCVMCExpr::VariantKind VK;
-@@ -344,6 +372,16 @@ public:
+@@ -344,6 +358,17 @@ public:
      }
      Inst.addOperand(MCOperand::createImm(Imm));
    }
 +
 +  void addFRMArgOperands(MCInst &Inst, unsigned N) const {
 +    assert(N == 1 && "Invalid number of operands!");
-+    // isFRMArg has validated the operand, meaning this cast is safe
++    // isFRMArg has validated the operand, meaning this cast is safe.
 +    auto SE = cast<MCSymbolRefExpr>(getImm());
 +
-+    RISCVFPRndMode::RoundingMode FRM = parseFRM(SE->getSymbol().getName());
++    RISCVFPRndMode::RoundingMode FRM =
++        RISCVFPRndMode::stringToRoundingMode(SE->getSymbol().getName());
 +    assert(FRM != RISCVFPRndMode::Invalid && "Invalid rounding mode");
 +    Inst.addOperand(MCOperand::createImm(FRM));
 +  }
  };
  } // end anonymous namespace.
  
-@@ -411,6 +449,12 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -411,6 +436,12 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc,
          "operand must be formed of letters selected in-order from 'iorw'");
    }
@@ -129,7 +117,7 @@ index 003686ac2f3..c502e3ab4d0 100644
  static DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t Imm,
                                        int64_t Address, const void *Decoder) {
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
-index 6bc4ea2cd0d..f639d8933ab 100644
+index 6bc4ea2cd0d..a396025ccc4 100644
 --- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 +++ b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 @@ -16,6 +16,7 @@
@@ -155,38 +143,16 @@ index 6bc4ea2cd0d..f639d8933ab 100644
    printAnnotation(O, Annot);
  }
  
-@@ -67,3 +70,32 @@ void RISCVInstPrinter::printFenceArg(const MCInst *MI, unsigned OpNo,
+@@ -67,3 +70,10 @@ void RISCVInstPrinter::printFenceArg(const MCInst *MI, unsigned OpNo,
    if ((FenceArg & RISCVFenceField::W) != 0)
      O << 'w';
  }
 +
 +void RISCVInstPrinter::printFRMArg(const MCInst *MI, unsigned OpNo,
 +                                   raw_ostream &O) {
-+  // TODO: What is the correct behaviour when encountering an unexpected
-+  // rounding mode?
-+  unsigned FRMArg = MI->getOperand(OpNo).getImm();
-+  switch (FRMArg) {
-+  default:
-+    llvm_unreachable("Unknown floating point rounding mode");
-+  case RISCVFPRndMode::RNE:
-+    O << "rne";
-+    break;
-+  case RISCVFPRndMode::RTZ:
-+    O << "rtz";
-+    break;
-+  case RISCVFPRndMode::RDN:
-+    O << "rdn";
-+    break;
-+  case RISCVFPRndMode::RUP:
-+    O << "rup";
-+    break;
-+  case RISCVFPRndMode::RMM:
-+    O << "rmm";
-+    break;
-+  case RISCVFPRndMode::DYN:
-+    O << "dyn";
-+    break;
-+  }
++  auto FRMArg =
++      static_cast<RISCVFPRndMode::RoundingMode>(MI->getOperand(OpNo).getImm());
++  O << RISCVFPRndMode::roundingModeToString(FRMArg);
 +}
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
 index 3bb4fa37f15..58f3f841015 100644
@@ -207,10 +173,19 @@ index 3bb4fa37f15..58f3f841015 100644
                                       unsigned AltIdx = RISCV::ABIRegAltName);
  };
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-index 9fafbb0a95a..488a987475b 100644
+index 9fafbb0a95a..b38f2eaa81b 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
-@@ -24,12 +24,13 @@ namespace RISCVII {
+@@ -15,6 +15,8 @@
+ #define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVBASEINFO_H
+ 
+ #include "RISCVMCTargetDesc.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/ADT/StringSwitch.h"
+ 
+ namespace llvm {
+ 
+@@ -24,12 +26,13 @@ namespace RISCVII {
  enum {
    InstFormatPseudo = 0,
    InstFormatR = 1,
@@ -230,7 +205,7 @@ index 9fafbb0a95a..488a987475b 100644
  
    InstFormatMask = 15
  };
-@@ -51,6 +52,19 @@ enum FenceField {
+@@ -51,6 +54,49 @@ enum FenceField {
    W = 1
  };
  }
@@ -246,25 +221,56 @@ index 9fafbb0a95a..488a987475b 100644
 +  DYN = 7,
 +  Invalid
 +};
++
++inline static StringRef roundingModeToString(RoundingMode RndMode) {
++  switch (RndMode) {
++  default:
++    llvm_unreachable("Unknown floating point rounding mode");
++  case RISCVFPRndMode::RNE:
++    return "rne";
++  case RISCVFPRndMode::RTZ:
++    return "rtz";
++  case RISCVFPRndMode::RDN:
++    return "rdn";
++  case RISCVFPRndMode::RUP:
++    return "rup";
++  case RISCVFPRndMode::RMM:
++    return "rmm";
++  case RISCVFPRndMode::DYN:
++    return "dyn";
++  }
 +}
++
++inline static RoundingMode stringToRoundingMode(StringRef Str) {
++  return StringSwitch<RoundingMode>(Str)
++      .Case("rne", RISCVFPRndMode::RNE)
++      .Case("rtz", RISCVFPRndMode::RTZ)
++      .Case("rdn", RISCVFPRndMode::RDN)
++      .Case("rup", RISCVFPRndMode::RUP)
++      .Case("rmm", RISCVFPRndMode::RMM)
++      .Case("dyn", RISCVFPRndMode::DYN)
++      .Default(RISCVFPRndMode::Invalid);
++}
++} // namespace RISCVFPRndMode
  } // namespace llvm
  
  #endif
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index 9f140dd39b8..2c91bc69125 100644
+index 63bcfd794c4..24fe235eaff 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -23,6 +23,11 @@ def FeatureStdExtA : SubtargetFeature<"a", "HasStdExtA", "true",
- def HasStdExtA     :  Predicate<"Subtarget->hasStdExtA()">,
+@@ -25,6 +25,12 @@ def FeatureStdExtA
+ def HasStdExtA : Predicate<"Subtarget->hasStdExtA()">,
                             AssemblerPredicate<"FeatureStdExtA">;
  
-+def FeatureStdExtF : SubtargetFeature<"f", "HasStdExtF", "true",
-+                           "'F' (Single-Precision Floating-Point)">;
-+def HasStdExtF     :  Predicate<"Subtarget->hasStdExtF()">,
++def FeatureStdExtF
++    : SubtargetFeature<"f", "HasStdExtF", "true",
++                       "'F' (Single-Precision Floating-Point)">;
++def HasStdExtF : Predicate<"Subtarget->hasStdExtF()">,
 +                           AssemblerPredicate<"FeatureStdExtF">;
 +
- def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
-                            "Implements RV64">;
+ def Feature64Bit
+     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
 index 3dca957e31f..ca368792340 100644
@@ -339,7 +345,7 @@ index 3dca957e31f..ca368792340 100644
                string opcodestr, string argstr>
      : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index c0c4d07718c..32396c0b513 100644
+index b6a43ed757b..b4c297b0121 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -460,3 +460,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
@@ -520,6 +526,73 @@ index 00000000000..69cdc8d9ece
 +  let rs2 = 0b00000;
 +}
 +} // Predicates = [HasStdExtF]
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
+index 78c036a37b9..fd1d477e638 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.td
++++ b/lib/Target/RISCV/RISCVRegisterInfo.td
+@@ -16,6 +16,12 @@ class RISCVReg<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
+   let HWEncoding{4-0} = Enc;
+   let AltNames = alt;
+ }
++
++class RISCVReg32<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
++  let HWEncoding{4-0} = Enc;
++  let AltNames = alt;
++}
++
+ def ABIRegAltName : RegAltNameIndex;
+ } // Namespace = "RISCV"
+ 
+@@ -72,3 +78,49 @@ def GPR : RegisterClass<"RISCV", [XLenVT], 32, (add
+       [RV32,              RV64,              DefaultMode],
+       [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
+ }
++
++// Floating point registers
++let RegAltNameIndices = [ABIRegAltName] in {
++  def F0_32  : RISCVReg32<0, "f0", ["ft0"]>, DwarfRegNum<[32]>;
++  def F1_32  : RISCVReg32<1, "f1", ["ft1"]>, DwarfRegNum<[33]>;
++  def F2_32  : RISCVReg32<2, "f2", ["ft2"]>, DwarfRegNum<[34]>;
++  def F3_32  : RISCVReg32<3, "f3", ["ft3"]>, DwarfRegNum<[35]>;
++  def F4_32  : RISCVReg32<4, "f4", ["ft4"]>, DwarfRegNum<[36]>;
++  def F5_32  : RISCVReg32<5, "f5", ["ft5"]>, DwarfRegNum<[37]>;
++  def F6_32  : RISCVReg32<6, "f6", ["ft6"]>, DwarfRegNum<[38]>;
++  def F7_32  : RISCVReg32<7, "f7", ["ft7"]>, DwarfRegNum<[39]>;
++  def F8_32  : RISCVReg32<8, "f8", ["fs0"]>, DwarfRegNum<[40]>;
++  def F9_32  : RISCVReg32<9, "f9", ["fs1"]>, DwarfRegNum<[41]>;
++  def F10_32 : RISCVReg32<10,"f10", ["fa0"]>, DwarfRegNum<[42]>;
++  def F11_32 : RISCVReg32<11,"f11", ["fa1"]>, DwarfRegNum<[43]>;
++  def F12_32 : RISCVReg32<12,"f12", ["fa2"]>, DwarfRegNum<[44]>;
++  def F13_32 : RISCVReg32<13,"f13", ["fa3"]>, DwarfRegNum<[45]>;
++  def F14_32 : RISCVReg32<14,"f14", ["fa4"]>, DwarfRegNum<[46]>;
++  def F15_32 : RISCVReg32<15,"f15", ["fa5"]>, DwarfRegNum<[47]>;
++  def F16_32 : RISCVReg32<16,"f16", ["fa6"]>, DwarfRegNum<[48]>;
++  def F17_32 : RISCVReg32<17,"f17", ["fa7"]>, DwarfRegNum<[49]>;
++  def F18_32 : RISCVReg32<18,"f18", ["fs2"]>, DwarfRegNum<[50]>;
++  def F19_32 : RISCVReg32<19,"f19", ["fs3"]>, DwarfRegNum<[51]>;
++  def F20_32 : RISCVReg32<20,"f20", ["fs4"]>, DwarfRegNum<[52]>;
++  def F21_32 : RISCVReg32<21,"f21", ["fs5"]>, DwarfRegNum<[53]>;
++  def F22_32 : RISCVReg32<22,"f22", ["fs6"]>, DwarfRegNum<[54]>;
++  def F23_32 : RISCVReg32<23,"f23", ["fs7"]>, DwarfRegNum<[55]>;
++  def F24_32 : RISCVReg32<24,"f24", ["fs8"]>, DwarfRegNum<[56]>;
++  def F25_32 : RISCVReg32<25,"f25", ["fs9"]>, DwarfRegNum<[57]>;
++  def F26_32 : RISCVReg32<26,"f26", ["fs10"]>, DwarfRegNum<[58]>;
++  def F27_32 : RISCVReg32<27,"f27", ["fs11"]>, DwarfRegNum<[59]>;
++  def F28_32 : RISCVReg32<28,"f28", ["ft8"]>, DwarfRegNum<[60]>;
++  def F29_32 : RISCVReg32<29,"f29", ["ft9"]>, DwarfRegNum<[61]>;
++  def F30_32 : RISCVReg32<30,"f30", ["ft10"]>, DwarfRegNum<[62]>;
++  def F31_32 : RISCVReg32<31,"f31", ["ft11"]>, DwarfRegNum<[63]>;
++}
++
++// The order of registers represents the preferred allocation sequence,
++// meaning caller-save regs are listed before callee-save.
++def FPR32 : RegisterClass<"RISCV", [f32], 32, (add
++    (sequence "F%u_32", 0, 7),
++    (sequence "F%u_32", 10, 17),
++    (sequence "F%u_32", 28, 31),
++    (sequence "F%u_32", 8, 9),
++    (sequence "F%u_32", 18, 27)
++)>;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 index 14b25c14dbe..9d40c27aa3f 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
@@ -542,11 +615,11 @@ index 14b25c14dbe..9d40c27aa3f 100644
    unsigned getXLen() const { return XLen; }
 diff --git a/test/MC/RISCV/rv32f-invalid.s b/test/MC/RISCV/rv32f-invalid.s
 new file mode 100644
-index 00000000000..f9e722d6c44
+index 00000000000..7ef882805cc
 --- /dev/null
 +++ b/test/MC/RISCV/rv32f-invalid.s
-@@ -0,0 +1,30 @@
-+# RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
+@@ -0,0 +1,29 @@
++# RUN: not llvm-mc -triple riscv32 -mattr=+f < %s 2>&1 | FileCheck %s
 +
 +# Out of range immediates
 +## simm12
@@ -574,7 +647,6 @@ index 00000000000..f9e722d6c44
 +# Invalid rounding modes
 +fmadd.s f10, f11, f12, f13, ree # CHECK: :[[@LINE]]:29: error: operand must be a valid floating point rounding mode mnemonic
 +fmsub.s f14, f15, f16, f17, 0 # CHECK: :[[@LINE]]:29: error: operand must be a valid floating point rounding mode mnemonic
-+
 +fnmsub.s f18, f19, f20, f21, 0b111 # CHECK: :[[@LINE]]:30: error: operand must be a valid floating point rounding mode mnemonic
 diff --git a/test/MC/RISCV/rv32f-valid.s b/test/MC/RISCV/rv32f-valid.s
 new file mode 100644

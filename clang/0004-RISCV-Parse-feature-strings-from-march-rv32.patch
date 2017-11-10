@@ -1,0 +1,144 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Parse feature strings from -march=rv32???
+
+---
+ lib/Driver/CMakeLists.txt            |  1 +
+ lib/Driver/ToolChains/Arch/RISCV.cpp | 51 ++++++++++++++++++++++++++++++++++++
+ lib/Driver/ToolChains/Arch/RISCV.h   | 30 +++++++++++++++++++++
+ lib/Driver/ToolChains/Clang.cpp      |  5 ++++
+ 4 files changed, 87 insertions(+)
+ create mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
+ create mode 100644 lib/Driver/ToolChains/Arch/RISCV.h
+
+diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
+index 1c123b8d1b..459b64bf34 100644
+--- a/lib/Driver/CMakeLists.txt
++++ b/lib/Driver/CMakeLists.txt
+@@ -25,6 +25,7 @@ add_clang_library(clangDriver
+   ToolChains/Arch/ARM.cpp
+   ToolChains/Arch/Mips.cpp
+   ToolChains/Arch/PPC.cpp
++  ToolChains/Arch/RISCV.cpp
+   ToolChains/Arch/Sparc.cpp
+   ToolChains/Arch/SystemZ.cpp
+   ToolChains/Arch/X86.cpp
+diff --git a/lib/Driver/ToolChains/Arch/RISCV.cpp b/lib/Driver/ToolChains/Arch/RISCV.cpp
+new file mode 100644
+index 0000000000..19e0233e6c
+--- /dev/null
++++ b/lib/Driver/ToolChains/Arch/RISCV.cpp
+@@ -0,0 +1,51 @@
++//===--- RISCV.cpp - RISCV Helpers for Tools --------------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCV.h"
++#include "clang/Driver/Driver.h"
++#include "clang/Driver/DriverDiagnostic.h"
++#include "clang/Driver/Options.h"
++#include "llvm/Option/ArgList.h"
++#include "llvm/Support/TargetParser.h"
++#include "llvm/Support/raw_ostream.h"
++
++using namespace clang::driver;
++using namespace clang::driver::tools;
++using namespace clang;
++using namespace llvm::opt;
++
++void riscv::getRISCVTargetFeatures(const Driver &D, const ArgList &Args,
++                                   std::vector<StringRef> &Features) {
++  if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
++    StringRef MArch = A->getValue();
++    // TODO: handle rv64
++    std::pair<StringRef, StringRef> MArchSplit = StringRef(MArch).split("rv32");
++    if (!MArchSplit.second.size())
++      return;
++
++    for (char c : MArchSplit.second) {
++      switch (c) {
++      case 'i':
++        break;
++      case 'm':
++        Features.push_back("+m");
++        break;
++      case 'a':
++        Features.push_back("+a");
++        break;
++      case 'f':
++        Features.push_back("+f");
++        break;
++      case 'd':
++        Features.push_back("+d");
++        break;
++      }
++    }
++  }
++}
+diff --git a/lib/Driver/ToolChains/Arch/RISCV.h b/lib/Driver/ToolChains/Arch/RISCV.h
+new file mode 100644
+index 0000000000..06064e4367
+--- /dev/null
++++ b/lib/Driver/ToolChains/Arch/RISCV.h
+@@ -0,0 +1,30 @@
++//===--- RISCV.h - RISCV-specific Tool Helpers ------------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
++#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
++
++#include "clang/Driver/Driver.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Option/Option.h"
++#include <string>
++#include <vector>
++
++namespace clang {
++namespace driver {
++namespace tools {
++namespace riscv {
++void getRISCVTargetFeatures(const Driver &D, const llvm::opt::ArgList &Args,
++                            std::vector<llvm::StringRef> &Features);
++} // end namespace riscv
++} // namespace tools
++} // end namespace driver
++} // end namespace clang
++
++#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
+diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
+index 758ece19e1..d25ff79ac5 100644
+--- a/lib/Driver/ToolChains/Clang.cpp
++++ b/lib/Driver/ToolChains/Clang.cpp
+@@ -12,6 +12,7 @@
+ #include "Arch/ARM.h"
+ #include "Arch/Mips.h"
+ #include "Arch/PPC.h"
++#include "Arch/RISCV.h"
+ #include "Arch/Sparc.h"
+ #include "Arch/SystemZ.h"
+ #include "Arch/X86.h"
+@@ -322,6 +323,10 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
+   case llvm::Triple::ppc64le:
+     ppc::getPPCTargetFeatures(D, Triple, Args, Features);
+     break;
++  case llvm::Triple::riscv32:
++  case llvm::Triple::riscv64:
++    riscv::getRISCVTargetFeatures(D, Args, Features);
++    break;
+   case llvm::Triple::systemz:
+     systemz::getSystemZTargetFeatures(Args, Features);
+     break;
+-- 
+2.15.0
+

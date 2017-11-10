@@ -46,9 +46,6 @@ A number of TODO items are described in this repo's [issues
 page](https://github.com/lowrisc/riscv-llvm/issues). These issues should help 
 to co-ordinate efforts between different interested parties.
 
-A RISC-V Birds of a Feather session will take place at the upcoming
-upcoming [LLVM Dev Meeting](http://llvm.org/devmtg/2017-10/#bof4).
-
 Our aim is that RISC-V is the cleanest and most documented LLVM backend. As 
 well as benefiting the wider LLVM community, this will make it substantially 
 easier for research groups and hobbyists to explore hardware/software 
@@ -120,7 +117,7 @@ guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
       -DLLVM_BUILD_TESTS=True \
       -DDEFAULT_SYSROOT="/path/to/riscv-gcc-install-path/riscv32-unknown-elf" \
       -DGCC_INSTALL_PREFIX="/path/to/riscv-gcc-install-path" \
-      -DLLVM_DEFAULT_TARGET_TRIPLE="riscv32" \
+      -DLLVM_DEFAULT_TARGET_TRIPLE="riscv32-unknown-elf" \
       -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../
     cmake --build .
 
@@ -144,5 +141,5 @@ code to this patchset and related support patches: Chandler Carruth, Shiva
 Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal
 Finkel, Ondrej Glasnak, Mandeep Singh Grang, James Y Knight, David Majnemer,
 Ed Maste, Dylan McKay, Tim Northover, Krzysztof Parzyszek, Ana Pazaos, Jordy
-Portman, Philip Reames, Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian
-Zeitz.
+Portman, Philip Reames, John Russo, Pavel Šnobl, Ulrich Weigand, Eugene
+Zalenko, Florian Zeitz.

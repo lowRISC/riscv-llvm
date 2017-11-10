@@ -85,7 +85,7 @@ index c02b37ae057..4016f050d3b 100644
  
  void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 0413128b8fa..702e75eb586 100644
+index 86088f0b8f4..987a15ea14d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -421,11 +421,14 @@ def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;

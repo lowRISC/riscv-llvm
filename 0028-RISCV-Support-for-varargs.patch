@@ -19,7 +19,7 @@ known offsets of the frame pointer.
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 6811633d7ea..a61ec7feb9e 100644
+index a823b7ec275..dbfc377dabd 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -12,6 +12,7 @@
@@ -39,7 +39,7 @@ index 6811633d7ea..a61ec7feb9e 100644
  
    unsigned FPReg = RISCV::X8;
 @@ -111,7 +113,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
-   // Generate new FP
+   // Generate new FP.
    BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), FPReg)
        .addReg(SPReg)
 -      .addImm(StackSize)
@@ -375,7 +375,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 719741dcbaa..a525359ed0a 100644
+index ea5f96d26d7..d1a2f483e25 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -13,6 +13,7 @@

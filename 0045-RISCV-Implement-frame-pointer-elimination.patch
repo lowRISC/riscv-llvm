@@ -5,7 +5,7 @@ Subject: [RISCV] Implement frame pointer elimination
 TODO: properly update tests to have a version with and without fp elimination
 when necessary.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp      |  33 +++--
+ lib/Target/RISCV/RISCVFrameLowering.cpp      |  35 ++---
  lib/Target/RISCV/RISCVRegisterInfo.cpp       |  13 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll    |  14 --
  test/CodeGen/RISCV/alu32.ll                  | 133 -----------------
@@ -38,13 +38,13 @@ when necessary.
  test/CodeGen/RISCV/shifts.ll                 |   9 --
  test/CodeGen/RISCV/vararg.ll                 |   2 +-
  test/CodeGen/RISCV/wide-mem.ll               |  14 --
- 33 files changed, 111 insertions(+), 1035 deletions(-)
+ 33 files changed, 112 insertions(+), 1036 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 33de593d6ce..47003c9fe2e 100644
+index fdd1fb6bcc7..d60227d368b 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
-@@ -22,7 +22,15 @@
+@@ -22,7 +22,14 @@
  
  using namespace llvm;
  
@@ -54,14 +54,13 @@ index 33de593d6ce..47003c9fe2e 100644
 +
 +  const MachineFrameInfo &MFI = MF.getFrameInfo();
 +  return MF.getTarget().Options.DisableFramePointerElim(MF) ||
-+      RegInfo->needsStackRealignment(MF) ||
-+      MFI.hasVarSizedObjects() ||
-+      MFI.isFrameAddressTaken();
++         RegInfo->needsStackRealignment(MF) || MFI.hasVarSizedObjects() ||
++         MFI.isFrameAddressTaken();
 +}
  
  // Determines the size of the frame and maximum call frame size.
  void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
-@@ -105,11 +113,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -105,11 +112,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
                                        MachineBasicBlock &MBB) const {
    assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
  
@@ -73,14 +72,15 @@ index 33de593d6ce..47003c9fe2e 100644
    MachineFrameInfo &MFI = MF.getFrameInfo();
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
-@@ -145,17 +148,13 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -145,17 +147,13 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
    std::advance(MBBI, CSI.size());
  
-   // Generate new FP
+   // Generate new FP.
 -  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
+-            MachineInstr::FrameSetup);
 +  if (hasFP(MF))
-+    adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
-             MachineInstr::FrameSetup);
++    adjustReg(MBB, MBBI, DL, FPReg, SPReg,
++              StackSize - RVFI->getVarArgsSaveSize(), MachineInstr::FrameSetup);
  }
  
  void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
@@ -93,7 +93,7 @@ index 33de593d6ce..47003c9fe2e 100644
    MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
    const RISCVRegisterInfo *RI = STI.getRegisterInfo();
    MachineFrameInfo &MFI = MF.getFrameInfo();
-@@ -176,6 +175,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+@@ -176,6 +174,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
    // necessary if the stack pointer was modified, meaning the stack size is
    // unknown.
    if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
@@ -101,15 +101,16 @@ index 33de593d6ce..47003c9fe2e 100644
      adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
                -StackSize + RVFI->getVarArgsSaveSize(),
                MachineInstr::FrameDestroy);
-@@ -189,10 +189,11 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+@@ -189,10 +188,12 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
                                                BitVector &SavedRegs,
                                                RegScavenger *RS) const {
    TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
--  // TODO: once frame pointer elimination is implemented, don't
--  // unconditionally spill the frame pointer and return address
+-  // TODO: Once frame pointer elimination is implemented, don't
+-  // unconditionally spill the frame pointer and return address.
 -  SavedRegs.set(RISCV::X1);
 -  SavedRegs.set(RISCV::X8);
-+  // Unconditionally spill RA and FP only if the function uses a frame pointer
++  // Unconditionally spill RA and FP only if the function uses a frame
++  // pointer.
 +  if (hasFP(MF)) {
 +    SavedRegs.set(RISCV::X1);
 +    SavedRegs.set(RISCV::X8);
@@ -118,7 +119,7 @@ index 33de593d6ce..47003c9fe2e 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 4dc1892237e..7f118ddc21f 100644
+index 35a5ac1026e..9b3ff1edec4 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -65,7 +65,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

@@ -7,7 +7,7 @@ Subject: Add RISC-V support to update_llc_test_checks.py
  1 file changed, 18 insertions(+)
 
 diff --git a/utils/update_llc_test_checks.py b/utils/update_llc_test_checks.py
-index e4e7e2ce41e..c3320f204a0 100755
+index e4e7e2ce41e..9b2df90ad39 100755
 --- a/utils/update_llc_test_checks.py
 +++ b/utils/update_llc_test_checks.py
 @@ -58,6 +58,12 @@ ASM_FUNCTION_PPC_RE = re.compile(
@@ -27,7 +27,7 @@ index e4e7e2ce41e..c3320f204a0 100755
    asm = SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
    return asm
  
-+def scrub_asm_riscv(asm):
++def scrub_asm_riscv(asm, args):
 +  # Scrub runs of whitespace out of the assembly, but leave the leading
 +  # whitespace in place.
 +  asm = SCRUB_WHITESPACE_RE.sub(r' ', asm)

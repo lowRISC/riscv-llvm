@@ -6,7 +6,7 @@ Subject: [RISCV] Add initial RV64I codegen support
  lib/Target/RISCV/RISCV.td                 |   1 +
  lib/Target/RISCV/RISCVISelLowering.cpp    |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp       |   9 +-
- lib/Target/RISCV/RISCVInstrInfo.td        |  79 ++++-
+ lib/Target/RISCV/RISCVInstrInfo.td        |  75 ++++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp    |  17 +-
  lib/Target/RISCV/RISCVTargetMachine.cpp   |   2 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll | 100 ++++++
@@ -14,22 +14,22 @@ Subject: [RISCV] Add initial RV64I codegen support
  test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/imm.ll                 |  64 ++++
  test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
- 11 files changed, 1118 insertions(+), 26 deletions(-)
+ 11 files changed, 1116 insertions(+), 24 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index b12ab2abeb3..69b9c5d4360 100644
+index e3cf8afcf00..170c8ff2825 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -38,6 +38,7 @@ def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
-                            "Implements RV64">;
- def IsRV64         :  Predicate<"Subtarget->is64Bit()">,
-                            AssemblerPredicate<"Feature64Bit">;
-+def IsRV32         :  Predicate<"!Subtarget->is64Bit()">;
+@@ -42,6 +42,7 @@ def Feature64Bit
+     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
+ def IsRV64 : Predicate<"Subtarget->is64Bit()">,
+                        AssemblerPredicate<"Feature64Bit">;
++def IsRV32 : Predicate<"!Subtarget->is64Bit()">;
  
- def RV64           : HwMode<"+64bit">;
- def RV32           : HwMode<"-64bit">;
+ def RV64 : HwMode<"+64bit">;
+ def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 index 4e32449fa77..fa38047a49b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
@@ -108,7 +108,7 @@ index 98bd061bf5b..ac8affebb27 100644
  
    if (!isInt<32>(BrOffset))
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 3d78922a1f3..0413128b8fa 100644
+index 5e4b70dc3b5..86088f0b8f4 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -26,7 +26,6 @@ def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
@@ -161,17 +161,7 @@ index 3d78922a1f3..0413128b8fa 100644
  
  /// Simple arithmetic operations
  
-@@ -381,7 +399,8 @@ def : PatGprUimmLog2XLen<sra, SRAI>;
- 
- // Add with a frameindex, used to legalize frameindex copies and necessary to
- // keep tblgen happy
--def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr), [(set GPR:$dst, ADDRii:$addr)]>;
-+def LEA_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
-+                    [(set GPR:$dst, ADDRii:$addr)]>;
- 
- /// Setcc
- 
-@@ -471,13 +490,12 @@ defm : LdPat<sextloadi8, LB>;
+@@ -472,12 +490,12 @@ defm : LdPat<sextloadi8, LB>;
  defm : LdPat<extloadi8, LB>;
  defm : LdPat<sextloadi16, LH>;
  defm : LdPat<extloadi16, LH>;
@@ -182,7 +172,6 @@ index 3d78922a1f3..0413128b8fa 100644
  
 -def LW_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
 -                   [(set GPR:$dst, (load ADDRii:$addr))]>;
--
 +def LdXLEN_FI : Pseudo<(outs GPR:$dst), (ins MEMii:$addr),
 +                       [(set GPR:$dst, (load ADDRii:$addr))]>;
  
@@ -251,7 +240,7 @@ index 3d78922a1f3..0413128b8fa 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 7f118ddc21f..b6faabb7143 100644
+index 9b3ff1edec4..8e9a8f60881 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

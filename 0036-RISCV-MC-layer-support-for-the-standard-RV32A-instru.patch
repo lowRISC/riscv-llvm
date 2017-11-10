@@ -5,7 +5,7 @@ Subject: [RISCV] MC layer support for the standard RV32A instruction set
 
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  37 +++++--
- lib/Target/RISCV/RISCV.td                     |   5 +
+ lib/Target/RISCV/RISCV.td                     |   6 ++
  lib/Target/RISCV/RISCVInstrFormats.td         |  18 ++++
  lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
  lib/Target/RISCV/RISCVInstrInfoA.td           |  63 +++++++++++
@@ -13,7 +13,7 @@ Subject: [RISCV] MC layer support for the standard RV32A instruction set
  test/MC/RISCV/rv32a-invalid.s                 |  14 +++
  test/MC/RISCV/rv32a-valid.s                   | 146 ++++++++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                 |   2 +
- 9 files changed, 283 insertions(+), 7 deletions(-)
+ 9 files changed, 284 insertions(+), 7 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoA.td
  create mode 100644 test/MC/RISCV/rv32a-invalid.s
  create mode 100644 test/MC/RISCV/rv32a-valid.s
@@ -93,20 +93,21 @@ index 486784859bd..3f76ce3b24a 100644
  
    // Attempt to parse token as an immediate
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index d8581f8d03c..e9a7501e920 100644
+index 6fc54a517dd..63bcfd794c4 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
-@@ -18,6 +18,11 @@ def FeatureStdExtM : SubtargetFeature<"m", "HasStdExtM", "true",
- def HasStdExtM     : Predicate<"Subtarget->hasStdExtM()">,
+@@ -19,6 +19,12 @@ def FeatureStdExtM
+ def HasStdExtM : Predicate<"Subtarget->hasStdExtM()">,
                             AssemblerPredicate<"FeatureStdExtM">;
  
-+def FeatureStdExtA : SubtargetFeature<"a", "HasStdExtA", "true",
-+                           "'A' (Atomic Instructions)">;
-+def HasStdExtA     :  Predicate<"Subtarget->hasStdExtA()">,
++def FeatureStdExtA
++    : SubtargetFeature<"a", "HasStdExtA", "true",
++                       "'A' (Atomic Instructions)">;
++def HasStdExtA : Predicate<"Subtarget->hasStdExtA()">,
 +                           AssemblerPredicate<"FeatureStdExtA">;
 +
- def Feature64Bit   : SubtargetFeature<"64bit", "HasRV64", "true",
-                            "Implements RV64">;
+ def Feature64Bit
+     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
  
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
 index 48f6cf8762d..3dca957e31f 100644
@@ -138,7 +139,7 @@ index 48f6cf8762d..3dca957e31f 100644
                string opcodestr, string argstr>
      : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 6dac5631fc3..c0c4d07718c 100644
+index c5491ae72c4..b6a43ed757b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -459,3 +459,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),

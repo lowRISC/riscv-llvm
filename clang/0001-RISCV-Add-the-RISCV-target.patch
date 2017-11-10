@@ -7,15 +7,15 @@ been removed in favour of `__riscv`.
 ---
  lib/Basic/CMakeLists.txt        |  1 +
  lib/Basic/Targets.cpp           |  6 +++
- lib/Basic/Targets/RISCV.cpp     | 46 ++++++++++++++++++++++
- lib/Basic/Targets/RISCV.h       | 74 ++++++++++++++++++++++++++++++++++++
+ lib/Basic/Targets/RISCV.cpp     | 46 ++++++++++++++++++++
+ lib/Basic/Targets/RISCV.h       | 75 +++++++++++++++++++++++++++++++++
  lib/Driver/CMakeLists.txt       |  1 +
  lib/Driver/Driver.cpp           |  5 +++
- lib/Driver/ToolChains/RISCV.cpp | 43 +++++++++++++++++++++
- lib/Driver/ToolChains/RISCV.h   | 54 ++++++++++++++++++++++++++
- test/Driver/riscv32-toolchain.c | 84 +++++++++++++++++++++++++++++++++++++++++
- test/Driver/riscv64-toolchain.c | 84 +++++++++++++++++++++++++++++++++++++++++
- 10 files changed, 398 insertions(+)
+ lib/Driver/ToolChains/RISCV.cpp | 43 +++++++++++++++++++
+ lib/Driver/ToolChains/RISCV.h   | 54 ++++++++++++++++++++++++
+ test/Driver/riscv32-toolchain.c | 91 ++++++++++++++++++++++++++++++++++++++++
+ test/Driver/riscv64-toolchain.c | 93 +++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 415 insertions(+)
  create mode 100644 lib/Basic/Targets/RISCV.cpp
  create mode 100644 lib/Basic/Targets/RISCV.h
  create mode 100644 lib/Driver/ToolChains/RISCV.cpp
@@ -113,10 +113,10 @@ index 0000000000..2c110d0727
 +}
 diff --git a/lib/Basic/Targets/RISCV.h b/lib/Basic/Targets/RISCV.h
 new file mode 100644
-index 0000000000..4f5f3a6e8d
+index 0000000000..1ec7b4dafd
 --- /dev/null
 +++ b/lib/Basic/Targets/RISCV.h
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +//===--- RISCV.h - Declare RISCV target feature support ---------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -150,6 +150,7 @@ index 0000000000..4f5f3a6e8d
 +    LongDoubleWidth = 128;
 +    LongDoubleAlign = 128;
 +    LongDoubleFormat = &llvm::APFloat::IEEEquad();
++    WCharType = SignedInt;
 +  }
 +
 +  void getTargetDefines(const LangOptions &Opts,
@@ -337,10 +338,10 @@ index 0000000000..7fe7775de0
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
 new file mode 100644
-index 0000000000..3517085b4d
+index 0000000000..fccb638d45
 --- /dev/null
 +++ b/test/Driver/riscv32-toolchain.c
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,91 @@
 +// A basic clang -cc1 command-line, and simple environment check.
 +
 +// RUN: %clang %s -### -no-canonical-prefixes -target riscv32 2>&1 | FileCheck -check-prefix=CC1 %s
@@ -351,6 +352,7 @@ index 0000000000..3517085b4d
 +typedef __builtin_va_list va_list;
 +typedef __SIZE_TYPE__ size_t;
 +typedef __PTRDIFF_TYPE__ ptrdiff_t;
++typedef __WCHAR_TYPE__ wchar_t;
 +
 +// CHECK: @align_c = global i32 1
 +int align_c = __alignof(char);
@@ -360,6 +362,9 @@ index 0000000000..3517085b4d
 +
 +// CHECK: @align_i = global i32 4
 +int align_i = __alignof(int);
++
++// CHECK: @align_wc = global i32 4
++int align_wc = __alignof(wchar_t);
 +
 +// CHECK: @align_l = global i32 4
 +int align_l = __alignof(long);
@@ -392,6 +397,9 @@ index 0000000000..3517085b4d
 +
 +// CHECK: i32 @check_int()
 +int check_int() { return 0; }
++
++// CHECK: i32 @check_wchar_t()
++int check_wchar_t() { return 0; }
 +
 +// CHECK: i32 @check_long()
 +long check_long() { return 0; }
@@ -427,10 +435,10 @@ index 0000000000..3517085b4d
 +long double check_longdouble() { return 0; }
 diff --git a/test/Driver/riscv64-toolchain.c b/test/Driver/riscv64-toolchain.c
 new file mode 100644
-index 0000000000..b8fc51664a
+index 0000000000..7745a82422
 --- /dev/null
 +++ b/test/Driver/riscv64-toolchain.c
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,93 @@
 +// A basic clang -cc1 command-line, and simple environment check.
 +
 +// RUN: %clang %s -### -no-canonical-prefixes -target riscv64 2>&1 | FileCheck -check-prefix=CC1 %s
@@ -441,6 +449,7 @@ index 0000000000..b8fc51664a
 +typedef __builtin_va_list va_list;
 +typedef __SIZE_TYPE__ size_t;
 +typedef __PTRDIFF_TYPE__ ptrdiff_t;
++typedef __WCHAR_TYPE__ wchar_t;
 +
 +// CHECK: @align_c = global i32 1
 +int align_c = __alignof(char);
@@ -450,6 +459,9 @@ index 0000000000..b8fc51664a
 +
 +// CHECK: @align_i = global i32 4
 +int align_i = __alignof(int);
++
++// CHECK: @align_wc = global i32 4
++int align_wc = __alignof(wchar_t);
 +
 +// CHECK: @align_l = global i32 8
 +int align_l = __alignof(long);
@@ -474,6 +486,8 @@ index 0000000000..b8fc51664a
 +
 +// Check types
 +
++// FIXME: should have signext/zeroext on i32 and above.
++
 +// CHECK: signext i8 @check_char()
 +char check_char() { return 0; }
 +
@@ -482,6 +496,9 @@ index 0000000000..b8fc51664a
 +
 +// CHECK: i32 @check_int()
 +int check_int() { return 0; }
++
++// CHECK: i32 @check_wchar_t()
++int check_wchar_t() { return 0; }
 +
 +// CHECK: i64 @check_long()
 +long check_long() { return 0; }

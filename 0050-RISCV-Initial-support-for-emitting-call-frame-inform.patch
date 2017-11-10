@@ -42,7 +42,7 @@ index 45de976ec6c..f9a69826e10 100644
  
  static MCSubtargetInfo *createRISCVMCSubtargetInfo(const Triple &TT,
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 47003c9fe2e..127181a6a8d 100644
+index d60227d368b..162030d1152 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -17,6 +17,7 @@
@@ -53,7 +53,7 @@ index 47003c9fe2e..127181a6a8d 100644
  #include "llvm/CodeGen/MachineRegisterInfo.h"
  #include "llvm/CodeGen/RegisterScavenging.h"
  
-@@ -116,6 +117,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -115,6 +116,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
    MachineFrameInfo &MFI = MF.getFrameInfo();
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
@@ -61,10 +61,10 @@ index 47003c9fe2e..127181a6a8d 100644
  
    unsigned FPReg = RISCV::X8;
    unsigned SPReg = RISCV::X2;
-@@ -151,6 +153,25 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -150,6 +152,25 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
    if (hasFP(MF))
-     adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
-             MachineInstr::FrameSetup);
+     adjustReg(MBB, MBBI, DL, FPReg, SPReg,
+               StackSize - RVFI->getVarArgsSaveSize(), MachineInstr::FrameSetup);
 +
 +  // Emit CFI records:
 +  const MCRegisterInfo *MRI = MF.getMMI().getContext().getRegisterInfo();
