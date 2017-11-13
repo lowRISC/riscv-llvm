@@ -31,7 +31,7 @@ index e3cf8afcf00..170c8ff2825 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4e32449fa77..fa38047a49b 100644
+index ee097aef1c3..4849f23529d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -61,7 +61,7 @@ index 4e32449fa77..fa38047a49b 100644
      report_fatal_error("Unable to lowerExternalSymbol");
  
    SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
-@@ -685,9 +685,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -686,9 +686,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
  
    MachineFunction &MF = DAG.getMachineFunction();
    MVT XLenVT = Subtarget.getXLenVT();
@@ -240,7 +240,7 @@ index 5e4b70dc3b5..86088f0b8f4 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 9b3ff1edec4..8e9a8f60881 100644
+index d03f705eb92..743027a75d8 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

@@ -295,10 +295,10 @@ index a354a34fb43..ef0051ed56e 100644
      MCOp = MCOperand::createImm(MO.getImm());
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 5d64de23ba2..cd658d7e2d9 100644
+index 86bd588de42..75b277531ce 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -88,3 +88,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -87,3 +87,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
    return RISCV::X8;
  }

@@ -19,14 +19,14 @@ but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/CMakeLists.txt              |   1 -
  lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
- lib/Target/RISCV/RISCVISelLowering.cpp       | 390 +++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp       | 392 +++++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h         |  10 +
  test/CodeGen/RISCV/byval.ll                  |  61 +++
  test/CodeGen/RISCV/calling-conv-sext-zext.ll | 497 ++++++++++++++++++
  test/CodeGen/RISCV/calling-conv.ll           | 719 +++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll                  |  82 ++-
  test/CodeGen/RISCV/fp128.ll                  | 134 +++++
- 9 files changed, 1863 insertions(+), 47 deletions(-)
+ 9 files changed, 1865 insertions(+), 47 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
@@ -72,10 +72,10 @@ index 0b7a523424c..d2b17c64c9c 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index dbe1b7ed8d0..99636d1cf04 100644
+index dbe1b7ed8d0..9664e9dc64f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -328,7 +328,241 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -328,7 +328,243 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -117,11 +117,11 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +                                ISD::ArgFlagsTy ArgFlags2) {
 +  unsigned XLenInBytes = XLen / 8;
 +  if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
-+    // At least one half can be passed via register
++    // At least one half can be passed via register.
 +    State.addLoc(CCValAssign::getReg(VA1.getValNo(), VA1.getValVT(), Reg,
 +                                     VA1.getLocVT(), CCValAssign::Full));
 +  } else {
-+    // Both halves must be passed on the stack, with proper alignment
++    // Both halves must be passed on the stack, with proper alignment.
 +    unsigned StackAlign = std::max(XLenInBytes, ArgFlags1.getOrigAlign());
 +    State.addLoc(
 +        CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
@@ -134,11 +134,11 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +  }
 +
 +  if (unsigned Reg = State.AllocateReg(ArgGPRs)) {
-+    // The second half can also be passed via register
++    // The second half can also be passed via register.
 +    State.addLoc(
 +        CCValAssign::getReg(ValNo2, ValVT2, Reg, LocVT2, CCValAssign::Full));
 +  } else {
-+    // The second half is passed via the stack, without additional alignment
++    // The second half is passed via the stack, without additional alignment.
 +    State.addLoc(CCValAssign::getMem(
 +        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes), LocVT2,
 +        CCValAssign::Full));
@@ -147,14 +147,15 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +  return false;
 +}
 +
++// Implements the RISC-V calling convention. Returns true upon failure.
 +static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
 +                     CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
 +                     CCState &State, bool IsFixed, bool IsRet) {
 +  unsigned XLen = DL.getLargestLegalIntTypeSizeInBits();
 +  assert(XLen == 32 || XLen == 64);
 +  MVT XLenVT = XLen == 32 ? MVT::i32 : MVT::i64;
-+  assert(ValVT == XLenVT);
-+  assert(LocVT == XLenVT);
++  assert(ValVT == XLenVT && "Unexpected ValVT");
++  assert(LocVT == XLenVT && "Unexpected LocVT");
 +  assert(IsFixed && "Vararg support not yet implemented");
 +
 +  // Any return value split in to more than two values can't be returned
@@ -166,7 +167,8 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +  SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
 +      State.getPendingArgFlags();
 +
-+  assert(PendingMembers.size() == PendingArgFlags.size());
++  assert(PendingMembers.size() == PendingArgFlags.size() &&
++         "PendingMembers and PendingArgFlags out of sync");
 +
 +  // Split arguments might be passed indirectly, so keep track of the pending
 +  // values.
@@ -182,11 +184,11 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +  }
 +
 +  // If the split argument only had two elements, it should be passed directly
-+  // in registers or on the stack
++  // in registers or on the stack.
 +  if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
-+    assert(PendingMembers.size() == 2);
++    assert(PendingMembers.size() == 2 && "Unexpected PendingMembers.size()");
 +    // Apply the normal calling convention rules to the first half of the
-+    // split argument
++    // split argument.
 +    CCValAssign VA = PendingMembers[0];
 +    ISD::ArgFlagsTy AF = PendingArgFlags[0];
 +    PendingMembers.clear();
@@ -195,15 +197,15 @@ index dbe1b7ed8d0..99636d1cf04 100644
 +                               ArgFlags);
 +  }
 +
-+  // Allocate to a register if possible, or else a stack slot
++  // Allocate to a register if possible, or else a stack slot.
 +  unsigned Reg = State.AllocateReg(ArgGPRs);
 +  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen / 8, XLen / 8);
 +
 +  // If we reach this point and PendingMembers is non-empty, we must be at the
-+  // end of a split argument that must be passed indirect
++  // end of a split argument that must be passed indirectly.
 +  if (!PendingMembers.empty()) {
-+    assert(ArgFlags.isSplitEnd());
-+    assert(PendingMembers.size() > 2);
++    assert(ArgFlags.isSplitEnd() && "Expected ArgFlags.isSplitEnd()");
++    assert(PendingMembers.size() > 2 && "Unexpected PendingMembers.size()");
 +
 +    for (auto &It : PendingMembers) {
 +      if (Reg)
@@ -318,7 +320,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
  
  // Transform physical registers into virtual registers.
  SDValue RISCVTargetLowering::LowerFormalArguments(
-@@ -345,8 +579,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -345,8 +581,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -328,7 +330,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -354,25 +588,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -354,25 +590,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -384,7 +386,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
    }
    return Chain;
  }
-@@ -392,6 +638,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -392,6 +640,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    CallingConv::ID CallConv = CLI.CallConv;
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -392,7 +394,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
  
    if (IsVarArg) {
      report_fatal_error("LowerCall with varargs not implemented");
-@@ -402,44 +649,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -402,44 +651,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Analyze the operands of the call, assigning locations to each operand.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -505,7 +507,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -489,7 +797,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -489,7 +799,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Assign locations to each value returned by this call.
    SmallVector<CCValAssign, 16> RVLocs;
    CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
@@ -514,7 +516,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
  
    // Copy all of the result registers out of their specified physreg.
    for (auto &VA : RVLocs) {
-@@ -499,12 +807,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -499,12 +809,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      Chain = RetValue.getValue(1);
      Glue = RetValue.getValue(2);
  
@@ -544,7 +546,7 @@ index dbe1b7ed8d0..99636d1cf04 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -522,17 +846,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -522,17 +848,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
    CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                   *DAG.getContext());
  

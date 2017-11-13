@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: Reverted upstreamed RISC-V changes
+Subject: Revert upstreamed RISC-V changes
 
 This allows the patch series to be maintained and modified on an ongoing
 basis.
@@ -17,11 +17,11 @@ basis.
  lib/Target/LLVMBuild.txt                           |   1 -
  lib/Target/RISCV/AsmParser/CMakeLists.txt          |   3 -
  lib/Target/RISCV/AsmParser/LLVMBuild.txt           |  23 -
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 658 ---------------------
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 683 ---------------------
  lib/Target/RISCV/CMakeLists.txt                    |  32 -
  lib/Target/RISCV/Disassembler/CMakeLists.txt       |   3 -
  lib/Target/RISCV/Disassembler/LLVMBuild.txt        |  24 -
- .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 -----
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 ----
  lib/Target/RISCV/InstPrinter/CMakeLists.txt        |   3 -
  lib/Target/RISCV/InstPrinter/LLVMBuild.txt         |  23 -
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  69 ---
@@ -29,57 +29,68 @@ basis.
  lib/Target/RISCV/LLVMBuild.txt                     |  35 --
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   8 -
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |  23 -
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 199 -------
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 200 ------
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  56 --
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  71 ---
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 --
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |  25 -
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |  31 -
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 176 ------
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 ----
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 ---
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 ---
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  80 ---
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |  62 --
- lib/Target/RISCV/RISCV.h                           |  31 -
- lib/Target/RISCV/RISCV.td                          |  53 --
- lib/Target/RISCV/RISCVAsmPrinter.cpp               |  67 ---
- lib/Target/RISCV/RISCVCallingConv.td               |  29 -
+ lib/Target/RISCV/RISCV.h                           |  37 --
+ lib/Target/RISCV/RISCV.td                          |  65 --
+ lib/Target/RISCV/RISCVAsmPrinter.cpp               |  72 ---
+ lib/Target/RISCV/RISCVCallingConv.td               |  32 -
  lib/Target/RISCV/RISCVFrameLowering.cpp            |  29 -
- lib/Target/RISCV/RISCVFrameLowering.h              |  35 --
+ lib/Target/RISCV/RISCVFrameLowering.h              |  41 --
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp             |  63 --
- lib/Target/RISCV/RISCVISelLowering.cpp             | 170 ------
- lib/Target/RISCV/RISCVISelLowering.h               |  62 --
- lib/Target/RISCV/RISCVInstrFormats.td              | 207 -------
- lib/Target/RISCV/RISCVInstrInfo.cpp                |  31 -
- lib/Target/RISCV/RISCVInstrInfo.h                  |  32 -
- lib/Target/RISCV/RISCVInstrInfo.td                 | 289 ---------
- lib/Target/RISCV/RISCVMCInstLower.cpp              |  50 --
- lib/Target/RISCV/RISCVRegisterInfo.cpp             |  61 --
- lib/Target/RISCV/RISCVRegisterInfo.h               |  40 --
+ lib/Target/RISCV/RISCVISelLowering.cpp             | 331 ----------
+ lib/Target/RISCV/RISCVISelLowering.h               |  66 --
+ lib/Target/RISCV/RISCVInstrFormats.td              | 225 -------
+ lib/Target/RISCV/RISCVInstrInfo.cpp                |  77 ---
+ lib/Target/RISCV/RISCVInstrInfo.h                  |  46 --
+ lib/Target/RISCV/RISCVInstrInfo.td                 | 408 ------------
+ lib/Target/RISCV/RISCVInstrInfoA.td                |  63 --
+ lib/Target/RISCV/RISCVInstrInfoM.td                |  28 -
+ lib/Target/RISCV/RISCVMCInstLower.cpp              |  97 ---
+ lib/Target/RISCV/RISCVRegisterInfo.cpp             |  95 ---
+ lib/Target/RISCV/RISCVRegisterInfo.h               |  45 --
  lib/Target/RISCV/RISCVRegisterInfo.td              |  74 ---
  lib/Target/RISCV/RISCVSubtarget.cpp                |  48 --
- lib/Target/RISCV/RISCVSubtarget.h                  |  75 ---
+ lib/Target/RISCV/RISCVSubtarget.h                  |  79 ---
  lib/Target/RISCV/RISCVTargetMachine.cpp            |  89 ---
  lib/Target/RISCV/RISCVTargetMachine.h              |  46 --
  lib/Target/RISCV/TargetInfo/CMakeLists.txt         |   3 -
  lib/Target/RISCV/TargetInfo/LLVMBuild.txt          |  23 -
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  30 -
- test/CodeGen/RISCV/alu32.ll                        | 163 -----
+ test/CodeGen/RISCV/alu32.ll                        | 182 ------
+ test/CodeGen/RISCV/branch.ll                       | 121 ----
+ test/CodeGen/RISCV/calls.ll                        |  83 ---
+ test/CodeGen/RISCV/imm.ll                          |  47 --
  test/CodeGen/RISCV/lit.local.cfg                   |   2 -
+ test/CodeGen/RISCV/mem.ll                          | 202 ------
+ test/CodeGen/RISCV/wide-mem.ll                     |  34 -
  test/MC/RISCV/elf-header.s                         |  42 --
  test/MC/RISCV/fixups-diagnostics.s                 |  18 -
  test/MC/RISCV/fixups.s                             |  49 --
  test/MC/RISCV/hilo-constaddr.s                     |  39 --
  test/MC/RISCV/lit.local.cfg                        |   3 -
  test/MC/RISCV/relocations.s                        |  65 --
- test/MC/RISCV/rv32i-invalid.s                      | 130 ----
- test/MC/RISCV/rv32i-valid.s                        | 238 --------
+ test/MC/RISCV/rv32a-invalid.s                      |  14 -
+ test/MC/RISCV/rv32a-valid.s                        | 146 -----
+ test/MC/RISCV/rv32i-invalid.s                      | 135 ----
+ test/MC/RISCV/rv32i-valid.s                        | 238 -------
+ test/MC/RISCV/rv32m-valid.s                        |  33 -
  test/Object/RISCV/elf-flags.yaml                   |  24 -
  test/Object/RISCV/lit.local.cfg                    |   2 -
  tools/llvm-objdump/llvm-objdump.cpp                |   1 -
  tools/llvm-readobj/ELFDumper.cpp                   |  11 -
  unittests/ADT/TripleTest.cpp                       |  36 --
- 74 files changed, 4600 deletions(-)
+ utils/update_llc_test_checks.py                    |  18 -
+ 85 files changed, 5923 deletions(-)
  delete mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  delete mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
  delete mode 100644 lib/Target/RISCV/AsmParser/LLVMBuild.txt
@@ -119,6 +130,8 @@ basis.
  delete mode 100644 lib/Target/RISCV/RISCVInstrInfo.cpp
  delete mode 100644 lib/Target/RISCV/RISCVInstrInfo.h
  delete mode 100644 lib/Target/RISCV/RISCVInstrInfo.td
+ delete mode 100644 lib/Target/RISCV/RISCVInstrInfoA.td
+ delete mode 100644 lib/Target/RISCV/RISCVInstrInfoM.td
  delete mode 100644 lib/Target/RISCV/RISCVMCInstLower.cpp
  delete mode 100644 lib/Target/RISCV/RISCVRegisterInfo.cpp
  delete mode 100644 lib/Target/RISCV/RISCVRegisterInfo.h
@@ -131,15 +144,23 @@ basis.
  delete mode 100644 lib/Target/RISCV/TargetInfo/LLVMBuild.txt
  delete mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
  delete mode 100644 test/CodeGen/RISCV/alu32.ll
+ delete mode 100644 test/CodeGen/RISCV/branch.ll
+ delete mode 100644 test/CodeGen/RISCV/calls.ll
+ delete mode 100644 test/CodeGen/RISCV/imm.ll
  delete mode 100644 test/CodeGen/RISCV/lit.local.cfg
+ delete mode 100644 test/CodeGen/RISCV/mem.ll
+ delete mode 100644 test/CodeGen/RISCV/wide-mem.ll
  delete mode 100644 test/MC/RISCV/elf-header.s
  delete mode 100644 test/MC/RISCV/fixups-diagnostics.s
  delete mode 100644 test/MC/RISCV/fixups.s
  delete mode 100644 test/MC/RISCV/hilo-constaddr.s
  delete mode 100644 test/MC/RISCV/lit.local.cfg
  delete mode 100644 test/MC/RISCV/relocations.s
+ delete mode 100644 test/MC/RISCV/rv32a-invalid.s
+ delete mode 100644 test/MC/RISCV/rv32a-valid.s
  delete mode 100644 test/MC/RISCV/rv32i-invalid.s
  delete mode 100644 test/MC/RISCV/rv32i-valid.s
+ delete mode 100644 test/MC/RISCV/rv32m-valid.s
  delete mode 100644 test/Object/RISCV/elf-flags.yaml
  delete mode 100644 test/Object/RISCV/lit.local.cfg
 
@@ -310,7 +331,7 @@ index 905ce450f7f..75006dcf031 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index b30fbcec7da..120412bc173 100644
+index 34f809ecaae..e5f6684ce32 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -57,7 +57,6 @@ module LLVM_BinaryFormat {
@@ -340,7 +361,7 @@ index c72a1258c1e..1caa0ccaa18 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index ada9ff89b8e..befafc6c904 100644
+index 38940376de2..6e1e180a5be 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -544,10 +565,10 @@ index a9ad92c872e..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 deleted file mode 100644
-index 486784859bd..00000000000
+index 3f76ce3b24a..00000000000
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ /dev/null
-@@ -1,658 +0,0 @@
+@@ -1,683 +0,0 @@
 -//===-- RISCVAsmParser.cpp - Parse RISCV assembly to MCInst instructions --===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -602,7 +623,8 @@ index 486784859bd..00000000000
 -#include "RISCVGenAsmMatcher.inc"
 -
 -  OperandMatchResultTy parseImmediate(OperandVector &Operands);
--  OperandMatchResultTy parseRegister(OperandVector &Operands);
+-  OperandMatchResultTy parseRegister(OperandVector &Operands,
+-                                     bool AllowParens = false);
 -  OperandMatchResultTy parseMemOpBaseReg(OperandVector &Operands);
 -  OperandMatchResultTy parseOperandWithModifier(OperandVector &Operands);
 -
@@ -981,9 +1003,20 @@ index 486784859bd..00000000000
 -  return Error(StartLoc, "invalid register name");
 -}
 -
--OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands) {
--  SMLoc S = getLoc();
--  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
+-OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
+-                                                   bool AllowParens) {
+-  SMLoc FirstS = getLoc();
+-  bool HadParens = false;
+-  AsmToken Buf[2];
+-
+-  // If this a parenthesised register name is allowed, parse it atomically
+-  if (AllowParens && getLexer().is(AsmToken::LParen)) {
+-    size_t ReadCount = getLexer().peekTokens(Buf);
+-    if (ReadCount == 2 && Buf[1].getKind() == AsmToken::RParen) {
+-      HadParens = true;
+-      getParser().Lex(); // Eat '('
+-    }
+-  }
 -
 -  switch (getLexer().getKind()) {
 -  default:
@@ -993,12 +1026,25 @@ index 486784859bd..00000000000
 -    unsigned RegNo = MatchRegisterName(Name);
 -    if (RegNo == 0) {
 -      RegNo = MatchRegisterAltName(Name);
--      if (RegNo == 0)
+-      if (RegNo == 0) {
+-        if (HadParens)
+-          getLexer().UnLex(Buf[0]);
 -        return MatchOperand_NoMatch;
+-      }
 -    }
+-    if (HadParens)
+-      Operands.push_back(RISCVOperand::createToken("(", FirstS));
+-    SMLoc S = getLoc();
+-    SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
 -    getLexer().Lex();
 -    Operands.push_back(RISCVOperand::createReg(RegNo, S, E));
 -  }
+-
+-  if (HadParens) {
+-    getParser().Lex(); // Eat ')'
+-    Operands.push_back(RISCVOperand::createToken(")", getLoc()));
+-  }
+-
 -  return MatchOperand_Success;
 -}
 -
@@ -1105,7 +1151,7 @@ index 486784859bd..00000000000
 -/// If operand was parsed, returns false, else true.
 -bool RISCVAsmParser::parseOperand(OperandVector &Operands) {
 -  // Attempt to parse token as register
--  if (parseRegister(Operands) == MatchOperand_Success)
+-  if (parseRegister(Operands, true) == MatchOperand_Success)
 -    return false;
 -
 -  // Attempt to parse token as an immediate
@@ -1673,10 +1719,10 @@ index 92daae30e3f..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 deleted file mode 100644
-index add63b6e77f..00000000000
+index e4e17bed5af..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ /dev/null
-@@ -1,199 +0,0 @@
+@@ -1,200 +0,0 @@
 -//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -1840,11 +1886,9 @@ index add63b6e77f..00000000000
 -                                 MutableArrayRef<char> Data, uint64_t Value,
 -                                 bool IsResolved) const {
 -  MCContext &Ctx = Asm.getContext();
--  MCFixupKind Kind = Fixup.getKind();
--  unsigned NumBytes = (getFixupKindInfo(Kind).TargetSize + 7) / 8;
+-  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
 -  if (!Value)
 -    return; // Doesn't change encoding.
--  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
 -  // Apply any target-specific value adjustments.
 -  Value = adjustFixupValue(Fixup, Value, Ctx);
 -
@@ -1852,14 +1896,17 @@ index add63b6e77f..00000000000
 -  Value <<= Info.TargetOffset;
 -
 -  unsigned Offset = Fixup.getOffset();
+-
+-#ifndef NDEBUG
+-  unsigned NumBytes = (Info.TargetSize + 7) / 8;
 -  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
+-#endif
 -
 -  // For each byte of the fragment that the fixup touches, mask in the
 -  // bits from the fixup value.
 -  for (unsigned i = 0; i != 4; ++i) {
 -    Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
 -  }
--  return;
 -}
 -
 -std::unique_ptr<MCObjectWriter>
@@ -2659,10 +2706,10 @@ index bea2f8800fa..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
 deleted file mode 100644
-index 1b6140203c8..00000000000
+index 884cb2e5014..00000000000
 --- a/lib/Target/RISCV/RISCV.h
 +++ /dev/null
-@@ -1,31 +0,0 @@
+@@ -1,37 +0,0 @@
 -//===-- RISCV.h - Top-level interface for RISCV -----------------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2680,15 +2727,21 @@ index 1b6140203c8..00000000000
 -#ifndef LLVM_LIB_TARGET_RISCV_RISCV_H
 -#define LLVM_LIB_TARGET_RISCV_RISCV_H
 -
--#include "MCTargetDesc/RISCVMCTargetDesc.h"
--#include "llvm/Target/TargetMachine.h"
+-#include "MCTargetDesc/RISCVBaseInfo.h"
 -
 -namespace llvm {
 -class RISCVTargetMachine;
+-class AsmPrinter;
+-class FunctionPass;
 -class MCInst;
+-class MCOperand;
 -class MachineInstr;
+-class MachineOperand;
 -
--void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI);
+-void LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
+-                                    const AsmPrinter &AP);
+-bool LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+-                                         MCOperand &MCOp, const AsmPrinter &AP);
 -
 -FunctionPass *createRISCVISelDag(RISCVTargetMachine &TM);
 -}
@@ -2696,10 +2749,10 @@ index 1b6140203c8..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
 deleted file mode 100644
-index da919acad36..00000000000
+index 63d2b827014..00000000000
 --- a/lib/Target/RISCV/RISCV.td
 +++ /dev/null
-@@ -1,53 +0,0 @@
+@@ -1,65 +0,0 @@
 -//===-- RISCV.td - Describe the RISCV Target Machine -------*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2715,11 +2768,23 @@ index da919acad36..00000000000
 -// RISC-V subtarget features and instruction predicates.
 -//===----------------------------------------------------------------------===//
 -
--def Feature64Bit : SubtargetFeature<"64bit", "HasRV64", "true",
--                                    "Implements RV64">;
+-def FeatureStdExtM
+-    : SubtargetFeature<"m", "HasStdExtM", "true",
+-                       "'M' (Integer Multiplication and Division)">;
+-def HasStdExtM : Predicate<"Subtarget->hasStdExtM()">,
+-                           AssemblerPredicate<"FeatureStdExtM">;
 -
--def RV64         : HwMode<"+64bit">;
--def RV32         : HwMode<"-64bit">;
+-def FeatureStdExtA
+-    : SubtargetFeature<"a", "HasStdExtA", "true",
+-                       "'A' (Atomic Instructions)">;
+-def HasStdExtA : Predicate<"Subtarget->hasStdExtA()">,
+-                           AssemblerPredicate<"FeatureStdExtA">;
+-
+-def Feature64Bit
+-    : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
+-
+-def RV64           : HwMode<"+64bit">;
+-def RV32           : HwMode<"-64bit">;
 -
 -//===----------------------------------------------------------------------===//
 -// Registers, calling conventions, instruction descriptions.
@@ -2755,10 +2820,10 @@ index da919acad36..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
 deleted file mode 100644
-index 1c213b6c7e9..00000000000
+index 4808e6c73c5..00000000000
 --- a/lib/Target/RISCV/RISCVAsmPrinter.cpp
 +++ /dev/null
-@@ -1,67 +0,0 @@
+@@ -1,72 +0,0 @@
 -//===-- RISCVAsmPrinter.cpp - RISCV LLVM assembly writer ------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2804,6 +2869,11 @@ index 1c213b6c7e9..00000000000
 -
 -  bool emitPseudoExpansionLowering(MCStreamer &OutStreamer,
 -                                   const MachineInstr *MI);
+-
+-  // Wrapper needed for tblgenned pseudo lowering.
+-  bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp) const {
+-    return LowerRISCVMachineOperandToMCOperand(MO, MCOp, *this);
+-  }
 -};
 -}
 -
@@ -2817,7 +2887,7 @@ index 1c213b6c7e9..00000000000
 -    return;
 -
 -  MCInst TmpInst;
--  LowerRISCVMachineInstrToMCInst(MI, TmpInst);
+-  LowerRISCVMachineInstrToMCInst(MI, TmpInst, *this);
 -  EmitToStreamer(*OutStreamer, TmpInst);
 -}
 -
@@ -2828,10 +2898,10 @@ index 1c213b6c7e9..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
 deleted file mode 100644
-index e0c25e32e01..00000000000
+index 0b7a523424c..00000000000
 --- a/lib/Target/RISCV/RISCVCallingConv.td
 +++ /dev/null
-@@ -1,29 +0,0 @@
+@@ -1,32 +0,0 @@
 -//===-- RISCVCallingConv.td - Calling Conventions RISCV ----*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2861,6 +2931,9 @@ index e0c25e32e01..00000000000
 -]>;
 -
 -def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
+-
+-// Needed for implementation of RISCVRegisterInfo::getNoPreservedMask()
+-def CSR_NoRegs : CalleeSavedRegs<(add)>;
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 deleted file mode 100644
 index fd3b258e26c..00000000000
@@ -2898,10 +2971,10 @@ index fd3b258e26c..00000000000
 -                                      MachineBasicBlock &MBB) const {}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
 deleted file mode 100644
-index 71f85864a39..00000000000
+index 0b2c7a40298..00000000000
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ /dev/null
-@@ -1,35 +0,0 @@
+@@ -1,41 +0,0 @@
 -//===-- RISCVFrameLowering.h - Define frame lowering for RISCV -*- C++ -*--===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2934,6 +3007,12 @@ index 71f85864a39..00000000000
 -  void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 -
 -  bool hasFP(const MachineFunction &MF) const override;
+-
+-  MachineBasicBlock::iterator
+-  eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
+-                                MachineBasicBlock::iterator MI) const override {
+-    return MBB.erase(MI);
+-  }
 -};
 -}
 -#endif
@@ -3008,10 +3087,10 @@ index 78f61fa4184..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 deleted file mode 100644
-index d76170b7b78..00000000000
+index 98f7aa16e2e..00000000000
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ /dev/null
-@@ -1,170 +0,0 @@
+@@ -1,331 +0,0 @@
 -//===-- RISCVISelLowering.cpp - RISCV DAG Lowering Implementation  --------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3063,8 +3142,13 @@ index d76170b7b78..00000000000
 -
 -  setStackPointerRegisterToSaveRestore(RISCV::X2);
 -
--  // TODO: add all necessary setOperationAction calls.
+-  for (auto N : {ISD::EXTLOAD, ISD::SEXTLOAD, ISD::ZEXTLOAD})
+-    setLoadExtAction(N, XLenVT, MVT::i1, Promote);
 -
+-  // TODO: add all necessary setOperationAction calls.
+-  setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
+-
+-  setOperationAction(ISD::BR_CC, XLenVT, Expand);
 -  setBooleanContents(ZeroOrOneBooleanContent);
 -
 -  // Function alignments (log2).
@@ -3077,6 +3161,30 @@ index d76170b7b78..00000000000
 -  switch (Op.getOpcode()) {
 -  default:
 -    report_fatal_error("unimplemented operand");
+-  case ISD::GlobalAddress:
+-    return lowerGlobalAddress(Op, DAG);
+-  }
+-}
+-
+-SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
+-                                                SelectionDAG &DAG) const {
+-  SDLoc DL(Op);
+-  EVT Ty = Op.getValueType();
+-  GlobalAddressSDNode *N = cast<GlobalAddressSDNode>(Op);
+-  const GlobalValue *GV = N->getGlobal();
+-  int64_t Offset = N->getOffset();
+-
+-  if (!isPositionIndependent() && !Subtarget.is64Bit()) {
+-    SDValue GAHi =
+-        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_HI);
+-    SDValue GALo =
+-        DAG.getTargetGlobalAddress(GV, DL, Ty, Offset, RISCVII::MO_LO);
+-    SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, GAHi), 0);
+-    SDValue MNLo =
+-        SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, GALo), 0);
+-    return MNLo;
+-  } else {
+-    report_fatal_error("Unable to lowerGlobalAddress");
 -  }
 -}
 -
@@ -3093,6 +3201,7 @@ index d76170b7b78..00000000000
 -  default:
 -    report_fatal_error("Unsupported calling convention");
 -  case CallingConv::C:
+-  case CallingConv::Fast:
 -    break;
 -  }
 -
@@ -3126,6 +3235,135 @@ index d76170b7b78..00000000000
 -
 -    InVals.push_back(ArgIn);
 -  }
+-  return Chain;
+-}
+-
+-// Lower a call to a callseq_start + CALL + callseq_end chain, and add input
+-// and output parameter nodes.
+-SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+-                                       SmallVectorImpl<SDValue> &InVals) const {
+-  SelectionDAG &DAG = CLI.DAG;
+-  SDLoc &DL = CLI.DL;
+-  SmallVectorImpl<ISD::OutputArg> &Outs = CLI.Outs;
+-  SmallVectorImpl<SDValue> &OutVals = CLI.OutVals;
+-  SmallVectorImpl<ISD::InputArg> &Ins = CLI.Ins;
+-  SDValue Chain = CLI.Chain;
+-  SDValue Callee = CLI.Callee;
+-  CLI.IsTailCall = false;
+-  CallingConv::ID CallConv = CLI.CallConv;
+-  bool IsVarArg = CLI.IsVarArg;
+-  EVT PtrVT = getPointerTy(DAG.getDataLayout());
+-
+-  if (IsVarArg) {
+-    report_fatal_error("LowerCall with varargs not implemented");
+-  }
+-
+-  MachineFunction &MF = DAG.getMachineFunction();
+-
+-  // Analyze the operands of the call, assigning locations to each operand.
+-  SmallVector<CCValAssign, 16> ArgLocs;
+-  CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  ArgCCInfo.AnalyzeCallOperands(Outs, CC_RISCV32);
+-
+-  // Get a count of how many bytes are to be pushed on the stack.
+-  unsigned NumBytes = ArgCCInfo.getNextStackOffset();
+-
+-  for (auto &Arg : Outs) {
+-    if (!Arg.Flags.isByVal())
+-      continue;
+-    report_fatal_error("Passing arguments byval not yet implemented");
+-  }
+-
+-  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, CLI.DL);
+-
+-  // Copy argument values to their designated locations.
+-  SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
+-  SDValue StackPtr;
+-  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
+-    CCValAssign &VA = ArgLocs[I];
+-    SDValue ArgValue = OutVals[I];
+-
+-    // Promote the value if needed.
+-    // For now, only handle fully promoted arguments.
+-    switch (VA.getLocInfo()) {
+-    case CCValAssign::Full:
+-      break;
+-    default:
+-      llvm_unreachable("Unknown loc info!");
+-    }
+-
+-    if (VA.isRegLoc()) {
+-      // Queue up the argument copies and emit them at the end.
+-      RegsToPass.push_back(std::make_pair(VA.getLocReg(), ArgValue));
+-    } else {
+-      assert(VA.isMemLoc() && "Argument not register or memory");
+-      report_fatal_error("Passing arguments via the stack not yet implemented");
+-    }
+-  }
+-
+-  SDValue Glue;
+-
+-  // Build a sequence of copy-to-reg nodes, chained and glued together.
+-  for (auto &Reg : RegsToPass) {
+-    Chain = DAG.getCopyToReg(Chain, DL, Reg.first, Reg.second, Glue);
+-    Glue = Chain.getValue(1);
+-  }
+-
+-  if (isa<GlobalAddressSDNode>(Callee)) {
+-    Callee = lowerGlobalAddress(Callee, DAG);
+-  } else if (isa<ExternalSymbolSDNode>(Callee)) {
+-    report_fatal_error(
+-        "lowerExternalSymbol, needed for lowerCall, not yet handled");
+-  }
+-
+-  // The first call operand is the chain and the second is the target address.
+-  SmallVector<SDValue, 8> Ops;
+-  Ops.push_back(Chain);
+-  Ops.push_back(Callee);
+-
+-  // Add argument registers to the end of the list so that they are
+-  // known live into the call.
+-  for (auto &Reg : RegsToPass)
+-    Ops.push_back(DAG.getRegister(Reg.first, Reg.second.getValueType()));
+-
+-  // Add a register mask operand representing the call-preserved registers.
+-  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
+-  const uint32_t *Mask = TRI->getCallPreservedMask(MF, CallConv);
+-  assert(Mask && "Missing call preserved mask for calling convention");
+-  Ops.push_back(DAG.getRegisterMask(Mask));
+-
+-  // Glue the call to the argument copies, if any.
+-  if (Glue.getNode())
+-    Ops.push_back(Glue);
+-
+-  // Emit the call.
+-  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
+-  Chain = DAG.getNode(RISCVISD::CALL, DL, NodeTys, Ops);
+-  Glue = Chain.getValue(1);
+-
+-  // Mark the end of the call, which is glued to the call itself.
+-  Chain = DAG.getCALLSEQ_END(Chain,
+-                             DAG.getConstant(NumBytes, DL, PtrVT, true),
+-                             DAG.getConstant(0, DL, PtrVT, true),
+-                             Glue, DL);
+-  Glue = Chain.getValue(1);
+-
+-  // Assign locations to each value returned by this call.
+-  SmallVector<CCValAssign, 16> RVLocs;
+-  CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
+-  RetCCInfo.AnalyzeCallResult(Ins, RetCC_RISCV32);
+-
+-  // Copy all of the result registers out of their specified physreg.
+-  for (auto &VA : RVLocs) {
+-    // Copy the value out, gluing the copy to the end of the call sequence.
+-    SDValue RetValue = DAG.getCopyFromReg(Chain, DL, VA.getLocReg(),
+-                                          VA.getLocVT(), Glue);
+-    Chain = RetValue.getValue(1);
+-    Glue = RetValue.getValue(2);
+-
+-    InVals.push_back(Chain.getValue(0));
+-  }
+-
 -  return Chain;
 -}
 -
@@ -3179,15 +3417,17 @@ index d76170b7b78..00000000000
 -    break;
 -  case RISCVISD::RET_FLAG:
 -    return "RISCVISD::RET_FLAG";
+-  case RISCVISD::CALL:
+-    return "RISCVISD::CALL";
 -  }
 -  return nullptr;
 -}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
 deleted file mode 100644
-index 9fed48fc04e..00000000000
+index dfb4824cc18..00000000000
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ /dev/null
-@@ -1,62 +0,0 @@
+@@ -1,66 +0,0 @@
 -//===-- RISCVISelLowering.h - RISCV DAG Lowering Interface ------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3214,7 +3454,8 @@ index 9fed48fc04e..00000000000
 -namespace RISCVISD {
 -enum NodeType : unsigned {
 -  FIRST_NUMBER = ISD::BUILTIN_OP_END,
--  RET_FLAG
+-  RET_FLAG,
+-  CALL
 -};
 -}
 -
@@ -3242,20 +3483,23 @@ index 9fed48fc04e..00000000000
 -                      const SmallVectorImpl<ISD::OutputArg> &Outs,
 -                      const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
 -                      SelectionDAG &DAG) const override;
+-  SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
+-                    SmallVectorImpl<SDValue> &InVals) const override;
 -  bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
 -                                         Type *Ty) const override {
 -    return true;
 -  }
+-  SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
 -};
 -}
 -
 -#endif
 diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
 deleted file mode 100644
-index 48f6cf8762d..00000000000
+index 3dca957e31f..00000000000
 --- a/lib/Target/RISCV/RISCVInstrFormats.td
 +++ /dev/null
-@@ -1,207 +0,0 @@
+@@ -1,225 +0,0 @@
 -//===-- RISCVInstrFormats.td - RISCV Instruction Formats ---*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3376,6 +3620,24 @@ index 48f6cf8762d..00000000000
 -  let Opcode = opcode.Value;
 -}
 -
+-class RVInstRAtomic<bits<5> funct5, bit aq, bit rl, bits<3> funct3,
+-                    RISCVOpcode opcode, dag outs, dag ins, string opcodestr,
+-                    string argstr>
+-    : RVInst<outs, ins, opcodestr, argstr, [], InstFormatR> {
+-  bits<5> rs2;
+-  bits<5> rs1;
+-  bits<5> rd;
+-
+-  let Inst{31-27} = funct5;
+-  let Inst{26} = aq;
+-  let Inst{25} = rl;
+-  let Inst{24-20} = rs2;
+-  let Inst{19-15} = rs1;
+-  let Inst{14-12} = funct3;
+-  let Inst{11-7} = rd;
+-  let Opcode = opcode.Value;
+-}
+-
 -class RVInstI<bits<3> funct3, RISCVOpcode opcode, dag outs, dag ins,
 -              string opcodestr, string argstr>
 -    : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
@@ -3465,10 +3727,10 @@ index 48f6cf8762d..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
 deleted file mode 100644
-index 92db5358ce4..00000000000
+index 5b4f4fcbb88..00000000000
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ /dev/null
-@@ -1,31 +0,0 @@
+@@ -1,77 +0,0 @@
 -//===-- RISCVInstrInfo.cpp - RISCV Instruction Information ------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3499,13 +3761,59 @@ index 92db5358ce4..00000000000
 -
 -using namespace llvm;
 -
--RISCVInstrInfo::RISCVInstrInfo() : RISCVGenInstrInfo() {}
+-RISCVInstrInfo::RISCVInstrInfo()
+-    : RISCVGenInstrInfo(RISCV::ADJCALLSTACKDOWN, RISCV::ADJCALLSTACKUP) {}
+-
+-void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+-                                 MachineBasicBlock::iterator MBBI,
+-                                 const DebugLoc &DL, unsigned DstReg,
+-                                 unsigned SrcReg, bool KillSrc) const {
+-  assert(RISCV::GPRRegClass.contains(DstReg, SrcReg) &&
+-         "Impossible reg-to-reg copy");
+-
+-  BuildMI(MBB, MBBI, DL, get(RISCV::ADDI), DstReg)
+-      .addReg(SrcReg, getKillRegState(KillSrc))
+-      .addImm(0);
+-}
+-
+-void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+-                                         MachineBasicBlock::iterator I,
+-                                         unsigned SrcReg, bool IsKill, int FI,
+-                                         const TargetRegisterClass *RC,
+-                                         const TargetRegisterInfo *TRI) const {
+-  DebugLoc DL;
+-  if (I != MBB.end())
+-    DL = I->getDebugLoc();
+-
+-  if (RC == &RISCV::GPRRegClass)
+-    BuildMI(MBB, I, DL, get(RISCV::SW))
+-        .addReg(SrcReg, getKillRegState(IsKill))
+-        .addFrameIndex(FI)
+-        .addImm(0);
+-  else
+-    llvm_unreachable("Can't store this register to stack slot");
+-}
+-
+-void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+-                                          MachineBasicBlock::iterator I,
+-                                          unsigned DstReg, int FI,
+-                                          const TargetRegisterClass *RC,
+-                                          const TargetRegisterInfo *TRI) const {
+-  DebugLoc DL;
+-  if (I != MBB.end())
+-    DL = I->getDebugLoc();
+-
+-  if (RC == &RISCV::GPRRegClass)
+-    BuildMI(MBB, I, DL, get(RISCV::LW), DstReg).addFrameIndex(FI).addImm(0);
+-  else
+-    llvm_unreachable("Can't load this register from stack slot");
+-}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
 deleted file mode 100644
-index 0b3cd4d2ed1..00000000000
+index 05c8378445c..00000000000
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ /dev/null
-@@ -1,32 +0,0 @@
+@@ -1,46 +0,0 @@
 -//===-- RISCVInstrInfo.h - RISCV Instruction Information --------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3534,16 +3842,30 @@ index 0b3cd4d2ed1..00000000000
 -
 -public:
 -  RISCVInstrInfo();
+-
+-  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+-                   const DebugLoc &DL, unsigned DstReg, unsigned SrcReg,
+-                   bool KillSrc) const override;
+-
+-  void storeRegToStackSlot(MachineBasicBlock &MBB,
+-                           MachineBasicBlock::iterator MBBI, unsigned SrcReg,
+-                           bool IsKill, int FrameIndex,
+-                           const TargetRegisterClass *RC,
+-                           const TargetRegisterInfo *TRI) const override;
+-
+-  void loadRegFromStackSlot(MachineBasicBlock &MBB,
+-                            MachineBasicBlock::iterator MBBI, unsigned DstReg,
+-                            int FrameIndex, const TargetRegisterClass *RC,
+-                            const TargetRegisterInfo *TRI) const override;
 -};
 -}
--
 -#endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
 deleted file mode 100644
-index 23adf1eda9d..00000000000
+index d2b509e660c..00000000000
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ /dev/null
-@@ -1,289 +0,0 @@
+@@ -1,408 +0,0 @@
 -//===-- RISCVInstrInfo.td - Target Description for RISCV ---*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3563,8 +3885,22 @@ index 23adf1eda9d..00000000000
 -// RISC-V specific DAG Nodes.
 -//===----------------------------------------------------------------------===//
 -
--def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
--                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+-def SDT_RISCVCall         : SDTypeProfile<0, -1, [SDTCisVT<0, XLenVT>]>;
+-def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
+-                                            SDTCisVT<1, i32>]>;
+-def SDT_RISCVCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>,
+-                                          SDTCisVT<1, i32>]>;
+-
+-
+-def Call         : SDNode<"RISCVISD::CALL", SDT_RISCVCall,
+-                          [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
+-                           SDNPVariadic]>;
+-def CallSeqStart : SDNode<"ISD::CALLSEQ_START", SDT_RISCVCallSeqStart,
+-                          [SDNPHasChain, SDNPOutGlue]>;
+-def CallSeqEnd   : SDNode<"ISD::CALLSEQ_END", SDT_RISCVCallSeqEnd,
+-                          [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+-def RetFlag      : SDNode<"RISCVISD::RET_FLAG", SDTNone,
+-                          [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 -
 -//===----------------------------------------------------------------------===//
 -// Operand and SDNode transformation definitions.
@@ -3613,7 +3949,7 @@ index 23adf1eda9d..00000000000
 -}
 -
 -// A 13-bit signed immediate where the least significant bit is zero.
--def simm13_lsb0 : Operand<XLenVT> {
+-def simm13_lsb0 : Operand<OtherVT> {
 -  let ParserMatchClass = SImmAsmOperand<13, "Lsb0">;
 -  let EncoderMethod = "getImmOpValueAsr1";
 -  let DecoderMethod = "decodeSImmOperandAndLsl1<13>";
@@ -3626,11 +3962,29 @@ index 23adf1eda9d..00000000000
 -}
 -
 -// A 21-bit signed immediate where the least significant bit is zero.
--def simm21_lsb0 : Operand<XLenVT> {
+-def simm21_lsb0 : Operand<OtherVT> {
 -  let ParserMatchClass = SImmAsmOperand<21, "Lsb0">;
 -  let EncoderMethod = "getImmOpValueAsr1";
 -  let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
 -}
+-
+-// Standalone (codegen-only) immleaf patterns.
+-def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
+-
+-// Extract least significant 12 bits from an immediate value and sign extend
+-// them.
+-def LO12Sext : SDNodeXForm<imm, [{
+-  return CurDAG->getTargetConstant(SignExtend64<12>(N->getZExtValue()),
+-                                   SDLoc(N), N->getValueType(0));
+-}]>;
+-
+-// Extract the most significant 20 bits from an immediate value. Add 1 if bit
+-// 11 is 1, to compensate for the low 12 bits in the matching immediate addi
+-// or ld/st being negative.
+-def HI20 : SDNodeXForm<imm, [{
+-  return CurDAG->getTargetConstant(((N->getZExtValue()+0x800) >> 12) & 0xfffff,
+-                                   SDLoc(N), N->getValueType(0));
+-}]>;
 -
 -//===----------------------------------------------------------------------===//
 -// Instruction Class Templates
@@ -3803,6 +4157,12 @@ index 23adf1eda9d..00000000000
 -    : Pat<(OpNode GPR:$rs1, uimm5:$shamt),
 -          (Inst GPR:$rs1, uimm5:$shamt)>;
 -
+-/// Immediates
+-
+-def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
+-// TODO: Add a pattern for immediates with all zeroes in the lower 12 bits.
+-def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
+-
 -/// Simple arithmetic operations
 -
 -def : PatGprGpr<add, ADD>;
@@ -3830,15 +4190,199 @@ index 23adf1eda9d..00000000000
 -
 -/// Branches and jumps
 -
+-// Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
+-// instruction.
+-class BccPat<PatFrag CondOp, RVInstB Inst>
+-    : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
+-          (Inst GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12)>;
+-
+-def : BccPat<seteq, BEQ>;
+-def : BccPat<setne, BNE>;
+-def : BccPat<setlt, BLT>;
+-def : BccPat<setge, BGE>;
+-def : BccPat<setult, BLTU>;
+-def : BccPat<setuge, BGEU>;
+-
+-class BccSwapPat<PatFrag CondOp, RVInst InstBcc>
+-    : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
+-          (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
+-
+-// Condition codes that don't have matching RISC-V branch instructions, but
+-// are trivially supported by swapping the two input operands
+-def : BccSwapPat<setgt, BLT>;
+-def : BccSwapPat<setle, BGE>;
+-def : BccSwapPat<setugt, BLTU>;
+-def : BccSwapPat<setule, BGEU>;
+-
+-// An extra pattern is needed for a brcond without a setcc (i.e. where the
+-// condition was calculated elsewhere).
+-def : Pat<(brcond GPR:$cond, bb:$imm12), (BNE GPR:$cond, X0, bb:$imm12)>;
+-
+-let isBarrier = 1, isBranch = 1, isTerminator = 1 in
+-def PseudoBR : Pseudo<(outs), (ins simm21_lsb0:$imm20), [(br bb:$imm20)]>,
+-               PseudoInstExpansion<(JAL X0, simm21_lsb0:$imm20)>;
+-
+-let isCall = 1, Defs=[X1] in
+-def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
+-                 PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
+-
 -let isBarrier = 1, isReturn = 1, isTerminator = 1 in
 -def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
 -                PseudoInstExpansion<(JALR X0, X1, 0)>;
+-
+-/// Loads
+-
+-multiclass LdPat<PatFrag LoadOp, RVInst Inst> {
+-  def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
+-  def : Pat<(LoadOp (add GPR:$rs1, simm12:$imm12)),
+-            (Inst GPR:$rs1, simm12:$imm12)>;
+-}
+-
+-defm : LdPat<sextloadi8, LB>;
+-defm : LdPat<extloadi8, LB>;
+-defm : LdPat<sextloadi16, LH>;
+-defm : LdPat<extloadi16, LH>;
+-defm : LdPat<load, LW>;
+-defm : LdPat<zextloadi8, LBU>;
+-defm : LdPat<zextloadi16, LHU>;
+-
+-/// Stores
+-
+-multiclass StPat<PatFrag StoreOp, RVInst Inst> {
+-  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;
+-  def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, simm12:$imm12)),
+-            (Inst GPR:$rs2, GPR:$rs1, simm12:$imm12)>;
+-}
+-
+-defm : StPat<truncstorei8, SB>;
+-defm : StPat<truncstorei16, SH>;
+-defm : StPat<store, SW>;
+-
+-/// Other pseudo-instructions
+-
+-// Pessimistically assume the stack pointer will be clobbered
+-let Defs = [X2], Uses = [X2] in {
+-def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+-                              [(CallSeqStart timm:$amt1, timm:$amt2)]>;
+-def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+-                              [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
+-} // Defs = [X2], Uses = [X2]
+-
+-//===----------------------------------------------------------------------===//
+-// Standard extensions
+-//===----------------------------------------------------------------------===//
+-
+-include "RISCVInstrInfoM.td"
+-include "RISCVInstrInfoA.td"
+diff --git a/lib/Target/RISCV/RISCVInstrInfoA.td b/lib/Target/RISCV/RISCVInstrInfoA.td
+deleted file mode 100644
+index 54f35c3c0ba..00000000000
+--- a/lib/Target/RISCV/RISCVInstrInfoA.td
++++ /dev/null
+@@ -1,63 +0,0 @@
+-//===-- RISCVInstrInfoA.td - RISC-V 'A' instructions -------*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file describes the RISC-V instructions from the standard 'A', Atomic
+-// Instructions extension.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-//===----------------------------------------------------------------------===//
+-// Instruction class templates
+-//===----------------------------------------------------------------------===//
+-
+-let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+-class LR_r<bit aq, bit rl, bits<3> funct3, string opcodestr>
+-    : RVInstRAtomic<0b00010, aq, rl, funct3, OPC_AMO,
+-                    (outs GPR:$rd), (ins GPR:$rs1),
+-                    opcodestr, "$rd, (${rs1})"> {
+-  let rs2 = 0;
+-}
+-
+-multiclass LR_r_aq_rl<bits<3> funct3, string opcodestr> {
+-  def ""     : LR_r<0, 0, funct3, opcodestr>;
+-  def _AQ    : LR_r<1, 0, funct3, opcodestr # ".aq">;
+-  def _RL    : LR_r<0, 1, funct3, opcodestr # ".rl">;
+-  def _AQ_RL : LR_r<1, 1, funct3, opcodestr # ".aqrl">;
+-}
+-
+-let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in
+-class AMO_rr<bits<5> funct5, bit aq, bit rl, bits<3> funct3, string opcodestr>
+-    : RVInstRAtomic<funct5, aq, rl, funct3, OPC_AMO,
+-                    (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+-                    opcodestr, "$rd, $rs2, (${rs1})">;
+-
+-multiclass AMO_rr_aq_rl<bits<5> funct5, bits<3> funct3, string opcodestr> {
+-  def ""     : AMO_rr<funct5, 0, 0, funct3, opcodestr>;
+-  def _AQ    : AMO_rr<funct5, 1, 0, funct3, opcodestr # ".aq">;
+-  def _RL    : AMO_rr<funct5, 0, 1, funct3, opcodestr # ".rl">;
+-  def _AQ_RL : AMO_rr<funct5, 1, 1, funct3, opcodestr # ".aqrl">;
+-}
+-
+-//===----------------------------------------------------------------------===//
+-// Instructions
+-//===----------------------------------------------------------------------===//
+-
+-let Predicates = [HasStdExtA] in {
+-defm LR_W       : LR_r_aq_rl<0b010, "lr.w">;
+-defm SC_W       : AMO_rr_aq_rl<0b00011, 0b010, "sc.w">;
+-defm AMOSWAP_W  : AMO_rr_aq_rl<0b00001, 0b010, "amoswap.w">;
+-defm AMOADD_W   : AMO_rr_aq_rl<0b00000, 0b010, "amoadd.w">;
+-defm AMOXOR_W   : AMO_rr_aq_rl<0b00100, 0b010, "amoxor.w">;
+-defm AMOAND_W   : AMO_rr_aq_rl<0b01100, 0b010, "amoand.w">;
+-defm AMOOR_W    : AMO_rr_aq_rl<0b01000, 0b010, "amoor.w">;
+-defm AMOMIN_W   : AMO_rr_aq_rl<0b10000, 0b010, "amomin.w">;
+-defm AMOMAX_W   : AMO_rr_aq_rl<0b10100, 0b010, "amomax.w">;
+-defm AMOMINU_W  : AMO_rr_aq_rl<0b11000, 0b010, "amominu.w">;
+-defm AMOMAXU_W  : AMO_rr_aq_rl<0b11100, 0b010, "amomaxu.w">;
+-} // Predicates = [HasStdExtA]
+diff --git a/lib/Target/RISCV/RISCVInstrInfoM.td b/lib/Target/RISCV/RISCVInstrInfoM.td
+deleted file mode 100644
+index a253c1eb811..00000000000
+--- a/lib/Target/RISCV/RISCVInstrInfoM.td
++++ /dev/null
+@@ -1,28 +0,0 @@
+-//===-- RISCVInstrInfoM.td - RISC-V 'M' instructions -------*- tablegen -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-//
+-// This file describes the RISC-V instructions from the standard 'M', Integer
+-// Multiplication and Division instruction set extension.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-//===----------------------------------------------------------------------===//
+-// Instructions
+-//===----------------------------------------------------------------------===//
+-
+-let Predicates = [HasStdExtM] in {
+-def MUL     : ALU_rr<0b0000001, 0b000, "mul">;
+-def MULH    : ALU_rr<0b0000001, 0b001, "mulh">;
+-def MULHSU  : ALU_rr<0b0000001, 0b010, "mulhsu">;
+-def MULHU   : ALU_rr<0b0000001, 0b011, "mulhu">;
+-def DIV     : ALU_rr<0b0000001, 0b100, "div">;
+-def DIVU    : ALU_rr<0b0000001, 0b101, "divu">;
+-def REM     : ALU_rr<0b0000001, 0b110, "rem">;
+-def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
+-} // Predicates = [HasStdExtM]
 diff --git a/lib/Target/RISCV/RISCVMCInstLower.cpp b/lib/Target/RISCV/RISCVMCInstLower.cpp
 deleted file mode 100644
-index 1ac8d982ff9..00000000000
+index ef0051ed56e..00000000000
 --- a/lib/Target/RISCV/RISCVMCInstLower.cpp
 +++ /dev/null
-@@ -1,50 +0,0 @@
+@@ -1,97 +0,0 @@
 -//===-- RISCVMCInstLower.cpp - Convert RISCV MachineInstr to an MCInst ------=//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3854,6 +4398,8 @@ index 1ac8d982ff9..00000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "RISCV.h"
+-#include "MCTargetDesc/RISCVMCExpr.h"
+-#include "llvm/CodeGen/AsmPrinter.h"
 -#include "llvm/CodeGen/MachineBasicBlock.h"
 -#include "llvm/CodeGen/MachineInstr.h"
 -#include "llvm/MC/MCAsmInfo.h"
@@ -3865,36 +4411,81 @@ index 1ac8d982ff9..00000000000
 -
 -using namespace llvm;
 -
--void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI,
--                                          MCInst &OutMI) {
+-static MCOperand lowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym,
+-                                    const AsmPrinter &AP) {
+-  MCContext &Ctx = AP.OutContext;
+-  RISCVMCExpr::VariantKind Kind;
+-
+-  switch (MO.getTargetFlags()) {
+-  default:
+-    llvm_unreachable("Unknown target flag on GV operand");
+-  case RISCVII::MO_None:
+-    Kind = RISCVMCExpr::VK_RISCV_None;
+-    break;
+-  case RISCVII::MO_LO:
+-    Kind = RISCVMCExpr::VK_RISCV_LO;
+-    break;
+-  case RISCVII::MO_HI:
+-    Kind = RISCVMCExpr::VK_RISCV_HI;
+-    break;
+-  }
+-
+-  const MCExpr *ME =
+-      MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, Ctx);
+-
+-  if (!MO.isJTI() && MO.getOffset())
+-    ME = MCBinaryExpr::createAdd(
+-        ME, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
+-
+-  ME = RISCVMCExpr::create(ME, Kind, Ctx);
+-  return MCOperand::createExpr(ME);
+-}
+-
+-bool llvm::LowerRISCVMachineOperandToMCOperand(const MachineOperand &MO,
+-                                               MCOperand &MCOp,
+-                                               const AsmPrinter &AP) {
+-  switch (MO.getType()) {
+-  default:
+-    report_fatal_error("LowerRISCVMachineInstrToMCInst: unknown operand type");
+-  case MachineOperand::MO_Register:
+-    // Ignore all implicit register operands.
+-    if (MO.isImplicit())
+-      return false;
+-    MCOp = MCOperand::createReg(MO.getReg());
+-    break;
+-  case MachineOperand::MO_RegisterMask:
+-    // Regmasks are like implicit defs.
+-    return false;
+-  case MachineOperand::MO_Immediate:
+-    MCOp = MCOperand::createImm(MO.getImm());
+-    break;
+-  case MachineOperand::MO_MachineBasicBlock:
+-    MCOp = MCOperand::createExpr(
+-        MCSymbolRefExpr::create(MO.getMBB()->getSymbol(), AP.OutContext));
+-    break;
+-  case MachineOperand::MO_GlobalAddress:
+-    MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
+-    break;
+-  }
+-  return true;
+-}
+-
+-void llvm::LowerRISCVMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
+-                                          const AsmPrinter &AP) {
 -  OutMI.setOpcode(MI->getOpcode());
 -
 -  for (const MachineOperand &MO : MI->operands()) {
 -    MCOperand MCOp;
--    switch (MO.getType()) {
--    default:
--      report_fatal_error(
--          "LowerRISCVMachineInstrToMCInst: unknown operand type");
--    case MachineOperand::MO_Register:
--      // Ignore all implicit register operands.
--      if (MO.isImplicit())
--        continue;
--      MCOp = MCOperand::createReg(MO.getReg());
--      break;
--    case MachineOperand::MO_Immediate:
--      MCOp = MCOperand::createImm(MO.getImm());
--      break;
--    }
--
--    OutMI.addOperand(MCOp);
+-    if (LowerRISCVMachineOperandToMCOperand(MO, MCOp, AP))
+-      OutMI.addOperand(MCOp);
 -  }
 -}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 deleted file mode 100644
-index 9447f9e7ec3..00000000000
+index 75b277531ce..00000000000
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ /dev/null
-@@ -1,61 +0,0 @@
+@@ -1,95 +0,0 @@
 -//===-- RISCVRegisterInfo.cpp - RISCV Register Information ------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3947,21 +4538,55 @@ index 9447f9e7ec3..00000000000
 -  return Reserved;
 -}
 -
+-const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
+-  return CSR_NoRegs_RegMask;
+-}
+-
 -void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 -                                            int SPAdj, unsigned FIOperandNum,
 -                                            RegScavenger *RS) const {
--  report_fatal_error("Subroutines not supported yet");
+-  // TODO: this implementation is a temporary placeholder which does just
+-  // enough to allow other aspects of code generation to be tested
+-
+-  assert(SPAdj == 0 && "Unexpected non-zero SPAdj value");
+-
+-  MachineInstr &MI = *II;
+-  MachineFunction &MF = *MI.getParent()->getParent();
+-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+-  DebugLoc DL = MI.getDebugLoc();
+-
+-  unsigned FrameReg = getFrameRegister(MF);
+-  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+-  int Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg);
+-  Offset += MI.getOperand(FIOperandNum + 1).getImm();
+-
+-  assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+-
+-  // Offsets must be directly encoded in a 12-bit immediate field
+-  if (!isInt<12>(Offset)) {
+-    report_fatal_error(
+-        "Frame offsets outside of the signed 12-bit range not supported");
+-  }
+-
+-  MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
+-  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
 -}
 -
 -unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
 -  return RISCV::X8;
 -}
+-
+-const uint32_t *
+-RISCVRegisterInfo::getCallPreservedMask(const MachineFunction & /*MF*/,
+-                                        CallingConv::ID /*CC*/) const {
+-  return CSR_RegMask;
+-}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 deleted file mode 100644
-index 94af9f44ecd..00000000000
+index d9de9bf8c76..00000000000
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ /dev/null
-@@ -1,40 +0,0 @@
+@@ -1,45 +0,0 @@
 -//===-- RISCVRegisterInfo.h - RISCV Register Information Impl ---*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3989,9 +4614,14 @@ index 94af9f44ecd..00000000000
 -
 -  RISCVRegisterInfo(unsigned HwMode);
 -
+-  const uint32_t *getCallPreservedMask(const MachineFunction &MF,
+-                                       CallingConv::ID) const override;
+-
 -  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
 -
 -  BitVector getReservedRegs(const MachineFunction &MF) const override;
+-
+-  const uint32_t *getNoPreservedMask() const override;
 -
 -  void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
 -                           unsigned FIOperandNum,
@@ -4138,10 +4768,10 @@ index b221ea84a33..00000000000
 -      InstrInfo(), RegInfo(getHwMode()), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 deleted file mode 100644
-index 657b0e65620..00000000000
+index 14b25c14dbe..00000000000
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ /dev/null
-@@ -1,75 +0,0 @@
+@@ -1,79 +0,0 @@
 -//===-- RISCVSubtarget.h - Define Subtarget for the RISCV -------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -4174,6 +4804,8 @@ index 657b0e65620..00000000000
 -
 -class RISCVSubtarget : public RISCVGenSubtargetInfo {
 -  virtual void anchor();
+-  bool HasStdExtM = false;
+-  bool HasStdExtA = false;
 -  bool HasRV64 = false;
 -  unsigned XLen = 32;
 -  MVT XLenVT = MVT::i32;
@@ -4210,6 +4842,8 @@ index 657b0e65620..00000000000
 -  const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
 -    return &TSInfo;
 -  }
+-  bool hasStdExtM() const { return HasStdExtM; }
+-  bool hasStdExtA() const { return HasStdExtA; }
 -  bool is64Bit() const { return HasRV64; }
 -  MVT getXLenVT() const { return XLenVT; }
 -  unsigned getXLen() const { return XLen; }
@@ -4440,10 +5074,11 @@ index 34932c25915..00000000000
 -}
 diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
 deleted file mode 100644
-index 32242d2e40d..00000000000
+index 1dbcd2fd45d..00000000000
 --- a/test/CodeGen/RISCV/alu32.ll
 +++ /dev/null
-@@ -1,163 +0,0 @@
+@@ -1,182 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
 -; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 -; RUN:   | FileCheck %s -check-prefix=RV32I
 -
@@ -4451,17 +5086,18 @@ index 32242d2e40d..00000000000
 -
 -define i32 @addi(i32 %a) nounwind {
 -; RV32I-LABEL: addi:
--; RV32I: addi a0, a0, 1
--; RV32I: jalr zero, ra, 0
--; TODO: check support for materialising larger constants
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi a0, a0, 1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = add i32 %a, 1
 -  ret i32 %1
 -}
 -
 -define i32 @slti(i32 %a) nounwind {
 -; RV32I-LABEL: slti:
--; RV32I: slti a0, a0, 2
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    slti a0, a0, 2
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = icmp slt i32 %a, 2
 -  %2 = zext i1 %1 to i32
 -  ret i32 %2
@@ -4469,8 +5105,9 @@ index 32242d2e40d..00000000000
 -
 -define i32 @sltiu(i32 %a) nounwind {
 -; RV32I-LABEL: sltiu:
--; RV32I: sltiu a0, a0, 3
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sltiu a0, a0, 3
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = icmp ult i32 %a, 3
 -  %2 = zext i1 %1 to i32
 -  ret i32 %2
@@ -4478,48 +5115,54 @@ index 32242d2e40d..00000000000
 -
 -define i32 @xori(i32 %a) nounwind {
 -; RV32I-LABEL: xori:
--; RV32I: xori a0, a0, 4
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    xori a0, a0, 4
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = xor i32 %a, 4
 -  ret i32 %1
 -}
 -
 -define i32 @ori(i32 %a) nounwind {
 -; RV32I-LABEL: ori:
--; RV32I: ori a0, a0, 5
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    ori a0, a0, 5
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = or i32 %a, 5
 -  ret i32 %1
 -}
 -
 -define i32 @andi(i32 %a) nounwind {
 -; RV32I-LABEL: andi:
--; RV32I: andi a0, a0, 6
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    andi a0, a0, 6
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = and i32 %a, 6
 -  ret i32 %1
 -}
 -
 -define i32 @slli(i32 %a) nounwind {
 -; RV32I-LABEL: slli:
--; RV32I: slli a0, a0, 7
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    slli a0, a0, 7
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = shl i32 %a, 7
 -  ret i32 %1
 -}
 -
 -define i32 @srli(i32 %a) nounwind {
 -; RV32I-LABEL: srli:
--; RV32I: srli a0, a0, 8
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    srli a0, a0, 8
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = lshr i32 %a, 8
 -  ret i32 %1
 -}
 -
 -define i32 @srai(i32 %a) nounwind {
 -; RV32I-LABEL: srai:
--; RV32I: srai a0, a0, 9
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    srai a0, a0, 9
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = ashr i32 %a, 9
 -  ret i32 %1
 -}
@@ -4528,32 +5171,36 @@ index 32242d2e40d..00000000000
 -
 -define i32 @add(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: add:
--; RV32I: add a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = add i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @sub(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: sub:
--; RV32I: sub a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = sub i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @sll(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: sll:
--; RV32I: sll a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sll a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = shl i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @slt(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: slt:
--; RV32I: slt a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    slt a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = icmp slt i32 %a, %b
 -  %2 = zext i1 %1 to i32
 -  ret i32 %2
@@ -4561,8 +5208,9 @@ index 32242d2e40d..00000000000
 -
 -define i32 @sltu(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: sltu:
--; RV32I: sltu a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sltu a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = icmp ult i32 %a, %b
 -  %2 = zext i1 %1 to i32
 -  ret i32 %2
@@ -4570,42 +5218,316 @@ index 32242d2e40d..00000000000
 -
 -define i32 @xor(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: xor:
--; RV32I: xor a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    xor a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = xor i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @srl(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: srl:
--; RV32I: srl a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    srl a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = lshr i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @sra(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: sra:
--; RV32I: sra a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sra a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = ashr i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @or(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: or:
--; RV32I: or a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    or a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = or i32 %a, %b
 -  ret i32 %1
 -}
 -
 -define i32 @and(i32 %a, i32 %b) nounwind {
 -; RV32I-LABEL: and:
--; RV32I: and a0, a0, a1
--; RV32I: jalr zero, ra, 0
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    and a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
 -  %1 = and i32 %a, %b
 -  ret i32 %1
+-}
+diff --git a/test/CodeGen/RISCV/branch.ll b/test/CodeGen/RISCV/branch.ll
+deleted file mode 100644
+index 194083b07c7..00000000000
+--- a/test/CodeGen/RISCV/branch.ll
++++ /dev/null
+@@ -1,121 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+-; RUN:   | FileCheck -check-prefix=RV32I %s
+-
+-define void @foo(i32 %a, i32 *%b, i1 %c) {
+-; RV32I-LABEL: foo:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    beq a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_1
+-; RV32I-NEXT:  .LBB0_1: # %test2
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bne a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_2
+-; RV32I-NEXT:  .LBB0_2: # %test3
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    blt a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_3
+-; RV32I-NEXT:  .LBB0_3: # %test4
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bge a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_4
+-; RV32I-NEXT:  .LBB0_4: # %test5
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bltu a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_5
+-; RV32I-NEXT:  .LBB0_5: # %test6
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bgeu a3, a0, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_6
+-; RV32I-NEXT:  .LBB0_6: # %test7
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    blt a0, a3, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_7
+-; RV32I-NEXT:  .LBB0_7: # %test8
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bge a0, a3, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_8
+-; RV32I-NEXT:  .LBB0_8: # %test9
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bltu a0, a3, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_9
+-; RV32I-NEXT:  .LBB0_9: # %test10
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    bgeu a0, a3, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_10
+-; RV32I-NEXT:  .LBB0_10: # %test11
+-; RV32I-NEXT:    lw a0, 0(a1)
+-; RV32I-NEXT:    andi a0, a2, 1
+-; RV32I-NEXT:    bne a0, zero, .LBB0_12
+-; RV32I-NEXT:    jal zero, .LBB0_11
+-; RV32I-NEXT:  .LBB0_11: # %test12
+-; RV32I-NEXT:    lw a0, 0(a1)
+-; RV32I-NEXT:  .LBB0_12: # %end
+-; RV32I-NEXT:    jalr zero, ra, 0
+-
+-  %val1 = load volatile i32, i32* %b
+-  %tst1 = icmp eq i32 %val1, %a
+-  br i1 %tst1, label %end, label %test2
+-
+-test2:
+-  %val2 = load volatile i32, i32* %b
+-  %tst2 = icmp ne i32 %val2, %a
+-  br i1 %tst2, label %end, label %test3
+-
+-test3:
+-  %val3 = load volatile i32, i32* %b
+-  %tst3 = icmp slt i32 %val3, %a
+-  br i1 %tst3, label %end, label %test4
+-
+-test4:
+-  %val4 = load volatile i32, i32* %b
+-  %tst4 = icmp sge i32 %val4, %a
+-  br i1 %tst4, label %end, label %test5
+-
+-test5:
+-  %val5 = load volatile i32, i32* %b
+-  %tst5 = icmp ult i32 %val5, %a
+-  br i1 %tst5, label %end, label %test6
+-
+-test6:
+-  %val6 = load volatile i32, i32* %b
+-  %tst6 = icmp uge i32 %val6, %a
+-  br i1 %tst6, label %end, label %test7
+-
+-; Check for condition codes that don't have a matching instruction
+-
+-test7:
+-  %val7 = load volatile i32, i32* %b
+-  %tst7 = icmp sgt i32 %val7, %a
+-  br i1 %tst7, label %end, label %test8
+-
+-test8:
+-  %val8 = load volatile i32, i32* %b
+-  %tst8 = icmp sle i32 %val8, %a
+-  br i1 %tst8, label %end, label %test9
+-
+-test9:
+-  %val9 = load volatile i32, i32* %b
+-  %tst9 = icmp ugt i32 %val9, %a
+-  br i1 %tst9, label %end, label %test10
+-
+-test10:
+-  %val10 = load volatile i32, i32* %b
+-  %tst10 = icmp ule i32 %val10, %a
+-  br i1 %tst10, label %end, label %test11
+-
+-; Check the case of a branch where the condition was generated in another
+-; function
+-
+-test11:
+-  %val11 = load volatile i32, i32* %b
+-  br i1 %c, label %end, label %test12
+-
+-test12:
+-  %val12 = load volatile i32, i32* %b
+-  br label %end
+-
+-end:
+-  ret void
+-}
+diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
+deleted file mode 100644
+index 8abe5e92a8e..00000000000
+--- a/test/CodeGen/RISCV/calls.ll
++++ /dev/null
+@@ -1,83 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+-; RUN:   | FileCheck -check-prefix=RV32I %s
+-
+-declare i32 @external_function(i32)
+-
+-define i32 @test_call_external(i32 %a) nounwind {
+-; RV32I-LABEL: test_call_external:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sw ra, 12(s0)
+-; RV32I-NEXT:    lui a1, %hi(external_function)
+-; RV32I-NEXT:    addi a1, a1, %lo(external_function)
+-; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw ra, 12(s0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = call i32 @external_function(i32 %a)
+-  ret i32 %1
+-}
+-
+-define i32 @defined_function(i32 %a) nounwind {
+-; RV32I-LABEL: defined_function:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi a0, a0, 1
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = add i32 %a, 1
+-  ret i32 %1
+-}
+-
+-define i32 @test_call_defined(i32 %a) nounwind {
+-; RV32I-LABEL: test_call_defined:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sw ra, 12(s0)
+-; RV32I-NEXT:    lui a1, %hi(defined_function)
+-; RV32I-NEXT:    addi a1, a1, %lo(defined_function)
+-; RV32I-NEXT:    jalr ra, a1, 0
+-; RV32I-NEXT:    lw ra, 12(s0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = call i32 @defined_function(i32 %a) nounwind
+-  ret i32 %1
+-}
+-
+-define i32 @test_call_indirect(i32 (i32)* %a, i32 %b) nounwind {
+-; RV32I-LABEL: test_call_indirect:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sw ra, 12(s0)
+-; RV32I-NEXT:    addi a2, a0, 0
+-; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    lw ra, 12(s0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = call i32 %a(i32 %b)
+-  ret i32 %1
+-}
+-
+-; Ensure that calls to fastcc functions aren't rejected. Such calls may be
+-; introduced when compiling with optimisation.
+-
+-define fastcc i32 @fastcc_function(i32 %a, i32 %b) nounwind {
+-; RV32I-LABEL: fastcc_function:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
+- %1 = add i32 %a, %b
+- ret i32 %1
+-}
+-
+-define i32 @test_call_fastcc(i32 %a, i32 %b) nounwind {
+-; RV32I-LABEL: test_call_fastcc:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sw ra, 12(s0)
+-; RV32I-NEXT:    sw s1, 8(s0)
+-; RV32I-NEXT:    addi s1, a0, 0
+-; RV32I-NEXT:    lui a0, %hi(fastcc_function)
+-; RV32I-NEXT:    addi a2, a0, %lo(fastcc_function)
+-; RV32I-NEXT:    addi a0, s1, 0
+-; RV32I-NEXT:    jalr ra, a2, 0
+-; RV32I-NEXT:    addi a0, s1, 0
+-; RV32I-NEXT:    lw s1, 8(s0)
+-; RV32I-NEXT:    lw ra, 12(s0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = call fastcc i32 @fastcc_function(i32 %a, i32 %b)
+-  ret i32 %a
+-}
+diff --git a/test/CodeGen/RISCV/imm.ll b/test/CodeGen/RISCV/imm.ll
+deleted file mode 100644
+index c52638da02e..00000000000
+--- a/test/CodeGen/RISCV/imm.ll
++++ /dev/null
+@@ -1,47 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+-; RUN:   | FileCheck %s -check-prefix=RV32I
+-
+-; Materializing constants
+-
+-define i32 @zero() nounwind {
+-; RV32I-LABEL: zero:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi a0, zero, 0
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ret i32 0
+-}
+-
+-define i32 @pos_small() nounwind {
+-; RV32I-LABEL: pos_small:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi a0, zero, 2047
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ret i32 2047
+-}
+-
+-define i32 @neg_small() nounwind {
+-; RV32I-LABEL: neg_small:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    addi a0, zero, -2048
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ret i32 -2048
+-}
+-
+-define i32 @pos_i32() nounwind {
+-; RV32I-LABEL: pos_i32:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lui a0, 423811
+-; RV32I-NEXT:    addi a0, a0, -1297
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ret i32 1735928559
+-}
+-
+-define i32 @neg_i32() nounwind {
+-; RV32I-LABEL: neg_i32:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lui a0, 912092
+-; RV32I-NEXT:    addi a0, a0, -273
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ret i32 -559038737
 -}
 diff --git a/test/CodeGen/RISCV/lit.local.cfg b/test/CodeGen/RISCV/lit.local.cfg
 deleted file mode 100644
@@ -4615,6 +5537,254 @@ index c63820126f8..00000000000
 @@ -1,2 +0,0 @@
 -if not 'RISCV' in config.root.targets:
 -    config.unsupported = True
+diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
+deleted file mode 100644
+index b06382f8742..00000000000
+--- a/test/CodeGen/RISCV/mem.ll
++++ /dev/null
+@@ -1,202 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+-; RUN:   | FileCheck %s -check-prefix=RV32I
+-
+-; Check indexed and unindexed, sext, zext and anyext loads
+-
+-define i32 @lb(i8 *%a) nounwind {
+-; RV32I-LABEL: lb:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lb a1, 0(a0)
+-; RV32I-NEXT:    lb a0, 1(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = getelementptr i8, i8* %a, i32 1
+-  %2 = load i8, i8* %1
+-  %3 = sext i8 %2 to i32
+-  ; the unused load will produce an anyext for selection
+-  %4 = load volatile i8, i8* %a
+-  ret i32 %3
+-}
+-
+-define i32 @lh(i16 *%a) nounwind {
+-; RV32I-LABEL: lh:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lh a1, 0(a0)
+-; RV32I-NEXT:    lh a0, 4(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = getelementptr i16, i16* %a, i32 2
+-  %2 = load i16, i16* %1
+-  %3 = sext i16 %2 to i32
+-  ; the unused load will produce an anyext for selection
+-  %4 = load volatile i16, i16* %a
+-  ret i32 %3
+-}
+-
+-define i32 @lw(i32 *%a) nounwind {
+-; RV32I-LABEL: lw:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lw a1, 0(a0)
+-; RV32I-NEXT:    lw a0, 12(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = getelementptr i32, i32* %a, i32 3
+-  %2 = load i32, i32* %1
+-  %3 = load volatile i32, i32* %a
+-  ret i32 %2
+-}
+-
+-define i32 @lbu(i8 *%a) nounwind {
+-; RV32I-LABEL: lbu:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lbu a1, 0(a0)
+-; RV32I-NEXT:    lbu a0, 4(a0)
+-; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = getelementptr i8, i8* %a, i32 4
+-  %2 = load i8, i8* %1
+-  %3 = zext i8 %2 to i32
+-  %4 = load volatile i8, i8* %a
+-  %5 = zext i8 %4 to i32
+-  %6 = add i32 %3, %5
+-  ret i32 %6
+-}
+-
+-define i32 @lhu(i16 *%a) nounwind {
+-; RV32I-LABEL: lhu:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lhu a1, 0(a0)
+-; RV32I-NEXT:    lhu a0, 10(a0)
+-; RV32I-NEXT:    add a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = getelementptr i16, i16* %a, i32 5
+-  %2 = load i16, i16* %1
+-  %3 = zext i16 %2 to i32
+-  %4 = load volatile i16, i16* %a
+-  %5 = zext i16 %4 to i32
+-  %6 = add i32 %3, %5
+-  ret i32 %6
+-}
+-
+-; Check indexed and unindexed stores
+-
+-define void @sb(i8 *%a, i8 %b) nounwind {
+-; RV32I-LABEL: sb:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sb a1, 6(a0)
+-; RV32I-NEXT:    sb a1, 0(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  store i8 %b, i8* %a
+-  %1 = getelementptr i8, i8* %a, i32 6
+-  store i8 %b, i8* %1
+-  ret void
+-}
+-
+-define void @sh(i16 *%a, i16 %b) nounwind {
+-; RV32I-LABEL: sh:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sh a1, 14(a0)
+-; RV32I-NEXT:    sh a1, 0(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  store i16 %b, i16* %a
+-  %1 = getelementptr i16, i16* %a, i32 7
+-  store i16 %b, i16* %1
+-  ret void
+-}
+-
+-define void @sw(i32 *%a, i32 %b) nounwind {
+-; RV32I-LABEL: sw:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    sw a1, 32(a0)
+-; RV32I-NEXT:    sw a1, 0(a0)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  store i32 %b, i32* %a
+-  %1 = getelementptr i32, i32* %a, i32 8
+-  store i32 %b, i32* %1
+-  ret void
+-}
+-
+-; Check load and store to an i1 location
+-define i32 @load_sext_zext_anyext_i1(i1 *%a) nounwind {
+-; RV32I-LABEL: load_sext_zext_anyext_i1:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lb a1, 0(a0)
+-; RV32I-NEXT:    lbu a1, 1(a0)
+-; RV32I-NEXT:    lbu a0, 2(a0)
+-; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ; sextload i1
+-  %1 = getelementptr i1, i1* %a, i32 1
+-  %2 = load i1, i1* %1
+-  %3 = sext i1 %2 to i32
+-  ; zextload i1
+-  %4 = getelementptr i1, i1* %a, i32 2
+-  %5 = load i1, i1* %4
+-  %6 = zext i1 %5 to i32
+-  %7 = add i32 %3, %6
+-  ; extload i1 (anyext). Produced as the load is unused.
+-  %8 = load volatile i1, i1* %a
+-  ret i32 %7
+-}
+-
+-define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
+-; RV32I-LABEL: load_sext_zext_anyext_i1_i16:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lb a1, 0(a0)
+-; RV32I-NEXT:    lbu a1, 1(a0)
+-; RV32I-NEXT:    lbu a0, 2(a0)
+-; RV32I-NEXT:    sub a0, a0, a1
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  ; sextload i1
+-  %1 = getelementptr i1, i1* %a, i32 1
+-  %2 = load i1, i1* %1
+-  %3 = sext i1 %2 to i16
+-  ; zextload i1
+-  %4 = getelementptr i1, i1* %a, i32 2
+-  %5 = load i1, i1* %4
+-  %6 = zext i1 %5 to i16
+-  %7 = add i16 %3, %6
+-  ; extload i1 (anyext). Produced as the load is unused.
+-  %8 = load volatile i1, i1* %a
+-  ret i16 %7
+-}
+-
+-; Check load and store to a global
+-@G = global i32 0
+-
+-define i32 @lw_sw_global(i32 %a) nounwind {
+-; TODO: the addi should be folded in to the lw/sw operations
+-; RV32I-LABEL: lw_sw_global:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lui a1, %hi(G)
+-; RV32I-NEXT:    addi a2, a1, %lo(G)
+-; RV32I-NEXT:    lw a1, 0(a2)
+-; RV32I-NEXT:    sw a0, 0(a2)
+-; RV32I-NEXT:    lui a2, %hi(G+36)
+-; RV32I-NEXT:    addi a2, a2, %lo(G+36)
+-; RV32I-NEXT:    lw a3, 0(a2)
+-; RV32I-NEXT:    sw a0, 0(a2)
+-; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = load volatile i32, i32* @G
+-  store i32 %a, i32* @G
+-  %2 = getelementptr i32, i32* @G, i32 9
+-  %3 = load volatile i32, i32* %2
+-  store i32 %a, i32* %2
+-  ret i32 %1
+-}
+-
+-; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
+-define i32 @lw_sw_constant(i32 %a) nounwind {
+-; TODO: the addi should be folded in to the lw/sw
+-; RV32I-LABEL: lw_sw_constant:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lui a1, 912092
+-; RV32I-NEXT:    addi a2, a1, -273
+-; RV32I-NEXT:    lw a1, 0(a2)
+-; RV32I-NEXT:    sw a0, 0(a2)
+-; RV32I-NEXT:    addi a0, a1, 0
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = inttoptr i32 3735928559 to i32*
+-  %2 = load volatile i32, i32* %1
+-  store i32 %a, i32* %1
+-  ret i32 %2
+-}
+diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
+deleted file mode 100644
+index 18ab52aaf13..00000000000
+--- a/test/CodeGen/RISCV/wide-mem.ll
++++ /dev/null
+@@ -1,34 +0,0 @@
+-; NOTE: Assertions have been autogenerated by utils/update_llc_test_checks.py
+-; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
+-; RUN:   | FileCheck %s -check-prefix=RV32I
+-
+-; Check load/store operations on values wider than what is natively supported
+-
+-define i64 @load_i64(i64 *%a) nounwind {
+-; RV32I-LABEL: load_i64:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lw a2, 0(a0)
+-; RV32I-NEXT:    lw a1, 4(a0)
+-; RV32I-NEXT:    addi a0, a2, 0
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = load i64, i64* %a
+-  ret i64 %1
+-}
+-
+-@val64 = local_unnamed_addr global i64 2863311530, align 8
+-
+-; TODO: codegen on this should be improved. It shouldn't be necessary to
+-; generate two addi
+-define i64 @load_i64_global() nounwind {
+-; RV32I-LABEL: load_i64_global:
+-; RV32I:       # BB#0:
+-; RV32I-NEXT:    lui a0, %hi(val64)
+-; RV32I-NEXT:    addi a0, a0, %lo(val64)
+-; RV32I-NEXT:    lw a0, 0(a0)
+-; RV32I-NEXT:    lui a1, %hi(val64+4)
+-; RV32I-NEXT:    addi a1, a1, %lo(val64+4)
+-; RV32I-NEXT:    lw a1, 0(a1)
+-; RV32I-NEXT:    jalr zero, ra, 0
+-  %1 = load i64, i64* @val64
+-  ret i64 %1
+-}
 diff --git a/test/MC/RISCV/elf-header.s b/test/MC/RISCV/elf-header.s
 deleted file mode 100644
 index 29a7036f2fc..00000000000
@@ -4867,12 +6037,184 @@ index c11e2f38dfc..00000000000
 -# RELOC: R_RISCV_BRANCH
 -# INSTR: bgeu a0, a1, foo
 -# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_branch
+diff --git a/test/MC/RISCV/rv32a-invalid.s b/test/MC/RISCV/rv32a-invalid.s
+deleted file mode 100644
+index 0b293ac26fa..00000000000
+--- a/test/MC/RISCV/rv32a-invalid.s
++++ /dev/null
+@@ -1,14 +0,0 @@
+-# RUN: not llvm-mc -triple riscv32 -mattr=+a < %s 2>&1 | FileCheck %s
+-
+-# Final operand must have parentheses
+-amoswap.w a1, a2, a3 # CHECK: :[[@LINE]]:19: error: invalid operand for instruction
+-amomin.w a1, a2, 1 # CHECK: :[[@LINE]]:18: error: invalid operand for instruction
+-lr.w a4, a5 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
+-
+-# Only .aq, .rl, and .aqrl suffixes are valid
+-amoxor.w.rlqa a2, a3, (a4) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
+-amoor.w.aq.rl a4, a5, (a6) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
+-amoor.w. a4, a5, (a6) # CHECK: :[[@LINE]]:1: error: unrecognized instruction mnemonic
+-
+-# lr only takes two operands
+-lr.w s0, (s1), s2 # CHECK: :[[@LINE]]:16: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/rv32a-valid.s b/test/MC/RISCV/rv32a-valid.s
+deleted file mode 100644
+index cf94218a94e..00000000000
+--- a/test/MC/RISCV/rv32a-valid.s
++++ /dev/null
+@@ -1,146 +0,0 @@
+-# RUN: llvm-mc %s -triple=riscv32 -mattr=+a -show-encoding \
+-# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+-# RUN: llvm-mc %s -triple=riscv64 -mattr=+a -show-encoding \
+-# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+a < %s \
+-# RUN:     | llvm-objdump -mattr=+a -d - | FileCheck -check-prefix=CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+a < %s \
+-# RUN:     | llvm-objdump -mattr=+a -d - | FileCheck -check-prefix=CHECK-INST %s
+-
+-# CHECK-INST: lr.w t0, (t1)
+-# CHECK: encoding: [0xaf,0x22,0x03,0x10]
+-lr.w t0, (t1)
+-# CHECK-INST: lr.w.aq t1, (t2)
+-# CHECK: encoding: [0x2f,0xa3,0x03,0x14]
+-lr.w.aq t1, (t2)
+-# CHECK-INST: lr.w.rl t2, (t3)
+-# CHECK: encoding: [0xaf,0x23,0x0e,0x12]
+-lr.w.rl t2, (t3)
+-# CHECK-INST: lr.w.aqrl t3, (t4)
+-# CHECK: encoding: [0x2f,0xae,0x0e,0x16]
+-lr.w.aqrl t3, (t4)
+-
+-# CHECK-INST: sc.w t6, t5, (t4)
+-# CHECK: encoding: [0xaf,0xaf,0xee,0x19]
+-sc.w t6, t5, (t4)
+-# CHECK-INST: sc.w.aq t5, t4, (t3)
+-# CHECK: encoding: [0x2f,0x2f,0xde,0x1d]
+-sc.w.aq t5, t4, (t3)
+-# CHECK-INST: sc.w.rl t4, t3, (t2)
+-# CHECK: encoding: [0xaf,0xae,0xc3,0x1b]
+-sc.w.rl t4, t3, (t2)
+-# CHECK-INST: sc.w.aqrl t3, t2, (t1)
+-# CHECK: encoding: [0x2f,0x2e,0x73,0x1e]
+-sc.w.aqrl t3, t2, (t1)
+-
+-# CHECK-INST: amoswap.w a4, ra, (s0)
+-# CHECK: encoding: [0x2f,0x27,0x14,0x08]
+-amoswap.w a4, ra, (s0)
+-# CHECK-INST: amoadd.w a1, a2, (a3)
+-# CHECK: encoding: [0xaf,0xa5,0xc6,0x00]
+-amoadd.w a1, a2, (a3)
+-# CHECK-INST: amoxor.w a2, a3, (a4)
+-# CHECK: encoding: [0x2f,0x26,0xd7,0x20]
+-amoxor.w a2, a3, (a4)
+-# CHECK-INST: amoand.w a3, a4, (a5)
+-# CHECK: encoding: [0xaf,0xa6,0xe7,0x60]
+-amoand.w a3, a4, (a5)
+-# CHECK-INST: amoor.w a4, a5, (a6)
+-# CHECK: encoding: [0x2f,0x27,0xf8,0x40]
+-amoor.w a4, a5, (a6)
+-# CHECK-INST: amomin.w a5, a6, (a7)
+-# CHECK: encoding: [0xaf,0xa7,0x08,0x81]
+-amomin.w a5, a6, (a7)
+-# CHECK-INST: amomax.w s7, s6, (s5)
+-# CHECK: encoding: [0xaf,0xab,0x6a,0xa1]
+-amomax.w s7, s6, (s5)
+-# CHECK-INST: amominu.w s6, s5, (s4)
+-# CHECK: encoding: [0x2f,0x2b,0x5a,0xc1]
+-amominu.w s6, s5, (s4)
+-# CHECK-INST: amomaxu.w s5, s4, (s3)
+-# CHECK: encoding: [0xaf,0xaa,0x49,0xe1]
+-amomaxu.w s5, s4, (s3)
+-
+-# CHECK-INST: amoswap.w.aq a4, ra, (s0)
+-# CHECK: encoding: [0x2f,0x27,0x14,0x0c]
+-amoswap.w.aq a4, ra, (s0)
+-# CHECK-INST: amoadd.w.aq a1, a2, (a3)
+-# CHECK: encoding: [0xaf,0xa5,0xc6,0x04]
+-amoadd.w.aq a1, a2, (a3)
+-# CHECK-INST: amoxor.w.aq a2, a3, (a4)
+-# CHECK: encoding: [0x2f,0x26,0xd7,0x24]
+-amoxor.w.aq a2, a3, (a4)
+-# CHECK-INST: amoand.w.aq a3, a4, (a5)
+-# CHECK: encoding: [0xaf,0xa6,0xe7,0x64]
+-amoand.w.aq a3, a4, (a5)
+-# CHECK-INST: amoor.w.aq a4, a5, (a6)
+-# CHECK: encoding: [0x2f,0x27,0xf8,0x44]
+-amoor.w.aq a4, a5, (a6)
+-# CHECK-INST: amomin.w.aq a5, a6, (a7)
+-# CHECK: encoding: [0xaf,0xa7,0x08,0x85]
+-amomin.w.aq a5, a6, (a7)
+-# CHECK-INST: amomax.w.aq s7, s6, (s5)
+-# CHECK: encoding: [0xaf,0xab,0x6a,0xa5]
+-amomax.w.aq s7, s6, (s5)
+-# CHECK-INST: amominu.w.aq s6, s5, (s4)
+-# CHECK: encoding: [0x2f,0x2b,0x5a,0xc5]
+-amominu.w.aq s6, s5, (s4)
+-# CHECK-INST: amomaxu.w.aq s5, s4, (s3)
+-# CHECK: encoding: [0xaf,0xaa,0x49,0xe5]
+-amomaxu.w.aq s5, s4, (s3)
+-
+-# CHECK-INST: amoswap.w.rl a4, ra, (s0)
+-# CHECK: encoding: [0x2f,0x27,0x14,0x0a]
+-amoswap.w.rl a4, ra, (s0)
+-# CHECK-INST: amoadd.w.rl a1, a2, (a3)
+-# CHECK: encoding: [0xaf,0xa5,0xc6,0x02]
+-amoadd.w.rl a1, a2, (a3)
+-# CHECK-INST: amoxor.w.rl a2, a3, (a4)
+-# CHECK: encoding: [0x2f,0x26,0xd7,0x22]
+-amoxor.w.rl a2, a3, (a4)
+-# CHECK-INST: amoand.w.rl a3, a4, (a5)
+-# CHECK: encoding: [0xaf,0xa6,0xe7,0x62]
+-amoand.w.rl a3, a4, (a5)
+-# CHECK-INST: amoor.w.rl a4, a5, (a6)
+-# CHECK: encoding: [0x2f,0x27,0xf8,0x42]
+-amoor.w.rl a4, a5, (a6)
+-# CHECK-INST: amomin.w.rl a5, a6, (a7)
+-# CHECK: encoding: [0xaf,0xa7,0x08,0x83]
+-amomin.w.rl a5, a6, (a7)
+-# CHECK-INST: amomax.w.rl s7, s6, (s5)
+-# CHECK: encoding: [0xaf,0xab,0x6a,0xa3]
+-amomax.w.rl s7, s6, (s5)
+-# CHECK-INST: amominu.w.rl s6, s5, (s4)
+-# CHECK: encoding: [0x2f,0x2b,0x5a,0xc3]
+-amominu.w.rl s6, s5, (s4)
+-# CHECK-INST: amomaxu.w.rl s5, s4, (s3)
+-# CHECK: encoding: [0xaf,0xaa,0x49,0xe3]
+-amomaxu.w.rl s5, s4, (s3)
+-
+-# CHECK-INST: amoswap.w.aqrl a4, ra, (s0)
+-# CHECK: encoding: [0x2f,0x27,0x14,0x0e]
+-amoswap.w.aqrl a4, ra, (s0)
+-# CHECK-INST: amoadd.w.aqrl a1, a2, (a3)
+-# CHECK: encoding: [0xaf,0xa5,0xc6,0x06]
+-amoadd.w.aqrl a1, a2, (a3)
+-# CHECK-INST: amoxor.w.aqrl a2, a3, (a4)
+-# CHECK: encoding: [0x2f,0x26,0xd7,0x26]
+-amoxor.w.aqrl a2, a3, (a4)
+-# CHECK-INST: amoand.w.aqrl a3, a4, (a5)
+-# CHECK: encoding: [0xaf,0xa6,0xe7,0x66]
+-amoand.w.aqrl a3, a4, (a5)
+-# CHECK-INST: amoor.w.aqrl a4, a5, (a6)
+-# CHECK: encoding: [0x2f,0x27,0xf8,0x46]
+-amoor.w.aqrl a4, a5, (a6)
+-# CHECK-INST: amomin.w.aqrl a5, a6, (a7)
+-# CHECK: encoding: [0xaf,0xa7,0x08,0x87]
+-amomin.w.aqrl a5, a6, (a7)
+-# CHECK-INST: amomax.w.aqrl s7, s6, (s5)
+-# CHECK: encoding: [0xaf,0xab,0x6a,0xa7]
+-amomax.w.aqrl s7, s6, (s5)
+-# CHECK-INST: amominu.w.aqrl s6, s5, (s4)
+-# CHECK: encoding: [0x2f,0x2b,0x5a,0xc7]
+-amominu.w.aqrl s6, s5, (s4)
+-# CHECK-INST: amomaxu.w.aqrl s5, s4, (s3)
+-# CHECK: encoding: [0xaf,0xaa,0x49,0xe7]
+-amomaxu.w.aqrl s5, s4, (s3)
 diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
 deleted file mode 100644
-index 3e4ac85ed60..00000000000
+index c321d0481ca..00000000000
 --- a/test/MC/RISCV/rv32i-invalid.s
 +++ /dev/null
-@@ -1,130 +0,0 @@
+@@ -1,135 +0,0 @@
 -# RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
 -
 -# Out of range immediates
@@ -4992,6 +6334,7 @@ index 3e4ac85ed60..00000000000
 -# Invalid operand types
 -xori sp, 22, 220 # CHECK: :[[@LINE]]:10: error: invalid operand for instruction
 -sub t0, t2, 1 # CHECK: :[[@LINE]]:13: error: invalid operand for instruction
+-add a1, a2, (a3) # CHECK: :[[@LINE]]:13: error: invalid operand for instruction
 -
 -# Too many operands
 -add ra, zero, zero, zero # CHECK: :[[@LINE]]:21: error: invalid operand for instruction
@@ -5003,6 +6346,10 @@ index 3e4ac85ed60..00000000000
 -# Too few operands
 -ori a0, a1 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
 -xor s2, s2 # CHECK: :[[@LINE]]:1: error: too few operands for instruction
+-
+-# Instruction not in the base ISA
+-mul a4, ra, s0 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
+-amomaxu.w s5, s4, (s3) # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 diff --git a/test/MC/RISCV/rv32i-valid.s b/test/MC/RISCV/rv32i-valid.s
 deleted file mode 100644
 index be6560062bb..00000000000
@@ -5247,6 +6594,45 @@ index be6560062bb..00000000000
 -# CHECK-INST: csrrci t1, 320, 5
 -# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 -csrrci t1, 0x140, 5
+diff --git a/test/MC/RISCV/rv32m-valid.s b/test/MC/RISCV/rv32m-valid.s
+deleted file mode 100644
+index 70c1c29d3ad..00000000000
+--- a/test/MC/RISCV/rv32m-valid.s
++++ /dev/null
+@@ -1,33 +0,0 @@
+-# RUN: llvm-mc %s -triple=riscv32 -mattr=+m -show-encoding \
+-# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+-# RUN: llvm-mc %s -triple=riscv64 -mattr=+m -show-encoding \
+-# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+m < %s \
+-# RUN:     | llvm-objdump -mattr=+m -d - | FileCheck -check-prefix=CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+m < %s \
+-# RUN:     | llvm-objdump -mattr=+m -d - | FileCheck -check-prefix=CHECK-INST %s
+-
+-# CHECK-INST: mul a4, ra, s0
+-# CHECK: encoding: [0x33,0x87,0x80,0x02]
+-mul a4, ra, s0
+-# CHECK-INST: mulh ra, zero, zero
+-# CHECK: encoding: [0xb3,0x10,0x00,0x02]
+-mulh x1, x0, x0
+-# CHECK-INST: mulhsu t0, t2, t1
+-# CHECK: encoding: [0xb3,0xa2,0x63,0x02]
+-mulhsu t0, t2, t1
+-# CHECK-INST: mulhu a5, a4, a3
+-# CHECK: encoding: [0xb3,0x37,0xd7,0x02]
+-mulhu a5, a4, a3
+-# CHECK-INST: div s0, s0, s0
+-# CHECK: encoding: [0x33,0x44,0x84,0x02]
+-div s0, s0, s0
+-# CHECK-INST: divu gp, a0, a1
+-# CHECK: encoding: [0xb3,0x51,0xb5,0x02]
+-divu gp, a0, a1
+-# CHECK-INST: rem s2, s2, s8
+-# CHECK: encoding: [0x33,0x69,0x89,0x03]
+-rem s2, s2, s8
+-# CHECK-INST: remu s2, s2, s8
+-# CHECK: encoding: [0x33,0x79,0x89,0x03]
+-remu x18, x18, x24
 diff --git a/test/Object/RISCV/elf-flags.yaml b/test/Object/RISCV/elf-flags.yaml
 deleted file mode 100644
 index ff8637f000a..00000000000
@@ -5394,6 +6780,49 @@ index ed4a88067b1..375993e8c1a 100644
    T.setArch(Triple::thumbeb);
    EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
+diff --git a/utils/update_llc_test_checks.py b/utils/update_llc_test_checks.py
+index 9b2df90ad39..e4e7e2ce41e 100755
+--- a/utils/update_llc_test_checks.py
++++ b/utils/update_llc_test_checks.py
+@@ -58,12 +58,6 @@ ASM_FUNCTION_PPC_RE = re.compile(
+     r'.Lfunc_end[0-9]+:\n',
+     flags=(re.M | re.S))
+ 
+-ASM_FUNCTION_RISCV_RE = re.compile(
+-    r'^_?(?P<func>[^:]+):[ \t]*#+[ \t]*@(?P=func)\n[^:]*?'
+-    r'(?P<body>^##?[ \t]+[^:]+:.*?)\s*'
+-    r'.Lfunc_end[0-9]+:\n',
+-    flags=(re.M | re.S))
+-
+ ASM_FUNCTION_SYSTEMZ_RE = re.compile(
+     r'^_?(?P<func>[^:]+):[ \t]*#+[ \t]*@(?P=func)\n'
+     r'[ \t]+.cfi_startproc\n'
+@@ -141,16 +135,6 @@ def scrub_asm_powerpc64(asm, args):
+   asm = SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
+   return asm
+ 
+-def scrub_asm_riscv(asm, args):
+-  # Scrub runs of whitespace out of the assembly, but leave the leading
+-  # whitespace in place.
+-  asm = SCRUB_WHITESPACE_RE.sub(r' ', asm)
+-  # Expand the tabs used for indentation.
+-  asm = string.expandtabs(asm, 2)
+-  # Strip trailing whitespace.
+-  asm = SCRUB_TRAILING_WHITESPACE_RE.sub(r'', asm)
+-  return asm
+-
+ def scrub_asm_systemz(asm, args):
+   # Scrub runs of whitespace out of the assembly, but leave the leading
+   # whitespace in place.
+@@ -177,8 +161,6 @@ def build_function_body_dictionary(raw_tool_output, triple, prefixes, func_dict,
+       'armeb-eabi': (scrub_asm_arm_eabi, ASM_FUNCTION_ARM_RE),
+       'powerpc64': (scrub_asm_powerpc64, ASM_FUNCTION_PPC_RE),
+       'powerpc64le': (scrub_asm_powerpc64, ASM_FUNCTION_PPC_RE),
+-      'riscv32': (scrub_asm_riscv, ASM_FUNCTION_RISCV_RE),
+-      'riscv64': (scrub_asm_riscv, ASM_FUNCTION_RISCV_RE),
+       's390x': (scrub_asm_systemz, ASM_FUNCTION_SYSTEMZ_RE),
+   }
+   handlers = None
 -- 
 2.15.0
 

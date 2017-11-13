@@ -15,7 +15,7 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 23365b0e8b5..37f4bdbfaf0 100644
+index 0a439eca60a..6487bc1bea6 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -27,7 +27,7 @@ index 23365b0e8b5..37f4bdbfaf0 100644
  
    // Compute derived properties from the register classes.
    computeRegisterProperties(STI.getRegisterInfo());
-@@ -1150,3 +1152,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+@@ -1151,3 +1153,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
  
    return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
  }
@@ -112,7 +112,7 @@ index 8a78e372e8b..9c3f32d5a9f 100644
 +
 +} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index a660de73b79..d11e85c9619 100644
+index 920e26fd639..16c4e0a6496 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -141,6 +141,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

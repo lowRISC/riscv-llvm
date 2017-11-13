@@ -19,7 +19,7 @@ inputs.
  create mode 100644 test/CodeGen/RISCV/float-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 58468a2ef85..23365b0e8b5 100644
+index 46322fb0dbd..0a439eca60a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -109,6 +109,14 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

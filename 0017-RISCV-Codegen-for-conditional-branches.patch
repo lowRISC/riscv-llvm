@@ -9,10 +9,10 @@ Subject: [RISCV] Codegen for conditional branches
  lib/Target/RISCV/RISCVInstrInfo.h      |  12 +++-
  lib/Target/RISCV/RISCVInstrInfo.td     |  36 +++++++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   4 ++
- lib/Target/RISCV/RISCVRegisterInfo.cpp |  31 ++++++++-
+ lib/Target/RISCV/RISCVRegisterInfo.cpp |  30 +++++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |   2 +
  test/CodeGen/RISCV/branch.ll           | 121 +++++++++++++++++++++++++++++++++
- 9 files changed, 239 insertions(+), 4 deletions(-)
+ 9 files changed, 238 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
 diff --git a/lib/Target/RISCV/RISCVCallingConv.td b/lib/Target/RISCV/RISCVCallingConv.td
@@ -179,10 +179,10 @@ index 4cc8cc8c0c2..a354a34fb43 100644
      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
      break;
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 9447f9e7ec3..5d64de23ba2 100644
+index 9447f9e7ec3..86bd588de42 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -50,10 +50,39 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+@@ -50,10 +50,38 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
    return Reserved;
  }
  
@@ -219,7 +219,6 @@ index 9447f9e7ec3..5d64de23ba2 100644
 +
 +  MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
 +  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
-+  return;
  }
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {

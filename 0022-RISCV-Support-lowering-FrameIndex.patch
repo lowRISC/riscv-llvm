@@ -145,7 +145,7 @@ index 72d21bde0f5..28687c7c82c 100644
  
  // Pessimistically assume the stack pointer will be clobbered
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index cd658d7e2d9..ea5f96d26d7 100644
+index 75b277531ce..3b2f95e1d20 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -57,20 +57,41 @@ const uint32_t *RISCVRegisterInfo::getNoPreservedMask() const {
@@ -226,9 +226,9 @@ index cd658d7e2d9..ea5f96d26d7 100644
 +
 +  // Erase old instruction.
 +  MBB.erase(II);
-   return;
  }
  
+ unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
 diff --git a/test/CodeGen/RISCV/blockaddress.ll b/test/CodeGen/RISCV/blockaddress.ll
 index f51598ff5a7..062da9c1f90 100644
 --- a/test/CodeGen/RISCV/blockaddress.ll

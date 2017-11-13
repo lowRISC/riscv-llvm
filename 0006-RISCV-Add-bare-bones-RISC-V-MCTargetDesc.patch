@@ -210,7 +210,7 @@ index 00000000000..e275548dea0
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 00000000000..01cdcc6d3fd
+index 00000000000..445cdfd0d20
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -0,0 +1,50 @@
@@ -262,7 +262,7 @@ index 00000000000..01cdcc6d3fd
 +                                 bool Is64Bit) {
 +  return createELFObjectWriter(
 +      llvm::make_unique<RISCVELFObjectWriter>(OSABI, Is64Bit), OS,
-+      /*IsLittleEndian=*/false);
++      /*IsLittleEndian=*/true);
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 new file mode 100644

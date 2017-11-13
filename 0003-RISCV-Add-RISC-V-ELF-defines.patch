@@ -170,7 +170,7 @@ index 75006dcf031..905ce450f7f 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 120412bc173..b30fbcec7da 100644
+index e5f6684ce32..34f809ecaae 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -57,6 +57,7 @@ module LLVM_BinaryFormat {
@@ -200,7 +200,7 @@ index 1caa0ccaa18..c72a1258c1e 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index befafc6c904..ada9ff89b8e 100644
+index 6e1e180a5be..38940376de2 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
