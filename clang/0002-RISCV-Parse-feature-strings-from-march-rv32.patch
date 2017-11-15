@@ -117,7 +117,7 @@ index 0000000000..06064e4367
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index 758ece19e1..d25ff79ac5 100644
+index 2be700cff7..34aa862287 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,6 +12,7 @@
@@ -128,7 +128,7 @@ index 758ece19e1..d25ff79ac5 100644
  #include "Arch/Sparc.h"
  #include "Arch/SystemZ.h"
  #include "Arch/X86.h"
-@@ -322,6 +323,10 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
+@@ -306,6 +307,10 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
    case llvm::Triple::ppc64le:
      ppc::getPPCTargetFeatures(D, Triple, Args, Features);
      break;

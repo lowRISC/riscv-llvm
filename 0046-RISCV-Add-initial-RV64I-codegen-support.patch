@@ -7,14 +7,14 @@ Subject: [RISCV] Add initial RV64I codegen support
  lib/Target/RISCV/RISCVISelLowering.cpp    |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp       |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.td        |  75 ++++-
- lib/Target/RISCV/RISCVRegisterInfo.cpp    |  17 +-
+ lib/Target/RISCV/RISCVRegisterInfo.cpp    |  13 +-
  lib/Target/RISCV/RISCVTargetMachine.cpp   |   2 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll | 100 ++++++
  test/CodeGen/RISCV/alu32.ll               | 150 +++++++++
  test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/imm.ll                 |  64 ++++
  test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
- 11 files changed, 1116 insertions(+), 24 deletions(-)
+ 11 files changed, 1114 insertions(+), 22 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
@@ -240,7 +240,7 @@ index 5e4b70dc3b5..86088f0b8f4 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index d03f705eb92..743027a75d8 100644
+index ad1c35f2135..743027a75d8 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -251,17 +251,17 @@ index d03f705eb92..743027a75d8 100644
    RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineFrameInfo &MFI = MF.getFrameInfo();
    MachineRegisterInfo &MRI = MF.getRegInfo();
-@@ -125,14 +126,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -125,16 +126,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      FrameRegFlags = RegState::Kill;
    }
  
 +  unsigned Opc;
 +
    switch (MI.getOpcode()) {
+   default:
+     llvm_unreachable("Unexpected opcode");
 -  case RISCV::LW_FI:
 -    BuildMI(MBB, II, DL, TII->get(RISCV::LW), Reg)
-+  default:
-+    llvm_unreachable("Unexpected opcode");
 +  case RISCV::LdXLEN_FI:
 +    Opc = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
 +    BuildMI(MBB, II, DL, TII->get(Opc), Reg)
@@ -276,15 +276,6 @@ index d03f705eb92..743027a75d8 100644
          .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
          .addReg(FrameReg, FrameRegFlags | RegState::Kill)
          .addImm(Offset);
-@@ -142,8 +149,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-         .addReg(FrameReg, FrameRegFlags)
-         .addImm(Offset);
-     break;
--  default:
--    llvm_unreachable("Unexpected opcode");
-   }
- 
-   // Erase old instruction.
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 index 9b7fa590f91..e75fb3b701c 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp

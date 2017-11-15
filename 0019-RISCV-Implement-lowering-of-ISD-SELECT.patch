@@ -244,7 +244,7 @@ index dfb4824cc18..ab965195eb4 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 23f218fda8f..bc1828ffbdc 100644
+index 23f218fda8f..024bc3ec02c 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -22,6 +22,9 @@ def SDT_RISCVCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
@@ -270,7 +270,7 @@ index 23f218fda8f..bc1828ffbdc 100644
    let DecoderMethod = "decodeSImmOperandAndLsl1<21>";
  }
  
-+// A parameterized register class alternative for i32imm/i64imm from Target.td.
++// A parameterized register class alternative to i32imm/i64imm from Target.td.
 +def ixlenimm : Operand<XLenVT>;
 +
  // Standalone (codegen-only) immleaf patterns.

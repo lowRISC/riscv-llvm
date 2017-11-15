@@ -85,7 +85,7 @@ index 4808e6c73c5..bbaa8ec454f 100644
  extern "C" void LLVMInitializeRISCVAsmPrinter() {
    RegisterAsmPrinter<RISCVAsmPrinter> X(getTheRISCV32Target());
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 4c6e03a5918..39f4560a50c 100644
+index e2560596b44..6b8e992e19c 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -42,6 +42,9 @@ public:

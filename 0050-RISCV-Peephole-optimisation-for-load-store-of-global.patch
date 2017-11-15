@@ -17,7 +17,7 @@ Subject: [RISCV] Peephole optimisation for load/store of global value or
  8 files changed, 132 insertions(+), 72 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 4119506fc21..ed41de2569e 100644
+index 247bff89828..0f78f161d61 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -40,6 +40,8 @@ public:
@@ -44,7 +44,7 @@ index 4119506fc21..ed41de2569e 100644
  void RISCVDAGToDAGISel::Select(SDNode *Node) {
    unsigned Opcode = Node->getOpcode();
    MVT XLenVT = Subtarget->getXLenVT();
-@@ -128,6 +135,90 @@ bool RISCVDAGToDAGISel::SelectADDRii(SDValue Addr, SDValue &Base,
+@@ -127,6 +134,90 @@ bool RISCVDAGToDAGISel::SelectADDRii(SDValue Addr, SDValue &Base,
    return false;
  }
  

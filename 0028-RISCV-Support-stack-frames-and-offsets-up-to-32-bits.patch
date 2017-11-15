@@ -156,7 +156,7 @@ index 9cde60f5352..35426cfc706 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index f65fda80e2f..39a7a0046a7 100644
+index f3f2f2cccc6..3951fe609a4 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -64,6 +64,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -167,7 +167,7 @@ index f65fda80e2f..39a7a0046a7 100644
    const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
-@@ -98,28 +99,47 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -98,30 +99,49 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
  
@@ -201,6 +201,8 @@ index f65fda80e2f..39a7a0046a7 100644
 +  }
 +
    switch (MI.getOpcode()) {
+   default:
+     llvm_unreachable("Unexpected opcode");
    case RISCV::LW_FI:
      BuildMI(MBB, II, DL, TII->get(RISCV::LW), Reg)
 -        .addReg(FrameReg)
@@ -220,7 +222,7 @@ index f65fda80e2f..39a7a0046a7 100644
 +        .addReg(FrameReg, FrameRegFlags)
          .addImm(Offset);
      break;
-   default:
+   }
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 index d9de9bf8c76..ba4c729f490 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h

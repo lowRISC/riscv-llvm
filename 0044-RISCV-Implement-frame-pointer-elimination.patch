@@ -6,7 +6,7 @@ TODO: properly update tests to have a version with and without fp elimination
 when necessary.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp      |  35 ++---
- lib/Target/RISCV/RISCVRegisterInfo.cpp       |  13 +-
+ lib/Target/RISCV/RISCVRegisterInfo.cpp       |  11 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll    |  14 --
  test/CodeGen/RISCV/alu32.ll                  | 133 -----------------
  test/CodeGen/RISCV/analyze-branch.ll         |   6 -
@@ -38,7 +38,7 @@ when necessary.
  test/CodeGen/RISCV/shifts.ll                 |   9 --
  test/CodeGen/RISCV/vararg.ll                 |   2 +-
  test/CodeGen/RISCV/wide-mem.ll               |  14 --
- 33 files changed, 112 insertions(+), 1036 deletions(-)
+ 33 files changed, 111 insertions(+), 1035 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index fdd1fb6bcc7..d60227d368b 100644
@@ -119,7 +119,7 @@ index fdd1fb6bcc7..d60227d368b 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 39a7a0046a7..d03f705eb92 100644
+index 3951fe609a4..ad1c35f2135 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -65,7 +65,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -130,13 +130,7 @@ index 39a7a0046a7..d03f705eb92 100644
    const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
  
-@@ -86,19 +85,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-     MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
-   }
- 
--  if ((FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI)) {
-+  if (FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI) {
-     FrameReg = RISCV::X2;
+@@ -91,14 +90,15 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      Offset += MF.getFrameInfo().getStackSize();
    } else {
      FrameReg = getFrameRegister(MF);
