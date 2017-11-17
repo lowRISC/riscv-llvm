@@ -224,7 +224,7 @@ index f3f2f2cccc6..3951fe609a4 100644
      break;
    }
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index d9de9bf8c76..ba4c729f490 100644
+index 0b2bc3776fc..ed4dee3bed3 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -39,6 +39,14 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

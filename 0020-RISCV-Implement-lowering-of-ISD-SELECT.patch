@@ -211,7 +211,7 @@ index 98f7aa16e2e..606365ea59b 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index dfb4824cc18..ab965195eb4 100644
+index 471cd84fdcd..4d7b4697fa7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -25,7 +25,8 @@ namespace RISCVISD {

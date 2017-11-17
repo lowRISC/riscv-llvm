@@ -259,7 +259,7 @@ index d8ae11f2bd9..b72b45c3dcc 100644
    case MachineOperand::MO_GlobalAddress:
      MCOp = lowerSymbolOperand(MO, AP.getSymbol(MO.getGlobal()), AP);
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index ba4c729f490..669d989deed 100644
+index ed4dee3bed3..a81dea09401 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -47,6 +47,10 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
@@ -274,7 +274,7 @@ index ba4c729f490..669d989deed 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index 34da6de504d..9b7fa590f91 100644
+index e12168b7399..e75fb3b701c 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
 @@ -75,6 +75,7 @@ public:

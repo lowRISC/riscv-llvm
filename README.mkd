@@ -102,7 +102,7 @@ like the below. See the [LLVM
 documentation](http://llvm.org/docs/GettingStarted.html) for more general 
 guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
 
-    export REV=318030 # Check the most recent commit on this repo to ensure this is correct
+    export REV=318511 # Check the most recent commit on this repo to ensure this is correct
     svn co http://llvm.org/svn/llvm-project/llvm/trunk@$REV llvm
     cd llvm/tools
     svn co http://llvm.org/svn/llvm-project/cfe/trunk@$REV clang
@@ -137,9 +137,10 @@ have questions about code contributions that you can't discuss on the LLVM
 mailing list.
 
 Thank you to everyone who has contributed review comments, suggestions, or
-code to this patchset and related support patches: Chandler Carruth, Shiva
-Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, Simon Cook, David Craven, Hal
-Finkel, Eli Friedman, Ondrej Glasnak, Mandeep Singh Grang, James Y Knight,
-David Majnemer, Ed Maste, Dylan McKay, Tim Northover, Krzysztof Parzyszek, Ana
-Pazaos, Jordy Portman, Philip Reames, John Russo, Pavel Šnobl, Ulrich Weigand,
-Eugene Zalenko, Florian Zeitz.
+code to this patchset and related support patches: Sameer Abu Asal, Chandler
+Carruth, Shiva Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, Simon Cook,
+David Craven, Hal Finkel, Eli Friedman, Ondrej Glasnak, Mandeep Singh Grang,
+James Y Knight, David Majnemer, Ed Maste, John McCall, Dylan McKay, Azharuddin
+Mohammed, Tim Northover, Krzysztof Parzyszek, Ana Pazos, Jordy Portman, Philip
+Reames, John Russo, Pavel Šnobl, Ulrich Weigand, Eugene Zalenko, Florian
+Zeitz.

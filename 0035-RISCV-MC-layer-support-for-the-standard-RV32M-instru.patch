@@ -89,7 +89,7 @@ index 00000000000..a253c1eb811
 +def REMU    : ALU_rr<0b0000001, 0b111, "remu">;
 +} // Predicates = [HasStdExtM]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 657b0e65620..be9b04990ca 100644
+index cf8956414aa..77510540009 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -30,6 +30,7 @@ class StringRef;

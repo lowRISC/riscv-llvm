@@ -107,7 +107,7 @@ index 00000000000..e5e5692490c
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 new file mode 100644
-index 00000000000..78d9cf53b5d
+index 00000000000..ea8bb43c53e
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
 @@ -0,0 +1,67 @@
@@ -142,7 +142,7 @@ index 00000000000..78d9cf53b5d
 +
 +static std::string computeDataLayout(const Triple &TT) {
 +  if (TT.isArch64Bit()) {
-+    return "e-m:e-i64:64-n32:64-S128";
++    return "e-m:e-p:64:64-i64:64-i128:128-n64-S128";
 +  } else {
 +    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
 +    return "e-m:e-p:32:32-i64:64-n32-S128";
@@ -265,7 +265,7 @@ index 00000000000..db7f66f94bf
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 new file mode 100644
-index 00000000000..3cb657a9978
+index 00000000000..e1b605c285e
 --- /dev/null
 +++ b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 @@ -0,0 +1,35 @@
@@ -295,9 +295,9 @@ index 00000000000..3cb657a9978
 +
 +extern "C" void LLVMInitializeRISCVTargetInfo() {
 +  RegisterTarget<Triple::riscv32> X(getTheRISCV32Target(), "riscv32",
-+                                    "32-bit RISC-V");
++                                    "32-bit RISC-V", "RISCV");
 +  RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
-+                                    "64-bit RISC-V");
++                                    "64-bit RISC-V", "RISCV");
 +}
 +
 +// FIXME: Temporary stub - this function must be defined for linking

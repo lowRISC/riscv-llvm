@@ -85,7 +85,7 @@ index 292b77b257e..178546e5d8e 100644
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index d83ffb43c66..3aa88424a02 100644
+index 2f9c202fb64..8ee00cd69a1 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -83,6 +83,8 @@ private:

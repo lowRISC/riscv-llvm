@@ -190,7 +190,7 @@ index 9f19cda8910..98f7aa16e2e 100644
    return nullptr;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 2bd5717ca0c..dfb4824cc18 100644
+index 2f874b8a4a7..471cd84fdcd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -24,7 +24,8 @@ class RISCVSubtarget;
@@ -309,7 +309,7 @@ index 86bd588de42..75b277531ce 100644
 +  return CSR_RegMask;
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index a9b6f0717db..d9de9bf8c76 100644
+index d75a2a10b25..0b2bc3776fc 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -25,6 +25,9 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

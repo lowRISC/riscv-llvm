@@ -7,11 +7,11 @@ Upstream commit: https://reviews.llvm.org/rL285708
 ---
  include/llvm/ADT/Triple.h    |  2 ++
  lib/Support/Triple.cpp       | 21 +++++++++++++++++++++
- unittests/ADT/TripleTest.cpp | 35 +++++++++++++++++++++++++++++++++++
- 3 files changed, 58 insertions(+)
+ unittests/ADT/TripleTest.cpp | 36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 59 insertions(+)
 
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 6ae866239b1..c2dd5f6fb73 100644
+index b1957cb51e7..74fc8eb8ccb 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,6 +66,8 @@ public:
@@ -140,14 +140,13 @@ index 6412bc9511f..4f0a30042b7 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index 375993e8c1a..3b5c4b25aab 100644
+index 375993e8c1a..ed4a88067b1 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
-@@ -276,6 +276,23 @@ TEST(TripleTest, ParsedIDs) {
-   EXPECT_EQ(Triple::amdgcn, T.getArch());
-   EXPECT_EQ(Triple::AMD, T.getVendor());
+@@ -278,6 +278,24 @@ TEST(TripleTest, ParsedIDs) {
    EXPECT_EQ(Triple::AMDPAL, T.getOS());
-+
+   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+ 
 +  T = Triple("riscv32-unknown-unknown");
 +  EXPECT_EQ(Triple::riscv32, T.getArch());
 +  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
@@ -164,10 +163,12 @@ index 375993e8c1a..3b5c4b25aab 100644
 +  EXPECT_EQ(Triple::riscv64, T.getArch());
 +  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
 +  EXPECT_EQ(Triple::FreeBSD, T.getOS());
-   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
- 
++  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
++
    T = Triple("armv7hl-suse-linux-gnueabi");
-@@ -625,6 +642,16 @@ TEST(TripleTest, BitWidthPredicates) {
+   EXPECT_EQ(Triple::arm, T.getArch());
+   EXPECT_EQ(Triple::SUSE, T.getVendor());
+@@ -625,6 +643,16 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -184,7 +185,7 @@ index 375993e8c1a..3b5c4b25aab 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -716,6 +743,14 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -716,6 +744,14 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  

@@ -580,12 +580,12 @@ index 6969db2cda3..5c2ec956ee2 100644
  
  #endif
 diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
-index 3cb657a9978..34932c25915 100644
+index e1b605c285e..0f369d960fe 100644
 --- a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 +++ b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 @@ -28,8 +28,3 @@ extern "C" void LLVMInitializeRISCVTargetInfo() {
    RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
-                                     "64-bit RISC-V");
+                                     "64-bit RISC-V", "RISCV");
  }
 -
 -// FIXME: Temporary stub - this function must be defined for linking

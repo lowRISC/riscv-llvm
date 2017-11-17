@@ -67,7 +67,7 @@ index 9b00840a617..46322fb0dbd 100644
                                                   SelectionDAG &DAG) const {
    SDLoc DL(Op);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 3aa88424a02..6087baf6429 100644
+index 8ee00cd69a1..a54b5c1532f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -80,6 +80,7 @@ private:

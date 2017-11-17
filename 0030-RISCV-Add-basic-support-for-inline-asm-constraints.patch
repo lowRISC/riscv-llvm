@@ -148,7 +148,7 @@ index 4bf9bf2ddce..292b77b257e 100644
 +  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 35af90b4414..d83ffb43c66 100644
+index 51c942b2e6a..2f9c202fb64 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -43,6 +43,10 @@ public:

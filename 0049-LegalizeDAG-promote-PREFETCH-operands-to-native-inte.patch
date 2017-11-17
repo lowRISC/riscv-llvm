@@ -40,7 +40,7 @@ index 09f4db82142..c89df71cb56 100644
  //  Integer Result Expansion
  //===----------------------------------------------------------------------===//
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeTypes.h b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-index 2f13375e908..863ae54d5d8 100644
+index 76bdad01c88..32a26dcfe97 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeTypes.h
 +++ b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
 @@ -315,6 +315,7 @@ private:

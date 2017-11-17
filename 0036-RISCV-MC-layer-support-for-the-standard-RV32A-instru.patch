@@ -217,7 +217,7 @@ index 00000000000..54f35c3c0ba
 +defm AMOMAXU_W  : AMO_rr_aq_rl<0b11100, 0b010, "amomaxu.w">;
 +} // Predicates = [HasStdExtA]
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index be9b04990ca..14b25c14dbe 100644
+index 77510540009..7080ce58efa 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -30,7 +30,8 @@ class StringRef;

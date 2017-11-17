@@ -8,13 +8,12 @@ Subject: [RISCV] Add initial RV64I codegen support
  lib/Target/RISCV/RISCVInstrInfo.cpp       |   9 +-
  lib/Target/RISCV/RISCVInstrInfo.td        |  75 ++++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp    |  13 +-
- lib/Target/RISCV/RISCVTargetMachine.cpp   |   2 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll | 100 ++++++
  test/CodeGen/RISCV/alu32.ll               | 150 +++++++++
  test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/imm.ll                 |  64 ++++
  test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
- 11 files changed, 1114 insertions(+), 22 deletions(-)
+ 10 files changed, 1113 insertions(+), 21 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
@@ -276,19 +275,6 @@ index ad1c35f2135..743027a75d8 100644
          .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
          .addReg(FrameReg, FrameRegFlags | RegState::Kill)
          .addImm(Offset);
-diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index 9b7fa590f91..e75fb3b701c 100644
---- a/lib/Target/RISCV/RISCVTargetMachine.cpp
-+++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -30,7 +30,7 @@ extern "C" void LLVMInitializeRISCVTarget() {
- 
- static std::string computeDataLayout(const Triple &TT) {
-   if (TT.isArch64Bit()) {
--    return "e-m:e-i64:64-n32:64-S128";
-+    return "e-m:e-p:64:64-i64:64-i128:128-n64-S128";
-   } else {
-     assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
-     return "e-m:e-p:32:32-i64:64-n32-S128";
 diff --git a/test/CodeGen/RISCV/addc-adde-sube-subc.ll b/test/CodeGen/RISCV/addc-adde-sube-subc.ll
 index 50de47d7c1f..8036c6c62b3 100644
 --- a/test/CodeGen/RISCV/addc-adde-sube-subc.ll

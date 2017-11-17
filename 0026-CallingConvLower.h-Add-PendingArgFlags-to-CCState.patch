@@ -12,7 +12,7 @@ PendingLocs.
  1 file changed, 6 insertions(+)
 
 diff --git a/include/llvm/CodeGen/CallingConvLower.h b/include/llvm/CodeGen/CallingConvLower.h
-index 6d65b878540..dbcbf03d8e4 100644
+index e1d0b0c77cf..d30a27328c0 100644
 --- a/include/llvm/CodeGen/CallingConvLower.h
 +++ b/include/llvm/CodeGen/CallingConvLower.h
 @@ -201,6 +201,7 @@ private:

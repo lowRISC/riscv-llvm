@@ -594,7 +594,7 @@ index 78c036a37b9..fd1d477e638 100644
 +    (sequence "F%u_32", 18, 27)
 +)>;
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 14b25c14dbe..9d40c27aa3f 100644
+index 7080ce58efa..82edef65e11 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -32,6 +32,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {

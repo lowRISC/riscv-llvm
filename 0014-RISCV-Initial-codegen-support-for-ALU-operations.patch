@@ -601,7 +601,7 @@ index 00000000000..d76170b7b78
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
 new file mode 100644
-index 00000000000..9fed48fc04e
+index 00000000000..93daf5825b5
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -0,0 +1,62 @@
@@ -624,7 +624,7 @@ index 00000000000..9fed48fc04e
 +
 +#include "RISCV.h"
 +#include "llvm/CodeGen/SelectionDAG.h"
-+#include "llvm/Target/TargetLowering.h"
++#include "llvm/CodeGen/TargetLowering.h"
 +
 +namespace llvm {
 +class RISCVSubtarget;
@@ -953,7 +953,7 @@ index 00000000000..9447f9e7ec3
 +}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 new file mode 100644
-index 00000000000..94af9f44ecd
+index 00000000000..e03dede814e
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -0,0 +1,40 @@
@@ -973,7 +973,7 @@ index 00000000000..94af9f44ecd
 +#ifndef LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
 +#define LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
 +
-+#include "llvm/Target/TargetRegisterInfo.h"
++#include "llvm/CodeGen/TargetRegisterInfo.h"
 +
 +#define GET_REGINFO_HEADER
 +#include "RISCVGenRegisterInfo.inc"
@@ -1077,7 +1077,7 @@ index 00000000000..b221ea84a33
 +      InstrInfo(), RegInfo(getHwMode()), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 new file mode 100644
-index 00000000000..657b0e65620
+index 00000000000..cf8956414aa
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -0,0 +1,75 @@
@@ -1101,9 +1101,9 @@ index 00000000000..657b0e65620
 +#include "RISCVISelLowering.h"
 +#include "RISCVInstrInfo.h"
 +#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
++#include "llvm/CodeGen/TargetSubtargetInfo.h"
 +#include "llvm/IR/DataLayout.h"
 +#include "llvm/Target/TargetMachine.h"
-+#include "llvm/Target/TargetSubtargetInfo.h"
 +
 +#define GET_SUBTARGETINFO_HEADER
 +#include "RISCVGenSubtargetInfo.inc"
@@ -1157,7 +1157,7 @@ index 00000000000..657b0e65620
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index 78d9cf53b5d..34da6de504d 100644
+index ea8bb43c53e..e12168b7399 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
 @@ -11,6 +11,7 @@

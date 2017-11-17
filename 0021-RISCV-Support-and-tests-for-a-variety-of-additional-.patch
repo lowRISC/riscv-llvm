@@ -199,7 +199,7 @@ index 606365ea59b..62bc3b85ffc 100644
  
    // The first call operand is the chain and the second is the target address.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index ab965195eb4..e2d6b1bcbc6 100644
+index 4d7b4697fa7..933bc6218d5 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -65,6 +65,8 @@ private:

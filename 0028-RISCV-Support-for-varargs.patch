@@ -305,7 +305,7 @@ index 9664e9dc64f..4bf9bf2ddce 100644
    SmallVector<CCValAssign, 16> RVLocs;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index a796684b234..35af90b4414 100644
+index 8dde84ca0b3..51c942b2e6a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -78,6 +78,7 @@ private:

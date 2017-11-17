@@ -110,7 +110,7 @@ index 70e33a25941..49bc6a29e45 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 9fed48fc04e..2bd5717ca0c 100644
+index 93daf5825b5..2f874b8a4a7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -56,6 +56,7 @@ private:

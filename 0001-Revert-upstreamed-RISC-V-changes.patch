@@ -180,7 +180,7 @@ index 60f102472c6..4e5d8dc2026 100644
  -----
  
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index c2dd5f6fb73..6ae866239b1 100644
+index 74fc8eb8ccb..b1957cb51e7 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,8 +66,6 @@ public:
@@ -331,10 +331,10 @@ index 905ce450f7f..75006dcf031 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 34f809ecaae..e5f6684ce32 100644
+index 3c94883e7d1..4eab98baea4 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -57,7 +57,6 @@ module LLVM_BinaryFormat {
+@@ -55,7 +55,6 @@ module LLVM_BinaryFormat {
      textual header "BinaryFormat/ELFRelocs/Mips.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC.def"
@@ -361,7 +361,7 @@ index c72a1258c1e..1caa0ccaa18 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 38940376de2..6e1e180a5be 100644
+index 7e7f3d1fdde..ccd1cbbc209 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,7 +213,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -3424,7 +3424,7 @@ index 98f7aa16e2e..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
 deleted file mode 100644
-index dfb4824cc18..00000000000
+index 471cd84fdcd..00000000000
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ /dev/null
 @@ -1,66 +0,0 @@
@@ -3447,7 +3447,7 @@ index dfb4824cc18..00000000000
 -
 -#include "RISCV.h"
 -#include "llvm/CodeGen/SelectionDAG.h"
--#include "llvm/Target/TargetLowering.h"
+-#include "llvm/CodeGen/TargetLowering.h"
 -
 -namespace llvm {
 -class RISCVSubtarget;
@@ -4583,7 +4583,7 @@ index 75b277531ce..00000000000
 -}
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 deleted file mode 100644
-index d9de9bf8c76..00000000000
+index 0b2bc3776fc..00000000000
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ /dev/null
 @@ -1,45 +0,0 @@
@@ -4603,7 +4603,7 @@ index d9de9bf8c76..00000000000
 -#ifndef LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
 -#define LLVM_LIB_TARGET_RISCV_RISCVREGISTERINFO_H
 -
--#include "llvm/Target/TargetRegisterInfo.h"
+-#include "llvm/CodeGen/TargetRegisterInfo.h"
 -
 -#define GET_REGINFO_HEADER
 -#include "RISCVGenRegisterInfo.inc"
@@ -4768,7 +4768,7 @@ index b221ea84a33..00000000000
 -      InstrInfo(), RegInfo(getHwMode()), TLInfo(TM, *this) {}
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
 deleted file mode 100644
-index 14b25c14dbe..00000000000
+index 7080ce58efa..00000000000
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ /dev/null
 @@ -1,79 +0,0 @@
@@ -4792,9 +4792,9 @@ index 14b25c14dbe..00000000000
 -#include "RISCVISelLowering.h"
 -#include "RISCVInstrInfo.h"
 -#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
+-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 -#include "llvm/IR/DataLayout.h"
 -#include "llvm/Target/TargetMachine.h"
--#include "llvm/Target/TargetSubtargetInfo.h"
 -
 -#define GET_SUBTARGETINFO_HEADER
 -#include "RISCVGenSubtargetInfo.inc"
@@ -4853,7 +4853,7 @@ index 14b25c14dbe..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 deleted file mode 100644
-index 34da6de504d..00000000000
+index e12168b7399..00000000000
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ /dev/null
 @@ -1,89 +0,0 @@
@@ -4889,7 +4889,7 @@ index 34da6de504d..00000000000
 -
 -static std::string computeDataLayout(const Triple &TT) {
 -  if (TT.isArch64Bit()) {
--    return "e-m:e-i64:64-n32:64-S128";
+-    return "e-m:e-p:64:64-i64:64-i128:128-n64-S128";
 -  } else {
 -    assert(TT.isArch32Bit() && "only RV32 and RV64 are currently supported");
 -    return "e-m:e-p:32:32-i64:64-n32-S128";
@@ -5038,7 +5038,7 @@ index db7f66f94bf..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp b/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 deleted file mode 100644
-index 34932c25915..00000000000
+index 0f369d960fe..00000000000
 --- a/lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 +++ /dev/null
 @@ -1,30 +0,0 @@
@@ -5068,9 +5068,9 @@ index 34932c25915..00000000000
 -
 -extern "C" void LLVMInitializeRISCVTargetInfo() {
 -  RegisterTarget<Triple::riscv32> X(getTheRISCV32Target(), "riscv32",
--                                    "32-bit RISC-V");
+-                                    "32-bit RISC-V", "RISCV");
 -  RegisterTarget<Triple::riscv64> Y(getTheRISCV64Target(), "riscv64",
--                                    "64-bit RISC-V");
+-                                    "64-bit RISC-V", "RISCV");
 -}
 diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
 deleted file mode 100644
@@ -6684,7 +6684,7 @@ index 02eaa89f088..1a797c499ee 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 9f56a28d934..4fbb8e104ad 100644
+index cd107ec91ba..5e5fcfaa7d4 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -995,7 +995,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -6710,7 +6710,7 @@ index 9f56a28d934..4fbb8e104ad 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3619,8 +3610,6 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3620,8 +3611,6 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));

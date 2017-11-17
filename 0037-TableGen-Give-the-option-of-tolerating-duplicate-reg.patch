@@ -38,7 +38,7 @@ index 7c919ffec7b..09d2092d43b 100644
  
  } // end namespace llvm
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index 27c8f409989..5227d6ad060 100644
+index 302ca34e07d..ffbb7c83bec 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
 @@ -1160,6 +1160,12 @@ class AsmParser {

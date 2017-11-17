@@ -62,7 +62,7 @@ index 0a439eca60a..6487bc1bea6 100644
 +  return getNumRegisters(Context, VT);
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 6087baf6429..054f9c4bf36 100644
+index a54b5c1532f..3e49c2db7f3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -51,6 +51,12 @@ public:

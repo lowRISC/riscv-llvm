@@ -223,7 +223,7 @@ index 9447f9e7ec3..86bd588de42 100644
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
-index 94af9f44ecd..a9b6f0717db 100644
+index e03dede814e..d75a2a10b25 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.h
 @@ -29,6 +29,8 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {

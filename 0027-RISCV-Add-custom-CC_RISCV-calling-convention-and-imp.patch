@@ -571,7 +571,7 @@ index dbe1b7ed8d0..9664e9dc64f 100644
      // Guarantee that all emitted copies are stuck together.
      Flag = Chain.getValue(1);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index e2d6b1bcbc6..a796684b234 100644
+index 933bc6218d5..8dde84ca0b3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -48,12 +48,22 @@ public:
