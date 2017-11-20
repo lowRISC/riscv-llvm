@@ -38,10 +38,10 @@ index 7c919ffec7b..09d2092d43b 100644
  
  } // end namespace llvm
 diff --git a/include/llvm/Target/Target.td b/include/llvm/Target/Target.td
-index 302ca34e07d..ffbb7c83bec 100644
+index 86fa3c03fb5..bde1d58293b 100644
 --- a/include/llvm/Target/Target.td
 +++ b/include/llvm/Target/Target.td
-@@ -1160,6 +1160,12 @@ class AsmParser {
+@@ -1170,6 +1170,12 @@ class AsmParser {
    // several registers share the same alias (i.e. not a 1:1 mapping).
    bit ShouldEmitMatchRegisterAltName = 0;
  

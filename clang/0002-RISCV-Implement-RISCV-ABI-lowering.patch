@@ -18,7 +18,7 @@ that signext is emitted for int32_t/uint32_t return values.
  create mode 100644 test/CodeGen/riscv64-abi.c
 
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index cefd73be27..48510544ed 100644
+index 08f514f94d..61166b0e49 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -1927,10 +1927,14 @@ void CodeGenModule::ConstructAttributeList(
