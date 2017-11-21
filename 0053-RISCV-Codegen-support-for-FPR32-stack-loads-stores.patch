@@ -79,18 +79,18 @@ index 0b4fc31fe75..dab2a76e52b 100644
 +
  } // Predicates = [HasStdExtF]
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 743027a75d8..920e26fd639 100644
+index 8537502d8a8..b6ff91559d4 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -98,7 +98,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-   }
+@@ -74,7 +74,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+       MI.getOperand(FIOperandNum + 1).getImm();
  
    unsigned Reg = MI.getOperand(0).getReg();
 -  assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
  
    if (!isInt<32>(Offset)) {
      report_fatal_error(
-@@ -137,6 +136,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -113,6 +112,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          .addReg(FrameReg, FrameRegFlags)
          .addImm(Offset);
      break;
@@ -102,7 +102,7 @@ index 743027a75d8..920e26fd639 100644
    case RISCV::StXLEN_FI:
      Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
      BuildMI(MBB, II, DL, TII->get(Opc))
-@@ -144,6 +148,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -120,6 +124,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
          .addReg(FrameReg, FrameRegFlags | RegState::Kill)
          .addImm(Offset);
      break;

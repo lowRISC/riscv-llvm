@@ -13,11 +13,11 @@ Subject: [RISCV] Codegen support for the standard RV32M instruction set
  6 files changed, 246 insertions(+), 28 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 6b8e992e19c..247bff89828 100644
+index 148ddf1d073..19ce566a7a2 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -29,7 +29,7 @@ class RISCVDAGToDAGISel final : public SelectionDAGISel {
-   const RISCVSubtarget *Subtarget;
+@@ -30,7 +30,7 @@ class RISCVDAGToDAGISel final : public SelectionDAGISel {
+ 
  public:
    explicit RISCVDAGToDAGISel(RISCVTargetMachine &TargetMachine)
 -      : SelectionDAGISel(TargetMachine) {}
@@ -26,7 +26,7 @@ index 6b8e992e19c..247bff89828 100644
    StringRef getPassName() const override {
      return "RISCV DAG->DAG Pattern Instruction Selection";
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 178546e5d8e..ee097aef1c3 100644
+index cb3bb34c226..c319b0835d4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -77,18 +77,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

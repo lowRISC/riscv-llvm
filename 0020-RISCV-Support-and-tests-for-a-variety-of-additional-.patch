@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 606365ea59b..62bc3b85ffc 100644
+index 606365ea59b..4801884e242 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -53,17 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -174,7 +174,7 @@ index 606365ea59b..62bc3b85ffc 100644
 +  ExternalSymbolSDNode *N = cast<ExternalSymbolSDNode>(Op);
 +  const char *Sym = N->getSymbol();
 +
-+  // TODO: should also handle gp-relative loads
++  // TODO: should also handle gp-relative loads.
 +
 +  if (isPositionIndependent() || Subtarget.is64Bit())
 +    report_fatal_error("Unable to lowerExternalSymbol");
@@ -212,7 +212,7 @@ index 4d7b4697fa7..933bc6218d5 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 024bc3ec02c..3de60e15d70 100644
+index 024bc3ec02c..4d1b6c2e768 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -328,6 +328,17 @@ def : PatGprSimm12<setlt, SLTI>;
@@ -220,7 +220,7 @@ index 024bc3ec02c..3de60e15d70 100644
  def : PatGprSimm12<setult, SLTIU>;
  
 +// Define pattern expansions for setcc operations that aren't directly
-+// handled by a RISC-V instruction
++// handled by a RISC-V instruction.
 +def : Pat<(seteq GPR:$rs1, GPR:$rs2), (SLTIU (XOR GPR:$rs1, GPR:$rs2), 1)>;
 +def : Pat<(setne GPR:$rs1, GPR:$rs2), (SLTU X0, (XOR GPR:$rs1, GPR:$rs2))>;
 +def : Pat<(setugt GPR:$rs1, GPR:$rs2), (SLTU GPR:$rs2, GPR:$rs1)>;

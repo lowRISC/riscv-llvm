@@ -42,7 +42,7 @@ index 45de976ec6c..f9a69826e10 100644
  
  static MCSubtargetInfo *createRISCVMCSubtargetInfo(const Triple &TT,
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index d60227d368b..162030d1152 100644
+index 28fe789e002..5004f9fc116 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -17,6 +17,7 @@
@@ -55,7 +55,7 @@ index d60227d368b..162030d1152 100644
  
 @@ -115,6 +116,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
    MachineFrameInfo &MFI = MF.getFrameInfo();
-   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
 +  const RISCVInstrInfo *TII = STI.getInstrInfo();
  

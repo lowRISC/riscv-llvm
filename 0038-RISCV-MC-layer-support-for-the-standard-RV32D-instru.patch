@@ -8,16 +8,16 @@ validateTargetOperandClass in RISCVAsmParser to coerce a parsed FPR32 to an
 FPR64 when necessary.
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  63 ++++++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 ++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |  25 ++++
  lib/Target/RISCV/RISCV.td                          |   8 ++
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
  lib/Target/RISCV/RISCVInstrInfoD.td                | 131 +++++++++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td              |  29 ++++
+ lib/Target/RISCV/RISCVRegisterInfo.td              |  27 ++++
  lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
  test/MC/RISCV/rv32d-invalid.s                      |  21 +++
  test/MC/RISCV/rv32d-valid.s                        | 159 +++++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s                      |   3 +
- 10 files changed, 443 insertions(+)
+ 10 files changed, 440 insertions(+)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
@@ -104,10 +104,10 @@ index e3abae82aca..e591b7aa952 100644
      OperandVector &Operands, uint64_t ErrorInfo, int Lower, int Upper,
      Twine Msg = "immediate must be an integer in the range") {
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-index c502e3ab4d0..f0e33a52aa5 100644
+index 0f186004a4f..2649f1b3729 100644
 --- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-@@ -107,6 +107,32 @@ static DecodeStatus DecodeFPR32RegisterClass(MCInst &Inst, uint64_t RegNo,
+@@ -105,6 +105,31 @@ static DecodeStatus DecodeFPR32RegisterClass(MCInst &Inst, uint64_t RegNo,
    return MCDisassembler::Success;
  }
  
@@ -125,9 +125,8 @@ index c502e3ab4d0..f0e33a52aa5 100644
 +static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
 +                                             uint64_t Address,
 +                                             const void *Decoder) {
-+  if (RegNo > sizeof(FPR64DecoderTable)) {
++  if (RegNo > sizeof(FPR64DecoderTable))
 +    return MCDisassembler::Fail;
-+  }
 +
 +  // We must define our own mapping from RegNo to register identifier.
 +  // Accessing index RegNo in the register class will work in the case that
@@ -167,7 +166,7 @@ index 24fe235eaff..7adcb8673af 100644
  
  def RISCV : Target {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b4c297b0121..1ff238c6375 100644
+index 877cd42b6c7..0719aada359 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -461,3 +461,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
@@ -313,18 +312,16 @@ index 00000000000..aa194320d99
 +}
 +} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
-index fd1d477e638..22cc7286e26 100644
+index fd1d477e638..cabce379c4c 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.td
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.td
-@@ -22,6 +22,20 @@ class RISCVReg32<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
+@@ -22,6 +22,18 @@ class RISCVReg32<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
    let AltNames = alt;
  }
  
-+// RISCV64 registers don't define an AsmName or AltName. If they specified
-+// names aliasing the RISCVReg32 registers, the generation of the default
-+// MatchRegisterName/MatchRegisterAltName would fail. When necessary,
-+// RISCVAsmParser will need to convert a register number from a RISCVReg32
-+// to the equivalent RISCVReg64.
++// Because RISCVReg64 register have AsmName and AltNames that alias with their
++// 32-bit sub-register, RISCVAsmParser will need to coerce a register number
++// from a RISCVReg32 to the equivalent RISCVReg64 when appropriate.
 +def sub_32 : SubRegIndex<32>;
 +class RISCVReg64<RISCVReg32 subreg> : Register<""> {
 +  let HWEncoding{4-0} = subreg.HWEncoding{4-0};
@@ -337,7 +334,7 @@ index fd1d477e638..22cc7286e26 100644
  def ABIRegAltName : RegAltNameIndex;
  } // Namespace = "RISCV"
  
-@@ -113,6 +127,11 @@ let RegAltNameIndices = [ABIRegAltName] in {
+@@ -113,6 +125,11 @@ let RegAltNameIndices = [ABIRegAltName] in {
    def F29_32 : RISCVReg32<29,"f29", ["ft9"]>, DwarfRegNum<[61]>;
    def F30_32 : RISCVReg32<30,"f30", ["ft10"]>, DwarfRegNum<[62]>;
    def F31_32 : RISCVReg32<31,"f31", ["ft11"]>, DwarfRegNum<[63]>;
@@ -349,7 +346,7 @@ index fd1d477e638..22cc7286e26 100644
  }
  
  // The order of registers represents the preferred allocation sequence,
-@@ -124,3 +143,13 @@ def FPR32 : RegisterClass<"RISCV", [f32], 32, (add
+@@ -124,3 +141,13 @@ def FPR32 : RegisterClass<"RISCV", [f32], 32, (add
      (sequence "F%u_32", 8, 9),
      (sequence "F%u_32", 18, 27)
  )>;

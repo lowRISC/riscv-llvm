@@ -8,18 +8,18 @@ points to the bottom of the vararg spill region. This is necessary to ensure
 that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     |   7 +-
+ lib/Target/RISCV/RISCVFrameLowering.cpp     |  13 +-
  lib/Target/RISCV/RISCVISelLowering.cpp      | 133 ++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   1 +
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
- lib/Target/RISCV/RISCVRegisterInfo.cpp      |   7 +-
+ lib/Target/RISCV/RISCVRegisterInfo.cpp      |   1 +
  test/CodeGen/RISCV/vararg.ll                | 536 ++++++++++++++++++++++++++++
  6 files changed, 709 insertions(+), 19 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index a823b7ec275..dbfc377dabd 100644
+index de537aac9c6..8948ba692db 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -12,6 +12,7 @@
@@ -34,7 +34,7 @@ index a823b7ec275..dbfc377dabd 100644
  
    MachineFrameInfo &MFI = MF.getFrameInfo();
    const RISCVInstrInfo *TII = STI.getInstrInfo();
-+  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
++  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
  
    unsigned FPReg = RISCV::X8;
@@ -51,7 +51,7 @@ index a823b7ec275..dbfc377dabd 100644
    const RISCVInstrInfo *TII = STI.getInstrInfo();
    const RISCVRegisterInfo *RI = STI.getRegisterInfo();
    MachineFrameInfo &MFI = MF.getFrameInfo();
-+  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
++  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    DebugLoc DL = MBBI->getDebugLoc();
    unsigned FPReg = RISCV::X8;
    unsigned SPReg = RISCV::X2;
@@ -64,8 +64,31 @@ index a823b7ec275..dbfc377dabd 100644
          .setMIFlag(MachineInstr::FrameDestroy);
    }
  
+@@ -164,6 +167,7 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+                                                unsigned &FrameReg) const {
+   const MachineFrameInfo &MFI = MF.getFrameInfo();
+   const TargetRegisterInfo *RI = MF.getSubtarget().getRegisterInfo();
++  const auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+ 
+   // Callee-saved registers should be referenced relative to the stack
+   // pointer (positive offset), otherwise use the frame pointer (negative
+@@ -180,10 +184,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+     MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
+   }
+ 
+-  FrameReg = RI->getFrameRegister(MF);
+   if (FI >= MinCSFI && FI <= MaxCSFI) {
+     FrameReg = RISCV::X2;
+     Offset += MF.getFrameInfo().getStackSize();
++  } else {
++    FrameReg = RI->getFrameRegister(MF);
++    assert(hasFP(MF) && "Offset calculation incorrect if !hasFP");
++    Offset += RVFI->getVarArgsSaveSize();
+   }
+   return Offset;
+ }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 9664e9dc64f..4bf9bf2ddce 100644
+index c160cb2e2e9..4ea621a8b9a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -367,7 +390,7 @@ index 00000000000..433a3fb1543
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index c8c10a05954..f3f2f2cccc6 100644
+index 3da0430b5c9..68a6ccbdf24 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -13,6 +13,7 @@
@@ -378,32 +401,6 @@ index c8c10a05954..f3f2f2cccc6 100644
  #include "RISCVSubtarget.h"
  #include "llvm/CodeGen/MachineFrameInfo.h"
  #include "llvm/CodeGen/MachineFunction.h"
-@@ -61,13 +62,14 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
- 
-   MachineInstr &MI = *II;
-   MachineFunction &MF = *MI.getParent()->getParent();
-+  RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
-   MachineFrameInfo &MFI = MF.getFrameInfo();
-   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-   DebugLoc DL = MI.getDebugLoc();
- 
-   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
--  unsigned FrameReg = getFrameRegister(MF);
-+  unsigned FrameReg;
-   int Offset = MF.getFrameInfo().getObjectOffset(FrameIndex) +
-                MI.getOperand(FIOperandNum + 1).getImm();
- 
-@@ -86,6 +88,9 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-   if (FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI) {
-     FrameReg = RISCV::X2;
-     Offset += MF.getFrameInfo().getStackSize();
-+  } else {
-+    FrameReg = getFrameRegister(MF);
-+    Offset += RVFI->getVarArgsSaveSize();
-   }
- 
-   unsigned Reg = MI.getOperand(0).getReg();
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
 new file mode 100644
 index 00000000000..ead88a71daa

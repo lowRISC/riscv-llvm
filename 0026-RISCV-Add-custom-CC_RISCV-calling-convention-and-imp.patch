@@ -19,14 +19,14 @@ but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/CMakeLists.txt              |   1 -
  lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
- lib/Target/RISCV/RISCVISelLowering.cpp       | 392 +++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp       | 396 +++++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h         |  10 +
  test/CodeGen/RISCV/byval.ll                  |  61 +++
  test/CodeGen/RISCV/calling-conv-sext-zext.ll | 497 ++++++++++++++++++
  test/CodeGen/RISCV/calling-conv.ll           | 719 +++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll                  |  82 ++-
  test/CodeGen/RISCV/fp128.ll                  | 134 +++++
- 9 files changed, 1865 insertions(+), 47 deletions(-)
+ 9 files changed, 1867 insertions(+), 49 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
@@ -72,7 +72,7 @@ index 0b7a523424c..d2b17c64c9c 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index dbe1b7ed8d0..9664e9dc64f 100644
+index 58817533925..c160cb2e2e9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -328,7 +328,243 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
@@ -346,16 +346,10 @@ index dbe1b7ed8d0..9664e9dc64f 100644
 -      DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 -          << RegVT.getEVTString() << "\n");
 -      report_fatal_error("unhandled argument type");
--    }
--    const unsigned VReg =
--      RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
--    RegInfo.addLiveIn(VA.getLocReg(), VReg);
--    SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
 +  analyzeInputArgs(MF, CCInfo, Ins, /*IsRet*/ false);
- 
--    InVals.push_back(ArgIn);
-+  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
-+    CCValAssign &VA = ArgLocs[I];
++
++  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
++    CCValAssign &VA = ArgLocs[i];
 +    assert(VA.getLocVT() == XLenVT && "Unhandled argument type");
 +    SDValue ArgValue;
 +    if (VA.isRegLoc())
@@ -369,19 +363,25 @@ index dbe1b7ed8d0..9664e9dc64f 100644
 +      // address).
 +      InVals.push_back(DAG.getLoad(VA.getValVT(), DL, Chain, ArgValue,
 +                                   MachinePointerInfo()));
-+      unsigned ArgIndex = Ins[I].OrigArgIndex;
-+      assert(Ins[I].PartOffset == 0);
-+      while (I + 1 != E && Ins[I + 1].OrigArgIndex == ArgIndex) {
-+        CCValAssign &PartVA = ArgLocs[I + 1];
-+        unsigned PartOffset = Ins[I + 1].PartOffset;
++      unsigned ArgIndex = Ins[i].OrigArgIndex;
++      assert(Ins[i].PartOffset == 0);
++      while (i + 1 != e && Ins[i + 1].OrigArgIndex == ArgIndex) {
++        CCValAssign &PartVA = ArgLocs[i + 1];
++        unsigned PartOffset = Ins[i + 1].PartOffset;
 +        SDValue Address = DAG.getNode(ISD::ADD, DL, PtrVT, ArgValue,
 +                                      DAG.getIntPtrConstant(PartOffset, DL));
 +        InVals.push_back(DAG.getLoad(PartVA.getValVT(), DL, Chain, Address,
 +                                     MachinePointerInfo()));
-+        ++I;
++        ++i;
 +      }
 +      continue;
-+    }
+     }
+-    const unsigned VReg =
+-      RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+-    RegInfo.addLiveIn(VA.getLocReg(), VReg);
+-    SDValue ArgIn = DAG.getCopyFromReg(Chain, DL, VReg, RegVT);
+-
+-    InVals.push_back(ArgIn);
 +    InVals.push_back(ArgValue);
    }
    return Chain;
@@ -408,13 +408,13 @@ index dbe1b7ed8d0..9664e9dc64f 100644
 -    if (!Arg.Flags.isByVal())
 +  // Create local copies for byval args
 +  SmallVector<SDValue, 8> ByValArgs;
-+  for (unsigned I = 0, E = Outs.size(); I != E; ++I) {
-+    ISD::ArgFlagsTy Flags = Outs[I].Flags;
++  for (unsigned i = 0, e = Outs.size(); i != e; ++i) {
++    ISD::ArgFlagsTy Flags = Outs[i].Flags;
 +    if (!Flags.isByVal())
        continue;
 -    report_fatal_error("Passing arguments byval not yet implemented");
 +
-+    SDValue Arg = OutVals[I];
++    SDValue Arg = OutVals[i];
 +    unsigned Size = Flags.getByValSize();
 +    unsigned Align = Flags.getByValAlign();
 +
@@ -437,10 +437,12 @@ index dbe1b7ed8d0..9664e9dc64f 100644
 +  SmallVector<SDValue, 8> MemOpChains;
    SDValue StackPtr;
 -  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
-+  for (unsigned I = 0, J = 0, E = ArgLocs.size(); I != E; ++I) {
-     CCValAssign &VA = ArgLocs[I];
-     SDValue ArgValue = OutVals[I];
-+    ISD::ArgFlagsTy Flags = Outs[I].Flags;
+-    CCValAssign &VA = ArgLocs[I];
+-    SDValue ArgValue = OutVals[I];
++  for (unsigned i = 0, j = 0, e = ArgLocs.size(); i != e; ++i) {
++    CCValAssign &VA = ArgLocs[i];
++    SDValue ArgValue = OutVals[i];
++    ISD::ArgFlagsTy Flags = Outs[i].Flags;
  
      // Promote the value if needed.
 -    // For now, only handle fully promoted arguments.
@@ -450,24 +452,24 @@ index dbe1b7ed8d0..9664e9dc64f 100644
        break;
 +    case CCValAssign::Indirect: {
 +      // Store the argument in a stack slot and pass its address.
-+      SDValue SpillSlot = DAG.CreateStackTemporary(Outs[I].ArgVT);
++      SDValue SpillSlot = DAG.CreateStackTemporary(Outs[i].ArgVT);
 +      int FI = cast<FrameIndexSDNode>(SpillSlot)->getIndex();
 +      MemOpChains.push_back(
 +          DAG.getStore(Chain, DL, ArgValue, SpillSlot,
 +                       MachinePointerInfo::getFixedStack(MF, FI)));
 +      // If the original argument was split (e.g. i128), we need
 +      // to store all parts of it here (and pass just one address).
-+      unsigned ArgIndex = Outs[I].OrigArgIndex;
-+      assert(Outs[I].PartOffset == 0);
-+      while (I + 1 != E && Outs[I + 1].OrigArgIndex == ArgIndex) {
-+        SDValue PartValue = OutVals[I + 1];
-+        unsigned PartOffset = Outs[I + 1].PartOffset;
++      unsigned ArgIndex = Outs[i].OrigArgIndex;
++      assert(Outs[i].PartOffset == 0);
++      while (i + 1 != e && Outs[i + 1].OrigArgIndex == ArgIndex) {
++        SDValue PartValue = OutVals[i + 1];
++        unsigned PartOffset = Outs[i + 1].PartOffset;
 +        SDValue Address = DAG.getNode(ISD::ADD, DL, PtrVT, SpillSlot,
 +                                      DAG.getIntPtrConstant(PartOffset, DL));
 +        MemOpChains.push_back(
 +            DAG.getStore(Chain, DL, PartValue, Address,
 +                         MachinePointerInfo::getFixedStack(MF, FI)));
-+        ++I;
++        ++i;
 +      }
 +      ArgValue = SpillSlot;
 +      break;
@@ -478,7 +480,7 @@ index dbe1b7ed8d0..9664e9dc64f 100644
  
 +    // Use local copy if it is a byval arg.
 +    if (Flags.isByVal())
-+      ArgValue = ByValArgs[J++];
++      ArgValue = ByValArgs[j++];
 +
      if (VA.isRegLoc()) {
        // Queue up the argument copies and emit them at the end.

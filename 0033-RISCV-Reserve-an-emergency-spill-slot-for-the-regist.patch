@@ -10,7 +10,7 @@ Subject: [RISCV] Reserve an emergency spill slot for the register scavenger
  3 files changed, 104 insertions(+), 7 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index de6119c4cf3..fdd1fb6bcc7 100644
+index 6daeb1cb85a..916239604c3 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -18,6 +18,7 @@
@@ -21,9 +21,9 @@ index de6119c4cf3..fdd1fb6bcc7 100644
  
  using namespace llvm;
  
-@@ -194,3 +195,21 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+@@ -226,3 +227,21 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+   SavedRegs.set(RISCV::X1);
    SavedRegs.set(RISCV::X8);
-   return;
  }
 +
 +void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
@@ -44,10 +44,10 @@ index de6119c4cf3..fdd1fb6bcc7 100644
 +  }
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 35426cfc706..563156a91d0 100644
+index d92bb70c76d..ccf7e247b55 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
-@@ -33,6 +33,9 @@ public:
+@@ -36,6 +36,9 @@ public:
    void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                              RegScavenger *RS) const override;
  

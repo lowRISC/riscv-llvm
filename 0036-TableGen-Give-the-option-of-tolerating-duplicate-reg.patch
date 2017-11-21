@@ -11,11 +11,13 @@ When the AllowDuplicateRegisterNames in AsmParser is set, duplicated register
 names will be tolerated. A backend can then coerce registers to the desired
 register class by (for instance) implementing validateTargetOperandClass.
 ---
- include/llvm/TableGen/StringMatcher.h |  7 ++++---
- include/llvm/Target/Target.td         |  6 ++++++
- lib/TableGen/StringMatcher.cpp        | 23 +++++++++++++----------
- utils/TableGen/AsmMatcherEmitter.cpp  |  8 ++++++--
- 4 files changed, 29 insertions(+), 15 deletions(-)
+ include/llvm/TableGen/StringMatcher.h        |  7 ++-
+ include/llvm/Target/Target.td                |  6 ++
+ lib/TableGen/StringMatcher.cpp               | 25 ++++----
+ test/TableGen/AllowDuplicateRegisterNames.td | 86 ++++++++++++++++++++++++++++
+ utils/TableGen/AsmMatcherEmitter.cpp         |  8 ++-
+ 5 files changed, 116 insertions(+), 16 deletions(-)
+ create mode 100644 test/TableGen/AllowDuplicateRegisterNames.td
 
 diff --git a/include/llvm/TableGen/StringMatcher.h b/include/llvm/TableGen/StringMatcher.h
 index 7c919ffec7b..09d2092d43b 100644
@@ -55,7 +57,7 @@ index 86fa3c03fb5..bde1d58293b 100644
    // start with a mnemonic as the first token.
    bit HasMnemonicFirst = 1;
 diff --git a/lib/TableGen/StringMatcher.cpp b/lib/TableGen/StringMatcher.cpp
-index 7e510f0c2fd..d493dbbc372 100644
+index 7e510f0c2fd..32599104f6a 100644
 --- a/lib/TableGen/StringMatcher.cpp
 +++ b/lib/TableGen/StringMatcher.cpp
 @@ -46,17 +46,18 @@ FindFirstNonCommonLetter(const std::vector<const
@@ -69,7 +71,8 @@ index 7e510f0c2fd..d493dbbc372 100644
 +    const std::vector<const StringPair *> &Matches, unsigned CharNo,
 +    unsigned IndentCount, bool IgnoreDuplicates) const {
    assert(!Matches.empty() && "Must have at least one string to match!");
-   std::string Indent(IndentCount*2+4, ' ');
+-  std::string Indent(IndentCount*2+4, ' ');
++  std::string Indent(IndentCount * 2 + 4, ' ');
    
    // If we have verified that the entire string matches, we're done: output the
    // matching code.
@@ -122,6 +125,98 @@ index 7e510f0c2fd..d493dbbc372 100644
        OS.indent(Indent*2+4) << "break;\n";
    }
    
+diff --git a/test/TableGen/AllowDuplicateRegisterNames.td b/test/TableGen/AllowDuplicateRegisterNames.td
+new file mode 100644
+index 00000000000..2ba63c434ca
+--- /dev/null
++++ b/test/TableGen/AllowDuplicateRegisterNames.td
+@@ -0,0 +1,86 @@
++// RUN: llvm-tblgen -gen-asm-matcher -I %p/../../include %s | FileCheck %s
++
++// Check that MatchRegisterName and MatchRegisterAltName are generated
++// correctly when multiple registers are defined with the same name and
++// AllowDuplicateRegisterNames is set.
++
++include "llvm/Target/Target.td"
++
++def ArchInstrInfo : InstrInfo;
++
++def ArchAsmParser : AsmParser {
++  let AllowDuplicateRegisterNames = 1;
++  let ShouldEmitMatchRegisterAltName = 1;
++}
++
++def Arch : Target {
++  let InstructionSet = ArchInstrInfo;
++  let AssemblyParsers = [ArchAsmParser];
++}
++
++let Namespace = "Arch" in {
++class ArchReg<string n, list <string> alt, list <RegAltNameIndex> altidx>
++    : Register<n> {
++  let AltNames = alt;
++  let RegAltNameIndices = altidx;
++}
++
++def ABIRegAltName : RegAltNameIndex;
++
++foreach i = 0-3 in {
++  def R#i#_32 : ArchReg<"r"#i, ["x"#i], [ABIRegAltName]>;
++  def R#i#_64 : ArchReg<"r"#i, ["x"#i], [ABIRegAltName]>;
++}
++} // Namespace = "Arch"
++
++def GPR32 : RegisterClass<"Arch", [i32], 32, (add
++    (sequence "R%u_32", 0, 3)
++)>;
++
++def GPR64 : RegisterClass<"Arch", [i64], 64, (add
++    (sequence "R%u_64", 0, 3)
++)>;
++
++// CHECK: static unsigned MatchRegisterName(StringRef Name) {
++// CHECK:   switch (Name.size()) {
++// CHECK:   default: break;
++// CHECK:   case 2:  // 8 strings to match.
++// CHECK:     if (Name[0] != 'r')
++// CHECK:       break;
++// CHECK:     switch (Name[1]) {
++// CHECK:     default: break;
++// CHECK:     case '0':  // 2 strings to match.
++// CHECK:       return 1;  // "r0"
++// CHECK:     case '1':  // 2 strings to match.
++// CHECK:       return 3;  // "r1"
++// CHECK:     case '2':  // 2 strings to match.
++// CHECK:       return 5;  // "r2"
++// CHECK:     case '3':  // 2 strings to match.
++// CHECK:       return 7;  // "r3"
++// CHECK:     }
++// CHECK:     break;
++// CHECK:   }
++// CHECK:   return 0;
++// CHECK: }
++
++// CHECK: static unsigned MatchRegisterAltName(StringRef Name) {
++// CHECK:   switch (Name.size()) {
++// CHECK:   default: break;
++// CHECK:   case 2:  // 8 strings to match.
++// CHECK:     if (Name[0] != 'x')
++// CHECK:       break;
++// CHECK:     switch (Name[1]) {
++// CHECK:     default: break;
++// CHECK:     case '0':  // 2 strings to match.
++// CHECK:       return 1;  // "x0"
++// CHECK:     case '1':  // 2 strings to match.
++// CHECK:       return 3;  // "x1"
++// CHECK:     case '2':  // 2 strings to match.
++// CHECK:       return 5;  // "x2"
++// CHECK:     case '3':  // 2 strings to match.
++// CHECK:       return 7;  // "x3"
++// CHECK:     }
++// CHECK:     break;
++// CHECK:   }
++// CHECK:   return 0;
++// CHECK: }
 diff --git a/utils/TableGen/AsmMatcherEmitter.cpp b/utils/TableGen/AsmMatcherEmitter.cpp
 index d279e8c3ae9..25360cab08c 100644
 --- a/utils/TableGen/AsmMatcherEmitter.cpp

@@ -10,7 +10,7 @@ Differential Revision: https://reviews.llvm.org/D23567
  lib/Target/RISCV/CMakeLists.txt                    |   3 +
  lib/Target/RISCV/Disassembler/CMakeLists.txt       |   3 +
  lib/Target/RISCV/Disassembler/LLVMBuild.txt        |  24 ++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       | 135 +++++++++++++++++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       | 134 +++++++++++++++++++++
  lib/Target/RISCV/LLVMBuild.txt                     |   3 +-
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  20 +++
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  12 ++
@@ -18,7 +18,7 @@ Differential Revision: https://reviews.llvm.org/D23567
  lib/Target/RISCV/RISCVInstrFormats.td              |   5 +
  lib/Target/RISCV/RISCVInstrInfo.td                 |   8 ++
  test/MC/RISCV/rv32i-valid.s                        |   4 +
- 11 files changed, 219 insertions(+), 1 deletion(-)
+ 11 files changed, 218 insertions(+), 1 deletion(-)
  create mode 100644 lib/Target/RISCV/Disassembler/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/Disassembler/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
@@ -85,10 +85,10 @@ index 00000000000..340e89d4cf3
 +
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 new file mode 100644
-index 00000000000..003686ac2f3
+index 00000000000..24c6c8db8a4
 --- /dev/null
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,134 @@
 +//===-- RISCVDisassembler.cpp - Disassembler for RISCV --------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -160,9 +160,8 @@ index 00000000000..003686ac2f3
 +static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
 +                                           uint64_t Address,
 +                                           const void *Decoder) {
-+   if (RegNo > sizeof(GPRDecoderTable)) {
++   if (RegNo > sizeof(GPRDecoderTable))
 +     return MCDisassembler::Fail;
-+   }
 +
 +   // We must define our own mapping from RegNo to register identifier.
 +   // Accessing index RegNo in the register class will work in the case that

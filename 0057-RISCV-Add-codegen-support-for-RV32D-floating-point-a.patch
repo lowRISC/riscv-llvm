@@ -10,7 +10,7 @@ Subject: [RISCV] Add codegen support for RV32D floating point arithmetic
  3 files changed, 125 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 6487bc1bea6..48f37f59a86 100644
+index 61800c39b26..33bbb8497f3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -121,6 +121,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

@@ -5,7 +5,7 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
 
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  31 ++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  26 ++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |  25 +++
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  12 +-
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   4 +
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  58 ++++++-
@@ -18,7 +18,7 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
  test/MC/RISCV/rv32f-invalid.s                      |  29 ++++
  test/MC/RISCV/rv32f-valid.s                        | 164 ++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   4 +
- 14 files changed, 590 insertions(+), 13 deletions(-)
+ 14 files changed, 589 insertions(+), 13 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoF.td
  create mode 100644 test/MC/RISCV/rv32f-invalid.s
  create mode 100644 test/MC/RISCV/rv32f-valid.s
@@ -80,10 +80,10 @@ index 3f76ce3b24a..e3abae82aca 100644
  
    llvm_unreachable("Unknown match type detected!");
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-index 003686ac2f3..c502e3ab4d0 100644
+index 24c6c8db8a4..0f186004a4f 100644
 --- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-@@ -81,6 +81,32 @@ static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
+@@ -80,6 +80,31 @@ static DecodeStatus DecodeGPRRegisterClass(MCInst &Inst, uint64_t RegNo,
     return MCDisassembler::Success;
  }
  
@@ -101,9 +101,8 @@ index 003686ac2f3..c502e3ab4d0 100644
 +static DecodeStatus DecodeFPR32RegisterClass(MCInst &Inst, uint64_t RegNo,
 +                                             uint64_t Address,
 +                                             const void *Decoder) {
-+  if (RegNo > sizeof(FPR32DecoderTable)) {
++  if (RegNo > sizeof(FPR32DecoderTable))
 +    return MCDisassembler::Fail;
-+  }
 +
 +  // We must define our own mapping from RegNo to register identifier.
 +  // Accessing index RegNo in the register class will work in the case that
@@ -345,7 +344,7 @@ index 3dca957e31f..ca368792340 100644
                string opcodestr, string argstr>
      : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b6a43ed757b..b4c297b0121 100644
+index e479b4f1fbf..877cd42b6c7 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -460,3 +460,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),

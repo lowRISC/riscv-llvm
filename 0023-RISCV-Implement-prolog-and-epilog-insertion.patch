@@ -3,7 +3,7 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Implement prolog and epilog insertion
 
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     | 146 ++++++++++++++++++-
+ lib/Target/RISCV/RISCVFrameLowering.cpp     | 145 ++++++++++++++++++-
  lib/Target/RISCV/RISCVFrameLowering.h       |  12 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  14 ++
  test/CodeGen/RISCV/alu32.ll                 | 133 ++++++++++++++++++
@@ -26,13 +26,13 @@ Subject: [RISCV] Implement prolog and epilog insertion
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 210 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  15 ++
  test/CodeGen/RISCV/wide-mem.ll              |  14 ++
- 23 files changed, 1036 insertions(+), 49 deletions(-)
+ 23 files changed, 1035 insertions(+), 49 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index fd3b258e26c..a823b7ec275 100644
+index cd18a104631..de537aac9c6 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
-@@ -22,8 +22,150 @@ using namespace llvm;
+@@ -22,11 +22,142 @@ using namespace llvm;
  
  bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
  
@@ -42,14 +42,14 @@ index fd3b258e26c..a823b7ec275 100644
 +  const RISCVRegisterInfo *RI = STI.getRegisterInfo();
 +
 +  // Get the number of bytes to allocate from the FrameInfo.
-+  unsigned FrameSize = MFI.getStackSize();
++  uint64_t FrameSize = MFI.getStackSize();
 +
 +  // Get the alignment.
-+  unsigned StackAlign = RI->needsStackRealignment(MF) ? MFI.getMaxAlignment()
++  uint64_t StackAlign = RI->needsStackRealignment(MF) ? MFI.getMaxAlignment()
 +                                                      : getStackAlignment();
 +
 +  // Get the maximum call frame size of all the calls.
-+  unsigned MaxCallFrameSize = MFI.getMaxCallFrameSize();
++  uint64_t MaxCallFrameSize = MFI.getMaxCallFrameSize();
 +
 +  // If we have dynamic alloca then MaxCallFrameSize needs to be aligned so
 +  // that allocations will be aligned.
@@ -174,6 +174,13 @@ index fd3b258e26c..a823b7ec275 100644
 +      .addImm(StackSize)
 +      .setMIFlag(MachineInstr::FrameDestroy);
 +}
+ 
+ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+                                                int FI,
+@@ -56,3 +187,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+   }
+   return Offset;
+ }
 +
 +void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
 +                                              BitVector &SavedRegs,
@@ -183,13 +190,12 @@ index fd3b258e26c..a823b7ec275 100644
 +  // unconditionally spill the frame pointer and return address.
 +  SavedRegs.set(RISCV::X1);
 +  SavedRegs.set(RISCV::X8);
-+  return;
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index 0b2c7a40298..9cde60f5352 100644
+index ba093bb83f0..9a5cd4e19de 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
-@@ -24,11 +24,15 @@ public:
+@@ -24,7 +24,8 @@ public:
    explicit RISCVFrameLowering(const RISCVSubtarget &STI)
        : TargetFrameLowering(StackGrowsDown,
                              /*StackAlignment=*/16,
@@ -199,6 +205,9 @@ index 0b2c7a40298..9cde60f5352 100644
  
    void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
    void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
+@@ -32,6 +33,9 @@ public:
+   int getFrameIndexReference(const MachineFunction &MF, int FI,
+                              unsigned &FrameReg) const override;
  
 +  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
 +                            RegScavenger *RS) const override;
@@ -206,7 +215,7 @@ index 0b2c7a40298..9cde60f5352 100644
    bool hasFP(const MachineFunction &MF) const override;
  
    MachineBasicBlock::iterator
-@@ -36,6 +40,12 @@ public:
+@@ -39,6 +43,12 @@ public:
                                  MachineBasicBlock::iterator MI) const override {
      return MBB.erase(MI);
    }

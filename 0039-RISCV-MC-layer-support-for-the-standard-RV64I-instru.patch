@@ -224,7 +224,7 @@ index ca368792340..83a62cdb52f 100644
    bits<5> rs1;
    bits<5> rd;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 1ff238c6375..5e4b70dc3b5 100644
+index 0719aada359..3ebea669c84 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -69,6 +69,22 @@ def fencearg : Operand<XLenVT> {

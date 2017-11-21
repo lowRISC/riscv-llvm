@@ -30,7 +30,7 @@ index e3cf8afcf00..170c8ff2825 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index ee097aef1c3..4849f23529d 100644
+index c319b0835d4..33d26f5ec54 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -53,7 +53,7 @@ index ee097aef1c3..4849f23529d 100644
    SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
 @@ -224,7 +224,7 @@ SDValue RISCVTargetLowering::lowerExternalSymbol(SDValue Op,
  
-   // TODO: should also handle gp-relative loads
+   // TODO: should also handle gp-relative loads.
  
 -  if (isPositionIndependent() || Subtarget.is64Bit())
 +  if (isPositionIndependent())
@@ -107,7 +107,7 @@ index 98bd061bf5b..ac8affebb27 100644
  
    if (!isInt<32>(BrOffset))
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 5e4b70dc3b5..86088f0b8f4 100644
+index 3ebea669c84..afd9f6915f6 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -26,7 +26,6 @@ def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
@@ -239,7 +239,7 @@ index 5e4b70dc3b5..86088f0b8f4 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index ad1c35f2135..743027a75d8 100644
+index 5775fd99f5a..8537502d8a8 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -247,10 +247,10 @@ index ad1c35f2135..743027a75d8 100644
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
 +  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
-   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
-   MachineFrameInfo &MFI = MF.getFrameInfo();
    MachineRegisterInfo &MRI = MF.getRegInfo();
-@@ -125,16 +126,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   DebugLoc DL = MI.getDebugLoc();
+@@ -101,16 +102,20 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
      FrameRegFlags = RegState::Kill;
    }
  

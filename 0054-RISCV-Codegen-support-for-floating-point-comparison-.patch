@@ -19,7 +19,7 @@ inputs.
  create mode 100644 test/CodeGen/RISCV/float-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 46322fb0dbd..0a439eca60a 100644
+index d72613d5734..51e49d0a43d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -109,6 +109,14 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -85,7 +85,7 @@ index c02b37ae057..4016f050d3b 100644
  
  void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 86088f0b8f4..987a15ea14d 100644
+index afd9f6915f6..4c041b8ea6f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -421,11 +421,14 @@ def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;
