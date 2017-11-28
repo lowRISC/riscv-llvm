@@ -18,7 +18,7 @@ instruction's immediate field.
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 1f7aaea78b3..98bd061bf5b 100644
+index da41a1e6105..224aa163d98 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -20,6 +20,7 @@

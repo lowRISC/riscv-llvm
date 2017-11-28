@@ -60,10 +60,10 @@ index 33bbb8497f3..7b835fe7d71 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 4016f050d3b..00bdbd96ea2 100644
+index b4675ec4eb8..37524bf63f0 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -43,14 +43,18 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+@@ -44,14 +44,18 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
      return;
    }
  
@@ -90,10 +90,10 @@ index 4016f050d3b..00bdbd96ea2 100644
  
  void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 2e5f9bec883..2dd9236d449 100644
+index 4cb5a30d03e..5cdc8a26590 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -212,10 +212,24 @@ def : PatFpr64Fpr64<fmaxnum, FMAX_D>;
+@@ -212,8 +212,22 @@ def : PatFpr64Fpr64<fmaxnum, FMAX_D>;
  
  /// Setcc
  
@@ -115,9 +115,7 @@ index 2e5f9bec883..2dd9236d449 100644
 +
 +def Select_FPR64_Using_CC_GPR : SelectCC_rrirr<FPR64, GPR>;
 +
- /// Loads
- 
- def LdFPR64_FI : Pseudo<(outs FPR64:$dst), (ins MEMii:$addr),
+ } // Predicates = [HasStdExtD]
 diff --git a/test/CodeGen/RISCV/double-br-fcmp.ll b/test/CodeGen/RISCV/double-br-fcmp.ll
 new file mode 100644
 index 00000000000..d2ad1be489b

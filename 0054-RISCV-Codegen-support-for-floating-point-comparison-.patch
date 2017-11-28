@@ -54,10 +54,10 @@ index d72613d5734..51e49d0a43d 100644
    // To "insert" a SELECT instruction, we actually have to insert the triangle
    // control-flow pattern.  The incoming instruction knows the destination vreg
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index c02b37ae057..4016f050d3b 100644
+index a61afbf5759..b4675ec4eb8 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -36,12 +36,21 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+@@ -37,12 +37,21 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator MBBI,
                                   const DebugLoc &DL, unsigned DstReg,
                                   unsigned SrcReg, bool KillSrc) const {
@@ -85,10 +85,10 @@ index c02b37ae057..4016f050d3b 100644
  
  void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index afd9f6915f6..4c041b8ea6f 100644
+index 8412cff607e..9c77dfa1c05 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -421,11 +421,14 @@ def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;
+@@ -430,11 +430,14 @@ def : Pat<(setge GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs1, GPR:$rs2), 1)>;
  def : Pat<(setle GPR:$rs1, GPR:$rs2), (XORI (SLT GPR:$rs2, GPR:$rs1), 1)>;
  
  let usesCustomInserter = 1 in
@@ -109,7 +109,7 @@ index afd9f6915f6..4c041b8ea6f 100644
  /// Branches and jumps
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index dab2a76e52b..d0efcddf1fb 100644
+index 0b4fc31fe75..e21345b83db 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -239,10 +239,26 @@ def : Pat<(fcopysign FPR32:$rs1, (fneg FPR32:$rs2)), (FSGNJN_S $rs1, $rs2)>;

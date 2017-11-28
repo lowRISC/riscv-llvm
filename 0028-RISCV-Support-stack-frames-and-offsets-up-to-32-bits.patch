@@ -7,10 +7,10 @@ function.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp | 78 +++++++++++++++++++++------------
  lib/Target/RISCV/RISCVFrameLowering.h   |  3 ++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  | 32 +++++++++++---
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  | 31 +++++++++++--
  lib/Target/RISCV/RISCVRegisterInfo.h    |  8 ++++
  test/CodeGen/RISCV/large-stack.ll       | 38 ++++++++++++++++
- 5 files changed, 125 insertions(+), 34 deletions(-)
+ 5 files changed, 126 insertions(+), 32 deletions(-)
  create mode 100644 test/CodeGen/RISCV/large-stack.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
@@ -156,20 +156,21 @@ index 9a5cd4e19de..d92bb70c76d 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 68a6ccbdf24..3cb0ebb66e4 100644
+index f6dc0b61809..5635e00b581 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -62,6 +62,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -62,6 +62,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
    MachineInstr &MI = *II;
    MachineFunction &MF = *MI.getParent()->getParent();
 +  MachineRegisterInfo &MRI = MF.getRegInfo();
-   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
++  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
-@@ -77,30 +78,49 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  
-   assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+@@ -73,13 +75,34 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+   assert(MF.getSubtarget().getFrameLowering()->hasFP(MF) &&
+          "eliminateFrameIndex currently requires hasFP");
  
 -  // Offsets must be directly encoded in a 12-bit immediate field
 -  if (!isInt<12>(Offset)) {
@@ -177,10 +178,10 @@ index 68a6ccbdf24..3cb0ebb66e4 100644
      report_fatal_error(
 -        "Frame offsets outside of the signed 12-bit range not supported");
 +        "Frame offsets outside of the signed 32-bit range not supported");
-   }
- 
-   MachineBasicBlock &MBB = *MI.getParent();
-+  unsigned FrameRegFlags = 0;
++  }
++
++  MachineBasicBlock &MBB = *MI.getParent();
++  bool FrameRegIsKill = false;
 +
 +  if (!isInt<12>(Offset)) {
 +    // The offset won't fit in an immediate, so use a scratch register instead
@@ -197,32 +198,15 @@ index 68a6ccbdf24..3cb0ebb66e4 100644
 +        .addReg(ScratchReg, RegState::Kill);
 +    Offset = 0;
 +    FrameReg = ScratchReg;
-+    FrameRegFlags = RegState::Kill;
-+  }
-+
-   switch (MI.getOpcode()) {
-   default:
-     llvm_unreachable("Unexpected opcode");
-   case RISCV::LW_FI:
-     BuildMI(MBB, II, DL, TII->get(RISCV::LW), Reg)
--        .addReg(FrameReg)
-+        .addReg(FrameReg, FrameRegFlags)
-         .addImm(Offset);
-     break;
-   case RISCV::SW_FI:
-     BuildMI(MBB, II, DL, TII->get(RISCV::SW))
-         .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
--        .addReg(FrameReg)
-+        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
-         .addImm(Offset);
-     break;
-   case RISCV::LEA_FI:
-     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
--        .addReg(FrameReg)
-+        .addReg(FrameReg, FrameRegFlags)
-         .addImm(Offset);
-     break;
++    FrameRegIsKill = true;
    }
+ 
+-  MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
++  MI.getOperand(FIOperandNum)
++      .ChangeToRegister(FrameReg, false, false, FrameRegIsKill);
+   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+ }
+ 
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.h b/lib/Target/RISCV/RISCVRegisterInfo.h
 index 0b2bc3776fc..ed4dee3bed3 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.h

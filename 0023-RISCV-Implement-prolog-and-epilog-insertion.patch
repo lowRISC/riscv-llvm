@@ -1260,10 +1260,10 @@ index 8ea70a7d165..83bf396f1cd 100644
    %1 = sdiv i64 %a, 5
    ret i64 %1
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
-index bc655e9fe1f..14bc7b1e10d 100644
+index 339cf9669ac..8392b05b9c6 100644
 --- a/test/CodeGen/RISCV/frame.ll
 +++ b/test/CodeGen/RISCV/frame.ll
-@@ -4,25 +4,27 @@
+@@ -4,24 +4,26 @@
  
  %struct.key_t = type { i32, [16 x i8] }
  
@@ -1282,13 +1282,12 @@ index bc655e9fe1f..14bc7b1e10d 100644
  ; RV32I-NEXT:    sw zero, -16(s0)
  ; RV32I-NEXT:    sw zero, -20(s0)
  ; RV32I-NEXT:    sw zero, -24(s0)
--; RV32I-NEXT:    addi a0, s0, -24
 +; RV32I-NEXT:    sw zero, -28(s0)
 +; RV32I-NEXT:    sw zero, -32(s0)
-+; RV32I-NEXT:    addi a0, s0, -32
- ; RV32I-NEXT:    ori a0, a0, 4
- ; RV32I-NEXT:    lui a1, %hi(test1)
- ; RV32I-NEXT:    addi a1, a1, %lo(test1)
+ ; RV32I-NEXT:    lui a0, %hi(test1)
+ ; RV32I-NEXT:    addi a1, a0, %lo(test1)
+-; RV32I-NEXT:    addi a0, s0, -20
++; RV32I-NEXT:    addi a0, s0, -28
  ; RV32I-NEXT:    jalr ra, a1, 0
  ; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    lw s0, 24(sp)

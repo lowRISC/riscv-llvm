@@ -139,10 +139,10 @@ index 48f6cf8762d..3dca957e31f 100644
                string opcodestr, string argstr>
      : RVInst<outs, ins, opcodestr, argstr, [], InstFormatI> {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index af8d5d0d664..e479b4f1fbf 100644
+index d91f333d23f..5aa5858c5ab 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -459,3 +459,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -472,3 +472,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  //===----------------------------------------------------------------------===//
  
  include "RISCVInstrInfoM.td"

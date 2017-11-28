@@ -10,7 +10,7 @@ Subject: [RISCV] Codegen support for RV32D floating point conversion
  create mode 100644 test/CodeGen/RISCV/double-convert.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 44502ec204c..2e5f9bec883 100644
+index b6b47c97e85..4cb5a30d03e 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
 @@ -172,6 +172,20 @@ class PatFpr64Fpr64DynFrm<SDPatternOperator OpNode, RVInstRFrm Inst>

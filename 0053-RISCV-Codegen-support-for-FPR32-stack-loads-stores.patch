@@ -3,32 +3,34 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
 
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp    | 24 ++++++++++-----
- lib/Target/RISCV/RISCVInstrInfoF.td    |  6 ++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp | 12 +++++++-
- test/CodeGen/RISCV/float-mem.ll        | 55 ++++++++++++++++++++++++++++++++++
- 4 files changed, 89 insertions(+), 8 deletions(-)
+ lib/Target/RISCV/RISCVInstrInfo.cpp | 34 ++++++++++++++---------
+ test/CodeGen/RISCV/float-mem.ll     | 55 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+), 13 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index ac8affebb27..c02b37ae057 100644
+index 17582794a12..a61afbf5759 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -53,13 +53,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+@@ -54,15 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
-+  unsigned Opcode;
-+
-   if (RC == &RISCV::GPRRegClass)
--    BuildMI(MBB, I, DL, get(RISCV::StXLEN_FI))
+-  if (RC == &RISCV::GPRRegClass) {
+-    unsigned Opcode = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
+-    BuildMI(MBB, I, DL, get(Opcode))
 -        .addReg(SrcReg, getKillRegState(IsKill))
 -        .addFrameIndex(FI)
 -        .addImm(0);
-+    Opcode = RISCV::StXLEN_FI;
+-  } else {
++  unsigned Opcode;
++
++  if (RC == &RISCV::GPRRegClass)
++    Opcode = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
 +  else if (RC == &RISCV::FPR32RegClass)
-+    Opcode = RISCV::StFPR32_FI;
-   else
++    Opcode = RISCV::FSW;
++  else
      llvm_unreachable("Can't store this register to stack slot");
+-  }
 +
 +  BuildMI(MBB, I, DL, get(Opcode))
 +      .addReg(SrcReg, getKillRegState(IsKill))
@@ -37,84 +39,28 @@ index ac8affebb27..c02b37ae057 100644
  }
  
  void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-@@ -71,12 +77,16 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -74,12 +78,16 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
+-  if (RC == &RISCV::GPRRegClass) {
+-    unsigned Opcode = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
+-    BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
+-  } else {
 +  unsigned Opcode;
 +
-   if (RC == &RISCV::GPRRegClass)
--    BuildMI(MBB, I, DL, get(RISCV::LdXLEN_FI), DstReg)
--        .addFrameIndex(FI)
--        .addImm(0);
-+    Opcode = RISCV::LdXLEN_FI;
++  if (RC == &RISCV::GPRRegClass)
++    Opcode = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
 +  else if (RC == &RISCV::FPR32RegClass)
-+    Opcode = RISCV::LdFPR32_FI;
-   else
++    Opcode = RISCV::FLW;
++  else
      llvm_unreachable("Can't load this register from stack slot");
+-  }
 +
 +  BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
  }
  
  // The contents of values added to Cond are not examined outside of
-diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index 0b4fc31fe75..dab2a76e52b 100644
---- a/lib/Target/RISCV/RISCVInstrInfoF.td
-+++ b/lib/Target/RISCV/RISCVInstrInfoF.td
-@@ -247,10 +247,16 @@ def : PatFpr32Fpr32<setole, FLE_S>;
- 
- defm : LdPat<load, FLW>;
- 
-+def LdFPR32_FI : Pseudo<(outs FPR32:$dst), (ins MEMii:$addr),
-+                        [(set FPR32:$dst, (load ADDRii:$addr))]>;
-+
- /// Stores
- 
- def : Pat<(store FPR32:$rs2, GPR:$rs1), (FSW FPR32:$rs2, GPR:$rs1, 0)>;
- def : Pat<(store FPR32:$rs2, (add GPR:$rs1, simm12:$imm12)),
-             (FSW FPR32:$rs2, GPR:$rs1, simm12:$imm12)>;
- 
-+def StFPR32_FI : Pseudo<(outs), (ins FPR32:$src, MEMii:$addr),
-+                        [(store FPR32:$src, ADDRii:$addr)]>;
-+
- } // Predicates = [HasStdExtF]
-diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 8537502d8a8..b6ff91559d4 100644
---- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
-+++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -74,7 +74,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-       MI.getOperand(FIOperandNum + 1).getImm();
- 
-   unsigned Reg = MI.getOperand(0).getReg();
--  assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
- 
-   if (!isInt<32>(Offset)) {
-     report_fatal_error(
-@@ -113,6 +112,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-         .addReg(FrameReg, FrameRegFlags)
-         .addImm(Offset);
-     break;
-+  case RISCV::LdFPR32_FI:
-+    BuildMI(MBB, II, DL, TII->get(RISCV::FLW), Reg)
-+        .addReg(FrameReg, FrameRegFlags)
-+        .addImm(Offset);
-+    break;
-   case RISCV::StXLEN_FI:
-     Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
-     BuildMI(MBB, II, DL, TII->get(Opc))
-@@ -120,6 +124,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-         .addReg(FrameReg, FrameRegFlags | RegState::Kill)
-         .addImm(Offset);
-     break;
-+  case RISCV::StFPR32_FI:
-+    BuildMI(MBB, II, DL, TII->get(RISCV::FSW))
-+        .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
-+        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
-+        .addImm(Offset);
-+    break;
-   case RISCV::LEA_FI:
-     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
-         .addReg(FrameReg, FrameRegFlags)
 diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
 index b808a927804..bcae592b57e 100644
 --- a/test/CodeGen/RISCV/float-mem.ll

@@ -8,11 +8,11 @@ required setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp           |   2 +
  lib/Target/RISCV/RISCVInstrInfo.cpp              |   4 +
- lib/Target/RISCV/RISCVInstrInfoD.td              |   6 ++
+ lib/Target/RISCV/RISCVInstrInfoD.td              |  10 ++
  test/CodeGen/RISCV/double-imm.ll                 |  34 +++++++
  test/CodeGen/RISCV/double-mem.ll                 | 122 +++++++++++++++++++++++
  test/CodeGen/RISCV/double-stack-spill-restore.ll |  52 ++++++++++
- 6 files changed, 220 insertions(+)
+ 6 files changed, 224 insertions(+)
  create mode 100644 test/CodeGen/RISCV/double-imm.ll
  create mode 100644 test/CodeGen/RISCV/double-stack-spill-restore.ll
 
@@ -30,49 +30,46 @@ index 7b835fe7d71..c11f86f8696 100644
  
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 00bdbd96ea2..28cd4af2a86 100644
+index 37524bf63f0..ab1448339f2 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -72,6 +72,8 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-     Opcode = RISCV::StXLEN_FI;
+@@ -73,6 +73,8 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
+     Opcode = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
    else if (RC == &RISCV::FPR32RegClass)
-     Opcode = RISCV::StFPR32_FI;
+     Opcode = RISCV::FSW;
 +  else if (RC == &RISCV::FPR64RegClass)
-+    Opcode = RISCV::StFPR64_FI;
++    Opcode = RISCV::FSD;
    else
      llvm_unreachable("Can't store this register to stack slot");
  
-@@ -96,6 +98,8 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-     Opcode = RISCV::LdXLEN_FI;
+@@ -97,6 +99,8 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+     Opcode = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
    else if (RC == &RISCV::FPR32RegClass)
-     Opcode = RISCV::LdFPR32_FI;
+     Opcode = RISCV::FLW;
 +  else if (RC == &RISCV::FPR64RegClass)
-+    Opcode = RISCV::LdFPR64_FI;
++    Opcode = RISCV::FLD;
    else
      llvm_unreachable("Can't load this register from stack slot");
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 2dd9236d449..5e1022757bd 100644
+index 5cdc8a26590..7d9ef7f3521 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -232,11 +232,17 @@ def Select_FPR64_Using_CC_GPR : SelectCC_rrirr<FPR64, GPR>;
+@@ -230,4 +230,14 @@ def : Pat<(setuo FPR64:$rs1, FPR64:$rs2),
  
- /// Loads
+ def Select_FPR64_Using_CC_GPR : SelectCC_rrirr<FPR64, GPR>;
  
++/// Loads
++
 +defm : LdPat<load, FLD>;
 +
- def LdFPR64_FI : Pseudo<(outs FPR64:$dst), (ins MEMii:$addr),
-                         [(set FPR64:$dst, (load ADDRii:$addr))]>;
- 
- /// Stores
- 
++/// Stores
++
 +def : Pat<(store FPR64:$rs2, GPR:$rs1), (FSD FPR64:$rs2, GPR:$rs1, 0)>;
 +def : Pat<(store FPR64:$rs2, (add GPR:$rs1, simm12:$imm12)),
 +            (FSD FPR64:$rs2, GPR:$rs1, simm12:$imm12)>;
 +
- def StFPR64_FI : Pseudo<(outs), (ins FPR64:$src, MEMii:$addr),
-                         [(store FPR64:$src, ADDRii:$addr)]>;
- 
+ } // Predicates = [HasStdExtD]
 diff --git a/test/CodeGen/RISCV/double-imm.ll b/test/CodeGen/RISCV/double-imm.ll
 new file mode 100644
 index 00000000000..28df1c163db

@@ -21,7 +21,7 @@ when necessary.
  test/CodeGen/RISCV/calls.ll                  |  65 ++-------
  test/CodeGen/RISCV/div.ll                    |  38 -----
  test/CodeGen/RISCV/fp128.ll                  |   2 +-
- test/CodeGen/RISCV/frame.ll                  |  40 +++--
+ test/CodeGen/RISCV/frame.ll                  |  39 +++--
  test/CodeGen/RISCV/frameaddr-returnaddr.ll   |   7 -
  test/CodeGen/RISCV/i32-icmp.ll               |  70 ---------
  test/CodeGen/RISCV/imm.ll                    |  35 -----
@@ -38,7 +38,7 @@ when necessary.
  test/CodeGen/RISCV/shifts.ll                 |   9 --
  test/CodeGen/RISCV/vararg.ll                 |   2 +-
  test/CodeGen/RISCV/wide-mem.ll               |  14 --
- 33 files changed, 111 insertions(+), 1036 deletions(-)
+ 33 files changed, 110 insertions(+), 1036 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index 916239604c3..28fe789e002 100644
@@ -132,27 +132,20 @@ index 916239604c3..28fe789e002 100644
  
  void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 3cb0ebb66e4..5775fd99f5a 100644
+index 5635e00b581..25e78a9ebb8 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -63,7 +63,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-   MachineInstr &MI = *II;
-   MachineFunction &MF = *MI.getParent()->getParent();
-   MachineRegisterInfo &MRI = MF.getRegInfo();
--  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-   DebugLoc DL = MI.getDebugLoc();
+@@ -72,9 +72,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+       getFrameLowering(MF)->getFrameIndexReference(MF, FrameIndex, FrameReg) +
+       MI.getOperand(FIOperandNum + 1).getImm();
  
-@@ -76,8 +75,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-   unsigned Reg = MI.getOperand(0).getReg();
-   assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
- 
--  assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+-  assert(MF.getSubtarget().getFrameLowering()->hasFP(MF) &&
+-         "eliminateFrameIndex currently requires hasFP");
 -
    if (!isInt<32>(Offset)) {
      report_fatal_error(
          "Frame offsets outside of the signed 32-bit range not supported");
-@@ -130,7 +127,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -107,7 +104,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  }
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
@@ -1686,7 +1679,7 @@ index ce3f81f439a..9c5cb861395 100644
  
  @x = local_unnamed_addr global fp128 0xL00000000000000007FFF000000000000, align 16
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
-index 14bc7b1e10d..46577bf8a20 100644
+index 8392b05b9c6..619741d71ce 100644
 --- a/test/CodeGen/RISCV/frame.ll
 +++ b/test/CodeGen/RISCV/frame.ll
 @@ -1,6 +1,8 @@
@@ -1698,7 +1691,7 @@ index 14bc7b1e10d..46577bf8a20 100644
  
  %struct.key_t = type { i32, [16 x i8] }
  
-@@ -9,23 +11,43 @@ define i32 @test() nounwind {
+@@ -9,22 +11,41 @@ define i32 @test() nounwind {
  ; RV32I:       # BB#0:
  ; RV32I-NEXT:    addi sp, sp, -32
  ; RV32I-NEXT:    sw ra, 28(sp)
@@ -1709,16 +1702,15 @@ index 14bc7b1e10d..46577bf8a20 100644
 -; RV32I-NEXT:    sw zero, -24(s0)
 -; RV32I-NEXT:    sw zero, -28(s0)
 -; RV32I-NEXT:    sw zero, -32(s0)
--; RV32I-NEXT:    addi a0, s0, -32
 +; RV32I-NEXT:    sw zero, 24(sp)
 +; RV32I-NEXT:    sw zero, 20(sp)
 +; RV32I-NEXT:    sw zero, 16(sp)
 +; RV32I-NEXT:    sw zero, 12(sp)
 +; RV32I-NEXT:    sw zero, 8(sp)
-+; RV32I-NEXT:    addi a0, sp, 8
- ; RV32I-NEXT:    ori a0, a0, 4
- ; RV32I-NEXT:    lui a1, %hi(test1)
- ; RV32I-NEXT:    addi a1, a1, %lo(test1)
+ ; RV32I-NEXT:    lui a0, %hi(test1)
+ ; RV32I-NEXT:    addi a1, a0, %lo(test1)
+-; RV32I-NEXT:    addi a0, s0, -28
++; RV32I-NEXT:    addi a0, sp, 12
  ; RV32I-NEXT:    jalr ra, a1, 0
  ; RV32I-NEXT:    addi a0, zero, 0
 -; RV32I-NEXT:    lw s0, 24(sp)
@@ -1737,10 +1729,9 @@ index 14bc7b1e10d..46577bf8a20 100644
 +; RV32I-FPTR-NEXT:    sw zero, -24(s0)
 +; RV32I-FPTR-NEXT:    sw zero, -28(s0)
 +; RV32I-FPTR-NEXT:    sw zero, -32(s0)
-+; RV32I-FPTR-NEXT:    addi a0, s0, -32
-+; RV32I-FPTR-NEXT:    ori a0, a0, 4
-+; RV32I-FPTR-NEXT:    lui a1, %hi(test1)
-+; RV32I-FPTR-NEXT:    addi a1, a1, %lo(test1)
++; RV32I-FPTR-NEXT:    lui a0, %hi(test1)
++; RV32I-FPTR-NEXT:    addi a1, a0, %lo(test1)
++; RV32I-FPTR-NEXT:    addi a0, s0, -28
 +; RV32I-FPTR-NEXT:    jalr ra, a1, 0
 +; RV32I-FPTR-NEXT:    addi a0, zero, 0
 +; RV32I-FPTR-NEXT:    lw s0, 24(sp)
@@ -2160,7 +2151,7 @@ index 51609c93e28..c44d3e6631a 100644
  entry:
    switch i32 %in, label %exit [
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index 0f478850eab..f8efe583d4c 100644
+index e85ef0f9108..0d8d4a0a808 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
 @@ -1,5 +1,5 @@
@@ -3072,7 +3063,7 @@ index 326c374537f..60bf2294a70 100644
  ; RV32I-NEXT:    addi sp, sp, 16
  ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index ead88a71daa..71a0528d28a 100644
+index 1937ce0b3a8..a51bdbaeb22 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -1,5 +1,5 @@

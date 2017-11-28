@@ -5,9 +5,9 @@ Subject: [RISCV] Reserve an emergency spill slot for the register scavenger
 
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp | 19 +++++++
- lib/Target/RISCV/RISCVFrameLowering.h   |  3 ++
- test/CodeGen/RISCV/large-stack.ll       | 89 ++++++++++++++++++++++++++++++---
- 3 files changed, 104 insertions(+), 7 deletions(-)
+ lib/Target/RISCV/RISCVFrameLowering.h   |  3 +
+ test/CodeGen/RISCV/large-stack.ll       | 99 ++++++++++++++++++++++++++++++---
+ 3 files changed, 114 insertions(+), 7 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index 6daeb1cb85a..916239604c3 100644
@@ -58,10 +58,10 @@ index d92bb70c76d..ccf7e247b55 100644
  
    MachineBasicBlock::iterator
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index 1b8fb1bdb9d..0f478850eab 100644
+index 1b8fb1bdb9d..e85ef0f9108 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
-@@ -8,31 +8,106 @@ define void @test() nounwind {
+@@ -8,31 +8,116 @@ define void @test() nounwind {
  ; RV32I-LABEL: test:
  ; RV32I:       # BB#0:
  ; RV32I-NEXT:    lui a0, 74565
@@ -107,50 +107,60 @@ index 1b8fb1bdb9d..0f478850eab 100644
 +define void @test_emergency_spill_slot(i32 %a) nounwind {
 +; RV32I-LABEL: test_emergency_spill_slot:
 +; RV32I:       # BB#0:
-+; RV32I-NEXT:    sw s2, -16(s0)
 +; RV32I-NEXT:    lui a1, 98
-+; RV32I-NEXT:    addi a1, a1, -1392
++; RV32I-NEXT:    addi a1, a1, -1376
 +; RV32I-NEXT:    sub sp, sp, a1
 +; RV32I-NEXT:    lui a1, 98
-+; RV32I-NEXT:    addi a1, a1, -1396
++; RV32I-NEXT:    addi a1, a1, -1380
 +; RV32I-NEXT:    add a1, sp, a1
 +; RV32I-NEXT:    sw ra, 0(a1)
 +; RV32I-NEXT:    lui a1, 98
-+; RV32I-NEXT:    addi a1, a1, -1400
++; RV32I-NEXT:    addi a1, a1, -1384
 +; RV32I-NEXT:    add a1, sp, a1
 +; RV32I-NEXT:    sw s0, 0(a1)
 +; RV32I-NEXT:    lui a1, 98
-+; RV32I-NEXT:    addi a1, a1, -1404
++; RV32I-NEXT:    addi a1, a1, -1388
 +; RV32I-NEXT:    add a1, sp, a1
 +; RV32I-NEXT:    sw s1, 0(a1)
 +; RV32I-NEXT:    lui a1, 98
 +; RV32I-NEXT:    addi a1, a1, -1392
++; RV32I-NEXT:    add a1, sp, a1
++; RV32I-NEXT:    sw s2, 0(a1)
++; RV32I-NEXT:    lui a1, 98
++; RV32I-NEXT:    addi a1, a1, -1376
 +; RV32I-NEXT:    add s0, sp, a1
++; RV32I-NEXT:    lui a1, 78
++; RV32I-NEXT:    addi a1, a1, 512
++; RV32I-NEXT:    lui a2, 1048478
++; RV32I-NEXT:    addi a2, a2, 1388
++; RV32I-NEXT:    add a2, s0, a2
++; RV32I-NEXT:    addi a2, a2, 0
++; RV32I-NEXT:    add a1, a2, a1
 +; RV32I-NEXT:    #APP
 +; RV32I-NEXT:    nop
 +; RV32I-NEXT:    #NO_APP
-+; RV32I-NEXT:    lui s2, 1048556
-+; RV32I-NEXT:    addi s2, s2, 1904
-+; RV32I-NEXT:    add s2, s0, s2
-+; RV32I-NEXT:    sw a0, 0(s2)
-+; RV32I-NEXT:    lw s2, -16(s0)
++; RV32I-NEXT:    sw a0, 0(a1)
 +; RV32I-NEXT:    #APP
 +; RV32I-NEXT:    nop
 +; RV32I-NEXT:    #NO_APP
 +; RV32I-NEXT:    lui a0, 98
-+; RV32I-NEXT:    addi a0, a0, -1404
++; RV32I-NEXT:    addi a0, a0, -1392
++; RV32I-NEXT:    add a0, sp, a0
++; RV32I-NEXT:    lw s2, 0(a0)
++; RV32I-NEXT:    lui a0, 98
++; RV32I-NEXT:    addi a0, a0, -1388
 +; RV32I-NEXT:    add a0, sp, a0
 +; RV32I-NEXT:    lw s1, 0(a0)
 +; RV32I-NEXT:    lui a0, 98
-+; RV32I-NEXT:    addi a0, a0, -1400
++; RV32I-NEXT:    addi a0, a0, -1384
 +; RV32I-NEXT:    add a0, sp, a0
 +; RV32I-NEXT:    lw s0, 0(a0)
 +; RV32I-NEXT:    lui a0, 98
-+; RV32I-NEXT:    addi a0, a0, -1396
++; RV32I-NEXT:    addi a0, a0, -1380
 +; RV32I-NEXT:    add a0, sp, a0
 +; RV32I-NEXT:    lw ra, 0(a0)
 +; RV32I-NEXT:    lui a0, 98
-+; RV32I-NEXT:    addi a0, a0, -1392
++; RV32I-NEXT:    addi a0, a0, -1376
 +; RV32I-NEXT:    add sp, sp, a0
 +; RV32I-NEXT:    jalr zero, ra, 0
 +  %data = alloca [ 100000 x i32 ] , align 4

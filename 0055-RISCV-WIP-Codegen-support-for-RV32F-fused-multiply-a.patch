@@ -9,7 +9,7 @@ Subject: [RISCV][WIP] Codegen support for RV32F fused multiply-add operations
  create mode 100644 test/CodeGen/RISCV/float-fma.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index d0efcddf1fb..c7617a72522 100644
+index e21345b83db..99ccef41bcd 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -239,6 +239,16 @@ def : Pat<(fcopysign FPR32:$rs1, (fneg FPR32:$rs2)), (FSGNJN_S $rs1, $rs2)>;

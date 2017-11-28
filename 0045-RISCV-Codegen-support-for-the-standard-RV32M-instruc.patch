@@ -13,10 +13,10 @@ Subject: [RISCV] Codegen support for the standard RV32M instruction set
  6 files changed, 246 insertions(+), 28 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 148ddf1d073..19ce566a7a2 100644
+index 23a0382d442..e81136ecb10 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -30,7 +30,7 @@ class RISCVDAGToDAGISel final : public SelectionDAGISel {
+@@ -31,7 +31,7 @@ class RISCVDAGToDAGISel final : public SelectionDAGISel {
  
  public:
    explicit RISCVDAGToDAGISel(RISCVTargetMachine &TargetMachine)

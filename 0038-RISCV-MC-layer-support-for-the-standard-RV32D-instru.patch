@@ -166,10 +166,10 @@ index 24fe235eaff..7adcb8673af 100644
  
  def RISCV : Target {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 877cd42b6c7..0719aada359 100644
+index 6bba3425e19..24d3c630e7d 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -461,3 +461,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -474,3 +474,4 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
  include "RISCVInstrInfoF.td"

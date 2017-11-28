@@ -6,11 +6,11 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp | 32 +++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  6 ++++
- lib/Target/RISCV/RISCVInstrInfoD.td    | 25 ++++++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp | 11 ++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td    | 15 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp |  1 -
  test/CodeGen/RISCV/double-arith.ll     | 23 +++++++++++++
  test/CodeGen/RISCV/double-mem.ll       | 63 ++++++++++++++++++++++++++++++++++
- 6 files changed, 160 insertions(+)
+ 6 files changed, 139 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/double-arith.ll
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
@@ -79,10 +79,10 @@ index a54b5c1532f..3e49c2db7f3 100644
    void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,
                          const SmallVectorImpl<ISD::InputArg> &Ins,
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 8a78e372e8b..9c3f32d5a9f 100644
+index 8a78e372e8b..1d29a7c086b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -159,3 +159,28 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
+@@ -159,3 +159,18 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
    let rs2 = 0b00000;
  }
  } // Predicates = [HasStdExtD, IsRV64]
@@ -100,46 +100,19 @@ index 8a78e372e8b..9c3f32d5a9f 100644
 +
 +def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
 +
-+/// Loads
-+
-+def LdFPR64_FI : Pseudo<(outs FPR64:$dst), (ins MEMii:$addr),
-+                        [(set FPR64:$dst, (load ADDRii:$addr))]>;
-+
-+/// Stores
-+
-+def StFPR64_FI : Pseudo<(outs), (ins FPR64:$src, MEMii:$addr),
-+                        [(store FPR64:$src, ADDRii:$addr)]>;
-+
 +} // Predicates = [HasStdExtD]
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index b6ff91559d4..a44143b2bd2 100644
+index 99f9095bdff..25e78a9ebb8 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -117,6 +117,11 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-         .addReg(FrameReg, FrameRegFlags)
-         .addImm(Offset);
-     break;
-+  case RISCV::LdFPR64_FI:
-+    BuildMI(MBB, II, DL, TII->get(RISCV::FLD), Reg)
-+        .addReg(FrameReg, FrameRegFlags)
-+        .addImm(Offset);
-+    break;
-   case RISCV::StXLEN_FI:
-     Opc = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
-     BuildMI(MBB, II, DL, TII->get(Opc))
-@@ -130,6 +135,12 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-         .addReg(FrameReg, FrameRegFlags | RegState::Kill)
-         .addImm(Offset);
-     break;
-+  case RISCV::StFPR64_FI:
-+    BuildMI(MBB, II, DL, TII->get(RISCV::FSD))
-+        .addReg(Reg, getKillRegState(MI.getOperand(0).isKill()))
-+        .addReg(FrameReg, FrameRegFlags | RegState::Kill)
-+        .addImm(Offset);
-+    break;
-   case RISCV::LEA_FI:
-     BuildMI(MBB, II, DL, TII->get(RISCV::ADDI), Reg)
-         .addReg(FrameReg, FrameRegFlags)
+@@ -62,7 +62,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+ 
+   MachineInstr &MI = *II;
+   MachineFunction &MF = *MI.getParent()->getParent();
+-  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
+   MachineRegisterInfo &MRI = MF.getRegInfo();
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   DebugLoc DL = MI.getDebugLoc();
 diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
 new file mode 100644
 index 00000000000..958957da08d

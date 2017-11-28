@@ -26,7 +26,7 @@ index 61800c39b26..33bbb8497f3 100644
    setOperationAction(ISD::BlockAddress, XLenVT, Custom);
    setOperationAction(ISD::ConstantPool, XLenVT, Custom);
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
-index 9c3f32d5a9f..44502ec204c 100644
+index 1d29a7c086b..b6b47c97e85 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
 @@ -164,6 +164,9 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
@@ -39,7 +39,7 @@ index 9c3f32d5a9f..44502ec204c 100644
  class PatFpr64Fpr64DynFrm<SDPatternOperator OpNode, RVInstRFrm Inst>
      : Pat<(OpNode FPR64:$rs1, FPR64:$rs2), (Inst $rs1, $rs2, 0b111)>;
  
-@@ -172,6 +175,32 @@ let Predicates = [HasStdExtD] in {
+@@ -172,5 +175,31 @@ let Predicates = [HasStdExtD] in {
  /// Float arithmetic operations
  
  def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
@@ -70,8 +70,7 @@ index 9c3f32d5a9f..44502ec204c 100644
 +def : PatFpr64Fpr64<setolt, FLT_D>;
 +def : PatFpr64Fpr64<setole, FLE_D>;
  
- /// Loads
- 
+ } // Predicates = [HasStdExtD]
 diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
 index 958957da08d..79c1b8d7b6f 100644
 --- a/test/CodeGen/RISCV/double-arith.ll
