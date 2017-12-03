@@ -50,7 +50,7 @@ file containing:
     if not 'RISCV' in config.root.targets:
         config.unsupported = True
 
-This ensures that the tests are not run when LLVM is built with RISCV support.
+This ensures that the tests are only run when LLVM is built with RISCV support.
 
 LLVM tests typically make use of the 
 [FileCheck](http://llvm.org/docs/CommandGuide/FileCheck.html) utility to check 
