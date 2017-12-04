@@ -225,5 +225,5 @@ index 1855d55b4df..7c5f1205b76 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sext i1 %a to i64
 -- 
-2.15.0
+2.15.1
 

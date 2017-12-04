@@ -102,7 +102,7 @@ like the below. See the [LLVM
 documentation](http://llvm.org/docs/GettingStarted.html) for more general 
 guidance. You will need ~7GiB space for a debug build of LLVM+Clang.
 
-    export REV=318692 # Check the most recent commit on this repo to ensure this is correct
+    export REV=319661 # Check the most recent commit on this repo to ensure this is correct
     svn co http://llvm.org/svn/llvm-project/llvm/trunk@$REV llvm
     cd llvm/tools
     svn co http://llvm.org/svn/llvm-project/cfe/trunk@$REV clang

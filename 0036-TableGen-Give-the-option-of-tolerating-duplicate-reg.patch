@@ -218,7 +218,7 @@ index 00000000000..2ba63c434ca
 +// CHECK:   return 0;
 +// CHECK: }
 diff --git a/utils/TableGen/AsmMatcherEmitter.cpp b/utils/TableGen/AsmMatcherEmitter.cpp
-index d279e8c3ae9..25360cab08c 100644
+index 72fb53053fd..ee322ad9f33 100644
 --- a/utils/TableGen/AsmMatcherEmitter.cpp
 +++ b/utils/TableGen/AsmMatcherEmitter.cpp
 @@ -2438,7 +2438,9 @@ static void emitMatchRegisterName(CodeGenTarget &Target, Record *AsmParser,
@@ -244,5 +244,5 @@ index d279e8c3ae9..25360cab08c 100644
    OS << "  return 0;\n";
    OS << "}\n\n";
 -- 
-2.15.0
+2.15.1
 

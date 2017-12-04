@@ -9,10 +9,10 @@ Subject: [LegalizeDAG] promote frameaddr/returnaddr arguments to native
  2 files changed, 10 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 68cac22a99e..09f4db82142 100644
+index d86ed0b6f8a..de87e1abdfb 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -945,6 +945,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
+@@ -944,6 +944,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
  
    case ISD::ADDCARRY:
    case ISD::SUBCARRY: Res = PromoteIntOp_ADDSUBCARRY(N, OpNo); break;
@@ -22,7 +22,7 @@ index 68cac22a99e..09f4db82142 100644
    }
  
    // If the result is null, the sub-method took care of registering results etc.
-@@ -1322,6 +1325,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
+@@ -1327,6 +1330,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
    return SDValue(DAG.UpdateNodeOperands(N, LHS, RHS, Carry), 0);
  }
  
@@ -48,5 +48,5 @@ index c221cb30299..76bdad01c88 100644
    void PromoteSetCCOperands(SDValue &LHS,SDValue &RHS, ISD::CondCode Code);
  
 -- 
-2.15.0
+2.15.1
 

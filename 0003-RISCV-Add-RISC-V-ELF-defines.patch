@@ -170,10 +170,10 @@ index 75006dcf031..905ce450f7f 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 4eab98baea4..3c94883e7d1 100644
+index 47c32d3aa91..382942be64a 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
-@@ -55,6 +55,7 @@ module LLVM_BinaryFormat {
+@@ -56,6 +56,7 @@ module LLVM_BinaryFormat {
      textual header "BinaryFormat/ELFRelocs/Mips.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC64.def"
      textual header "BinaryFormat/ELFRelocs/PowerPC.def"
@@ -287,7 +287,7 @@ index 1a797c499ee..02eaa89f088 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 5e5fcfaa7d4..cd107ec91ba 100644
+index 2a341077e3c..9678667abff 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -995,6 +995,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -313,7 +313,7 @@ index 5e5fcfaa7d4..cd107ec91ba 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3611,6 +3620,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3633,6 +3642,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));
@@ -323,5 +323,5 @@ index 5e5fcfaa7d4..cd107ec91ba 100644
        W.printFlags("Flags", e->e_flags);
      W.printNumber("HeaderSize", e->e_ehsize);
 -- 
-2.15.0
+2.15.1
 

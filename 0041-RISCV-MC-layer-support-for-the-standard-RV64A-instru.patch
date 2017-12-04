@@ -261,5 +261,5 @@ index 00000000000..18299548ffa
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +amomaxu.d.aqrl s5, s4, (s3)
 -- 
-2.15.0
+2.15.1
 

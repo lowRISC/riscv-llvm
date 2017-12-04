@@ -18,10 +18,10 @@ that signext is emitted for int32_t/uint32_t return values.
  create mode 100644 test/CodeGen/riscv64-abi.c
 
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 08f514f94d..61166b0e49 100644
+index 25297eb2e2..5621ae2cf8 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
-@@ -1927,10 +1927,14 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1920,10 +1920,14 @@ void CodeGenModule::ConstructAttributeList(
    const ABIArgInfo &RetAI = FI.getReturnInfo();
    switch (RetAI.getKind()) {
    case ABIArgInfo::Extend:
@@ -1179,5 +1179,5 @@ index a0da51d7d4..6ececb7947 100644
 +// CHECK: define fp128 @check_longdouble()
 +long double check_longdouble() { return 0; }
 -- 
-2.15.0
+2.15.1
 

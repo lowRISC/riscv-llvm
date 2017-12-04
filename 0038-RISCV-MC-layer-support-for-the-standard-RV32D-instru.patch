@@ -584,5 +584,5 @@ index 7ef882805cc..f22fa7ac5dd 100644
 +# Using 'D' instructions for an 'F'-only target
 +fadd.d ft0, ft1, ft2 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 -- 
-2.15.0
+2.15.1
 

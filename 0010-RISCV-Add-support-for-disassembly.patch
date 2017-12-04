@@ -409,5 +409,5 @@ index 4c883e9a0ae..95d9da4bb51 100644
  # CHECK-INST: lui a0, 2
  # CHECK: encoding: [0x37,0x25,0x00,0x00]
 -- 
-2.15.0
+2.15.1
 

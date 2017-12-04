@@ -48,7 +48,7 @@ index d0c9b902f6..823b908184 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index a9a5f4ddcf..d0d217c16e 100644
+index 7deebc06c3..931b8afb69 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -29,6 +29,7 @@
@@ -59,7 +59,7 @@ index a9a5f4ddcf..d0d217c16e 100644
  #include "Targets/SPIR.h"
  #include "Targets/Sparc.h"
  #include "Targets/SystemZ.h"
-@@ -363,6 +364,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -370,6 +371,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
    case llvm::Triple::r600:
      return new AMDGPUTargetInfo(Triple, Opts);
  
@@ -384,7 +384,7 @@ index 0000000000..beda14979f
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index eae86c0572..cdb51b3cbb 100644
+index 2d6ac642f0..f8038aff6d 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,6 +12,7 @@
@@ -482,7 +482,7 @@ index e23822b9c6..8893d88a8c 100644
                            llvm::opt::ArgStringList &CmdArgs) const;
    void AddSystemZTargetArgs(const llvm::opt::ArgList &Args,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index 08282ff003..683f27515d 100644
+index 2d1b9a409a..0d0718eb2f 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
 @@ -8,13 +8,14 @@
@@ -501,7 +501,7 @@ index 08282ff003..683f27515d 100644
  #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  #include "clang/Driver/Compilation.h"
-@@ -254,6 +255,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+@@ -270,6 +271,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
      return "elf64ppc";
    case llvm::Triple::ppc64le:
      return "elf64lppc";
@@ -512,7 +512,7 @@ index 08282ff003..683f27515d 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      return "elf32_sparc";
-@@ -846,6 +851,10 @@ static bool isMicroMips(const ArgList &Args) {
+@@ -855,6 +860,10 @@ static bool isMicroMips(const ArgList &Args) {
    return A && A->getOption().matches(options::OPT_mmicromips);
  }
  
@@ -523,7 +523,7 @@ index 08282ff003..683f27515d 100644
  static Multilib makeMultilib(StringRef commonSuffix) {
    return Multilib(commonSuffix, commonSuffix, commonSuffix);
  }
-@@ -1391,6 +1400,41 @@ static void findAndroidArmMultilibs(const Driver &D,
+@@ -1400,6 +1409,41 @@ static void findAndroidArmMultilibs(const Driver &D,
      Result.Multilibs = AndroidArmMultilibs;
  }
  
@@ -565,7 +565,7 @@ index 08282ff003..683f27515d 100644
  static bool findBiarchMultilibs(const Driver &D,
                                  const llvm::Triple &TargetTriple,
                                  StringRef Path, const ArgList &Args,
-@@ -1773,6 +1817,11 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1782,6 +1826,11 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
        "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
        "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
  
@@ -577,7 +577,7 @@ index 08282ff003..683f27515d 100644
    static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
    static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
                                                 "sparcv8-linux-gnu"};
-@@ -1918,6 +1967,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1927,6 +1976,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
      LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
      TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
      break;
@@ -590,7 +590,7 @@ index 08282ff003..683f27515d 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
-@@ -2015,6 +2070,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+@@ -2024,6 +2079,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
    } else if (tools::isMipsArch(TargetArch)) {
      if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
        return false;
@@ -599,7 +599,7 @@ index 08282ff003..683f27515d 100644
    } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                    NeedsBiarchSuffix, Detected)) {
      return false;
-@@ -2230,6 +2287,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
+@@ -2239,6 +2296,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
    case llvm::Triple::ppc:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -609,7 +609,7 @@ index 08282ff003..683f27515d 100644
    case llvm::Triple::mips:
    case llvm::Triple::mipsel:
 diff --git a/lib/Driver/ToolChains/Linux.cpp b/lib/Driver/ToolChains/Linux.cpp
-index 5ae250759b..5d06e79478 100644
+index ca042f38db..51fa48bf13 100644
 --- a/lib/Driver/ToolChains/Linux.cpp
 +++ b/lib/Driver/ToolChains/Linux.cpp
 @@ -11,6 +11,7 @@
@@ -1028,10 +1028,10 @@ index 0000000000..a0da51d7d4
 +// CHECK: @align_vl = global i32 8
 +int align_vl = __alignof(va_list);
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index f508c9e1aa..670fd0408f 100644
+index f767c7ad01..35176c808c 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
-@@ -9991,3 +9991,398 @@
+@@ -9999,3 +9999,398 @@
  // ARM-DARWIN-BAREMETAL-64: #define __PTRDIFF_TYPE__ long int
  // ARM-DARWIN-BAREMETAL-64: #define __SIZE_TYPE__ long unsigned int
  
@@ -1431,5 +1431,5 @@ index f508c9e1aa..670fd0408f 100644
 +// RISCV64: #define __riscv_float_abi_soft 1
 +// RISCV64: #define __riscv_xlen 64
 -- 
-2.15.0
+2.15.1
 

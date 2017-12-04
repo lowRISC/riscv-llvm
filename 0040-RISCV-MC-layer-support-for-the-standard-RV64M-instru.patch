@@ -69,5 +69,5 @@ index 00000000000..3de540dac21
 +# CHECK: encoding: [0xbb,0x76,0xf7,0x02]
 +remuw a3, a4, a5
 -- 
-2.15.0
+2.15.1
 
