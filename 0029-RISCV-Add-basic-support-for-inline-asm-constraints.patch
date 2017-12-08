@@ -122,7 +122,7 @@ index 113a45ac7cc..23a0382d442 100644
    if (auto FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
      Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), Subtarget->getXLenVT());
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4ea621a8b9a..d263674b1d3 100644
+index 77fd8a8b8b1..0a843d7adaa 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -993,3 +993,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
@@ -164,7 +164,7 @@ index 51c942b2e6a..2f9c202fb64 100644
                                MachineBasicBlock *BB) const override;
 diff --git a/test/CodeGen/RISCV/inline-asm.ll b/test/CodeGen/RISCV/inline-asm.ll
 new file mode 100644
-index 00000000000..eea7fa90199
+index 00000000000..9273a0b4c55
 --- /dev/null
 +++ b/test/CodeGen/RISCV/inline-asm.ll
 @@ -0,0 +1,83 @@
@@ -176,7 +176,7 @@ index 00000000000..eea7fa90199
 +
 +define i32 @constraint_r(i32 %a) {
 +; RV32I-LABEL: constraint_r:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -198,7 +198,7 @@ index 00000000000..eea7fa90199
 +
 +define i32 @constraint_i(i32 %a) {
 +; RV32I-LABEL: constraint_i:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -217,7 +217,7 @@ index 00000000000..eea7fa90199
 +
 +define void @constraint_m(i32* %a) {
 +; RV32I-LABEL: constraint_m:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -234,7 +234,7 @@ index 00000000000..eea7fa90199
 +
 +define i32 @constraint_m2(i32* %a) {
 +; RV32I-LABEL: constraint_m2:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)

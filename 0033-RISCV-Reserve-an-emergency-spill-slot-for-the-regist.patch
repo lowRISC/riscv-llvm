@@ -58,12 +58,12 @@ index d92bb70c76d..ccf7e247b55 100644
  
    MachineBasicBlock::iterator
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index 1b8fb1bdb9d..e85ef0f9108 100644
+index cecca220e19..d3b429022a4 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
 @@ -8,31 +8,116 @@ define void @test() nounwind {
  ; RV32I-LABEL: test:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    lui a0, 74565
 -; RV32I-NEXT:    addi a0, a0, 1664
 +; RV32I-NEXT:    addi a0, a0, 1680
@@ -106,7 +106,7 @@ index 1b8fb1bdb9d..e85ef0f9108 100644
 +
 +define void @test_emergency_spill_slot(i32 %a) nounwind {
 +; RV32I-LABEL: test_emergency_spill_slot:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lui a1, 98
 +; RV32I-NEXT:    addi a1, a1, -1376
 +; RV32I-NEXT:    sub sp, sp, a1

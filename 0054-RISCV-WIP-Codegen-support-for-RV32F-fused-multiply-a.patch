@@ -9,7 +9,7 @@ Subject: [RISCV][WIP] Codegen support for RV32F fused multiply-add operations
  create mode 100644 test/CodeGen/RISCV/float-fma.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index e21345b83db..99ccef41bcd 100644
+index fa64775af00..8c2a8ace895 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -239,6 +239,16 @@ def : Pat<(fcopysign FPR32:$rs1, (fneg FPR32:$rs2)), (FSGNJN_S $rs1, $rs2)>;
@@ -31,7 +31,7 @@ index e21345b83db..99ccef41bcd 100644
  def : PatFpr32Fpr32<seteq, FEQ_S>;
 diff --git a/test/CodeGen/RISCV/float-fma.ll b/test/CodeGen/RISCV/float-fma.ll
 new file mode 100644
-index 00000000000..caaa6a991cf
+index 00000000000..ca6baba1530
 --- /dev/null
 +++ b/test/CodeGen/RISCV/float-fma.ll
 @@ -0,0 +1,54 @@
@@ -43,7 +43,7 @@ index 00000000000..caaa6a991cf
 +
 +define float @fmadd_s_fma_intrinsic(float %a, float %b, float %c) nounwind {
 +; RV32IF-LABEL: fmadd_s_fma_intrinsic:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a2
 +; RV32IF-NEXT:    fmv.w.x ft1, a1
 +; RV32IF-NEXT:    fmv.w.x ft2, a0
@@ -59,7 +59,7 @@ index 00000000000..caaa6a991cf
 +define float @fmadd_s_fmuladd_intrinsic(float %a, float %b, float %c) nounwind {
 +; Use of fmadd depends on TargetLowering::isFMAFasterthanFMulAndFAdd
 +; RV32IF-LABEL: fmadd_s_fmuladd_intrinsic:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fmul.s ft0, ft1, ft0
@@ -75,7 +75,7 @@ index 00000000000..caaa6a991cf
 +; TODO: the DAG combiner converts the fneg of a bitcasted value to a xor,
 +;       meaning the fmsub pattern fails
 +; RV32IF-LABEL: fmsub_s_fma_intrinsic:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    lui a3, 524288
 +; RV32IF-NEXT:    addi a3, a3, 0
 +; RV32IF-NEXT:    xor a2, a2, a3

@@ -219,7 +219,7 @@ index 1ac8d982ff9..4cc8cc8c0c2 100644
    }
  }
 diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
-index ef3c376ca87..b06382f8742 100644
+index 87edea5cdfc..6446034e542 100644
 --- a/test/CodeGen/RISCV/mem.ll
 +++ b/test/CodeGen/RISCV/mem.ll
 @@ -159,6 +159,31 @@ define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
@@ -232,7 +232,7 @@ index ef3c376ca87..b06382f8742 100644
 +define i32 @lw_sw_global(i32 %a) nounwind {
 +; TODO: the addi should be folded in to the lw/sw operations
 +; RV32I-LABEL: lw_sw_global:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lui a1, %hi(G)
 +; RV32I-NEXT:    addi a2, a1, %lo(G)
 +; RV32I-NEXT:    lw a1, 0(a2)
@@ -255,7 +255,7 @@ index ef3c376ca87..b06382f8742 100644
  define i32 @lw_sw_constant(i32 %a) nounwind {
  ; TODO: the addi should be folded in to the lw/sw
 diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
-index 917b2147b95..18ab52aaf13 100644
+index 93239315261..cbb89f631a5 100644
 --- a/test/CodeGen/RISCV/wide-mem.ll
 +++ b/test/CodeGen/RISCV/wide-mem.ll
 @@ -14,3 +14,21 @@ define i64 @load_i64(i64 *%a) nounwind {
@@ -269,7 +269,7 @@ index 917b2147b95..18ab52aaf13 100644
 +; generate two addi
 +define i64 @load_i64_global() nounwind {
 +; RV32I-LABEL: load_i64_global:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lui a0, %hi(val64)
 +; RV32I-NEXT:    addi a0, a0, %lo(val64)
 +; RV32I-NEXT:    lw a0, 0(a0)

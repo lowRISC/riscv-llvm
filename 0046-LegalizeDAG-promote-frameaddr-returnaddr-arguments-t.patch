@@ -9,10 +9,10 @@ Subject: [LegalizeDAG] promote frameaddr/returnaddr arguments to native
  2 files changed, 10 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index d86ed0b6f8a..de87e1abdfb 100644
+index d232641303d..f3051c9509f 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -944,6 +944,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
+@@ -942,6 +942,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
  
    case ISD::ADDCARRY:
    case ISD::SUBCARRY: Res = PromoteIntOp_ADDSUBCARRY(N, OpNo); break;
@@ -22,7 +22,7 @@ index d86ed0b6f8a..de87e1abdfb 100644
    }
  
    // If the result is null, the sub-method took care of registering results etc.
-@@ -1327,6 +1330,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
+@@ -1324,6 +1327,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
    return SDValue(DAG.UpdateNodeOperands(N, LHS, RHS, Carry), 0);
  }
  
@@ -36,10 +36,10 @@ index d86ed0b6f8a..de87e1abdfb 100644
  //  Integer Result Expansion
  //===----------------------------------------------------------------------===//
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeTypes.h b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-index c221cb30299..76bdad01c88 100644
+index 64cb80e0d85..fca50dc6f53 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeTypes.h
 +++ b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-@@ -314,6 +314,7 @@ private:
+@@ -310,6 +310,7 @@ private:
    SDValue PromoteIntOp_MSCATTER(MaskedScatterSDNode *N, unsigned OpNo);
    SDValue PromoteIntOp_MGATHER(MaskedGatherSDNode *N, unsigned OpNo);
    SDValue PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo);

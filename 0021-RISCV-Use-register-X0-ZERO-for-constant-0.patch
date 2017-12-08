@@ -74,21 +74,21 @@ index 78f61fa4184..5b038df4ae3 100644
    SelectCode(Node);
  }
 diff --git a/test/CodeGen/RISCV/bare-select.ll b/test/CodeGen/RISCV/bare-select.ll
-index d4a29ffa29b..ec98b6d18b2 100644
+index 016e3a7a9cd..a46afe27143 100644
 --- a/test/CodeGen/RISCV/bare-select.ll
 +++ b/test/CodeGen/RISCV/bare-select.ll
 @@ -6,8 +6,7 @@ define i32 @bare_select(i1 %a, i32 %b, i32 %c) {
  ; RV32I-LABEL: bare_select:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    andi a0, a0, 1
 -; RV32I-NEXT:    addi a3, zero, 0
 -; RV32I-NEXT:    bne a0, a3, .LBB0_2
 +; RV32I-NEXT:    bne a0, zero, .LBB0_2
- ; RV32I-NEXT:  # BB#1:
+ ; RV32I-NEXT:  # %bb.1:
  ; RV32I-NEXT:    addi a1, a2, 0
  ; RV32I-NEXT:  .LBB0_2:
 diff --git a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
-index f10f7799fbb..6521f66cf6a 100644
+index 6ccb5e00be5..150dfed3573 100644
 --- a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
 +++ b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
 @@ -86,8 +86,7 @@ define i8 @test_cttz_i8(i8 %a) nounwind {
@@ -138,7 +138,7 @@ index f10f7799fbb..6521f66cf6a 100644
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    bne s2, a1, .LBB7_2
 +; RV32I-NEXT:    bne s2, zero, .LBB7_2
- ; RV32I-NEXT:  # BB#1:
+ ; RV32I-NEXT:  # %bb.1:
  ; RV32I-NEXT:    srli a0, a0, 24
  ; RV32I-NEXT:    addi s1, a0, 32
  ; RV32I-NEXT:  .LBB7_2:
@@ -154,7 +154,7 @@ index f10f7799fbb..6521f66cf6a 100644
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    bne s2, a1, .LBB11_2
 +; RV32I-NEXT:    bne s2, zero, .LBB11_2
- ; RV32I-NEXT:  # BB#1:
+ ; RV32I-NEXT:  # %bb.1:
  ; RV32I-NEXT:    srli a0, a0, 24
  ; RV32I-NEXT:    addi s1, a0, 32
  ; RV32I-NEXT:  .LBB11_2:
@@ -164,7 +164,7 @@ index f10f7799fbb..6521f66cf6a 100644
  ; RV32I-NEXT:    lw s6, 4(s0)
  ; RV32I-NEXT:    lw s5, 8(s0)
 diff --git a/test/CodeGen/RISCV/sext-zext-trunc.ll b/test/CodeGen/RISCV/sext-zext-trunc.ll
-index 1855d55b4df..7c5f1205b76 100644
+index 2a13685fcd5..80bd2d2b204 100644
 --- a/test/CodeGen/RISCV/sext-zext-trunc.ll
 +++ b/test/CodeGen/RISCV/sext-zext-trunc.ll
 @@ -2,52 +2,41 @@
@@ -177,7 +177,7 @@ index 1855d55b4df..7c5f1205b76 100644
  define i8 @sext_i1_to_i8(i1 %a) {
 -; TODO: the addi that stores 0 in t1 is unnecessary
  ; RV32I-LABEL: sext_i1_to_i8:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    andi a0, a0, 1
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    sub a0, a1, a0
@@ -190,7 +190,7 @@ index 1855d55b4df..7c5f1205b76 100644
  define i16 @sext_i1_to_i16(i1 %a) {
 -; TODO: the addi that stores 0 in t1 is unnecessary
  ; RV32I-LABEL: sext_i1_to_i16:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    andi a0, a0, 1
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    sub a0, a1, a0
@@ -203,7 +203,7 @@ index 1855d55b4df..7c5f1205b76 100644
  define i32 @sext_i1_to_i32(i1 %a) {
 -; TODO: the addi that stores 0 in t1 is unnecessary
  ; RV32I-LABEL: sext_i1_to_i32:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    andi a0, a0, 1
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    sub a0, a1, a0
@@ -216,7 +216,7 @@ index 1855d55b4df..7c5f1205b76 100644
  define i64 @sext_i1_to_i64(i1 %a) {
 -; TODO: the addi that stores 0 in t1 is unnecessary
  ; RV32I-LABEL: sext_i1_to_i64:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    andi a0, a0, 1
 -; RV32I-NEXT:    addi a1, zero, 0
 -; RV32I-NEXT:    sub a0, a1, a0

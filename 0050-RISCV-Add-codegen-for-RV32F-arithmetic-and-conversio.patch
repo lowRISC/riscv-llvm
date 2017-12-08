@@ -12,7 +12,7 @@ Subject: [RISCV] Add codegen for RV32F arithmetic and conversion operations
  create mode 100644 test/CodeGen/RISCV/float-convert.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 33d26f5ec54..25725e2ceba 100644
+index b6e598f5d69..fc5ef33b431 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -45,6 +45,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -133,7 +133,7 @@ index 33d26f5ec54..25725e2ceba 100644
      Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), Val, Flag);
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index f231d6cc6d1..d77ba0832f5 100644
+index a95d093e7c7..9a03f569386 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -187,3 +187,59 @@ def FCVT_S_LU : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.lu"> {
@@ -198,7 +198,7 @@ index f231d6cc6d1..d77ba0832f5 100644
 +} // Predicates = [HasStdExtF]
 diff --git a/test/CodeGen/RISCV/float-arith.ll b/test/CodeGen/RISCV/float-arith.ll
 new file mode 100644
-index 00000000000..af49e48a40d
+index 00000000000..c29c8115198
 --- /dev/null
 +++ b/test/CodeGen/RISCV/float-arith.ll
 @@ -0,0 +1,194 @@
@@ -208,7 +208,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fadd_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fadd_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
@@ -220,7 +220,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fsub_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fsub_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fsub.s ft0, ft1, ft0
@@ -232,7 +232,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fmul_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fmul_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fmul.s ft0, ft1, ft0
@@ -244,7 +244,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fdiv_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fdiv_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fdiv.s ft0, ft1, ft0
@@ -258,7 +258,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fsqrt_s(float %a) nounwind {
 +; RV32IF-LABEL: fsqrt_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a0
 +; RV32IF-NEXT:    fsqrt.s ft0, ft0
 +; RV32IF-NEXT:    fmv.x.w a0, ft0
@@ -271,7 +271,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fsgnj_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fsgnj_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fsgnj.s ft0, ft1, ft0
@@ -286,7 +286,7 @@ index 00000000000..af49e48a40d
 +; DAGCombiner::visitBITCAST will generate a xor on the incoming integer
 +; argument
 +; RV32IF-LABEL: fneg_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    lui a1, 524288
 +; RV32IF-NEXT:    addi a1, a1, 0
 +; RV32IF-NEXT:    xor a0, a0, a1
@@ -299,7 +299,7 @@ index 00000000000..af49e48a40d
 +; TODO: fsgnjn.s isn't selected because DAGCombiner::visitBITCAST will convert
 +; (bitconvert (fneg x)) to a xor
 +; RV32IF-LABEL: fsgnjn_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    lui a2, 524288
 +; RV32IF-NEXT:    addi a2, a2, 0
 +; RV32IF-NEXT:    xor a1, a1, a2
@@ -320,7 +320,7 @@ index 00000000000..af49e48a40d
 +; DAGCombiner::visitBITCAST will generate an and on the incoming integer
 +; argument
 +; RV32IF-LABEL: fabs_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    lui a1, 524288
 +; RV32IF-NEXT:    addi a1, a1, -1
 +; RV32IF-NEXT:    and a0, a0, a1
@@ -337,7 +337,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fmin_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fmin_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fmin.s ft0, ft1, ft0
@@ -351,7 +351,7 @@ index 00000000000..af49e48a40d
 +
 +define float @fmax_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fmax_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fmax.s ft0, ft1, ft0
@@ -363,7 +363,7 @@ index 00000000000..af49e48a40d
 +
 +define i32 @feq_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: feq_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    feq.s a0, ft1, ft0
@@ -375,7 +375,7 @@ index 00000000000..af49e48a40d
 +
 +define i32 @flt_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: flt_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    flt.s a0, ft1, ft0
@@ -387,7 +387,7 @@ index 00000000000..af49e48a40d
 +
 +define i32 @fle_s(float %a, float %b) nounwind {
 +; RV32IF-LABEL: fle_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fle.s a0, ft1, ft0
@@ -398,7 +398,7 @@ index 00000000000..af49e48a40d
 +}
 diff --git a/test/CodeGen/RISCV/float-convert.ll b/test/CodeGen/RISCV/float-convert.ll
 new file mode 100644
-index 00000000000..066e987a005
+index 00000000000..af87024e5db
 --- /dev/null
 +++ b/test/CodeGen/RISCV/float-convert.ll
 @@ -0,0 +1,72 @@
@@ -408,7 +408,7 @@ index 00000000000..066e987a005
 +
 +define i32 @fcvt_w_s(float %a) nounwind {
 +; RV32IF-LABEL: fcvt_w_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a0
 +; RV32IF-NEXT:    fcvt.w.s a0, ft0, rtz
 +; RV32IF-NEXT:    jalr zero, ra, 0
@@ -418,7 +418,7 @@ index 00000000000..066e987a005
 +
 +define i32 @fcvt_wu_s(float %a) nounwind {
 +; RV32IF-LABEL: fcvt_wu_s:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a0
 +; RV32IF-NEXT:    fcvt.wu.s a0, ft0, rtz
 +; RV32IF-NEXT:    jalr zero, ra, 0
@@ -429,7 +429,7 @@ index 00000000000..066e987a005
 +define i32 @fmv_x_w(float %a, float %b) nounwind {
 +; Ensure fmv.x.w is generated even for a soft float calling convention
 +; RV32IF-LABEL: fmv_x_w:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
@@ -442,7 +442,7 @@ index 00000000000..066e987a005
 +
 +define float @fcvt_s_w(i32 %a) nounwind {
 +; RV32IF-LABEL: fcvt_s_w:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fcvt.s.w ft0, a0
 +; RV32IF-NEXT:    fmv.x.w a0, ft0
 +; RV32IF-NEXT:    jalr zero, ra, 0
@@ -452,7 +452,7 @@ index 00000000000..066e987a005
 +
 +define float @fcvt_s_wu(i32 %a) nounwind {
 +; RV32IF-LABEL: fcvt_s_wu:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fcvt.s.wu ft0, a0
 +; RV32IF-NEXT:    fmv.x.w a0, ft0
 +; RV32IF-NEXT:    jalr zero, ra, 0
@@ -463,7 +463,7 @@ index 00000000000..066e987a005
 +define float @fmv_w_x(i32 %a, i32 %b) nounwind {
 +; Ensure fmv.w.x is generated even for a soft float calling convention
 +; RV32IF-LABEL: fmv_w_x:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0

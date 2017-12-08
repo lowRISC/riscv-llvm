@@ -7,15 +7,14 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
  lib/Target/RISCV/RISCVISelLowering.cpp | 32 +++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  6 ++++
  lib/Target/RISCV/RISCVInstrInfoD.td    | 15 ++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp |  1 -
  test/CodeGen/RISCV/double-arith.ll     | 23 +++++++++++++
  test/CodeGen/RISCV/double-mem.ll       | 63 ++++++++++++++++++++++++++++++++++
- 6 files changed, 139 insertions(+), 1 deletion(-)
+ 5 files changed, 139 insertions(+)
  create mode 100644 test/CodeGen/RISCV/double-arith.ll
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 51e49d0a43d..61800c39b26 100644
+index 16c57f1cd90..1faa150f209 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -101,21 +100,9 @@ index 8a78e372e8b..1d29a7c086b 100644
 +def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
 +
 +} // Predicates = [HasStdExtD]
-diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 99f9095bdff..25e78a9ebb8 100644
---- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
-+++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -62,7 +62,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
- 
-   MachineInstr &MI = *II;
-   MachineFunction &MF = *MI.getParent()->getParent();
--  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
-   MachineRegisterInfo &MRI = MF.getRegInfo();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-   DebugLoc DL = MI.getDebugLoc();
 diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
 new file mode 100644
-index 00000000000..958957da08d
+index 00000000000..f759b4d3b97
 --- /dev/null
 +++ b/test/CodeGen/RISCV/double-arith.ll
 @@ -0,0 +1,23 @@
@@ -125,7 +112,7 @@ index 00000000000..958957da08d
 +
 +define double @fadd_d(double %a, double %b) nounwind {
 +; RV32IFD-LABEL: fadd_d:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -32
 +; RV32IFD-NEXT:    sw a3, 20(sp)
 +; RV32IFD-NEXT:    sw a2, 16(sp)
@@ -144,7 +131,7 @@ index 00000000000..958957da08d
 +}
 diff --git a/test/CodeGen/RISCV/double-mem.ll b/test/CodeGen/RISCV/double-mem.ll
 new file mode 100644
-index 00000000000..28a3790ef7c
+index 00000000000..16a4383f616
 --- /dev/null
 +++ b/test/CodeGen/RISCV/double-mem.ll
 @@ -0,0 +1,63 @@
@@ -157,7 +144,7 @@ index 00000000000..28a3790ef7c
 +define double @fld_stack(double %a) nounwind {
 +; Tests RISCV::LdFPR64_FI
 +; RV32IFD-LABEL: fld_stack:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -32
 +; RV32IFD-NEXT:    sw ra, 28(sp)
 +; RV32IFD-NEXT:    sw a1, 12(sp)
@@ -186,7 +173,7 @@ index 00000000000..28a3790ef7c
 +define void @fsd_stack(double %a, double %b) nounwind {
 +; Tests RISCV::StFPR64_FI
 +; RV32IFD-LABEL: fsd_stack:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -32
 +; RV32IFD-NEXT:    sw ra, 28(sp)
 +; RV32IFD-NEXT:    sw a3, 4(sp)

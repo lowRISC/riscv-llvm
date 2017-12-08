@@ -31,7 +31,7 @@ index 4801884e242..58817533925 100644
  
 diff --git a/test/CodeGen/RISCV/alloca.ll b/test/CodeGen/RISCV/alloca.ll
 new file mode 100644
-index 00000000000..9ca07df5336
+index 00000000000..7815866f5c4
 --- /dev/null
 +++ b/test/CodeGen/RISCV/alloca.ll
 @@ -0,0 +1,65 @@
@@ -46,7 +46,7 @@ index 00000000000..9ca07df5336
 +
 +define void @simple_alloca(i32 %n) nounwind {
 +; RV32I-LABEL: simple_alloca:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -73,7 +73,7 @@ index 00000000000..9ca07df5336
 +
 +define void @scoped_alloca(i32 %n) nounwind {
 +; RV32I-LABEL: scoped_alloca:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)

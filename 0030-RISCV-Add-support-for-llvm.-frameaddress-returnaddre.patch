@@ -10,7 +10,7 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d263674b1d3..cb3bb34c226 100644
+index 0a843d7adaa..970ad6c8c4b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -166,6 +166,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
@@ -99,7 +99,7 @@ index 2f9c202fb64..8ee00cd69a1 100644
  
 diff --git a/test/CodeGen/RISCV/frameaddr-returnaddr.ll b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
 new file mode 100644
-index 00000000000..62e36100b8e
+index 00000000000..f3dbb8a9662
 --- /dev/null
 +++ b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
 @@ -0,0 +1,99 @@
@@ -113,7 +113,7 @@ index 00000000000..62e36100b8e
 +
 +define i8* @test_frameaddress_0() nounwind {
 +; RV32I-LABEL: test_frameaddress_0:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -129,7 +129,7 @@ index 00000000000..62e36100b8e
 +
 +define i8* @test_frameaddress_2() nounwind {
 +; RV32I-LABEL: test_frameaddress_2:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -146,7 +146,7 @@ index 00000000000..62e36100b8e
 +
 +define i8* @test_frameaddress_3_alloca() nounwind {
 +; RV32I-LABEL: test_frameaddress_3_alloca:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -112
 +; RV32I-NEXT:    sw ra, 108(sp)
 +; RV32I-NEXT:    sw s0, 104(sp)
@@ -171,7 +171,7 @@ index 00000000000..62e36100b8e
 +
 +define i8* @test_returnaddress_0() nounwind {
 +; RV32I-LABEL: test_returnaddress_0:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -187,7 +187,7 @@ index 00000000000..62e36100b8e
 +
 +define i8* @test_returnaddress_2() nounwind {
 +; RV32I-LABEL: test_returnaddress_2:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)

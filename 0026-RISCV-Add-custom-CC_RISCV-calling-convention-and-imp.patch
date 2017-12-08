@@ -19,14 +19,14 @@ but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/CMakeLists.txt              |   1 -
  lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
- lib/Target/RISCV/RISCVISelLowering.cpp       | 396 +++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp       | 394 +++++++++++++--
  lib/Target/RISCV/RISCVISelLowering.h         |  10 +
  test/CodeGen/RISCV/byval.ll                  |  61 +++
  test/CodeGen/RISCV/calling-conv-sext-zext.ll | 497 ++++++++++++++++++
  test/CodeGen/RISCV/calling-conv.ll           | 719 +++++++++++++++++++++++++++
  test/CodeGen/RISCV/calls.ll                  |  82 ++-
  test/CodeGen/RISCV/fp128.ll                  | 134 +++++
- 9 files changed, 1867 insertions(+), 49 deletions(-)
+ 9 files changed, 1865 insertions(+), 49 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv.ll
@@ -72,10 +72,10 @@ index 0b7a523424c..d2b17c64c9c 100644
  def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 58817533925..c160cb2e2e9 100644
+index 58817533925..7d32954936b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -328,7 +328,243 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+@@ -328,7 +328,242 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
  }
  
  // Calling Convention Implementation.
@@ -91,10 +91,10 @@ index 58817533925..c160cb2e2e9 100644
 +// available, then pass as two separate arguments. If either the GPRs or FPRs
 +// are exhausted, then pass according to the rule below.
 +// * If a struct could never be passed in registers or directly in a stack
-+// slot (as it is larger than 2x xlen and the floating point rules don't
-+// apply), then pass it using a pointer with the byval attribute
-+// * If a struct is less than 2x xlen, then coerce to either a two-element
-+// word-sized array or a 2x xlen scalar (depending on alignment).
++// slot (as it is larger than 2*XLEN and the floating point rules don't
++// apply), then pass it using a pointer with the byval attribute.
++// * If a struct is less than 2*XLEN, then coerce to either a two-element
++// word-sized array or a 2*XLEN scalar (depending on alignment).
 +// * The frontend can determine whether a struct is returned by reference or
 +// not based on its size and fields. If it will be returned by reference, the
 +// frontend must modify the prototype so a pointer with the sret annotation is
@@ -109,7 +109,7 @@ index 58817533925..c160cb2e2e9 100644
 +  RISCV::X14, RISCV::X15, RISCV::X16, RISCV::X17
 +};
 +
-+// Pass a 2xlen argument that has been split in to two xlen values through
++// Pass a 2*XLEN argument that has been split into two XLEN values through
 +// registers or the stack as necessary.
 +static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
 +                                ISD::ArgFlagsTy ArgFlags1, unsigned ValNo2,
@@ -163,19 +163,19 @@ index 58817533925..c160cb2e2e9 100644
 +  if (IsRet && ValNo > 1)
 +    return true;
 +
-+  SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
++  SmallVectorImpl<CCValAssign> &PendingLocs = State.getPendingLocs();
 +  SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
 +      State.getPendingArgFlags();
 +
-+  assert(PendingMembers.size() == PendingArgFlags.size() &&
-+         "PendingMembers and PendingArgFlags out of sync");
++  assert(PendingLocs.size() == PendingArgFlags.size() &&
++         "PendingLocs and PendingArgFlags out of sync");
 +
 +  // Split arguments might be passed indirectly, so keep track of the pending
 +  // values.
-+  if (ArgFlags.isSplit() || !PendingMembers.empty()) {
++  if (ArgFlags.isSplit() || !PendingLocs.empty()) {
 +    LocVT = XLenVT;
 +    LocInfo = CCValAssign::Indirect;
-+    PendingMembers.push_back(
++    PendingLocs.push_back(
 +        CCValAssign::getPending(ValNo, ValVT, LocVT, LocInfo));
 +    PendingArgFlags.push_back(ArgFlags);
 +    if (!ArgFlags.isSplitEnd()) {
@@ -185,13 +185,13 @@ index 58817533925..c160cb2e2e9 100644
 +
 +  // If the split argument only had two elements, it should be passed directly
 +  // in registers or on the stack.
-+  if (ArgFlags.isSplitEnd() && PendingMembers.size() <= 2) {
-+    assert(PendingMembers.size() == 2 && "Unexpected PendingMembers.size()");
++  if (ArgFlags.isSplitEnd() && PendingLocs.size() <= 2) {
++    assert(PendingLocs.size() == 2 && "Unexpected PendingLocs.size()");
 +    // Apply the normal calling convention rules to the first half of the
 +    // split argument.
-+    CCValAssign VA = PendingMembers[0];
++    CCValAssign VA = PendingLocs[0];
 +    ISD::ArgFlagsTy AF = PendingArgFlags[0];
-+    PendingMembers.clear();
++    PendingLocs.clear();
 +    PendingArgFlags.clear();
 +    return CC_RISCVAssign2XLen(XLen, State, VA, AF, ValNo, ValVT, LocVT,
 +                               ArgFlags);
@@ -201,20 +201,20 @@ index 58817533925..c160cb2e2e9 100644
 +  unsigned Reg = State.AllocateReg(ArgGPRs);
 +  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen / 8, XLen / 8);
 +
-+  // If we reach this point and PendingMembers is non-empty, we must be at the
++  // If we reach this point and PendingLocs is non-empty, we must be at the
 +  // end of a split argument that must be passed indirectly.
-+  if (!PendingMembers.empty()) {
++  if (!PendingLocs.empty()) {
 +    assert(ArgFlags.isSplitEnd() && "Expected ArgFlags.isSplitEnd()");
-+    assert(PendingMembers.size() > 2 && "Unexpected PendingMembers.size()");
++    assert(PendingLocs.size() > 2 && "Unexpected PendingLocs.size()");
 +
-+    for (auto &It : PendingMembers) {
++    for (auto &It : PendingLocs) {
 +      if (Reg)
 +        It.convertToReg(Reg);
 +      else
 +        It.convertToMem(StackOffset);
 +      State.addLoc(It);
 +    }
-+    PendingMembers.clear();
++    PendingLocs.clear();
 +    PendingArgFlags.clear();
 +    return false;
 +  }
@@ -240,7 +240,7 @@ index 58817533925..c160cb2e2e9 100644
 +    ISD::ArgFlagsTy ArgFlags = Ins[i].Flags;
 +
 +    if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
-+                 ArgFlags, CCInfo, true, IsRet)) {
++                 ArgFlags, CCInfo, /*IsRet=*/true, IsRet)) {
 +      DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
 +                   << EVT(ArgVT).getEVTString() << '\n');
 +      llvm_unreachable(nullptr);
@@ -250,8 +250,7 @@ index 58817533925..c160cb2e2e9 100644
 +
 +void RISCVTargetLowering::analyzeOutputArgs(
 +    MachineFunction &MF, CCState &CCInfo,
-+    const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsRet,
-+    CallLoweringInfo *CLI) const {
++    const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsRet) const {
 +  unsigned NumArgs = Outs.size();
 +
 +  for (unsigned i = 0; i != NumArgs; i++) {
@@ -299,7 +298,7 @@ index 58817533925..c160cb2e2e9 100644
 +  EVT ValVT = VA.getValVT();
 +  EVT PtrVT = MVT::getIntegerVT(DAG.getDataLayout().getPointerSizeInBits(0));
 +  int FI = MFI.CreateFixedObject(ValVT.getSizeInBits() / 8,
-+                                 VA.getLocMemOffset(), true);
++                                 VA.getLocMemOffset(), /*Immutable=*/true);
 +  SDValue FIN = DAG.getFrameIndex(FI, PtrVT);
 +  SDValue Val;
 +
@@ -320,7 +319,7 @@ index 58817533925..c160cb2e2e9 100644
  
  // Transform physical registers into virtual registers.
  SDValue RISCVTargetLowering::LowerFormalArguments(
-@@ -345,8 +581,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -345,8 +580,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    }
  
    MachineFunction &MF = DAG.getMachineFunction();
@@ -330,7 +329,7 @@ index 58817533925..c160cb2e2e9 100644
  
    if (IsVarArg)
      report_fatal_error("VarArg not supported");
-@@ -354,25 +590,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -354,25 +589,37 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
@@ -346,7 +345,7 @@ index 58817533925..c160cb2e2e9 100644
 -      DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
 -          << RegVT.getEVTString() << "\n");
 -      report_fatal_error("unhandled argument type");
-+  analyzeInputArgs(MF, CCInfo, Ins, /*IsRet*/ false);
++  analyzeInputArgs(MF, CCInfo, Ins, /*IsRet=*/false);
 +
 +  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
 +    CCValAssign &VA = ArgLocs[i];
@@ -386,7 +385,7 @@ index 58817533925..c160cb2e2e9 100644
    }
    return Chain;
  }
-@@ -392,6 +640,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -392,6 +639,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    CallingConv::ID CallConv = CLI.CallConv;
    bool IsVarArg = CLI.IsVarArg;
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -394,12 +393,12 @@ index 58817533925..c160cb2e2e9 100644
  
    if (IsVarArg) {
      report_fatal_error("LowerCall with varargs not implemented");
-@@ -402,44 +651,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -402,44 +650,105 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Analyze the operands of the call, assigning locations to each operand.
    SmallVector<CCValAssign, 16> ArgLocs;
    CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
 -  ArgCCInfo.AnalyzeCallOperands(Outs, CC_RISCV32);
-+  analyzeOutputArgs(MF, ArgCCInfo, Outs, false, &CLI);
++  analyzeOutputArgs(MF, ArgCCInfo, Outs, /*IsRet=*/false);
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
@@ -418,7 +417,7 @@ index 58817533925..c160cb2e2e9 100644
 +    unsigned Size = Flags.getByValSize();
 +    unsigned Align = Flags.getByValAlign();
 +
-+    int FI = MF.getFrameInfo().CreateStackObject(Size, Align, false);
++    int FI = MF.getFrameInfo().CreateStackObject(Size, Align, /*isSS=*/false);
 +    SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
 +    SDValue SizeNode = DAG.getConstant(Size, DL, XLenVT);
 +
@@ -509,16 +508,16 @@ index 58817533925..c160cb2e2e9 100644
    SDValue Glue;
  
    // Build a sequence of copy-to-reg nodes, chained and glued together.
-@@ -489,7 +799,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -489,7 +798,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    // Assign locations to each value returned by this call.
    SmallVector<CCValAssign, 16> RVLocs;
    CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
 -  RetCCInfo.AnalyzeCallResult(Ins, RetCC_RISCV32);
-+  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet*/ true);
++  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet=*/true);
  
    // Copy all of the result registers out of their specified physreg.
    for (auto &VA : RVLocs) {
-@@ -499,12 +809,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -499,12 +808,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      Chain = RetValue.getValue(1);
      Glue = RetValue.getValue(2);
  
@@ -539,7 +538,7 @@ index 58817533925..c160cb2e2e9 100644
 +    MVT VT = Outs[i].VT;
 +    ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
 +    if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
-+                 CCInfo, /*IsFixed*/ true, /*IsRet*/ true))
++                 CCInfo, /*IsFixed=*/true, /*IsRet=*/true))
 +      return false;
 +  }
 +  return true;
@@ -548,13 +547,12 @@ index 58817533925..c160cb2e2e9 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -522,17 +848,21 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -522,17 +847,20 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
    CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                   *DAG.getContext());
  
 -  CCInfo.AnalyzeReturn(Outs, RetCC_RISCV32);
-+  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet*/ true,
-+                    nullptr);
++  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet=*/true);
  
    SDValue Flag;
    SmallVector<SDValue, 4> RetOps(1, Chain);
@@ -573,7 +571,7 @@ index 58817533925..c160cb2e2e9 100644
      // Guarantee that all emitted copies are stuck together.
      Flag = Chain.getValue(1);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 933bc6218d5..8dde84ca0b3 100644
+index 933bc6218d5..9c5c7ca008c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -48,12 +48,22 @@ public:
@@ -585,7 +583,7 @@ index 933bc6218d5..8dde84ca0b3 100644
 +                        bool IsRet) const;
 +  void analyzeOutputArgs(MachineFunction &MF, CCState &CCInfo,
 +                         const SmallVectorImpl<ISD::OutputArg> &Outs,
-+                         bool IsRet, CallLoweringInfo *CLI) const;
++                         bool IsRet) const;
    // Lower incoming arguments, copy physregs into vregs
    SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
                                 bool IsVarArg,
@@ -601,7 +599,7 @@ index 933bc6218d5..8dde84ca0b3 100644
                        const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
 new file mode 100644
-index 00000000000..22ce562852c
+index 00000000000..6c67f60a436
 --- /dev/null
 +++ b/test/CodeGen/RISCV/byval.ll
 @@ -0,0 +1,61 @@
@@ -614,7 +612,7 @@ index 00000000000..22ce562852c
 +
 +define i32 @callee(%struct.Foo* byval %f) nounwind {
 +; RV32I-LABEL: callee:
-+; RV32I:       # BB#0: # %entry
++; RV32I:       # %bb.0: # %entry
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -633,7 +631,7 @@ index 00000000000..22ce562852c
 +
 +define void @caller() nounwind {
 +; RV32I-LABEL: caller:
-+; RV32I:       # BB#0: # %entry
++; RV32I:       # %bb.0: # %entry
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -668,7 +666,7 @@ index 00000000000..22ce562852c
 +}
 diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 new file mode 100644
-index 00000000000..b06d2129801
+index 00000000000..3488f08f8fc
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 @@ -0,0 +1,497 @@
@@ -678,7 +676,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @uint8_arg_to_uint8_ret(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: uint8_arg_to_uint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -694,7 +692,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_uint8_as_uint8(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: pass_uint8_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -714,7 +712,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @ret_callresult_uint8_as_uint8() nounwind {
 +; RV32I-LABEL: ret_callresult_uint8_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -732,7 +730,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @uint8_arg_to_sint8_ret(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: uint8_arg_to_sint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -750,7 +748,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_uint8_as_sint8(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: pass_uint8_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -771,7 +769,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @ret_callresult_uint8_as_sint8() nounwind {
 +; RV32I-LABEL: ret_callresult_uint8_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -791,7 +789,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @uint8_arg_to_anyint32_ret(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: uint8_arg_to_anyint32_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -808,7 +806,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_uint8_as_anyint32(i8 zeroext %a) nounwind {
 +; RV32I-LABEL: pass_uint8_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -827,7 +825,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @ret_callresult_uint8_as_anyint32() nounwind {
 +; RV32I-LABEL: ret_callresult_uint8_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -846,7 +844,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @sint8_arg_to_uint8_ret(i8 signext %a) nounwind {
 +; RV32I-LABEL: sint8_arg_to_uint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -861,7 +859,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_sint8_as_uint8(i8 signext %a) nounwind {
 +; RV32I-LABEL: pass_sint8_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -882,7 +880,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @ret_callresult_sint8_as_uint8() nounwind {
 +; RV32I-LABEL: ret_callresult_sint8_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -901,7 +899,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @sint8_arg_to_sint8_ret(i8 signext %a) nounwind {
 +; RV32I-LABEL: sint8_arg_to_sint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -915,7 +913,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_sint8_as_sint8(i8 signext %a) nounwind {
 +; RV32I-LABEL: pass_sint8_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -933,7 +931,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @ret_callresult_sint8_as_sint8() nounwind {
 +; RV32I-LABEL: ret_callresult_sint8_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -951,7 +949,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @sint8_arg_to_anyint32_ret(i8 signext %a) nounwind {
 +; RV32I-LABEL: sint8_arg_to_anyint32_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -966,7 +964,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_sint8_as_anyint32(i8 signext %a) nounwind {
 +; RV32I-LABEL: pass_sint8_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -985,7 +983,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @ret_callresult_sint8_as_anyint32() nounwind {
 +; RV32I-LABEL: ret_callresult_sint8_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1004,7 +1002,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @anyint32_arg_to_uint8_ret(i32 signext %a) nounwind {
 +; RV32I-LABEL: anyint32_arg_to_uint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1020,7 +1018,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_anyint32_as_uint8(i32 signext %a) nounwind {
 +; RV32I-LABEL: pass_anyint32_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1042,7 +1040,7 @@ index 00000000000..b06d2129801
 +
 +define zeroext i8 @ret_callresult_anyint32_as_uint8() nounwind {
 +; RV32I-LABEL: ret_callresult_anyint32_as_uint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1062,7 +1060,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @anyint32_arg_to_sint8_ret(i32 signext %a) nounwind {
 +; RV32I-LABEL: anyint32_arg_to_sint8_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1079,7 +1077,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_anyint32_as_sint8(i32 signext %a) nounwind {
 +; RV32I-LABEL: pass_anyint32_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1100,7 +1098,7 @@ index 00000000000..b06d2129801
 +
 +define signext i8 @ret_callresult_anyint32_as_sint8() nounwind {
 +; RV32I-LABEL: ret_callresult_anyint32_as_sint8:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1121,7 +1119,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @anyint32_arg_to_anyint32_ret(i32 signext %a) nounwind {
 +; RV32I-LABEL: anyint32_arg_to_anyint32_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1135,7 +1133,7 @@ index 00000000000..b06d2129801
 +
 +define void @pass_anyint32_as_anyint32(i32 signext %a) nounwind {
 +; RV32I-LABEL: pass_anyint32_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1153,7 +1151,7 @@ index 00000000000..b06d2129801
 +
 +define signext i32 @ret_callresult_anyint32_as_anyint32() nounwind {
 +; RV32I-LABEL: ret_callresult_anyint32_as_anyint32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1171,7 +1169,7 @@ index 00000000000..b06d2129801
 +
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
 new file mode 100644
-index 00000000000..eb9e1ff72af
+index 00000000000..3a55752d2cb
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -0,0 +1,719 @@
@@ -1187,7 +1185,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
 +; RV32I-LABEL: callee_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1228,7 +1226,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_scalars() nounwind {
 +; RV32I-LABEL: caller_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1256,7 +1254,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @callee_large_scalars(i128 %a, fp128 %b) nounwind {
 +; RV32I-LABEL: callee_large_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1290,7 +1288,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_large_scalars() nounwind {
 +; RV32I-LABEL: caller_large_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 44(sp)
 +; RV32I-NEXT:    sw s0, 40(sp)
@@ -1324,7 +1322,7 @@ index 00000000000..eb9e1ff72af
 +; Check that arguments larger than 2*xlen are handled correctly when their
 +; address is passed on the stack rather than in memory
 +; RV32I-LABEL: callee_large_scalars_exhausted_regs:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1359,7 +1357,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_large_scalars_exhausted_regs() nounwind {
 +; RV32I-LABEL: caller_large_scalars_exhausted_regs:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -64
 +; RV32I-NEXT:    sw ra, 60(sp)
 +; RV32I-NEXT:    sw s0, 56(sp)
@@ -1404,7 +1402,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_mixed_scalar_libcalls(i64 %a) nounwind {
 +; RV32I-LABEL: caller_mixed_scalar_libcalls:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1430,7 +1428,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i64 %g, i32 %h) nounwind {
 +; RV32I-LABEL: callee_many_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1471,7 +1469,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_many_scalars() nounwind {
 +; RV32I-LABEL: caller_many_scalars:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1504,7 +1502,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) nounwind {
 +; RV32I-LABEL: callee_small_coerced_struct:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1524,7 +1522,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_small_coerced_struct() nounwind {
 +; RV32I-LABEL: caller_small_coerced_struct:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1548,7 +1546,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @callee_large_struct(%struct.large* byval align 4 %a) nounwind {
 +; RV32I-LABEL: callee_large_struct:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1570,7 +1568,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_large_struct() nounwind {
 +; RV32I-LABEL: caller_large_struct:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 44(sp)
 +; RV32I-NEXT:    sw s0, 40(sp)
@@ -1615,7 +1613,7 @@ index 00000000000..eb9e1ff72af
 +; The double should be 8-byte aligned on the stack, but the two-element array
 +; should only be 4-byte aligned
 +; RV32I-LABEL: callee_aligned_stack:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1651,7 +1649,7 @@ index 00000000000..eb9e1ff72af
 +; The double should be 8-byte aligned on the stack, but the two-element array
 +; should only be 4-byte aligned
 +; RV32I-LABEL: caller_aligned_stack:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -64
 +; RV32I-NEXT:    sw ra, 60(sp)
 +; RV32I-NEXT:    sw s0, 56(sp)
@@ -1709,7 +1707,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i64 @callee_small_scalar_ret() nounwind {
 +; RV32I-LABEL: callee_small_scalar_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1726,7 +1724,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_small_scalar_ret() nounwind {
 +; RV32I-LABEL: caller_small_scalar_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1757,7 +1755,7 @@ index 00000000000..eb9e1ff72af
 +
 +define %struct.small @callee_small_struct_ret() nounwind {
 +; RV32I-LABEL: callee_small_struct_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1773,7 +1771,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_small_struct_ret() nounwind {
 +; RV32I-LABEL: caller_small_struct_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1798,7 +1796,7 @@ index 00000000000..eb9e1ff72af
 +
 +define fp128 @callee_large_scalar_ret() nounwind {
 +; RV32I-LABEL: callee_large_scalar_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1818,7 +1816,7 @@ index 00000000000..eb9e1ff72af
 +
 +define void @caller_large_scalar_ret() nounwind {
 +; RV32I-LABEL: caller_large_scalar_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1839,7 +1837,7 @@ index 00000000000..eb9e1ff72af
 +
 +define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) nounwind {
 +; RV32I-LABEL: callee_large_struct_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1869,7 +1867,7 @@ index 00000000000..eb9e1ff72af
 +
 +define i32 @caller_large_struct_ret() nounwind {
 +; RV32I-LABEL: caller_large_struct_ret:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1895,7 +1893,7 @@ index 00000000000..eb9e1ff72af
 +  ret i32 %6
 +}
 diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
-index 2fde91d77c1..a5da4c60b67 100644
+index 3fba88dc45d..4299d46f55e 100644
 --- a/test/CodeGen/RISCV/calls.ll
 +++ b/test/CodeGen/RISCV/calls.ll
 @@ -52,7 +52,7 @@ define i32 @test_call_defined(i32 %a) nounwind {
@@ -1916,7 +1914,7 @@ index 2fde91d77c1..a5da4c60b67 100644
 +
 +define i32 @test_call_external_many_args(i32 %a) nounwind {
 +; RV32I-LABEL: test_call_external_many_args:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1949,7 +1947,7 @@ index 2fde91d77c1..a5da4c60b67 100644
 +
 +define i32 @defined_many_args(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 %j) nounwind {
 +; RV32I-LABEL: defined_many_args:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -1966,7 +1964,7 @@ index 2fde91d77c1..a5da4c60b67 100644
 +
 +define i32 @test_call_defined_many_args(i32 %a) nounwind {
 +; RV32I-LABEL: test_call_defined_many_args:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -32
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -1993,7 +1991,7 @@ index 2fde91d77c1..a5da4c60b67 100644
 +}
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
 new file mode 100644
-index 00000000000..ce3f81f439a
+index 00000000000..32e559b75b5
 --- /dev/null
 +++ b/test/CodeGen/RISCV/fp128.ll
 @@ -0,0 +1,134 @@
@@ -2009,7 +2007,7 @@ index 00000000000..ce3f81f439a
 +
 +define i32 @test_load_and_cmp() nounwind {
 +; RV32I-LABEL: test_load_and_cmp:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 44(sp)
 +; RV32I-NEXT:    sw s0, 40(sp)
@@ -2066,7 +2064,7 @@ index 00000000000..ce3f81f439a
 +
 +define i32 @test_add_and_fptosi() nounwind {
 +; RV32I-LABEL: test_add_and_fptosi:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -80
 +; RV32I-NEXT:    sw ra, 76(sp)
 +; RV32I-NEXT:    sw s0, 72(sp)

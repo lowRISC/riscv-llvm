@@ -8,14 +8,14 @@ Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
  2 files changed, 76 insertions(+), 13 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 17582794a12..a61afbf5759 100644
+index 75050acc227..366f8743dbd 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -54,15 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
--  if (RC == &RISCV::GPRRegClass) {
+-  if (RISCV::GPRRegClass.hasSubClassEq(RC)) {
 -    unsigned Opcode = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
 -    BuildMI(MBB, I, DL, get(Opcode))
 -        .addReg(SrcReg, getKillRegState(IsKill))
@@ -24,9 +24,9 @@ index 17582794a12..a61afbf5759 100644
 -  } else {
 +  unsigned Opcode;
 +
-+  if (RC == &RISCV::GPRRegClass)
++  if (RISCV::GPRRegClass.hasSubClassEq(RC))
 +    Opcode = Subtarget.is64Bit() ? RISCV::SD : RISCV::SW;
-+  else if (RC == &RISCV::FPR32RegClass)
++  else if (RISCV::FPR32RegClass.hasSubClassEq(RC))
 +    Opcode = RISCV::FSW;
 +  else
      llvm_unreachable("Can't store this register to stack slot");
@@ -43,15 +43,15 @@ index 17582794a12..a61afbf5759 100644
    if (I != MBB.end())
      DL = I->getDebugLoc();
  
--  if (RC == &RISCV::GPRRegClass) {
+-  if (RISCV::GPRRegClass.hasSubClassEq(RC)) {
 -    unsigned Opcode = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
 -    BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
 -  } else {
 +  unsigned Opcode;
 +
-+  if (RC == &RISCV::GPRRegClass)
++  if (RISCV::GPRRegClass.hasSubClassEq(RC))
 +    Opcode = Subtarget.is64Bit() ? RISCV::LD : RISCV::LW;
-+  else if (RC == &RISCV::FPR32RegClass)
++  else if (RISCV::FPR32RegClass.hasSubClassEq(RC))
 +    Opcode = RISCV::FLW;
 +  else
      llvm_unreachable("Can't load this register from stack slot");
@@ -62,7 +62,7 @@ index 17582794a12..a61afbf5759 100644
  
  // The contents of values added to Cond are not examined outside of
 diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
-index b808a927804..bcae592b57e 100644
+index f1cbb4330f3..0f543ef083f 100644
 --- a/test/CodeGen/RISCV/float-mem.ll
 +++ b/test/CodeGen/RISCV/float-mem.ll
 @@ -82,3 +82,58 @@ define float @flw_fsw_constant(float %a) nounwind {
@@ -75,7 +75,7 @@ index b808a927804..bcae592b57e 100644
 +define float @flw_stack(float %a) nounwind {
 +; Tests RISCV::LdFPR32_FI
 +; RV32IF-LABEL: flw_stack:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    addi sp, sp, -16
 +; RV32IF-NEXT:    sw ra, 12(sp)
 +; RV32IF-NEXT:    sw s1, 8(sp)
@@ -103,7 +103,7 @@ index b808a927804..bcae592b57e 100644
 +define void @fsw_stack(float %a, float %b) nounwind {
 +; Tests RISCV::StFPR32_FI
 +; RV32IF-LABEL: fsw_stack:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    addi sp, sp, -16
 +; RV32IF-NEXT:    sw ra, 12(sp)
 +; RV32IF-NEXT:    fmv.w.x ft0, a1

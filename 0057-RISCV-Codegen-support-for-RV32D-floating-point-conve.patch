@@ -36,7 +36,7 @@ index b6b47c97e85..4cb5a30d03e 100644
  def : PatFpr64Fpr64DynFrm<fadd, FADD_D>;
 diff --git a/test/CodeGen/RISCV/double-convert.ll b/test/CodeGen/RISCV/double-convert.ll
 new file mode 100644
-index 00000000000..658b81f8a9d
+index 00000000000..4b2c9707aa4
 --- /dev/null
 +++ b/test/CodeGen/RISCV/double-convert.ll
 @@ -0,0 +1,89 @@
@@ -46,7 +46,7 @@ index 00000000000..658b81f8a9d
 +
 +define float @fcvt_s_d(double %a) nounwind {
 +; RV32IFD-LABEL: fcvt_s_d:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    sw a1, 12(sp)
 +; RV32IFD-NEXT:    sw a0, 8(sp)
@@ -61,7 +61,7 @@ index 00000000000..658b81f8a9d
 +
 +define double @fcvt_d_s(float %a) nounwind {
 +; RV32IFD-LABEL: fcvt_d_s:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    fmv.w.x ft0, a0
 +; RV32IFD-NEXT:    fcvt.d.s ft0, ft0
@@ -76,7 +76,7 @@ index 00000000000..658b81f8a9d
 +
 +define i32 @fcvt_w_d(double %a) nounwind {
 +; RV32IFD-LABEL: fcvt_w_d:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    sw a1, 12(sp)
 +; RV32IFD-NEXT:    sw a0, 8(sp)
@@ -90,7 +90,7 @@ index 00000000000..658b81f8a9d
 +
 +define i32 @fcvt_wu_d(double %a) nounwind {
 +; RV32IFD-LABEL: fcvt_wu_d:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    sw a1, 12(sp)
 +; RV32IFD-NEXT:    sw a0, 8(sp)
@@ -104,7 +104,7 @@ index 00000000000..658b81f8a9d
 +
 +define double @fcvt_d_w(i32 %a) nounwind {
 +; RV32IFD-LABEL: fcvt_d_w:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    fcvt.d.w ft0, a0
 +; RV32IFD-NEXT:    fsd ft0, 8(sp)
@@ -118,7 +118,7 @@ index 00000000000..658b81f8a9d
 +
 +define double @fcvt_d_wu(i32 %a) nounwind {
 +; RV32IFD-LABEL: fcvt_d_wu:
-+; RV32IFD:       # BB#0:
++; RV32IFD:       # %bb.0:
 +; RV32IFD-NEXT:    addi sp, sp, -16
 +; RV32IFD-NEXT:    fcvt.d.wu ft0, a0
 +; RV32IFD-NEXT:    fsd ft0, 8(sp)

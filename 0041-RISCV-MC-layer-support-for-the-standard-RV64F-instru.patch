@@ -13,7 +13,7 @@ Subject: [RISCV] MC layer support for the standard RV64F instruction set
  create mode 100644 test/MC/RISCV/rv64f-valid.s
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index 69cdc8d9ece..f231d6cc6d1 100644
+index ea2d4175e79..a95d093e7c7 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -165,3 +165,25 @@ def FMV_W_X : FPUnaryOp_r<0b1111000, 0b000, FPR32, GPR, "fmv.w.x"> {

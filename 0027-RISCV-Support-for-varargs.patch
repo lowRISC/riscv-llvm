@@ -9,12 +9,11 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |  13 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 133 ++++++-
- lib/Target/RISCV/RISCVISelLowering.h        |   1 +
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 141 +++++++-
+ lib/Target/RISCV/RISCVISelLowering.h        |   3 +-
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
- lib/Target/RISCV/RISCVRegisterInfo.cpp      |   1 +
  test/CodeGen/RISCV/vararg.ll                | 535 ++++++++++++++++++++++++++++
- 6 files changed, 708 insertions(+), 19 deletions(-)
+ 5 files changed, 713 insertions(+), 23 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
@@ -88,7 +87,7 @@ index de537aac9c6..8948ba692db 100644
    return Offset;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c160cb2e2e9..4ea621a8b9a 100644
+index 7d32954936b..77fd8a8b8b1 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -164,7 +163,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
 +  // if it has 8-byte alignment (RV32) or 16-byte alignment (RV64)
 +  // An aligned register should be used regardless of
 +  // whether the original argument is 'split' or not. The argument will not be
-+  // passed by registers if the original type is larger than 2x xlen, so don't
++  // passed by registers if the original type is larger than 2*XLEN, so don't
 +  // bother aligning for that case.
 +  unsigned TwoXLenInBytes = (2 * XLen) / 8;
 +  if (!IsFixed && ArgFlags.getOrigAlign() == TwoXLenInBytes &&
@@ -175,7 +174,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
 +    }
 +  }
 +
-   SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
+   SmallVectorImpl<CCValAssign> &PendingLocs = State.getPendingLocs();
    SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
        State.getPendingArgFlags();
 @@ -482,13 +519,20 @@ void RISCVTargetLowering::analyzeInputArgs(
@@ -195,12 +194,20 @@ index c160cb2e2e9..4ea621a8b9a 100644
 +      ArgTy = FType->getParamType(Ins[i].getOrigArgIndex());
 +
      if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
--                 ArgFlags, CCInfo, true, IsRet)) {
-+                 ArgFlags, CCInfo, true, IsRet, ArgTy)) {
+-                 ArgFlags, CCInfo, /*IsRet=*/true, IsRet)) {
++                 ArgFlags, CCInfo, /*IsRet=*/true, IsRet, ArgTy)) {
        DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << '\n');
        llvm_unreachable(nullptr);
-@@ -505,9 +549,10 @@ void RISCVTargetLowering::analyzeOutputArgs(
+@@ -498,15 +542,17 @@ void RISCVTargetLowering::analyzeInputArgs(
+ 
+ void RISCVTargetLowering::analyzeOutputArgs(
+     MachineFunction &MF, CCState &CCInfo,
+-    const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsRet) const {
++    const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsRet,
++    CallLoweringInfo *CLI) const {
+   unsigned NumArgs = Outs.size();
+ 
    for (unsigned i = 0; i != NumArgs; i++) {
      MVT ArgVT = Outs[i].VT;
      ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
@@ -212,7 +219,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
        DEBUG(dbgs() << "OutputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << "\n");
        llvm_unreachable(nullptr);
-@@ -583,9 +628,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -582,9 +628,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
    MachineFunction &MF = DAG.getMachineFunction();
    MVT XLenVT = Subtarget.getXLenVT();
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
@@ -226,7 +233,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
  
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
-@@ -622,6 +668,69 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -621,6 +668,69 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
      }
      InVals.push_back(ArgValue);
    }
@@ -260,7 +267,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
 +    RVFI->setVarArgsFrameIndex(FI);
 +
 +    // If saving an odd-number of registers, create an extra stack slot to
-+    // ensure even-numbered registers are always 2xlen-aligned.
++    // ensure even-numbered registers are always 2*XLEN-aligned.
 +    if (Idx % 2) {
 +      FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset - (int)XLenInBytes,
 +                                 true);
@@ -296,7 +303,7 @@ index c160cb2e2e9..4ea621a8b9a 100644
    return Chain;
  }
  
-@@ -642,10 +751,6 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -641,16 +751,12 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
    MVT XLenVT = Subtarget.getXLenVT();
  
@@ -307,16 +314,23 @@ index c160cb2e2e9..4ea621a8b9a 100644
    MachineFunction &MF = DAG.getMachineFunction();
  
    // Analyze the operands of the call, assigning locations to each operand.
-@@ -825,7 +930,7 @@ bool RISCVTargetLowering::CanLowerReturn(
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  analyzeOutputArgs(MF, ArgCCInfo, Outs, /*IsRet=*/false);
++  analyzeOutputArgs(MF, ArgCCInfo, Outs, /*IsRet=*/false, &CLI);
+ 
+   // Get a count of how many bytes are to be pushed on the stack.
+   unsigned NumBytes = ArgCCInfo.getNextStackOffset();
+@@ -824,7 +930,7 @@ bool RISCVTargetLowering::CanLowerReturn(
      MVT VT = Outs[i].VT;
      ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
      if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
--                 CCInfo, /*IsFixed*/ true, /*IsRet*/ true))
-+                 CCInfo, /*IsFixed*/ true, /*IsRet*/ true, nullptr))
+-                 CCInfo, /*IsFixed=*/true, /*IsRet=*/true))
++                 CCInfo, /*IsFixed=*/true, /*IsRet=*/true, nullptr))
        return false;
    }
    return true;
-@@ -837,10 +942,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -836,10 +942,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -327,10 +341,29 @@ index c160cb2e2e9..4ea621a8b9a 100644
    // Stores the assignment of the return value to a location.
    SmallVector<CCValAssign, 16> RVLocs;
  
+@@ -847,7 +949,8 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
+                  *DAG.getContext());
+ 
+-  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet=*/true);
++  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet=*/true,
++                    nullptr);
+ 
+   SDValue Flag;
+   SmallVector<SDValue, 4> RetOps(1, Chain);
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 8dde84ca0b3..51c942b2e6a 100644
+index 9c5c7ca008c..51c942b2e6a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -53,7 +53,7 @@ private:
+                         bool IsRet) const;
+   void analyzeOutputArgs(MachineFunction &MF, CCState &CCInfo,
+                          const SmallVectorImpl<ISD::OutputArg> &Outs,
+-                         bool IsRet) const;
++                         bool IsRet, CallLoweringInfo *CLI) const;
+   // Lower incoming arguments, copy physregs into vregs
+   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
+                                bool IsVarArg,
 @@ -78,6 +78,7 @@ private:
    SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
@@ -389,21 +422,9 @@ index 00000000000..433a3fb1543
 +} // end namespace llvm
 +
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
-diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 5776a92cab9..f6dc0b61809 100644
---- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
-+++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-@@ -13,6 +13,7 @@
- 
- #include "RISCVRegisterInfo.h"
- #include "RISCV.h"
-+#include "RISCVMachineFunctionInfo.h"
- #include "RISCVSubtarget.h"
- #include "llvm/CodeGen/MachineFrameInfo.h"
- #include "llvm/CodeGen/MachineFunction.h"
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
 new file mode 100644
-index 00000000000..1937ce0b3a8
+index 00000000000..03a3d59a6ac
 --- /dev/null
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -0,0 +1,535 @@
@@ -422,7 +443,7 @@ index 00000000000..1937ce0b3a8
 +
 +define i32 @va1(i8* %fmt, ...) nounwind {
 +; RV32I-LABEL: va1:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -455,7 +476,7 @@ index 00000000000..1937ce0b3a8
 +
 +define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
 +; RV32I-LABEL: va1_va_arg:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -486,7 +507,7 @@ index 00000000000..1937ce0b3a8
 +; pointer is correct
 +define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
 +; RV32I-LABEL: va1_va_arg_alloca:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -528,7 +549,7 @@ index 00000000000..1937ce0b3a8
 +
 +define void @va1_caller() nounwind {
 +; RV32I-LABEL: va1_caller:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -554,7 +575,7 @@ index 00000000000..1937ce0b3a8
 +
 +define double @va2(i8 *%fmt, ...) nounwind {
 +; RV32I-LABEL: va2:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -595,7 +616,7 @@ index 00000000000..1937ce0b3a8
 +
 +define double @va2_va_arg(i8 *%fmt, ...) nounwind {
 +; RV32I-LABEL: va2_va_arg:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -629,7 +650,7 @@ index 00000000000..1937ce0b3a8
 +
 +define void @va2_caller() nounwind {
 +; RV32I-LABEL: va2_caller:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -653,7 +674,7 @@ index 00000000000..1937ce0b3a8
 +
 +define double @va3(i32 %a, double %b, ...) nounwind {
 +; RV32I-LABEL: va3:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 20(sp)
 +; RV32I-NEXT:    sw s0, 16(sp)
@@ -699,7 +720,7 @@ index 00000000000..1937ce0b3a8
 +
 +define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
 +; RV32I-LABEL: va3_va_arg:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 20(sp)
 +; RV32I-NEXT:    sw s0, 16(sp)
@@ -738,7 +759,7 @@ index 00000000000..1937ce0b3a8
 +
 +define void @va3_caller() nounwind {
 +; RV32I-LABEL: va3_caller:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -765,7 +786,7 @@ index 00000000000..1937ce0b3a8
 +
 +define i32 @va4_va_copy(i32 %argno, ...) nounwind {
 +; RV32I-LABEL: va4_va_copy:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -64
 +; RV32I-NEXT:    sw ra, 28(sp)
 +; RV32I-NEXT:    sw s0, 24(sp)
@@ -833,7 +854,7 @@ index 00000000000..1937ce0b3a8
 +
 +define i32 @va5_aligned_stack_callee(i32 %a, ...) nounwind {
 +; RV32I-LABEL: va5_aligned_stack_callee:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
@@ -857,7 +878,7 @@ index 00000000000..1937ce0b3a8
 +; The double should be 8-byte aligned on the stack, but the two-element array
 +; should only be 4-byte aligned
 +; RV32I-LABEL: va5_aligned_stack_caller:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -64
 +; RV32I-NEXT:    sw ra, 60(sp)
 +; RV32I-NEXT:    sw s0, 56(sp)
@@ -915,7 +936,7 @@ index 00000000000..1937ce0b3a8
 +
 +define i32 @va6_no_fixed_args(...) nounwind {
 +; RV32I-LABEL: va6_no_fixed_args:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -48
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)

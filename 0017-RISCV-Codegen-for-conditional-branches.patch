@@ -39,7 +39,7 @@ index 49bc6a29e45..9f19cda8910 100644
  
    // Function alignments (log2).
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index ebb7174002d..63178bb668d 100644
+index ebb7174002d..384fa89d18f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -41,3 +41,36 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
@@ -56,7 +56,7 @@ index ebb7174002d..63178bb668d 100644
 +  if (I != MBB.end())
 +    DL = I->getDebugLoc();
 +
-+  if (RC == &RISCV::GPRRegClass)
++  if (RISCV::GPRRegClass.hasSubClassEq(RC))
 +    BuildMI(MBB, I, DL, get(RISCV::SW))
 +        .addReg(SrcReg, getKillRegState(IsKill))
 +        .addFrameIndex(FI)
@@ -74,7 +74,7 @@ index ebb7174002d..63178bb668d 100644
 +  if (I != MBB.end())
 +    DL = I->getDebugLoc();
 +
-+  if (RC == &RISCV::GPRRegClass)
++  if (RISCV::GPRRegClass.hasSubClassEq(RC))
 +    BuildMI(MBB, I, DL, get(RISCV::LW), DstReg).addFrameIndex(FI).addImm(0);
 +  else
 +    llvm_unreachable("Can't load this register from stack slot");
@@ -237,7 +237,7 @@ index e03dede814e..d75a2a10b25 100644
                             RegScavenger *RS = nullptr) const override;
 diff --git a/test/CodeGen/RISCV/branch.ll b/test/CodeGen/RISCV/branch.ll
 new file mode 100644
-index 00000000000..194083b07c7
+index 00000000000..e2593d3309b
 --- /dev/null
 +++ b/test/CodeGen/RISCV/branch.ll
 @@ -0,0 +1,121 @@
@@ -247,7 +247,7 @@ index 00000000000..194083b07c7
 +
 +define void @foo(i32 %a, i32 *%b, i1 %c) {
 +; RV32I-LABEL: foo:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lw a3, 0(a1)
 +; RV32I-NEXT:    beq a3, a0, .LBB0_12
 +; RV32I-NEXT:    jal zero, .LBB0_1

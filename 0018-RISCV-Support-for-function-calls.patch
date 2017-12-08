@@ -213,7 +213,7 @@ index 2f874b8a4a7..471cd84fdcd 100644
                                           Type *Ty) const override {
      return true;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 63178bb668d..5b4f4fcbb88 100644
+index 384fa89d18f..186fe363edd 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -28,7 +28,8 @@
@@ -324,7 +324,7 @@ index d75a2a10b25..0b2bc3776fc 100644
    BitVector getReservedRegs(const MachineFunction &MF) const override;
 diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
 new file mode 100644
-index 00000000000..8abe5e92a8e
+index 00000000000..77f61290705
 --- /dev/null
 +++ b/test/CodeGen/RISCV/calls.ll
 @@ -0,0 +1,83 @@
@@ -336,7 +336,7 @@ index 00000000000..8abe5e92a8e
 +
 +define i32 @test_call_external(i32 %a) nounwind {
 +; RV32I-LABEL: test_call_external:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
 +; RV32I-NEXT:    lui a1, %hi(external_function)
 +; RV32I-NEXT:    addi a1, a1, %lo(external_function)
@@ -349,7 +349,7 @@ index 00000000000..8abe5e92a8e
 +
 +define i32 @defined_function(i32 %a) nounwind {
 +; RV32I-LABEL: defined_function:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi a0, a0, 1
 +; RV32I-NEXT:    jalr zero, ra, 0
 +  %1 = add i32 %a, 1
@@ -358,7 +358,7 @@ index 00000000000..8abe5e92a8e
 +
 +define i32 @test_call_defined(i32 %a) nounwind {
 +; RV32I-LABEL: test_call_defined:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
 +; RV32I-NEXT:    lui a1, %hi(defined_function)
 +; RV32I-NEXT:    addi a1, a1, %lo(defined_function)
@@ -371,7 +371,7 @@ index 00000000000..8abe5e92a8e
 +
 +define i32 @test_call_indirect(i32 (i32)* %a, i32 %b) nounwind {
 +; RV32I-LABEL: test_call_indirect:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
 +; RV32I-NEXT:    addi a2, a0, 0
 +; RV32I-NEXT:    addi a0, a1, 0
@@ -387,7 +387,7 @@ index 00000000000..8abe5e92a8e
 +
 +define fastcc i32 @fastcc_function(i32 %a, i32 %b) nounwind {
 +; RV32I-LABEL: fastcc_function:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    add a0, a0, a1
 +; RV32I-NEXT:    jalr zero, ra, 0
 + %1 = add i32 %a, %b
@@ -396,7 +396,7 @@ index 00000000000..8abe5e92a8e
 +
 +define i32 @test_call_fastcc(i32 %a, i32 %b) nounwind {
 +; RV32I-LABEL: test_call_fastcc:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
 +; RV32I-NEXT:    sw s1, 8(s0)
 +; RV32I-NEXT:    addi s1, a0, 0

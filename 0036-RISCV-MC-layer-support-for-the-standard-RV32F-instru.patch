@@ -4,7 +4,7 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
  extension
 
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  31 ++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  36 +++++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  25 +++
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  12 +-
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   4 +
@@ -18,13 +18,13 @@ Subject: [RISCV] MC layer support for the standard RV32F instruction set
  test/MC/RISCV/rv32f-invalid.s                      |  29 ++++
  test/MC/RISCV/rv32f-valid.s                        | 164 ++++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                      |   4 +
- 14 files changed, 589 insertions(+), 13 deletions(-)
+ 14 files changed, 594 insertions(+), 13 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoF.td
  create mode 100644 test/MC/RISCV/rv32f-invalid.s
  create mode 100644 test/MC/RISCV/rv32f-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 3f76ce3b24a..e3abae82aca 100644
+index 3f76ce3b24a..0037d8d8af4 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -185,6 +185,20 @@ public:
@@ -48,25 +48,30 @@ index 3f76ce3b24a..e3abae82aca 100644
    bool isUImm5() const {
      int64_t Imm;
      RISCVMCExpr::VariantKind VK;
-@@ -344,6 +358,17 @@ public:
+@@ -344,6 +358,22 @@ public:
      }
      Inst.addOperand(MCOperand::createImm(Imm));
    }
 +
-+  void addFRMArgOperands(MCInst &Inst, unsigned N) const {
-+    assert(N == 1 && "Invalid number of operands!");
++  // Returns the rounding mode represented by this RISCVOperand. Should only
++  // be called after checking isFRMArg.
++  RISCVFPRndMode::RoundingMode getRoundingMode() const {
 +    // isFRMArg has validated the operand, meaning this cast is safe.
 +    auto SE = cast<MCSymbolRefExpr>(getImm());
-+
 +    RISCVFPRndMode::RoundingMode FRM =
 +        RISCVFPRndMode::stringToRoundingMode(SE->getSymbol().getName());
 +    assert(FRM != RISCVFPRndMode::Invalid && "Invalid rounding mode");
-+    Inst.addOperand(MCOperand::createImm(FRM));
++    return FRM;
++  }
++
++  void addFRMArgOperands(MCInst &Inst, unsigned N) const {
++    assert(N == 1 && "Invalid number of operands!");
++    Inst.addOperand(MCOperand::createImm(getRoundingMode()));
 +  }
  };
  } // end anonymous namespace.
  
-@@ -411,6 +436,12 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -411,6 +441,12 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
          ErrorLoc,
          "operand must be formed of letters selected in-order from 'iorw'");
    }
@@ -354,7 +359,7 @@ index 5aa5858c5ab..6bba3425e19 100644
 +include "RISCVInstrInfoF.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
 new file mode 100644
-index 00000000000..69cdc8d9ece
+index 00000000000..ea2d4175e79
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -0,0 +1,167 @@
@@ -367,7 +372,7 @@ index 00000000000..69cdc8d9ece
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// This file describes the RISC-V instructions from the standard 'F', 
++// This file describes the RISC-V instructions from the standard 'F',
 +// Single-Precision Floating-Point instruction set extension.
 +//
 +//===----------------------------------------------------------------------===//

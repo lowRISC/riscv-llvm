@@ -7,7 +7,7 @@ As the FPR32 and FPR64 registers have the same names, use
 validateTargetOperandClass in RISCVAsmParser to coerce a parsed FPR32 to an
 FPR64 when necessary.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  63 ++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  64 +++++++++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  25 ++++
  lib/Target/RISCV/RISCV.td                          |   8 ++
  lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
@@ -17,13 +17,13 @@ FPR64 when necessary.
  test/MC/RISCV/rv32d-invalid.s                      |  21 +++
  test/MC/RISCV/rv32d-valid.s                        | 159 +++++++++++++++++++++
  test/MC/RISCV/rv32f-invalid.s                      |   3 +
- 10 files changed, 440 insertions(+)
+ 10 files changed, 441 insertions(+)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoD.td
  create mode 100644 test/MC/RISCV/rv32d-invalid.s
  create mode 100644 test/MC/RISCV/rv32d-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index e3abae82aca..e591b7aa952 100644
+index 0037d8d8af4..ab5880a3646 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -32,6 +32,9 @@ struct RISCVOperand;
@@ -36,7 +36,7 @@ index e3abae82aca..e591b7aa952 100644
    bool generateImmOutOfRangeError(OperandVector &Operands, uint64_t ErrorInfo,
                                    int Lower, int Upper, Twine Msg);
  
-@@ -376,6 +379,66 @@ public:
+@@ -381,6 +384,67 @@ public:
  #define GET_MATCHER_IMPLEMENTATION
  #include "RISCVGenAsmMatcher.inc"
  
@@ -85,17 +85,18 @@ index e3abae82aca..e591b7aa952 100644
 +unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
 +                                                    unsigned Kind) {
 +  RISCVOperand &Op = static_cast<RISCVOperand &>(AsmOp);
-+  if (Op.isReg()) {
-+    unsigned Reg = Op.getReg();
-+    bool IsRegFPR32 =
-+        RISCVMCRegisterClasses[RISCV::FPR32RegClassID].contains(Reg);
++  if (!Op.isReg())
++    return Match_InvalidOperand;
 +
-+    // As the parser couldn't differentiate an FPR32 from an FPR64, coerce the
-+    // register from FPR32 to FPR64 if necessary.
-+    if (IsRegFPR32 && Kind == MCK_FPR64) {
-+      Op.Reg.RegNum = convertFPR32ToFPR64(Reg);
-+      return Match_Success;
-+    }
++  unsigned Reg = Op.getReg();
++  bool IsRegFPR32 =
++      RISCVMCRegisterClasses[RISCV::FPR32RegClassID].contains(Reg);
++
++  // As the parser couldn't differentiate an FPR32 from an FPR64, coerce the
++  // register from FPR32 to FPR64 if necessary.
++  if (IsRegFPR32 && Kind == MCK_FPR64) {
++    Op.Reg.RegNum = convertFPR32ToFPR64(Reg);
++    return Match_Success;
 +  }
 +  return Match_InvalidOperand;
 +}

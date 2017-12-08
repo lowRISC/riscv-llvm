@@ -15,7 +15,7 @@ Subject: [RISCV] MC layer support for the standard RV64I instructions
  create mode 100644 test/MC/RISCV/rv64i-valid.s
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index e591b7aa952..0cd4613d77c 100644
+index ab5880a3646..588e39ee3cf 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 @@ -31,6 +31,7 @@ struct RISCVOperand;
@@ -106,7 +106,7 @@ index e591b7aa952..0cd4613d77c 100644
      return Op;
    }
  
-@@ -476,6 +496,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+@@ -482,6 +502,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
      }
      return Error(ErrorLoc, "invalid operand for instruction");
    }
@@ -117,7 +117,7 @@ index e591b7aa952..0cd4613d77c 100644
    case Match_InvalidUImm5:
      return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
    case Match_InvalidSImm12:
-@@ -556,16 +580,16 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
+@@ -562,16 +586,16 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
        }
      }
      if (HadParens)
@@ -137,7 +137,7 @@ index e591b7aa952..0cd4613d77c 100644
    }
  
    return MatchOperand_Success;
-@@ -599,7 +623,7 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -605,7 +629,7 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      return parseOperandWithModifier(Operands);
    }
  
@@ -146,7 +146,7 @@ index e591b7aa952..0cd4613d77c 100644
    return MatchOperand_Success;
  }
  
-@@ -639,7 +663,7 @@ RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
+@@ -645,7 +669,7 @@ RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
    }
  
    const MCExpr *ModExpr = RISCVMCExpr::create(SubExpr, VK, getContext());
@@ -155,7 +155,7 @@ index e591b7aa952..0cd4613d77c 100644
    return MatchOperand_Success;
  }
  
-@@ -651,7 +675,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
+@@ -657,7 +681,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
    }
  
    getParser().Lex(); // Eat '('
@@ -164,7 +164,7 @@ index e591b7aa952..0cd4613d77c 100644
  
    if (parseRegister(Operands) != MatchOperand_Success) {
      Error(getLoc(), "expected register");
-@@ -664,7 +688,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
+@@ -670,7 +694,7 @@ RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
    }
  
    getParser().Lex(); // Eat ')'
@@ -173,7 +173,7 @@ index e591b7aa952..0cd4613d77c 100644
  
    return MatchOperand_Success;
  }
-@@ -694,7 +718,7 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
+@@ -700,7 +724,7 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
                                        StringRef Name, SMLoc NameLoc,
                                        OperandVector &Operands) {
    // First operand is token for instruction

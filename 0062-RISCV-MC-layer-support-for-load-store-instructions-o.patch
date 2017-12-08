@@ -1,0 +1,713 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for load/store instructions of the C
+ (compressed) extension
+
+Differential Revision: https://reviews.llvm.org/D40001
+
+Patch by Shiva Chen.
+---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  48 ++++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |  62 ++++++++--
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  12 +-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  22 +++-
+ lib/Target/RISCV/RISCV.td                          |   7 ++
+ lib/Target/RISCV/RISCVInstrFormats.td              |  16 ++-
+ lib/Target/RISCV/RISCVInstrFormatsC.td             |  96 +++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
+ lib/Target/RISCV/RISCVInstrInfoC.td                | 132 +++++++++++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td              |  30 +++++
+ lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
+ test/MC/RISCV/rv32c-invalid.s                      |  18 +++
+ test/MC/RISCV/rv32c-valid.s                        |  23 ++++
+ test/MC/RISCV/rv64c-invalid.s                      |  18 +++
+ test/MC/RISCV/rv64c-valid.s                        |  19 +++
+ 15 files changed, 484 insertions(+), 22 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVInstrFormatsC.td
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfoC.td
+ create mode 100644 test/MC/RISCV/rv32c-invalid.s
+ create mode 100644 test/MC/RISCV/rv32c-valid.s
+ create mode 100644 test/MC/RISCV/rv64c-invalid.s
+ create mode 100644 test/MC/RISCV/rv64c-valid.s
+
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index 588e39ee3cf..c4a3116b33a 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -225,6 +225,38 @@ public:
+     return IsConstantImm && isUInt<5>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
+   }
+ 
++  bool isUImm7Lsb00() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isShiftedUInt<5, 2>(Imm) &&
++           VK == RISCVMCExpr::VK_RISCV_None;
++  }
++
++  bool isUImm8Lsb00() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isShiftedUInt<6, 2>(Imm) &&
++           VK == RISCVMCExpr::VK_RISCV_None;
++  }
++
++  bool isUImm8Lsb000() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isShiftedUInt<5, 3>(Imm) &&
++           VK == RISCVMCExpr::VK_RISCV_None;
++  }
++
++  bool isUImm9Lsb000() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isShiftedUInt<6, 3>(Imm) &&
++           VK == RISCVMCExpr::VK_RISCV_None;
++  }
++
+   bool isSImm12() const {
+     RISCVMCExpr::VariantKind VK;
+     int64_t Imm;
+@@ -508,6 +540,22 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
+   case Match_InvalidUImm5:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
++  case Match_InvalidUImm7Lsb00:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, 0, (1 << 7) - 4,
++        "immediate must be a multiple of 4 bytes in the range");
++  case Match_InvalidUImm8Lsb00:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, 0, (1 << 8) - 4,
++        "immediate must be a multiple of 4 bytes in the range");
++  case Match_InvalidUImm8Lsb000:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, 0, (1 << 8) - 8,
++        "immediate must be a multiple of 8 bytes in the range");
++  case Match_InvalidUImm9Lsb000:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, 0, (1 << 9) - 8,
++        "immediate must be a multiple of 8 bytes in the range");
+   case Match_InvalidSImm12:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
+                                       (1 << 11) - 1);
+diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+index 2649f1b3729..91c0b5a9d24 100644
+--- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
++++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+@@ -130,10 +130,41 @@ static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
+   return MCDisassembler::Success;
+ }
+ 
++static DecodeStatus DecodeGPRNoX0RegisterClass(MCInst &Inst, uint64_t RegNo,
++                                               uint64_t Address,
++                                               const void *Decoder) {
++   if (RegNo == 0) {
++     return MCDisassembler::Fail;
++   }
++
++   return DecodeGPRRegisterClass(Inst, RegNo, Address, Decoder);
++}
++
++static DecodeStatus DecodeGPRCRegisterClass(MCInst &Inst, uint64_t RegNo,
++                                            uint64_t Address,
++                                            const void *Decoder) {
++  if (RegNo > 8)
++    return MCDisassembler::Fail;
++
++  unsigned Reg = GPRDecoderTable[RegNo + 8];
++  Inst.addOperand(MCOperand::createReg(Reg));
++  return MCDisassembler::Success;
++}
++
++// Add implied SP operand for instructions *SP compressed instructions. The SP
++// operand isn't explicitly encoded in the instruction.
++static void addImplySP(MCInst &Inst, int64_t Address, const void *Decoder) {
++  if (Inst.getOpcode() == RISCV::CLWSP || Inst.getOpcode() == RISCV::CSWSP ||
++      Inst.getOpcode() == RISCV::CLDSP || Inst.getOpcode() == RISCV::CSDSP) {
++    DecodeGPRRegisterClass(Inst, 2, Address, Decoder);
++  }
++}
++
+ template <unsigned N>
+ static DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t Imm,
+                                       int64_t Address, const void *Decoder) {
+   assert(isUInt<N>(Imm) && "Invalid immediate");
++  addImplySP(Inst, Address, Decoder);
+   Inst.addOperand(MCOperand::createImm(Imm));
+   return MCDisassembler::Success;
+ }
+@@ -166,19 +197,24 @@ DecodeStatus RISCVDisassembler::getInstruction(MCInst &MI, uint64_t &Size,
+                                                uint64_t Address,
+                                                raw_ostream &OS,
+                                                raw_ostream &CS) const {
+-  // TODO: although assuming 4-byte instructions is sufficient for RV32 and
+-  // RV64, this will need modification when supporting the compressed
+-  // instruction set extension (RVC) which uses 16-bit instructions. Other
+-  // instruction set extensions have the option of defining instructions up to
+-  // 176 bits wide.
+-  Size = 4;
+-  if (Bytes.size() < 4) {
+-    Size = 0;
+-    return MCDisassembler::Fail;
++  // TODO: This will need modification when supporting instruction set
++  // extensions with instructions > 32-bits (up to 176 bits wide).
++  uint32_t Insn;
++  DecodeStatus Result;
++
++  // It's a 32 bit instruction if bit 0 and 1 are 1.
++  if ((Bytes[0] & 0x3) == 0x3) {
++    Insn = support::endian::read32le(Bytes.data());
++    DEBUG(dbgs() << "Trying RISCV32 table :\n");
++    Result = decodeInstruction(DecoderTable32, MI, Insn, Address, this, STI);
++    Size = 4;
++  } else {
++    Insn = support::endian::read16le(Bytes.data());
++    DEBUG(dbgs() << "Trying RISCV_C table (16-bit Instruction):\n");
++    // Calling the auto-generated decoder function.
++    Result = decodeInstruction(DecoderTable16, MI, Insn, Address, this, STI);
++    Size = 2;
+   }
+ 
+-  // Get the four bytes of the instruction.
+-  uint32_t Inst = support::endian::read32le(Bytes.data());
+-
+-  return decodeInstruction(DecoderTable32, MI, Inst, Address, this, STI);
++  return Result;
+ }
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+index b38f2eaa81b..b278a2ed390 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+@@ -32,9 +32,17 @@ enum {
+   InstFormatB = 5,
+   InstFormatU = 6,
+   InstFormatJ = 7,
+-  InstFormatOther = 8,
++  InstFormatCR = 8,
++  InstFormatCI = 9,
++  InstFormatCSS = 10,
++  InstFormatCIW = 11,
++  InstFormatCL = 12,
++  InstFormatCS = 13,
++  InstFormatCB = 14,
++  InstFormatCJ = 15,
++  InstFormatOther = 16,
+ 
+-  InstFormatMask = 15
++  InstFormatMask = 31
+ };
+ 
+ enum {
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+index f94c37aae8f..ca323d8941d 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+@@ -83,9 +83,25 @@ MCCodeEmitter *llvm::createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
+ void RISCVMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
+                                            SmallVectorImpl<MCFixup> &Fixups,
+                                            const MCSubtargetInfo &STI) const {
+-  // For now, we only support RISC-V instructions with 32-bit length
+-  uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
+-  support::endian::Writer<support::little>(OS).write(Bits);
++  const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
++  // Get byte count of instruction.
++  unsigned Size = Desc.getSize();
++
++  switch (Size) {
++  default:
++    llvm_unreachable("Unhandled encodeInstruction length!");
++  case 2: {
++    uint16_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
++    support::endian::Writer<support::little>(OS).write<uint16_t>(Bits);
++    break;
++  }
++  case 4: {
++    uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
++    support::endian::Writer<support::little>(OS).write(Bits);
++    break;
++  }
++  }
++
+   ++MCNumEmitted; // Keep track of the # of mi's emitted.
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 170c8ff2825..5a6f3580b09 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -38,6 +38,13 @@ def FeatureStdExtD
+ def HasStdExtD : Predicate<"Subtarget->hasStdExtD()">,
+                            AssemblerPredicate<"FeatureStdExtD">;
+ 
++def FeatureStdExtC
++    : SubtargetFeature<"c", "HasStdExtC", "true",
++                       "'C' (Compressed Instructions)">;
++def HasStdExtC : Predicate<"Subtarget->hasStdExtC()">,
++                           AssemblerPredicate<"FeatureStdExtC">;
++
++
+ def Feature64Bit
+     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
+ def IsRV64 : Predicate<"Subtarget->is64Bit()">,
+diff --git a/lib/Target/RISCV/RISCVInstrFormats.td b/lib/Target/RISCV/RISCVInstrFormats.td
+index 83a62cdb52f..7479ffbc953 100644
+--- a/lib/Target/RISCV/RISCVInstrFormats.td
++++ b/lib/Target/RISCV/RISCVInstrFormats.td
+@@ -28,8 +28,8 @@
+ // Format specifies the encoding used by the instruction. This is used by
+ // RISCVMCCodeEmitter to determine which form of fixup to use. These
+ // definitions must be kept in-sync with RISCVBaseInfo.h.
+-class InstFormat<bits<4> val> {
+-  bits<4> Value = val;
++class InstFormat<bits<5> val> {
++  bits<5> Value = val;
+ }
+ def InstFormatPseudo : InstFormat<0>;
+ def InstFormatR      : InstFormat<1>;
+@@ -39,7 +39,15 @@ def InstFormatS      : InstFormat<4>;
+ def InstFormatB      : InstFormat<5>;
+ def InstFormatU      : InstFormat<6>;
+ def InstFormatJ      : InstFormat<7>;
+-def InstFormatOther  : InstFormat<8>;
++def InstFormatCR     : InstFormat<8>;
++def InstFormatCI     : InstFormat<9>;
++def InstFormatCSS    : InstFormat<10>;
++def InstFormatCIW    : InstFormat<11>;
++def InstFormatCL     : InstFormat<12>;
++def InstFormatCS     : InstFormat<13>;
++def InstFormatCB     : InstFormat<14>;
++def InstFormatCJ     : InstFormat<15>;
++def InstFormatOther  : InstFormat<16>;
+ 
+ // The following opcode names and match those given in Table 19.1 in the
+ // RISC-V User-level ISA specification ("RISC-V base opcode map").
+@@ -90,7 +98,7 @@ class RVInst<dag outs, dag ins, string opcodestr, string argstr,
+   let AsmString = opcodestr # "\t" # argstr;
+   let Pattern = pattern;
+ 
+-  let TSFlags{3-0} = format.Value;
++  let TSFlags{4-0} = format.Value;
+ }
+ 
+ // Pseudo instructions
+diff --git a/lib/Target/RISCV/RISCVInstrFormatsC.td b/lib/Target/RISCV/RISCVInstrFormatsC.td
+new file mode 100644
+index 00000000000..117c86c0bd5
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrFormatsC.td
+@@ -0,0 +1,96 @@
++//===-- RISCVInstrFormatsC.td - RISCV C Instruction Formats --*- tablegen -*-=//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++//  This file describes the RISC-V C extension instruction formats.
++//
++//===----------------------------------------------------------------------===//
++
++class RVInst16<dag outs, dag ins, string opcodestr, string argstr,
++               list<dag> pattern, InstFormat format>
++    : Instruction {
++  field bits<16> Inst;
++  // SoftFail is a field the disassembler can use to provide a way for
++  // instructions to not match without killing the whole decode process. It is
++  // mainly used for ARM, but Tablegen expects this field to exist or it fails
++  // to build the decode table.
++  field bits<16> SoftFail = 0;
++  let Size = 2;
++
++  bits<2> Opcode = 0;
++
++  let Namespace = "RISCV";
++
++  dag OutOperandList = outs;
++  dag InOperandList = ins;
++  let AsmString = opcodestr # "\t" # argstr;
++  let Pattern = pattern;
++
++  let TSFlags{4-0} = format.Value;
++}
++
++// The immediate value encoding differs for each instruction, so each subclass
++// is responsible for setting the appropriate bits in the Inst field.
++// The bits Inst{6-2} must be set for each instruction.
++class RVInst16CI<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCI> {
++  bits<10> imm;
++  bits<5> rd;
++  bits<5> rs1;
++
++  let Inst{15-13} = funct3;
++  let Inst{12} = imm{5};
++  let Inst{11-7} = rd;
++  let Inst{1-0} = opcode;
++}
++
++// The immediate value encoding differs for each instruction, so each subclass
++// is responsible for setting the appropriate bits in the Inst field.
++// The bits Inst{12-7} must be set for each instruction.
++class RVInst16CSS<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                  string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCSS> {
++  bits<10> imm;
++  bits<5> rs2;
++  bits<5> rs1;
++
++  let Inst{15-13} = funct3;
++  let Inst{6-2} = rs2;
++  let Inst{1-0} = opcode;
++}
++
++// The immediate value encoding differs for each instruction, so each subclass
++// is responsible for setting the appropriate bits in the Inst field.
++// The bits Inst{12-10} and Inst{6-5} must be set for each instruction.
++class RVInst16CL<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCL> {
++  bits<3> rd;
++  bits<3> rs1;
++
++  let Inst{15-13} = funct3;
++  let Inst{9-7} = rs1;
++  let Inst{4-2} = rd;
++  let Inst{1-0} = opcode;
++}
++
++// The immediate value encoding differs for each instruction, so each subclass
++// is responsible for setting the appropriate bits in the Inst field.
++// The bits Inst{12-10} and Inst{6-5} must be set for each instruction.
++class RVInst16CS<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCS> {
++  bits<3> rs2;
++  bits<3> rs1;
++
++  let Inst{15-13} = funct3;
++  let Inst{9-7} = rs1;
++  let Inst{4-2} = rs2;
++  let Inst{1-0} = opcode;
++}
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 9c77dfa1c05..fa3264d6ce5 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -587,3 +587,4 @@ include "RISCVInstrInfoM.td"
+ include "RISCVInstrInfoA.td"
+ include "RISCVInstrInfoF.td"
+ include "RISCVInstrInfoD.td"
++include "RISCVInstrInfoC.td"
+diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
+new file mode 100644
+index 00000000000..b1dd9e67655
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfoC.td
+@@ -0,0 +1,132 @@
++//===- RISCVInstrInfoC.td - Compressed RISCV instructions -*- tblgen-*-----===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++include "RISCVInstrFormatsC.td"
++
++//===----------------------------------------------------------------------===//
++// Operand definitions.
++//===----------------------------------------------------------------------===//
++
++// A 7-bit unsigned immediate where the least significant two bits are zero.
++def uimm7_lsb00 : Operand<XLenVT>,
++                  ImmLeaf<XLenVT, [{return isShiftedUInt<5, 2>(Imm);}]> {
++  let ParserMatchClass = UImmAsmOperand<7, "Lsb00">;
++  let EncoderMethod = "getImmOpValue";
++  let DecoderMethod = "decodeUImmOperand<7>";
++}
++
++// A 8-bit unsigned immediate where the least significant two bits are zero.
++def uimm8_lsb00 : Operand<XLenVT>,
++                  ImmLeaf<XLenVT, [{return isShiftedUInt<6, 2>(Imm);}]> {
++  let ParserMatchClass = UImmAsmOperand<8, "Lsb00">;
++  let EncoderMethod = "getImmOpValue";
++  let DecoderMethod = "decodeUImmOperand<8>";
++}
++
++// A 8-bit unsigned immediate where the least significant three bits are zero.
++def uimm8_lsb000 : Operand<XLenVT>,
++                   ImmLeaf<XLenVT, [{return isShiftedUInt<5, 3>(Imm);}]> {
++  let ParserMatchClass = UImmAsmOperand<8, "Lsb000">;
++  let EncoderMethod = "getImmOpValue";
++  let DecoderMethod = "decodeUImmOperand<8>";
++}
++
++// A 9-bit unsigned immediate where the least significant three bits are zero.
++def uimm9_lsb000 : Operand<XLenVT>,
++                   ImmLeaf<XLenVT, [{return isShiftedUInt<6, 3>(Imm);}]> {
++  let ParserMatchClass = UImmAsmOperand<9, "Lsb000">;
++  let EncoderMethod = "getImmOpValue";
++  let DecoderMethod = "decodeUImmOperand<9>";
++}
++
++//===----------------------------------------------------------------------===//
++// Instruction Class Templates
++//===----------------------------------------------------------------------===//
++
++let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
++class CStackLoad<bits<3> funct3, string OpcodeStr,
++                 RegisterClass cls, DAGOperand opnd> :
++      RVInst16CI<funct3, 0b10, (outs cls:$rd), (ins SP:$rs1, opnd:$imm),
++                 OpcodeStr, "$rd, ${imm}(${rs1})">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
++class CStackStore<bits<3> funct3, string OpcodeStr,
++                  RegisterClass cls, DAGOperand opnd> :
++      RVInst16CSS<funct3, 0b10, (outs), (ins cls:$rs2, SP:$rs1, opnd:$imm),
++                  OpcodeStr, "$rs2, ${imm}(${rs1})">;
++
++let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
++class CLoad_ri<bits<3> funct3, string OpcodeStr,
++               RegisterClass cls, DAGOperand opnd> :
++      RVInst16CL<funct3, 0b00, (outs cls:$rd), (ins cls:$rs1, opnd:$imm),
++                 OpcodeStr, "$rd, ${imm}(${rs1})">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
++class CStore_rri<bits<3> funct3, string OpcodeStr,
++                 RegisterClass cls, DAGOperand opnd> :
++      RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
++                 OpcodeStr, "$rs2, ${imm}(${rs1})">;
++
++//===----------------------------------------------------------------------===//
++// Instructions
++//===----------------------------------------------------------------------===//
++
++let Predicates = [HasStdExtC] in {
++
++def CLW : CLoad_ri<0b010, "c.lw", GPRC, uimm7_lsb00> {
++  bits<7> imm;
++  let Inst{12-10} = imm{5-3};
++  let Inst{6} = imm{2};
++  let Inst{5} = imm{6};
++}
++
++def CLD : CLoad_ri<0b011, "c.ld", GPRC, uimm8_lsb000>,
++          Requires<[IsRV64]> {
++  bits<8> imm;
++  let Inst{12-10} = imm{5-3};
++  let Inst{6-5} = imm{7-6};
++}
++
++def CSW : CStore_rri<0b110, "c.sw", GPRC, uimm7_lsb00> {
++  bits<7> imm;
++  let Inst{12-10} = imm{5-3};
++  let Inst{6} = imm{2};
++  let Inst{5} = imm{6};
++}
++
++def CSD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
++          Requires<[IsRV64]> {
++  bits<8> imm;
++  let Inst{12-10} = imm{5-3};
++  let Inst{6-5} = imm{7-6};
++}
++
++def CLWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
++  let Inst{6-4} = imm{4-2};
++  let Inst{3-2} = imm{7-6};
++}
++
++def CLDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
++            Requires<[IsRV64]> {
++  let Inst{6-5} = imm{4-3};
++  let Inst{4-2} = imm{8-6};
++}
++
++def CSWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
++  let Inst{12-9} = imm{5-2};
++  let Inst{8-7}  = imm{7-6};
++}
++
++def CSDSP : CStackStore<0b111, "c.sdsp", GPR, uimm9_lsb000>,
++            Requires<[IsRV64]> {
++  let Inst{12-10} = imm{5-3};
++  let Inst{9-7}   = imm{8-6};
++}
++
++} // Predicates = [HasStdExtC]
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
+index cabce379c4c..c17a359743a 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.td
++++ b/lib/Target/RISCV/RISCVRegisterInfo.td
+@@ -91,6 +91,36 @@ def GPR : RegisterClass<"RISCV", [XLenVT], 32, (add
+       [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
+ }
+ 
++// The order of registers represents the preferred allocation sequence.
++// Registers are listed in the order caller-save, callee-save, specials.
++def GPRNoX0 : RegisterClass<"RISCV", [XLenVT], 32, (add
++    (sequence "X%u", 10, 17),
++    (sequence "X%u", 5, 7),
++    (sequence "X%u", 28, 31),
++    (sequence "X%u", 8, 9),
++    (sequence "X%u", 18, 27),
++    (sequence "X%u", 1, 4)
++  )> {
++  let RegInfos = RegInfoByHwMode<
++      [RV32,              RV64,              DefaultMode],
++      [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
++}
++
++def GPRC : RegisterClass<"RISCV", [XLenVT], 32, (add
++    (sequence "X%u", 10, 15),
++    (sequence "X%u", 8, 9)
++  )> {
++  let RegInfos = RegInfoByHwMode<
++      [RV32,              RV64,              DefaultMode],
++      [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
++}
++
++def SP : RegisterClass<"RISCV", [XLenVT], 32, (add X2)> {
++  let RegInfos = RegInfoByHwMode<
++      [RV32,              RV64,              DefaultMode],
++      [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
++}
++
+ // Floating point registers
+ let RegAltNameIndices = [ABIRegAltName] in {
+   def F0_32  : RISCVReg32<0, "f0", ["ft0"]>, DwarfRegNum<[32]>;
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index 7db49456ebc..928ba5815a2 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -34,6 +34,7 @@ class RISCVSubtarget : public RISCVGenSubtargetInfo {
+   bool HasStdExtA = false;
+   bool HasStdExtF = false;
+   bool HasStdExtD = false;
++  bool HasStdExtC = false;
+   bool HasRV64 = false;
+   unsigned XLen = 32;
+   MVT XLenVT = MVT::i32;
+@@ -74,6 +75,7 @@ public:
+   bool hasStdExtA() const { return HasStdExtA; }
+   bool hasStdExtF() const { return HasStdExtF; }
+   bool hasStdExtD() const { return HasStdExtD; }
++  bool hasStdExtC() const { return HasStdExtC; }
+   bool is64Bit() const { return HasRV64; }
+   MVT getXLenVT() const { return XLenVT; }
+   unsigned getXLen() const { return XLen; }
+diff --git a/test/MC/RISCV/rv32c-invalid.s b/test/MC/RISCV/rv32c-invalid.s
+new file mode 100644
+index 00000000000..c3403aa632b
+--- /dev/null
++++ b/test/MC/RISCV/rv32c-invalid.s
+@@ -0,0 +1,18 @@
++# RUN: not llvm-mc -triple=riscv32 -mattr=+c < %s 2>&1 | FileCheck %s
++
++## GPRC
++c.lw  ra, 4(sp) # CHECK: :[[@LINE]]:7: error: invalid operand for instruction
++c.sw  sp, 4(sp) # CHECK: :[[@LINE]]:7: error: invalid operand for instruction
++
++## GPRNoX0
++c.lwsp  x0, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++c.lwsp  zero, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++
++# Out of range immediates
++
++## uimm8_lsb00
++c.lwsp  ra, 256(sp) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 4 bytes in the range [0, 252]
++c.swsp  ra, -4(sp) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 4 bytes in the range [0, 252]
++## uimm7_lsb00
++c.lw  s0, -4(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 4 bytes in the range [0, 124]
++c.sw  s0, 128(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 4 bytes in the range [0, 124]
+diff --git a/test/MC/RISCV/rv32c-valid.s b/test/MC/RISCV/rv32c-valid.s
+new file mode 100644
+index 00000000000..86c2dff5698
+--- /dev/null
++++ b/test/MC/RISCV/rv32c-valid.s
+@@ -0,0 +1,23 @@
++# RUN: llvm-mc -triple=riscv32 -mattr=+c -show-encoding < %s \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -triple=riscv64 -mattr=+c -show-encoding < %s \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
++# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
++# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# TODO: more exhaustive testing of immediate encoding.
++
++# CHECK-INST: c.lwsp  ra, 0(sp)
++# CHECK: encoding: [0x82,0x40]
++c.lwsp  ra, 0(sp)
++# CHECK-INST: c.swsp  ra, 252(sp)
++# CHECK: encoding: [0x86,0xdf]
++c.swsp  ra, 252(sp)
++# CHECK-INST: c.lw    a2, 0(a0)
++# CHECK: encoding: [0x10,0x41]
++c.lw    a2, 0(a0)
++# CHECK-INST: c.sw    a5, 124(a3)
++# CHECK: encoding: [0xfc,0xde]
++c.sw    a5, 124(a3)
+diff --git a/test/MC/RISCV/rv64c-invalid.s b/test/MC/RISCV/rv64c-invalid.s
+new file mode 100644
+index 00000000000..1dcf5e40a8a
+--- /dev/null
++++ b/test/MC/RISCV/rv64c-invalid.s
+@@ -0,0 +1,18 @@
++# RUN: not llvm-mc -triple=riscv64 -mattr=+c < %s 2>&1 | FileCheck %s
++
++## GPRC
++c.ld ra, 4(sp) # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
++c.sd sp, 4(sp) # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
++
++## GPRNoX0
++c.ldsp  x0, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++c.ldsp  zero, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++
++# Out of range immediates
++
++## uimm9_lsb000
++c.ldsp  ra, 512(sp) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 8 bytes in the range [0, 504]
++c.sdsp  ra, -8(sp) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 8 bytes in the range [0, 504]
++## uimm8_lsb000
++c.ld  s0, -8(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 8 bytes in the range [0, 248]
++c.sd  s0, 256(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 8 bytes in the range [0, 248]
+diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
+new file mode 100644
+index 00000000000..9521f9ebd08
+--- /dev/null
++++ b/test/MC/RISCV/rv64c-valid.s
+@@ -0,0 +1,19 @@
++# RUN: llvm-mc -triple=riscv64 -mattr=+c -show-encoding < %s \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
++# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# TODO: more exhaustive testing of immediate encoding.
++
++# CHECK-INST: c.ldsp  ra, 0(sp)
++# CHECK: encoding: [0x82,0x60]
++c.ldsp  ra, 0(sp)
++# CHECK-INST: c.sdsp  ra, 504(sp)
++# CHECK: encoding: [0x86,0xff]
++c.sdsp  ra, 504(sp)
++# CHECK-INST: c.ld    a4, 0(a3)
++# CHECK: encoding: [0x98,0x62]
++c.ld    a4, 0(a3)
++# CHECK-INST: c.sd    a5, 248(a3)
++# CHECK: encoding: [0xfc,0xfe]
++c.sd    a5, 248(a3)
+-- 
+2.15.1
+

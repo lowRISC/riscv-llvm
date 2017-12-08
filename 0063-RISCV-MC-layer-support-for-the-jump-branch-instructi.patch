@@ -1,0 +1,459 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for the jump/branch instructions of the RVC
+ extension
+
+Differential Revision: https://reviews.llvm.org/D40002
+
+Patch by Shiva Chen.
+---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 12 +++++
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 42 +++++++++++++++-
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++
+ lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 +++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  4 ++
+ lib/Target/RISCV/RISCVInstrFormatsC.td             | 40 +++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoC.td                | 58 ++++++++++++++++++++++
+ test/MC/RISCV/fixups-compressed.s                  | 18 +++++++
+ test/MC/RISCV/relocations.s                        | 14 +++++-
+ test/MC/RISCV/rv32c-invalid.s                      | 13 +++++
+ test/MC/RISCV/rv32c-valid.s                        | 19 +++++++
+ 11 files changed, 226 insertions(+), 4 deletions(-)
+ create mode 100644 test/MC/RISCV/fixups-compressed.s
+
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index c4a3116b33a..cde00f5d515 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -249,6 +249,8 @@ public:
+            VK == RISCVMCExpr::VK_RISCV_None;
+   }
+ 
++  bool isSImm9Lsb0() const { return isBareSimmNLsb0<9>(); }
++
+   bool isUImm9Lsb000() const {
+     int64_t Imm;
+     RISCVMCExpr::VariantKind VK;
+@@ -272,6 +274,8 @@ public:
+            (VK == RISCVMCExpr::VK_RISCV_None || VK == RISCVMCExpr::VK_RISCV_LO);
+   }
+ 
++  bool isSImm12Lsb0() const { return isBareSimmNLsb0<12>(); }
++
+   bool isUImm12() const {
+     int64_t Imm;
+     RISCVMCExpr::VariantKind VK;
+@@ -552,6 +556,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+     return generateImmOutOfRangeError(
+         Operands, ErrorInfo, 0, (1 << 8) - 8,
+         "immediate must be a multiple of 8 bytes in the range");
++  case Match_InvalidSImm9Lsb0:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, -(1 << 8), (1 << 8) - 2,
++        "immediate must be a multiple of 2 bytes in the range");
+   case Match_InvalidUImm9Lsb000:
+     return generateImmOutOfRangeError(
+         Operands, ErrorInfo, 0, (1 << 9) - 8,
+@@ -559,6 +567,10 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+   case Match_InvalidSImm12:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
+                                       (1 << 11) - 1);
++  case Match_InvalidSImm12Lsb0:
++    return generateImmOutOfRangeError(
++        Operands, ErrorInfo, -(1 << 11), (1 << 11) - 2,
++        "immediate must be a multiple of 2 bytes in the range");
+   case Match_InvalidUImm12:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 12) - 1);
+   case Match_InvalidSImm13Lsb0:
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+index e4e17bed5af..b91467fe145 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+@@ -63,7 +63,9 @@ public:
+       { "fixup_riscv_lo12_s",      0,     32,  0 },
+       { "fixup_riscv_pcrel_hi20", 12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+       { "fixup_riscv_jal",        12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_branch",      0,     32,  MCFixupKindInfo::FKF_IsPCRel }
++      { "fixup_riscv_branch",      0,     32,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_rvc_jump",    2,     11,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_rvc_branch",  0,     16,  MCFixupKindInfo::FKF_IsPCRel }
+     };
+ 
+     if (Kind < FirstTargetFixupKind)
+@@ -152,10 +154,45 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+     Value = (Sbit << 31) | (Mid6 << 25) | (Lo4 << 8) | (Hi1 << 7);
+     return Value;
+   }
++  case RISCV::fixup_riscv_rvc_jump: {
++    // Need to produce offset[11|4|9:8|10|6|7|3:1|5] from the 11-bit Value.
++    unsigned Bit11  = (Value >> 11) & 0x1;
++    unsigned Bit4   = (Value >> 4) & 0x1;
++    unsigned Bit9_8 = (Value >> 8) & 0x3;
++    unsigned Bit10  = (Value >> 10) & 0x1;
++    unsigned Bit6   = (Value >> 6) & 0x1;
++    unsigned Bit7   = (Value >> 7) & 0x1;
++    unsigned Bit3_1 = (Value >> 1) & 0x7;
++    unsigned Bit5   = (Value >> 5) & 0x1;
++    Value = (Bit11 << 10) | (Bit4 << 9) | (Bit9_8 << 7) | (Bit10 << 6) |
++            (Bit6 << 5) | (Bit7 << 4) | (Bit3_1 << 1) | Bit5;
++    return Value;
++  }
++  case RISCV::fixup_riscv_rvc_branch: {
++    // Need to produce offset[8|4:3], [reg 3 bit], offset[7:6|2:1|5]
++    unsigned Bit8   = (Value >> 8) & 0x1;
++    unsigned Bit7_6 = (Value >> 6) & 0x3;
++    unsigned Bit5   = (Value >> 5) & 0x1;
++    unsigned Bit4_3 = (Value >> 3) & 0x3;
++    unsigned Bit2_1 = (Value >> 1) & 0x3;
++    Value = (Bit8 << 12) | (Bit4_3 << 10) | (Bit7_6 << 5) | (Bit2_1 << 3) |
++            (Bit5 << 2);
++    return Value;
++  }
+ 
+   }
+ }
+ 
++static unsigned getSize(unsigned Kind) {
++  switch (Kind) {
++  default:
++    return 4;
++  case RISCV::fixup_riscv_rvc_jump:
++  case RISCV::fixup_riscv_rvc_branch:
++    return 2;
++  }
++}
++
+ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                                  const MCValue &Target,
+                                  MutableArrayRef<char> Data, uint64_t Value,
+@@ -171,6 +208,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+   Value <<= Info.TargetOffset;
+ 
+   unsigned Offset = Fixup.getOffset();
++  unsigned FullSize = getSize(Fixup.getKind());
+ 
+ #ifndef NDEBUG
+   unsigned NumBytes = (Info.TargetSize + 7) / 8;
+@@ -179,7 +217,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+ 
+   // For each byte of the fragment that the fixup touches, mask in the
+   // bits from the fixup value.
+-  for (unsigned i = 0; i != 4; ++i) {
++  for (unsigned i = 0; i != FullSize; ++i) {
+     Data[Offset + i] |= uint8_t((Value >> (i * 8)) & 0xff);
+   }
+ }
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+index e256156dc96..ad53228c104 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+@@ -59,6 +59,10 @@ unsigned RISCVELFObjectWriter::getRelocType(MCContext &Ctx,
+     return ELF::R_RISCV_JAL;
+   case RISCV::fixup_riscv_branch:
+     return ELF::R_RISCV_BRANCH;
++  case RISCV::fixup_riscv_rvc_jump:
++    return ELF::R_RISCV_RVC_JUMP;
++  case RISCV::fixup_riscv_rvc_branch:
++    return ELF::R_RISCV_RVC_BRANCH;
+   }
+ }
+ 
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
+index 115229414d5..cfb5d99e79f 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
+@@ -35,6 +35,12 @@ enum Fixups {
+   // fixup_riscv_branch - 12-bit fixup for symbol references in the branch
+   // instructions
+   fixup_riscv_branch,
++  // fixup_riscv_rvc_jump - 11-bit fixup for symbol references in the
++  // compressed jump instruction
++  fixup_riscv_rvc_jump,
++  // fixup_riscv_rvc_branch - 8-bit fixup for symbol references in the
++  // compressed branch instruction
++  fixup_riscv_rvc_branch,
+ 
+   // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
+   fixup_riscv_invalid,
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+index ca323d8941d..641997e67e0 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+@@ -177,6 +177,10 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+       FixupKind = RISCV::fixup_riscv_jal;
+     } else if (MIFrm == RISCVII::InstFormatB) {
+       FixupKind = RISCV::fixup_riscv_branch;
++    } else if (MIFrm == RISCVII::InstFormatCJ) {
++      FixupKind = RISCV::fixup_riscv_rvc_jump;
++    } else if (MIFrm == RISCVII::InstFormatCB) {
++      FixupKind = RISCV::fixup_riscv_rvc_branch;
+     }
+   }
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrFormatsC.td b/lib/Target/RISCV/RISCVInstrFormatsC.td
+index 117c86c0bd5..fe4778bd313 100644
+--- a/lib/Target/RISCV/RISCVInstrFormatsC.td
++++ b/lib/Target/RISCV/RISCVInstrFormatsC.td
+@@ -34,6 +34,18 @@ class RVInst16<dag outs, dag ins, string opcodestr, string argstr,
+   let TSFlags{4-0} = format.Value;
+ }
+ 
++class RVInst16CR<bits<4> funct4, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCR> {
++  bits<5> rs1;
++  bits<5> rs2;
++
++  let Inst{15-12} = funct4;
++  let Inst{11-7} = rs1;
++  let Inst{6-2} = rs2;
++  let Inst{1-0} = opcode;
++}
++
+ // The immediate value encoding differs for each instruction, so each subclass
+ // is responsible for setting the appropriate bits in the Inst field.
+ // The bits Inst{6-2} must be set for each instruction.
+@@ -94,3 +106,31 @@ class RVInst16CS<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
+   let Inst{4-2} = rs2;
+   let Inst{1-0} = opcode;
+ }
++
++class RVInst16CB<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCB> {
++  bits<9> imm;
++  bits<3> rs1;
++
++  let Inst{15-13} = funct3;
++  let Inst{9-7} = rs1;
++  let Inst{1-0} = opcode;
++}
++
++class RVInst16CJ<bits<3> funct3, bits<2> opcode, dag outs, dag ins,
++                 string opcodestr, string argstr>
++    : RVInst16<outs, ins, opcodestr, argstr, [], InstFormatCJ> {
++  bits<11> offset;
++
++  let Inst{15-13} = funct3;
++  let Inst{12} = offset{10};
++  let Inst{11} = offset{3};
++  let Inst{10-9} = offset{8-7};
++  let Inst{8} = offset{9};
++  let Inst{7} = offset{5};
++  let Inst{6} = offset{6};
++  let Inst{5-3} = offset{2-0};
++  let Inst{2} = offset{4};
++  let Inst{1-0} = opcode;
++}
+diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
+index b1dd9e67655..76c3d559c70 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoC.td
++++ b/lib/Target/RISCV/RISCVInstrInfoC.td
+@@ -37,6 +37,13 @@ def uimm8_lsb000 : Operand<XLenVT>,
+   let DecoderMethod = "decodeUImmOperand<8>";
+ }
+ 
++// A 9-bit signed immediate where the least significant bit is zero.
++def simm9_lsb0 : Operand<OtherVT> {
++  let ParserMatchClass = SImmAsmOperand<9, "Lsb0">;
++  let EncoderMethod = "getImmOpValueAsr1";
++  let DecoderMethod = "decodeSImmOperandAndLsl1<9>";
++}
++
+ // A 9-bit unsigned immediate where the least significant three bits are zero.
+ def uimm9_lsb000 : Operand<XLenVT>,
+                    ImmLeaf<XLenVT, [{return isShiftedUInt<6, 3>(Imm);}]> {
+@@ -45,6 +52,13 @@ def uimm9_lsb000 : Operand<XLenVT>,
+   let DecoderMethod = "decodeUImmOperand<9>";
+ }
+ 
++// A 12-bit signed immediate where the least significant bit is zero.
++def simm12_lsb0 : Operand<OtherVT> {
++  let ParserMatchClass = SImmAsmOperand<12, "Lsb0">;
++  let EncoderMethod = "getImmOpValueAsr1";
++  let DecoderMethod = "decodeSImmOperandAndLsl1<12>";
++}
++
+ //===----------------------------------------------------------------------===//
+ // Instruction Class Templates
+ //===----------------------------------------------------------------------===//
+@@ -73,6 +87,20 @@ class CStore_rri<bits<3> funct3, string OpcodeStr,
+       RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
+                  OpcodeStr, "$rs2, ${imm}(${rs1})">;
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++class Bcz<bits<3> funct3, string OpcodeStr, PatFrag CondOp,
++          RegisterClass cls> :
++      RVInst16CB<funct3, 0b01, (outs), (ins cls:$rs1, simm9_lsb0:$imm),
++                 OpcodeStr, "$rs1, $imm"> {
++  let isBranch = 1;
++  let isTerminator = 1;
++  let Inst{12} = imm{7};
++  let Inst{11-10} = imm{3-2};
++  let Inst{6-5} = imm{6-5};
++  let Inst{4-3} = imm{1-0};
++  let Inst{2} = imm{4};
++}
++
+ //===----------------------------------------------------------------------===//
+ // Instructions
+ //===----------------------------------------------------------------------===//
+@@ -107,6 +135,21 @@ def CSD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
+   let Inst{6-5} = imm{7-6};
+ }
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isCall = 1 in
++def CJAL : RVInst16CJ<0b001, 0b01, (outs), (ins simm12_lsb0:$offset),
++                      "c.jal", "$offset">;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++def CJ : RVInst16CJ<0b101, 0b01, (outs), (ins simm12_lsb0:$offset),
++                    "c.j", "$offset"> {
++  let isBranch = 1;
++  let isTerminator=1;
++  let isBarrier=1;
++}
++
++def CBEQZ : Bcz<0b110, "c.beqz",  seteq, GPRC>;
++def CBNEZ : Bcz<0b111, "c.bnez",  setne, GPRC>;
++
+ def CLWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
+   let Inst{6-4} = imm{4-2};
+   let Inst{3-2} = imm{7-6};
+@@ -118,6 +161,21 @@ def CLDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
+   let Inst{4-2} = imm{8-6};
+ }
+ 
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++def CJR : RVInst16CR<0b1000, 0b10, (outs), (ins GPRNoX0:$rs1),
++                     "c.jr", "$rs1"> {
++  let isBranch = 1;
++  let isBarrier = 1;
++  let isTerminator = 1;
++  let isIndirectBranch = 1;
++  let rs2 = 0;
++}
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0,
++    isCall=1, Defs=[X1], rs2 = 0 in
++def CJALR : RVInst16CR<0b1001, 0b10, (outs), (ins GPRNoX0:$rs1),
++                       "c.jalr", "$rs1">;
++
+ def CSWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
+   let Inst{12-9} = imm{5-2};
+   let Inst{8-7}  = imm{7-6};
+diff --git a/test/MC/RISCV/fixups-compressed.s b/test/MC/RISCV/fixups-compressed.s
+new file mode 100644
+index 00000000000..bf6cbfc3556
+--- /dev/null
++++ b/test/MC/RISCV/fixups-compressed.s
+@@ -0,0 +1,18 @@
++# RUN: llvm-mc %s -triple riscv32 -mattr=+c -show-encoding \
++# RUN:     | FileCheck -check-prefix=CHECK-FIXUP %s
++# RUN: llvm-mc -triple riscv32 -filetype=obj -mattr=+c < %s \
++# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INSTR %s
++
++.LBB0_2:
++# CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_jump
++# CHECK-INSTR: c.j     0
++c.j     .LBB0_2
++# CHECK:   fixup A - offset: 0, value: func1, kind: fixup_riscv_rvc_jump
++# CHECK-INSTR: c.jal   0
++c.jal   func1
++# CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_branch
++# CHECK-INSTR: c.beqz  a3, -4
++c.beqz  a3, .LBB0_2
++# CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_branch
++# CHECK-INSTR: c.bnez  a5, -6
++c.bnez  a5, .LBB0_2
+diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
+index c11e2f38dfc..a6009b0ad67 100644
+--- a/test/MC/RISCV/relocations.s
++++ b/test/MC/RISCV/relocations.s
+@@ -1,6 +1,6 @@
+-# RUN: llvm-mc -triple riscv32 < %s -show-encoding \
++# RUN: llvm-mc -triple riscv32 -mattr=+c < %s -show-encoding \
+ # RUN:     | FileCheck -check-prefix=INSTR -check-prefix=FIXUP %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
+ # RUN:     | llvm-readobj -r | FileCheck -check-prefix=RELOC %s
+ 
+ # Check prefixes:
+@@ -63,3 +63,13 @@ bgeu a0, a1, foo
+ # RELOC: R_RISCV_BRANCH
+ # INSTR: bgeu a0, a1, foo
+ # FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_branch
++
++c.jal foo
++# RELOC: R_RISCV_RVC_JUMP
++# INSTR: c.jal foo
++# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_rvc_jump
++
++c.bnez a0, foo
++# RELOC: R_RISCV_RVC_BRANCH
++# INSTR: c.bnez a0, foo
++# FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_rvc_branch
+diff --git a/test/MC/RISCV/rv32c-invalid.s b/test/MC/RISCV/rv32c-invalid.s
+index c3403aa632b..639148bb4ff 100644
+--- a/test/MC/RISCV/rv32c-invalid.s
++++ b/test/MC/RISCV/rv32c-invalid.s
+@@ -1,12 +1,17 @@
+ # RUN: not llvm-mc -triple=riscv32 -mattr=+c < %s 2>&1 | FileCheck %s
+ 
+ ## GPRC
++.LBB:
+ c.lw  ra, 4(sp) # CHECK: :[[@LINE]]:7: error: invalid operand for instruction
+ c.sw  sp, 4(sp) # CHECK: :[[@LINE]]:7: error: invalid operand for instruction
++c.beqz  t0, .LBB # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++c.bnez  s8, .LBB # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+ 
+ ## GPRNoX0
+ c.lwsp  x0, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+ c.lwsp  zero, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
++c.jr  x0 # CHECK: :[[@LINE]]:7: error: invalid operand for instruction
++c.jalr  zero # CHECK: :[[@LINE]]:9: error: invalid operand for instruction
+ 
+ # Out of range immediates
+ 
+@@ -16,3 +21,11 @@ c.swsp  ra, -4(sp) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple o
+ ## uimm7_lsb00
+ c.lw  s0, -4(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 4 bytes in the range [0, 124]
+ c.sw  s0, 128(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 4 bytes in the range [0, 124]
++
++## simm9_lsb0
++c.bnez  s1, -258 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-256, 254]
++c.beqz  a0, 256 # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-256, 254]
++
++## simm12_lsb0
++c.j 2048 # CHECK: :[[@LINE]]:5: error: immediate must be a multiple of 2 bytes in the range [-2048, 2046]
++c.jal -2050 # CHECK: :[[@LINE]]:7: error: immediate must be a multiple of 2 bytes in the range [-2048, 2046]
+diff --git a/test/MC/RISCV/rv32c-valid.s b/test/MC/RISCV/rv32c-valid.s
+index 86c2dff5698..ce4273d3802 100644
+--- a/test/MC/RISCV/rv32c-valid.s
++++ b/test/MC/RISCV/rv32c-valid.s
+@@ -21,3 +21,22 @@ c.lw    a2, 0(a0)
+ # CHECK-INST: c.sw    a5, 124(a3)
+ # CHECK: encoding: [0xfc,0xde]
+ c.sw    a5, 124(a3)
++
++# CHECK-INST: c.j     -2048
++# CHECK: encoding: [0x01,0xb0]
++c.j     -2048
++# CHECK-INST: c.jal    2046
++# CHECK: encoding: [0xfd,0x2f]
++c.jal    2046
++# CHECK-INST: c.jr    a7
++# CHECK: encoding: [0x82,0x88]
++c.jr    a7
++# CHECK-INST: c.jalr  a1
++# CHECK: encoding: [0x82,0x95]
++c.jalr  a1
++# CHECK-INST: c.beqz  a3, -256
++# CHECK: encoding: [0x81,0xd2]
++c.beqz  a3, -256
++# CHECK-INST: c.bnez  a5,  254
++# CHECK: encoding: [0xfd,0xef]
++c.bnez  a5,  254
+-- 
+2.15.1
+

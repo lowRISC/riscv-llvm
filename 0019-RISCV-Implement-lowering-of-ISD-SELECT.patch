@@ -292,7 +292,7 @@ index 23f218fda8f..024bc3ec02c 100644
  // Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
 diff --git a/test/CodeGen/RISCV/bare-select.ll b/test/CodeGen/RISCV/bare-select.ll
 new file mode 100644
-index 00000000000..d4a29ffa29b
+index 00000000000..016e3a7a9cd
 --- /dev/null
 +++ b/test/CodeGen/RISCV/bare-select.ll
 @@ -0,0 +1,18 @@
@@ -302,11 +302,11 @@ index 00000000000..d4a29ffa29b
 +
 +define i32 @bare_select(i1 %a, i32 %b, i32 %c) {
 +; RV32I-LABEL: bare_select:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    andi a0, a0, 1
 +; RV32I-NEXT:    addi a3, zero, 0
 +; RV32I-NEXT:    bne a0, a3, .LBB0_2
-+; RV32I-NEXT:  # BB#1:
++; RV32I-NEXT:  # %bb.1:
 +; RV32I-NEXT:    addi a1, a2, 0
 +; RV32I-NEXT:  .LBB0_2:
 +; RV32I-NEXT:    addi a0, a1, 0
@@ -316,7 +316,7 @@ index 00000000000..d4a29ffa29b
 +}
 diff --git a/test/CodeGen/RISCV/select-cc.ll b/test/CodeGen/RISCV/select-cc.ll
 new file mode 100644
-index 00000000000..c1a570c5c98
+index 00000000000..ddc5983525e
 --- /dev/null
 +++ b/test/CodeGen/RISCV/select-cc.ll
 @@ -0,0 +1,100 @@
@@ -326,55 +326,55 @@ index 00000000000..c1a570c5c98
 +
 +define i32 @foo(i32 %a, i32 *%b) {
 +; RV32I-LABEL: foo:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    beq a0, a2, .LBB0_2
-+; RV32I-NEXT:  # BB#1:
++; RV32I-NEXT:  # %bb.1:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_2:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bne a0, a2, .LBB0_4
-+; RV32I-NEXT:  # BB#3:
++; RV32I-NEXT:  # %bb.3:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_4:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bltu a2, a0, .LBB0_6
-+; RV32I-NEXT:  # BB#5:
++; RV32I-NEXT:  # %bb.5:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_6:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bgeu a0, a2, .LBB0_8
-+; RV32I-NEXT:  # BB#7:
++; RV32I-NEXT:  # %bb.7:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_8:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bltu a0, a2, .LBB0_10
-+; RV32I-NEXT:  # BB#9:
++; RV32I-NEXT:  # %bb.9:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_10:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bgeu a2, a0, .LBB0_12
-+; RV32I-NEXT:  # BB#11:
++; RV32I-NEXT:  # %bb.11:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_12:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    blt a2, a0, .LBB0_14
-+; RV32I-NEXT:  # BB#13:
++; RV32I-NEXT:  # %bb.13:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_14:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    bge a0, a2, .LBB0_16
-+; RV32I-NEXT:  # BB#15:
++; RV32I-NEXT:  # %bb.15:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_16:
 +; RV32I-NEXT:    lw a2, 0(a1)
 +; RV32I-NEXT:    blt a0, a2, .LBB0_18
-+; RV32I-NEXT:  # BB#17:
++; RV32I-NEXT:  # %bb.17:
 +; RV32I-NEXT:    addi a0, a2, 0
 +; RV32I-NEXT:  .LBB0_18:
 +; RV32I-NEXT:    lw a1, 0(a1)
 +; RV32I-NEXT:    bge a1, a0, .LBB0_20
-+; RV32I-NEXT:  # BB#19:
++; RV32I-NEXT:  # %bb.19:
 +; RV32I-NEXT:    addi a0, a1, 0
 +; RV32I-NEXT:  .LBB0_20:
 +; RV32I-NEXT:    jalr zero, ra, 0

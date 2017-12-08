@@ -9,14 +9,15 @@ used to materialise f32 constants.
  lib/Target/RISCV/RISCVISelLowering.h   |  1 +
  lib/Target/RISCV/RISCVInstrInfoF.td    | 11 +++++
  lib/Target/RISCV/RISCVMCInstLower.cpp  |  3 ++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp |  1 -
  test/CodeGen/RISCV/float-imm.ll        | 27 +++++++++++
  test/CodeGen/RISCV/float-mem.ll        | 84 ++++++++++++++++++++++++++++++++++
- 6 files changed, 152 insertions(+)
+ 7 files changed, 152 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/float-imm.ll
  create mode 100644 test/CodeGen/RISCV/float-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 25725e2ceba..d72613d5734 100644
+index fc5ef33b431..59e7f409073 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -113,6 +113,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -79,7 +80,7 @@ index 8ee00cd69a1..a54b5c1532f 100644
    SDValue lowerSELECT(SDValue Op, SelectionDAG &DAG) const;
    SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
-index d77ba0832f5..0b4fc31fe75 100644
+index 9a03f569386..0ec46766c69 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
 @@ -242,4 +242,15 @@ def : PatFpr32Fpr32<fmaxnum, FMAX_S>;
@@ -112,9 +113,21 @@ index b72b45c3dcc..e0100b1679b 100644
    }
    return true;
  }
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index f86c59f0df0..a6cdcb92050 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -61,7 +61,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+ 
+   MachineInstr &MI = *II;
+   MachineFunction &MF = *MI.getParent()->getParent();
+-  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
+   MachineRegisterInfo &MRI = MF.getRegInfo();
+   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   DebugLoc DL = MI.getDebugLoc();
 diff --git a/test/CodeGen/RISCV/float-imm.ll b/test/CodeGen/RISCV/float-imm.ll
 new file mode 100644
-index 00000000000..cb84377e05d
+index 00000000000..0d2cbbc9329
 --- /dev/null
 +++ b/test/CodeGen/RISCV/float-imm.ll
 @@ -0,0 +1,27 @@
@@ -124,7 +137,7 @@ index 00000000000..cb84377e05d
 +
 +define float @float_imm() nounwind {
 +; RV32IF-LABEL: float_imm:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    lui a0, 263313
 +; RV32IF-NEXT:    addi a0, a0, -37
 +; RV32IF-NEXT:    jalr zero, ra, 0
@@ -134,7 +147,7 @@ index 00000000000..cb84377e05d
 +define float @float_imm_op(float %a) nounwind {
 +; TODO: addi should be folded in to the flw
 +; RV32IF-LABEL: float_imm_op:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a0
 +; RV32IF-NEXT:    lui a0, %hi(.LCPI1_0)
 +; RV32IF-NEXT:    addi a0, a0, %lo(.LCPI1_0)
@@ -147,7 +160,7 @@ index 00000000000..cb84377e05d
 +}
 diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
 new file mode 100644
-index 00000000000..b808a927804
+index 00000000000..f1cbb4330f3
 --- /dev/null
 +++ b/test/CodeGen/RISCV/float-mem.ll
 @@ -0,0 +1,84 @@
@@ -157,7 +170,7 @@ index 00000000000..b808a927804
 +
 +define float @flw(float *%a) nounwind {
 +; RV32IF-LABEL: flw:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    flw ft0, 12(a0)
 +; RV32IF-NEXT:    flw ft1, 0(a0)
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
@@ -176,7 +189,7 @@ index 00000000000..b808a927804
 +; Use %b and %c in an FP op to ensure floating point registers are used, even
 +; for the soft float ABI
 +; RV32IF-LABEL: fsw:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a2
 +; RV32IF-NEXT:    fmv.w.x ft1, a1
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
@@ -197,7 +210,7 @@ index 00000000000..b808a927804
 +; Use %a and %b in an FP op to ensure floating point registers are used, even
 +; for the soft float ABI
 +; RV32IF-LABEL: flw_fsw_global:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a1
 +; RV32IF-NEXT:    fmv.w.x ft1, a0
 +; RV32IF-NEXT:    fadd.s ft0, ft1, ft0
@@ -221,7 +234,7 @@ index 00000000000..b808a927804
 +; Ensure that 1 is added to the high 20 bits if bit 11 of the low part is 1
 +define float @flw_fsw_constant(float %a) nounwind {
 +; RV32IF-LABEL: flw_fsw_constant:
-+; RV32IF:       # BB#0:
++; RV32IF:       # %bb.0:
 +; RV32IF-NEXT:    fmv.w.x ft0, a0
 +; RV32IF-NEXT:    lui a0, 912092
 +; RV32IF-NEXT:    flw ft1, -273(a0)

@@ -10,7 +10,7 @@ Subject: [RISCV] Add codegen support for RV32D floating point arithmetic
  3 files changed, 125 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 61800c39b26..33bbb8497f3 100644
+index 1faa150f209..d7352663e17 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -121,6 +121,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -72,7 +72,7 @@ index 1d29a7c086b..b6b47c97e85 100644
  
  } // Predicates = [HasStdExtD]
 diff --git a/test/CodeGen/RISCV/double-arith.ll b/test/CodeGen/RISCV/double-arith.ll
-index 958957da08d..79c1b8d7b6f 100644
+index f759b4d3b97..cc8ed150b4f 100644
 --- a/test/CodeGen/RISCV/double-arith.ll
 +++ b/test/CodeGen/RISCV/double-arith.ll
 @@ -21,3 +21,94 @@ define double @fadd_d(double %a, double %b) nounwind {

@@ -136,11 +136,11 @@ index e81136ecb10..da02a4ba14e 100644
  // for instruction scheduling.
  FunctionPass *llvm::createRISCVISelDag(RISCVTargetMachine &TM) {
 diff --git a/test/CodeGen/RISCV/blockaddress.ll b/test/CodeGen/RISCV/blockaddress.ll
-index 3c5c183019e..89b32e95f9c 100644
+index 266bf4f2b27..8bf50bdb544 100644
 --- a/test/CodeGen/RISCV/blockaddress.ll
 +++ b/test/CodeGen/RISCV/blockaddress.ll
 @@ -9,12 +9,11 @@ define void @test_blockaddress() nounwind {
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    addi sp, sp, -16
  ; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    lui a0, %hi(addr)
@@ -158,7 +158,7 @@ index 3c5c183019e..89b32e95f9c 100644
  ; RV32I-NEXT:  .Ltmp0: # Block address taken
  ; RV32I-NEXT:  .LBB0_1: # %block
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
-index 4593fd4a8d8..b06c19d50a8 100644
+index 934596a7853..a027d606291 100644
 --- a/test/CodeGen/RISCV/byval.ll
 +++ b/test/CodeGen/RISCV/byval.ll
 @@ -32,20 +32,16 @@ define void @caller() nounwind {
@@ -187,7 +187,7 @@ index 4593fd4a8d8..b06c19d50a8 100644
  ; RV32I-NEXT:    lui a0, %hi(callee)
  ; RV32I-NEXT:    addi a1, a0, %lo(callee)
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
-index 9c5cb861395..1f978366322 100644
+index e6d179862ec..6c9dd8ca457 100644
 --- a/test/CodeGen/RISCV/fp128.ll
 +++ b/test/CodeGen/RISCV/fp128.ll
 @@ -16,36 +16,28 @@ define i32 @test_load_and_cmp() nounwind {
@@ -281,12 +281,12 @@ index 9c5cb861395..1f978366322 100644
  ; RV32I-NEXT:    lui a0, %hi(__addtf3)
  ; RV32I-NEXT:    addi a3, a0, %lo(__addtf3)
 diff --git a/test/CodeGen/RISCV/inline-asm.ll b/test/CodeGen/RISCV/inline-asm.ll
-index c3ce8cdfc17..87723bcefd3 100644
+index 05bafb93c5b..8deb19065cf 100644
 --- a/test/CodeGen/RISCV/inline-asm.ll
 +++ b/test/CodeGen/RISCV/inline-asm.ll
 @@ -8,8 +8,7 @@ define i32 @constraint_r(i32 %a) {
  ; RV32I-LABEL: constraint_r:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    lui a1, %hi(gi)
 -; RV32I-NEXT:    addi a1, a1, %lo(gi)
 -; RV32I-NEXT:    lw a1, 0(a1)
@@ -295,7 +295,7 @@ index c3ce8cdfc17..87723bcefd3 100644
  ; RV32I-NEXT:    add a0, a0, a1
  ; RV32I-NEXT:    #NO_APP
 diff --git a/test/CodeGen/RISCV/mem.ll b/test/CodeGen/RISCV/mem.ll
-index b06382f8742..21f08c272ca 100644
+index 6446034e542..ee340600784 100644
 --- a/test/CodeGen/RISCV/mem.ll
 +++ b/test/CodeGen/RISCV/mem.ll
 @@ -163,17 +163,14 @@ define i16 @load_sext_zext_anyext_i1_i16(i1 *%a) nounwind {
@@ -304,7 +304,7 @@ index b06382f8742..21f08c272ca 100644
  define i32 @lw_sw_global(i32 %a) nounwind {
 -; TODO: the addi should be folded in to the lw/sw operations
  ; RV32I-LABEL: lw_sw_global:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
 -; RV32I-NEXT:    lui a1, %hi(G)
 -; RV32I-NEXT:    addi a2, a1, %lo(G)
 -; RV32I-NEXT:    lw a1, 0(a2)
@@ -327,7 +327,7 @@ index b06382f8742..21f08c272ca 100644
  define i32 @lw_sw_constant(i32 %a) nounwind {
 -; TODO: the addi should be folded in to the lw/sw
  ; RV32I-LABEL: lw_sw_constant:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
 -; RV32I-NEXT:    lui a1, 912092
 -; RV32I-NEXT:    addi a2, a1, -273
 -; RV32I-NEXT:    lw a1, 0(a2)
@@ -339,13 +339,13 @@ index b06382f8742..21f08c272ca 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = inttoptr i32 3735928559 to i32*
 diff --git a/test/CodeGen/RISCV/mem64.ll b/test/CodeGen/RISCV/mem64.ll
-index d8d8c2c5818..2815ea11baa 100644
+index 9aaf3afc0dc..96ac2fe82de 100644
 --- a/test/CodeGen/RISCV/mem64.ll
 +++ b/test/CodeGen/RISCV/mem64.ll
 @@ -210,14 +210,12 @@ define i64 @ld_sd_global(i64 %a) nounwind {
  ; TODO: the addi should be folded in to the ld/sd operations
  ; RV64I-LABEL: ld_sd_global:
- ; RV64I:       # BB#0:
+ ; RV64I:       # %bb.0:
 -; RV64I-NEXT:    lui a1, %hi(G)
 -; RV64I-NEXT:    addi a2, a1, %lo(G)
 -; RV64I-NEXT:    ld a1, 0(a2)
@@ -363,12 +363,12 @@ index d8d8c2c5818..2815ea11baa 100644
  ; RV64I-NEXT:    jalr zero, ra, 0
    %1 = load volatile i64, i64* @G
 diff --git a/test/CodeGen/RISCV/wide-mem.ll b/test/CodeGen/RISCV/wide-mem.ll
-index 18ab52aaf13..20d878c949a 100644
+index cbb89f631a5..33a51efe818 100644
 --- a/test/CodeGen/RISCV/wide-mem.ll
 +++ b/test/CodeGen/RISCV/wide-mem.ll
 @@ -23,11 +23,9 @@ define i64 @load_i64_global() nounwind {
  ; RV32I-LABEL: load_i64_global:
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    lui a0, %hi(val64)
 -; RV32I-NEXT:    addi a0, a0, %lo(val64)
 -; RV32I-NEXT:    lw a0, 0(a0)

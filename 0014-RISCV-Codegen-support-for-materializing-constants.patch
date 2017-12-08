@@ -52,11 +52,11 @@ index 23adf1eda9d..a19a636bdec 100644
  
  def : PatGprGpr<add, ADD>;
 diff --git a/test/CodeGen/RISCV/alu32.ll b/test/CodeGen/RISCV/alu32.ll
-index e38ec075d4f..1dbcd2fd45d 100644
+index f0a0e6c6ad8..3a3128315e1 100644
 --- a/test/CodeGen/RISCV/alu32.ll
 +++ b/test/CodeGen/RISCV/alu32.ll
 @@ -9,7 +9,6 @@ define i32 @addi(i32 %a) nounwind {
- ; RV32I:       # BB#0:
+ ; RV32I:       # %bb.0:
  ; RV32I-NEXT:    addi a0, a0, 1
  ; RV32I-NEXT:    jalr zero, ra, 0
 -; TODO: check support for materialising larger constants
@@ -65,7 +65,7 @@ index e38ec075d4f..1dbcd2fd45d 100644
  }
 diff --git a/test/CodeGen/RISCV/imm.ll b/test/CodeGen/RISCV/imm.ll
 new file mode 100644
-index 00000000000..c52638da02e
+index 00000000000..ddefa22835a
 --- /dev/null
 +++ b/test/CodeGen/RISCV/imm.ll
 @@ -0,0 +1,47 @@
@@ -77,7 +77,7 @@ index 00000000000..c52638da02e
 +
 +define i32 @zero() nounwind {
 +; RV32I-LABEL: zero:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    jalr zero, ra, 0
 +  ret i32 0
@@ -85,7 +85,7 @@ index 00000000000..c52638da02e
 +
 +define i32 @pos_small() nounwind {
 +; RV32I-LABEL: pos_small:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi a0, zero, 2047
 +; RV32I-NEXT:    jalr zero, ra, 0
 +  ret i32 2047
@@ -93,7 +93,7 @@ index 00000000000..c52638da02e
 +
 +define i32 @neg_small() nounwind {
 +; RV32I-LABEL: neg_small:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi a0, zero, -2048
 +; RV32I-NEXT:    jalr zero, ra, 0
 +  ret i32 -2048
@@ -101,7 +101,7 @@ index 00000000000..c52638da02e
 +
 +define i32 @pos_i32() nounwind {
 +; RV32I-LABEL: pos_i32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lui a0, 423811
 +; RV32I-NEXT:    addi a0, a0, -1297
 +; RV32I-NEXT:    jalr zero, ra, 0
@@ -110,7 +110,7 @@ index 00000000000..c52638da02e
 +
 +define i32 @neg_i32() nounwind {
 +; RV32I-LABEL: neg_i32:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    lui a0, 912092
 +; RV32I-NEXT:    addi a0, a0, -273
 +; RV32I-NEXT:    jalr zero, ra, 0

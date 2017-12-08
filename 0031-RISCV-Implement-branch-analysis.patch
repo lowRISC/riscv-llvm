@@ -5,28 +5,28 @@ Subject: [RISCV] Implement branch analysis
 This is a prerequisite for the branch relaxation pass, and allows a number of
 optimisation passes (e.g. BranchFolding and MachineBlockPlacement) to work.
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp         | 190 +++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp         | 191 +++++++++++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h           |  16 ++
  test/CodeGen/RISCV/analyze-branch.ll        |  91 +++++++++++
  test/CodeGen/RISCV/branch.ll                |  33 ++--
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 228 ++++++++++++++--------------
  test/CodeGen/RISCV/jumptable.ll             |  45 +++---
  test/CodeGen/RISCV/select-cc.ll             |   2 +-
- 7 files changed, 446 insertions(+), 159 deletions(-)
+ 7 files changed, 447 insertions(+), 159 deletions(-)
  create mode 100644 test/CodeGen/RISCV/analyze-branch.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 5b4f4fcbb88..da41a1e6105 100644
+index 186fe363edd..893d29c60d4 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -75,3 +75,193 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+@@ -75,3 +75,194 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
    else
      llvm_unreachable("Can't load this register from stack slot");
  }
 +
 +// The contents of values added to Cond are not examined outside of
 +// RISCVInstrInfo, giving us flexibility in what to push to it. For RISCV, we
-+// push BranchOpcode, Reg1, Reg2
++// push BranchOpcode, Reg1, Reg2.
 +static void parseCondBranch(MachineInstr *LastInst, MachineBasicBlock *&Target,
 +                            SmallVectorImpl<MachineOperand> &Cond) {
 +  // Block ends with fall-through condbranch.
@@ -62,7 +62,7 @@ index 5b4f4fcbb88..da41a1e6105 100644
 +                                   MachineBasicBlock *&FBB,
 +                                   SmallVectorImpl<MachineOperand> &Cond,
 +                                   bool AllowModify) const {
-+  // Implementation derived from AArch64InstrInfo::analyzeBranch
++  // Implementation derived from AArch64InstrInfo::analyzeBranch.
 +  TBB = FBB = nullptr;
 +  Cond.clear();
 +
@@ -177,6 +177,8 @@ index 5b4f4fcbb88..da41a1e6105 100644
 +  return 2;
 +}
 +
++// Inserts a branch into the end of the specific MachineBasicBlock, returning
++// the number of instructions inserted.
 +unsigned RISCVInstrInfo::insertBranch(
 +    MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
 +    ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
@@ -187,22 +189,21 @@ index 5b4f4fcbb88..da41a1e6105 100644
 +  assert((Cond.size() == 3 || Cond.size() == 0) &&
 +         "RISCV branch conditions have two components!");
 +
-+  // Unconditional branch
++  // Unconditional branch.
 +  if (Cond.empty()) {
 +    BuildMI(&MBB, DL, get(RISCV::PseudoBR)).addMBB(TBB);
 +    return 1;
 +  }
 +
-+  // Either a one or two-way conditional branch
++  // Either a one or two-way conditional branch.
 +  unsigned Opc = Cond[0].getImm();
 +  BuildMI(&MBB, DL, get(Opc)).add(Cond[1]).add(Cond[2]).addMBB(TBB);
 +
-+  // One-way conditional branch
-+  if (!FBB) {
++  // One-way conditional branch.
++  if (!FBB)
 +    return 1;
-+  }
 +
-+  // Two-way conditional branch
++  // Two-way conditional branch.
 +  BuildMI(&MBB, DL, get(RISCV::PseudoBR)).addMBB(FBB);
 +  return 2;
 +}
@@ -242,7 +243,7 @@ index 05c8378445c..50f115bb1b9 100644
  #endif
 diff --git a/test/CodeGen/RISCV/analyze-branch.ll b/test/CodeGen/RISCV/analyze-branch.ll
 new file mode 100644
-index 00000000000..276106493b9
+index 00000000000..aa16638ccf1
 --- /dev/null
 +++ b/test/CodeGen/RISCV/analyze-branch.ll
 @@ -0,0 +1,91 @@
@@ -262,14 +263,14 @@ index 00000000000..276106493b9
 +
 +define void @test_bcc_fallthrough_taken(i32 %in) nounwind {
 +; RV32I-LABEL: test_bcc_fallthrough_taken:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
 +; RV32I-NEXT:    addi s0, sp, 16
 +; RV32I-NEXT:    addi a1, zero, 42
 +; RV32I-NEXT:    bne a0, a1, .LBB0_3
-+; RV32I-NEXT:  # BB#1: # %true
++; RV32I-NEXT:  # %bb.1: # %true
 +; RV32I-NEXT:    lui a0, %hi(test_true)
 +; RV32I-NEXT:    addi a0, a0, %lo(test_true)
 +; RV32I-NEXT:  .LBB0_2: # %true
@@ -300,14 +301,14 @@ index 00000000000..276106493b9
 +
 +define void @test_bcc_fallthrough_nottaken(i32 %in) nounwind {
 +; RV32I-LABEL: test_bcc_fallthrough_nottaken:
-+; RV32I:       # BB#0:
++; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
 +; RV32I-NEXT:    sw ra, 12(sp)
 +; RV32I-NEXT:    sw s0, 8(sp)
 +; RV32I-NEXT:    addi s0, sp, 16
 +; RV32I-NEXT:    addi a1, zero, 42
 +; RV32I-NEXT:    beq a0, a1, .LBB1_1
-+; RV32I-NEXT:  # BB#3: # %false
++; RV32I-NEXT:  # %bb.3: # %false
 +; RV32I-NEXT:    lui a0, %hi(test_false)
 +; RV32I-NEXT:    addi a0, a0, %lo(test_false)
 +; RV32I-NEXT:  .LBB1_2: # %true
@@ -338,7 +339,7 @@ index 00000000000..276106493b9
 +
 +; TODO: how can we expand the coverage of the branch analysis functions?
 diff --git a/test/CodeGen/RISCV/branch.ll b/test/CodeGen/RISCV/branch.ll
-index 1baecce605a..509e2d2c16b 100644
+index c289dc384eb..5139928120c 100644
 --- a/test/CodeGen/RISCV/branch.ll
 +++ b/test/CodeGen/RISCV/branch.ll
 @@ -11,49 +11,38 @@ define void @foo(i32 %a, i32 *%b, i1 %c) {
@@ -347,63 +348,63 @@ index 1baecce605a..509e2d2c16b 100644
  ; RV32I-NEXT:    beq a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_1
 -; RV32I-NEXT:  .LBB0_1: # %test2
-+; RV32I-NEXT:  # BB#1: # %test2
++; RV32I-NEXT:  # %bb.1: # %test2
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bne a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_2
 -; RV32I-NEXT:  .LBB0_2: # %test3
-+; RV32I-NEXT:  # BB#2: # %test3
++; RV32I-NEXT:  # %bb.2: # %test3
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    blt a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_3
 -; RV32I-NEXT:  .LBB0_3: # %test4
-+; RV32I-NEXT:  # BB#3: # %test4
++; RV32I-NEXT:  # %bb.3: # %test4
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bge a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_4
 -; RV32I-NEXT:  .LBB0_4: # %test5
-+; RV32I-NEXT:  # BB#4: # %test5
++; RV32I-NEXT:  # %bb.4: # %test5
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bltu a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_5
 -; RV32I-NEXT:  .LBB0_5: # %test6
-+; RV32I-NEXT:  # BB#5: # %test6
++; RV32I-NEXT:  # %bb.5: # %test6
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bgeu a3, a0, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_6
 -; RV32I-NEXT:  .LBB0_6: # %test7
-+; RV32I-NEXT:  # BB#6: # %test7
++; RV32I-NEXT:  # %bb.6: # %test7
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    blt a0, a3, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_7
 -; RV32I-NEXT:  .LBB0_7: # %test8
-+; RV32I-NEXT:  # BB#7: # %test8
++; RV32I-NEXT:  # %bb.7: # %test8
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bge a0, a3, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_8
 -; RV32I-NEXT:  .LBB0_8: # %test9
-+; RV32I-NEXT:  # BB#8: # %test9
++; RV32I-NEXT:  # %bb.8: # %test9
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bltu a0, a3, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_9
 -; RV32I-NEXT:  .LBB0_9: # %test10
-+; RV32I-NEXT:  # BB#9: # %test10
++; RV32I-NEXT:  # %bb.9: # %test10
  ; RV32I-NEXT:    lw a3, 0(a1)
  ; RV32I-NEXT:    bgeu a0, a3, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_10
 -; RV32I-NEXT:  .LBB0_10: # %test11
-+; RV32I-NEXT:  # BB#10: # %test11
++; RV32I-NEXT:  # %bb.10: # %test11
  ; RV32I-NEXT:    lw a0, 0(a1)
  ; RV32I-NEXT:    andi a0, a2, 1
  ; RV32I-NEXT:    bne a0, zero, .LBB0_12
 -; RV32I-NEXT:    jal zero, .LBB0_11
 -; RV32I-NEXT:  .LBB0_11: # %test12
-+; RV32I-NEXT:  # BB#11: # %test12
++; RV32I-NEXT:  # %bb.11: # %test12
  ; RV32I-NEXT:    lw a0, 0(a1)
  ; RV32I-NEXT:  .LBB0_12: # %end
  ; RV32I-NEXT:    lw s0, 8(sp)
 diff --git a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
-index ec4d912df2b..6e3bec67875 100644
+index 097cc87dffb..0a14149ad6e 100644
 --- a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
 +++ b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
 @@ -107,15 +107,12 @@ define i8 @test_cttz_i8(i8 %a) nounwind {
@@ -421,7 +422,7 @@ index ec4d912df2b..6e3bec67875 100644
 -; RV32I-NEXT:    and a0, a1, a0
 +; RV32I-NEXT:    andi a1, a0, 255
 +; RV32I-NEXT:    beq a1, zero, .LBB3_1
-+; RV32I-NEXT:  # BB#2: # %cond.false
++; RV32I-NEXT:  # %bb.2: # %cond.false
 +; RV32I-NEXT:    addi a1, a0, -1
 +; RV32I-NEXT:    xori a0, a0, -1
 +; RV32I-NEXT:    and a0, a0, a1
@@ -459,7 +460,7 @@ index ec4d912df2b..6e3bec67875 100644
 +; RV32I-NEXT:    addi a1, a1, -1
 +; RV32I-NEXT:    and a1, a0, a1
 +; RV32I-NEXT:    beq a1, zero, .LBB4_1
-+; RV32I-NEXT:  # BB#2: # %cond.false
++; RV32I-NEXT:  # %bb.2: # %cond.false
 +; RV32I-NEXT:    addi a1, a0, -1
 +; RV32I-NEXT:    xori a0, a0, -1
 +; RV32I-NEXT:    and a0, a0, a1
@@ -491,7 +492,7 @@ index ec4d912df2b..6e3bec67875 100644
 -; RV32I-NEXT:    xori a1, a1, -1
 -; RV32I-NEXT:    and a0, a1, a0
 +; RV32I-NEXT:    beq a0, zero, .LBB5_1
-+; RV32I-NEXT:  # BB#2: # %cond.false
++; RV32I-NEXT:  # %bb.2: # %cond.false
 +; RV32I-NEXT:    addi a1, a0, -1
 +; RV32I-NEXT:    xori a0, a0, -1
 +; RV32I-NEXT:    and a0, a0, a1
@@ -522,7 +523,7 @@ index ec4d912df2b..6e3bec67875 100644
 -; RV32I-NEXT:    srli a0, a1, 1
 -; RV32I-NEXT:    or a0, a1, a0
 +; RV32I-NEXT:    beq a0, zero, .LBB6_1
-+; RV32I-NEXT:  # BB#2: # %cond.false
++; RV32I-NEXT:  # %bb.2: # %cond.false
 +; RV32I-NEXT:    srli a1, a0, 1
 +; RV32I-NEXT:    or a0, a0, a1
  ; RV32I-NEXT:    srli a1, a0, 2
@@ -611,7 +612,7 @@ index ec4d912df2b..6e3bec67875 100644
 -; RV32I-NEXT:    addi a1, s3, 0
 -; RV32I-NEXT:    jalr ra, s6, 0
 -; RV32I-NEXT:    bne s2, zero, .LBB7_2
--; RV32I-NEXT:  # BB#1:
+-; RV32I-NEXT:  # %bb.1:
 +; RV32I-NEXT:    sub a0, a0, a1
 +; RV32I-NEXT:    and a1, a0, s6
 +; RV32I-NEXT:    srli a0, a0, 2
@@ -623,7 +624,7 @@ index ec4d912df2b..6e3bec67875 100644
 +; RV32I-NEXT:    addi a1, s4, 0
 +; RV32I-NEXT:    jalr ra, s7, 0
 +; RV32I-NEXT:    bne s3, zero, .LBB7_1
-+; RV32I-NEXT:  # BB#2:
++; RV32I-NEXT:  # %bb.2:
  ; RV32I-NEXT:    srli a0, a0, 24
 -; RV32I-NEXT:    addi s1, a0, 32
 -; RV32I-NEXT:  .LBB7_2:
@@ -709,7 +710,7 @@ index ec4d912df2b..6e3bec67875 100644
 -; RV32I-NEXT:    addi a1, s3, 0
 -; RV32I-NEXT:    jalr ra, s6, 0
 -; RV32I-NEXT:    bne s2, zero, .LBB11_2
--; RV32I-NEXT:  # BB#1:
+-; RV32I-NEXT:  # %bb.1:
 +; RV32I-NEXT:    sub a0, a0, a1
 +; RV32I-NEXT:    and a1, a0, s6
 +; RV32I-NEXT:    srli a0, a0, 2
@@ -721,7 +722,7 @@ index ec4d912df2b..6e3bec67875 100644
 +; RV32I-NEXT:    addi a1, s4, 0
 +; RV32I-NEXT:    jalr ra, s7, 0
 +; RV32I-NEXT:    bne s3, zero, .LBB11_1
-+; RV32I-NEXT:  # BB#2:
++; RV32I-NEXT:  # %bb.2:
  ; RV32I-NEXT:    srli a0, a0, 24
 -; RV32I-NEXT:    addi s1, a0, 32
 -; RV32I-NEXT:  .LBB11_2:
@@ -737,7 +738,7 @@ index ec4d912df2b..6e3bec67875 100644
  ; RV32I-NEXT:    lw s6, 16(sp)
  ; RV32I-NEXT:    lw s5, 20(sp)
 diff --git a/test/CodeGen/RISCV/jumptable.ll b/test/CodeGen/RISCV/jumptable.ll
-index 869cc8ef855..00330d45fe7 100644
+index f8b5e983321..ef9643d7799 100644
 --- a/test/CodeGen/RISCV/jumptable.ll
 +++ b/test/CodeGen/RISCV/jumptable.ll
 @@ -10,42 +10,37 @@ define void @jt(i32 %in, i32* %out) {
@@ -748,7 +749,7 @@ index 869cc8ef855..00330d45fe7 100644
 -; RV32I-NEXT:    jal zero, .LBB0_1
 -; RV32I-NEXT:  .LBB0_1: # %entry
 +; RV32I-NEXT:    blt a2, a0, .LBB0_4
-+; RV32I-NEXT:  # BB#1: # %entry
++; RV32I-NEXT:  # %bb.1: # %entry
  ; RV32I-NEXT:    addi a3, zero, 1
 -; RV32I-NEXT:    beq a0, a3, .LBB0_5
 -; RV32I-NEXT:    jal zero, .LBB0_2
@@ -757,9 +758,9 @@ index 869cc8ef855..00330d45fe7 100644
 -; RV32I-NEXT:    jal zero, .LBB0_9
 -; RV32I-NEXT:  .LBB0_6: # %bb2
 +; RV32I-NEXT:    beq a0, a3, .LBB0_8
-+; RV32I-NEXT:  # BB#2: # %entry
++; RV32I-NEXT:  # %bb.2: # %entry
 +; RV32I-NEXT:    bne a0, a2, .LBB0_10
-+; RV32I-NEXT:  # BB#3: # %bb2
++; RV32I-NEXT:  # %bb.3: # %bb2
  ; RV32I-NEXT:    addi a0, zero, 3
  ; RV32I-NEXT:    sw a0, 0(a1)
 -; RV32I-NEXT:    jal zero, .LBB0_9
@@ -771,13 +772,13 @@ index 869cc8ef855..00330d45fe7 100644
  ; RV32I-NEXT:  .LBB0_4: # %entry
 +; RV32I-NEXT:    addi a3, zero, 3
 +; RV32I-NEXT:    beq a0, a3, .LBB0_9
-+; RV32I-NEXT:  # BB#5: # %entry
++; RV32I-NEXT:  # %bb.5: # %entry
  ; RV32I-NEXT:    addi a2, zero, 4
 -; RV32I-NEXT:    beq a0, a2, .LBB0_8
 -; RV32I-NEXT:    jal zero, .LBB0_9
 -; RV32I-NEXT:  .LBB0_8: # %bb4
 +; RV32I-NEXT:    bne a0, a2, .LBB0_10
-+; RV32I-NEXT:  # BB#6: # %bb4
++; RV32I-NEXT:  # %bb.6: # %bb4
  ; RV32I-NEXT:    addi a0, zero, 1
  ; RV32I-NEXT:    sw a0, 0(a1)
 -; RV32I-NEXT:  .LBB0_9: # %exit
@@ -804,7 +805,7 @@ index 869cc8ef855..00330d45fe7 100644
    switch i32 %in, label %exit [
      i32 1, label %bb1
 diff --git a/test/CodeGen/RISCV/select-cc.ll b/test/CodeGen/RISCV/select-cc.ll
-index b659424170f..17ffcb19f7a 100644
+index 2a9a0080e4c..580372a6783 100644
 --- a/test/CodeGen/RISCV/select-cc.ll
 +++ b/test/CodeGen/RISCV/select-cc.ll
 @@ -1,5 +1,5 @@

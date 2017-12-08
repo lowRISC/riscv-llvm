@@ -1028,10 +1028,10 @@ index 0000000000..a0da51d7d4
 +// CHECK: @align_vl = global i32 8
 +int align_vl = __alignof(va_list);
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index f767c7ad01..35176c808c 100644
+index 51e1233456..9c3b38ff70 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
-@@ -9999,3 +9999,398 @@
+@@ -10003,3 +10003,398 @@
  // ARM-DARWIN-BAREMETAL-64: #define __PTRDIFF_TYPE__ long int
  // ARM-DARWIN-BAREMETAL-64: #define __SIZE_TYPE__ long unsigned int
  
