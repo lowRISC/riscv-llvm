@@ -7,29 +7,24 @@ Subject: [RISCV] Add the RISCV target and compiler driver
  lib/Basic/Targets.cpp                |   6 +
  lib/Basic/Targets/RISCV.cpp          |  52 +++++
  lib/Basic/Targets/RISCV.h            | 103 +++++++++
- lib/Driver/CMakeLists.txt            |   2 +
- lib/Driver/Driver.cpp                |   5 +
- lib/Driver/ToolChains/Arch/RISCV.cpp |  58 +++++
+ lib/Driver/CMakeLists.txt            |   1 +
+ lib/Driver/ToolChains/Arch/RISCV.cpp |  61 ++++++
  lib/Driver/ToolChains/Arch/RISCV.h   |  32 +++
  lib/Driver/ToolChains/Clang.cpp      |  39 ++++
  lib/Driver/ToolChains/Clang.h        |   2 +
- lib/Driver/ToolChains/Gnu.cpp        |  61 +++++-
- lib/Driver/ToolChains/Linux.cpp      |  22 ++
- lib/Driver/ToolChains/RISCV.cpp      | 102 +++++++++
- lib/Driver/ToolChains/RISCV.h        |  58 +++++
+ lib/Driver/ToolChains/Gnu.cpp        |  60 +++++-
+ lib/Driver/ToolChains/Linux.cpp      |  23 ++
  test/Driver/frame-pointer.c          |  12 ++
  test/Driver/riscv-abi.c              |  47 +++++
  test/Driver/riscv-features.c         |   4 +
  test/Driver/riscv32-toolchain.c      |  44 ++++
  test/Driver/riscv64-toolchain.c      |  44 ++++
  test/Preprocessor/init.c             | 395 +++++++++++++++++++++++++++++++++++
- 20 files changed, 1088 insertions(+), 1 deletion(-)
+ 17 files changed, 925 insertions(+), 1 deletion(-)
  create mode 100644 lib/Basic/Targets/RISCV.cpp
  create mode 100644 lib/Basic/Targets/RISCV.h
  create mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
  create mode 100644 lib/Driver/ToolChains/Arch/RISCV.h
- create mode 100644 lib/Driver/ToolChains/RISCV.cpp
- create mode 100644 lib/Driver/ToolChains/RISCV.h
  create mode 100644 test/Driver/riscv-abi.c
  create mode 100644 test/Driver/riscv-features.c
  create mode 100644 test/Driver/riscv32-toolchain.c
@@ -131,7 +126,7 @@ index 0000000000..8b2338bb85
 +}
 diff --git a/lib/Basic/Targets/RISCV.h b/lib/Basic/Targets/RISCV.h
 new file mode 100644
-index 0000000000..5675fa52b8
+index 0000000000..b35afd736d
 --- /dev/null
 +++ b/lib/Basic/Targets/RISCV.h
 @@ -0,0 +1,103 @@
@@ -221,7 +216,7 @@ index 0000000000..5675fa52b8
 +  RISCV64TargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
 +      : RISCVTargetInfo(Triple, Opts) {
 +    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
-+    IntMaxType = SignedLong;
++    IntMaxType = Int64Type = SignedLong;
 +    resetDataLayout("e-m:e-p:64:64-i64:64-i128:128-n64-S128");
 +  }
 +
@@ -239,7 +234,7 @@ index 0000000000..5675fa52b8
 +
 +#endif // LLVM_CLANG_LIB_BASIC_TARGETS_RISCV_H
 diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
-index 5bf91f2be9..459b64bf34 100644
+index 5bf91f2be9..afb1cdf375 100644
 --- a/lib/Driver/CMakeLists.txt
 +++ b/lib/Driver/CMakeLists.txt
 @@ -25,6 +25,7 @@ add_clang_library(clangDriver
@@ -250,43 +245,12 @@ index 5bf91f2be9..459b64bf34 100644
    ToolChains/Arch/Sparc.cpp
    ToolChains/Arch/SystemZ.cpp
    ToolChains/Arch/X86.cpp
-@@ -55,6 +56,7 @@ add_clang_library(clangDriver
-   ToolChains/NetBSD.cpp
-   ToolChains/OpenBSD.cpp
-   ToolChains/PS4CPU.cpp
-+  ToolChains/RISCV.cpp
-   ToolChains/Solaris.cpp
-   ToolChains/TCE.cpp
-   ToolChains/WebAssembly.cpp
-diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index 9ae33b80f8..bbfd8dceb9 100644
---- a/lib/Driver/Driver.cpp
-+++ b/lib/Driver/Driver.cpp
-@@ -36,6 +36,7 @@
- #include "ToolChains/NetBSD.h"
- #include "ToolChains/OpenBSD.h"
- #include "ToolChains/PS4CPU.h"
-+#include "ToolChains/RISCV.h"
- #include "ToolChains/Solaris.h"
- #include "ToolChains/TCE.h"
- #include "ToolChains/WebAssembly.h"
-@@ -3925,6 +3926,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
-       case llvm::Triple::avr:
-         TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
-         break;
-+      case llvm::Triple::riscv32:
-+      case llvm::Triple::riscv64:
-+        TC = llvm::make_unique<toolchains::RISCVToolChain>(*this, Target, Args);
-+        break;
-       default:
-         if (Target.getVendor() == llvm::Triple::Myriad)
-           TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
 diff --git a/lib/Driver/ToolChains/Arch/RISCV.cpp b/lib/Driver/ToolChains/Arch/RISCV.cpp
 new file mode 100644
-index 0000000000..4222a7b5c1
+index 0000000000..2b4ae88365
 --- /dev/null
 +++ b/lib/Driver/ToolChains/Arch/RISCV.cpp
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,61 @@
 +//===--- RISCV.cpp - RISCV Helpers for Tools --------------------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -333,6 +297,9 @@ index 0000000000..4222a7b5c1
 +        break;
 +      case 'd':
 +        Features.push_back("+d");
++        break;
++      case 'c':
++        Features.push_back("+c");
 +        break;
 +      }
 +    }
@@ -482,7 +449,7 @@ index e23822b9c6..8893d88a8c 100644
                            llvm::opt::ArgStringList &CmdArgs) const;
    void AddSystemZTargetArgs(const llvm::opt::ArgList &Args,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index 2d1b9a409a..0d0718eb2f 100644
+index 7845781f12..d7cc101a60 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
 @@ -8,13 +8,14 @@
@@ -501,7 +468,7 @@ index 2d1b9a409a..0d0718eb2f 100644
  #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  #include "clang/Driver/Compilation.h"
-@@ -270,6 +271,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+@@ -271,6 +272,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
      return "elf64ppc";
    case llvm::Triple::ppc64le:
      return "elf64lppc";
@@ -512,7 +479,7 @@ index 2d1b9a409a..0d0718eb2f 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      return "elf32_sparc";
-@@ -855,6 +860,10 @@ static bool isMicroMips(const ArgList &Args) {
+@@ -856,6 +861,10 @@ static bool isMicroMips(const ArgList &Args) {
    return A && A->getOption().matches(options::OPT_mmicromips);
  }
  
@@ -523,7 +490,7 @@ index 2d1b9a409a..0d0718eb2f 100644
  static Multilib makeMultilib(StringRef commonSuffix) {
    return Multilib(commonSuffix, commonSuffix, commonSuffix);
  }
-@@ -1400,6 +1409,41 @@ static void findAndroidArmMultilibs(const Driver &D,
+@@ -1401,6 +1410,41 @@ static void findAndroidArmMultilibs(const Driver &D,
      Result.Multilibs = AndroidArmMultilibs;
  }
  
@@ -565,19 +532,18 @@ index 2d1b9a409a..0d0718eb2f 100644
  static bool findBiarchMultilibs(const Driver &D,
                                  const llvm::Triple &TargetTriple,
                                  StringRef Path, const ArgList &Args,
-@@ -1782,6 +1826,11 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1783,6 +1827,10 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
        "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
        "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
  
 +  static const char *const RISCV32LibDirs[] = {"/lib", "/lib32"};
 +  static const char *const RISCVTriples[] = {"riscv32-unknown-linux-gnu",
-+                                             "riscv64-unknown-linux-gnu",
-+                                             "riscv32-unknown-elf"};
++                                             "riscv64-unknown-linux-gnu"};
 +
    static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
    static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
                                                 "sparcv8-linux-gnu"};
-@@ -1927,6 +1976,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1928,6 +1976,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
      LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
      TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
      break;
@@ -590,7 +556,7 @@ index 2d1b9a409a..0d0718eb2f 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
-@@ -2024,6 +2079,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+@@ -2025,6 +2079,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
    } else if (tools::isMipsArch(TargetArch)) {
      if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
        return false;
@@ -599,7 +565,7 @@ index 2d1b9a409a..0d0718eb2f 100644
    } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                    NeedsBiarchSuffix, Detected)) {
      return false;
-@@ -2239,6 +2296,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
+@@ -2240,6 +2296,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
    case llvm::Triple::ppc:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -609,7 +575,7 @@ index 2d1b9a409a..0d0718eb2f 100644
    case llvm::Triple::mips:
    case llvm::Triple::mipsel:
 diff --git a/lib/Driver/ToolChains/Linux.cpp b/lib/Driver/ToolChains/Linux.cpp
-index ca042f38db..51fa48bf13 100644
+index 1301cdf114..9ce2407d99 100644
 --- a/lib/Driver/ToolChains/Linux.cpp
 +++ b/lib/Driver/ToolChains/Linux.cpp
 @@ -11,6 +11,7 @@
@@ -630,15 +596,16 @@ index ca042f38db..51fa48bf13 100644
    return Triple.isArch32Bit() ? "lib" : "lib64";
  }
  
-@@ -226,6 +230,7 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
+@@ -226,6 +230,8 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
    const bool IsAndroid = Triple.isAndroid();
    const bool IsMips = tools::isMipsArch(Arch);
    const bool IsHexagon = Arch == llvm::Triple::hexagon;
-+  const bool IsRISCV = Arch == llvm::Triple::riscv32 || llvm::Triple::riscv64;
++  const bool IsRISCV =
++      Arch == llvm::Triple::riscv32 || Arch == llvm::Triple::riscv64;
  
    if (IsMips && !SysRoot.empty())
      ExtraOpts.push_back("--sysroot=" + SysRoot);
-@@ -333,6 +338,11 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
+@@ -333,6 +339,11 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
    addPathIfExists(D, SysRoot + "/lib/../" + OSLibDir, Paths);
    addPathIfExists(D, SysRoot + "/usr/lib/" + MultiarchTriple, Paths);
    addPathIfExists(D, SysRoot + "/usr/lib/../" + OSLibDir, Paths);
@@ -650,7 +617,7 @@ index ca042f38db..51fa48bf13 100644
  
    // Try walking via the GCC triple path in case of biarch or multiarch GCC
    // installations with strange symlinks.
-@@ -511,6 +521,18 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
+@@ -511,6 +522,18 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
      Loader =
          (tools::ppc::hasPPCAbiArg(Args, "elfv1")) ? "ld64.so.1" : "ld64.so.2";
      break;
@@ -669,178 +636,6 @@ index ca042f38db..51fa48bf13 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDir = "lib";
-diff --git a/lib/Driver/ToolChains/RISCV.cpp b/lib/Driver/ToolChains/RISCV.cpp
-new file mode 100644
-index 0000000000..4ae783e218
---- /dev/null
-+++ b/lib/Driver/ToolChains/RISCV.cpp
-@@ -0,0 +1,102 @@
-+//===--- RISCV.cpp - RISCV ToolChain Implementations ------------*- C++ -*-===//
-+//
-+//                     The LLVM Compiler Infrastructure
-+//
-+// This file is distributed under the University of Illinois Open Source
-+// License. See LICENSE.TXT for details.
-+//
-+//===----------------------------------------------------------------------===//
-+
-+#include "RISCV.h"
-+#include "CommonArgs.h"
-+#include "InputInfo.h"
-+#include "clang/Driver/Compilation.h"
-+#include "clang/Driver/Options.h"
-+#include "llvm/Option/ArgList.h"
-+#include "llvm/Support/Path.h"
-+
-+using namespace clang::driver;
-+using namespace clang::driver::toolchains;
-+using namespace clang::driver::tools;
-+using namespace clang;
-+using namespace llvm::opt;
-+
-+/// RISCV Toolchain
-+RISCVToolChain::RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
-+                               const ArgList &Args)
-+    : Generic_ELF(D, Triple, Args) {
-+  GCCInstallation.init(Triple, Args);
-+  getFilePaths().push_back(D.SysRoot + "/lib");
-+  if (GCCInstallation.isValid()) {
-+    getFilePaths().push_back(GCCInstallation.getInstallPath().str());
-+    getProgramPaths().push_back(
-+        (GCCInstallation.getParentLibPath() + "/../bin").str());
-+  }
-+}
-+
-+Tool *RISCVToolChain::buildLinker() const {
-+  return new tools::RISCV::Linker(*this);
-+}
-+
-+void RISCVToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
-+                                               ArgStringList &CC1Args) const {
-+  if (DriverArgs.hasArg(options::OPT_nostdinc))
-+    return;
-+
-+  if (!DriverArgs.hasArg(options::OPT_nostdlibinc)) {
-+    SmallString<128> Dir(getDriver().SysRoot);
-+    llvm::sys::path::append(Dir, "include");
-+    addSystemInclude(DriverArgs, CC1Args, Dir.str());
-+  }
-+}
-+
-+void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
-+                                 const InputInfo &Output,
-+                                 const InputInfoList &Inputs,
-+                                 const ArgList &Args,
-+                                 const char *LinkingOutput) const {
-+  const ToolChain &ToolChain = getToolChain();
-+  const Driver &D = ToolChain.getDriver();
-+  ArgStringList CmdArgs;
-+
-+  if (!D.SysRoot.empty())
-+    CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
-+
-+  std::string Linker = getToolChain().GetProgramPath(getShortName());
-+
-+  bool WantCRTs =
-+      !Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles);
-+
-+  if (WantCRTs) {
-+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt0.o")));
-+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtbegin.o")));
-+  }
-+
-+  Args.AddAllArgs(CmdArgs, options::OPT_L);
-+  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
-+  Args.AddAllArgs(CmdArgs,
-+                  {options::OPT_T_Group, options::OPT_e, options::OPT_s,
-+                   options::OPT_t, options::OPT_Z_Flag, options::OPT_r});
-+
-+  AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
-+
-+  // TODO: add C++ includes and libs if compiling C++.
-+
-+  if (!Args.hasArg(options::OPT_nostdlib) &&
-+      !Args.hasArg(options::OPT_nodefaultlibs)) {
-+    CmdArgs.push_back("--start-group");
-+    CmdArgs.push_back("-lc");
-+    CmdArgs.push_back("-lgloss");
-+    CmdArgs.push_back("--end-group");
-+    CmdArgs.push_back("-lgcc");
-+  }
-+
-+  if (WantCRTs)
-+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtend.o")));
-+
-+  CmdArgs.push_back("-o");
-+  CmdArgs.push_back(Output.getFilename());
-+  C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
-+                                          CmdArgs, Inputs));
-+}
-+// RISCV tools end.
-diff --git a/lib/Driver/ToolChains/RISCV.h b/lib/Driver/ToolChains/RISCV.h
-new file mode 100644
-index 0000000000..c26180b6fb
---- /dev/null
-+++ b/lib/Driver/ToolChains/RISCV.h
-@@ -0,0 +1,58 @@
-+//===--- RISCV.h - RISCV ToolChain Implementations --------------*- C++ -*-===//
-+//
-+//                     The LLVM Compiler Infrastructure
-+//
-+// This file is distributed under the University of Illinois Open Source
-+// License. See LICENSE.TXT for details.
-+//
-+//===----------------------------------------------------------------------===//
-+
-+#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
-+#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
-+
-+#include "Gnu.h"
-+#include "clang/Driver/ToolChain.h"
-+
-+namespace clang {
-+namespace driver {
-+namespace toolchains {
-+
-+class LLVM_LIBRARY_VISIBILITY RISCVToolChain : public Generic_ELF {
-+public:
-+  RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
-+                 const llvm::opt::ArgList &Args);
-+
-+  bool IsIntegratedAssemblerDefault() const override { return true; }
-+  void
-+  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-+                            llvm::opt::ArgStringList &CC1Args) const override;
-+
-+protected:
-+  Tool *buildLinker() const override;
-+};
-+
-+} // end namespace toolchains
-+
-+namespace tools {
-+namespace RISCV {
-+class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
-+public:
-+  Linker(const ToolChain &TC)
-+      : GnuTool("RISCV::Linker",
-+                TC.getTriple().isArch64Bit() ? "riscv64-unknown-elf-ld"
-+                                             : "riscv32-unknown-elf-ld",
-+                TC) {}
-+  bool hasIntegratedCPP() const override { return false; }
-+  bool isLinkJob() const override { return true; }
-+  void ConstructJob(Compilation &C, const JobAction &JA,
-+                    const InputInfo &Output, const InputInfoList &Inputs,
-+                    const llvm::opt::ArgList &TCArgs,
-+                    const char *LinkingOutput) const override;
-+};
-+} // end namespace RISCV
-+} // end namespace tools
-+
-+} // end namespace driver
-+} // end namespace clang
-+
-+#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
 diff --git a/test/Driver/frame-pointer.c b/test/Driver/frame-pointer.c
 index ecb16af3cf..cf5c07d542 100644
 --- a/test/Driver/frame-pointer.c
@@ -1028,7 +823,7 @@ index 0000000000..a0da51d7d4
 +// CHECK: @align_vl = global i32 8
 +int align_vl = __alignof(va_list);
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index 51e1233456..9c3b38ff70 100644
+index 51e1233456..5f3fe7a327 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
 @@ -10003,3 +10003,398 @@
@@ -1302,9 +1097,9 @@ index 51e1233456..9c3b38ff70 100644
 +// RISCV64: #define __INT32_C_SUFFIX__
 +// RISCV64: #define __INT32_MAX__ 2147483647
 +// RISCV64: #define __INT32_TYPE__ int
-+// RISCV64: #define __INT64_C_SUFFIX__ LL
-+// RISCV64: #define __INT64_MAX__ 9223372036854775807LL
-+// RISCV64: #define __INT64_TYPE__ long long int
++// RISCV64: #define __INT64_C_SUFFIX__ L
++// RISCV64: #define __INT64_MAX__ 9223372036854775807L
++// RISCV64: #define __INT64_TYPE__ long int
 +// RISCV64: #define __INT8_C_SUFFIX__
 +// RISCV64: #define __INT8_MAX__ 127
 +// RISCV64: #define __INT8_TYPE__ signed char
@@ -1388,9 +1183,9 @@ index 51e1233456..9c3b38ff70 100644
 +// RISCV64: #define __UINT32_C_SUFFIX__ U
 +// RISCV64: #define __UINT32_MAX__ 4294967295U
 +// RISCV64: #define __UINT32_TYPE__ unsigned int
-+// RISCV64: #define __UINT64_C_SUFFIX__ ULL
-+// RISCV64: #define __UINT64_MAX__ 18446744073709551615ULL
-+// RISCV64: #define __UINT64_TYPE__ long long unsigned int
++// RISCV64: #define __UINT64_C_SUFFIX__ UL
++// RISCV64: #define __UINT64_MAX__ 18446744073709551615UL
++// RISCV64: #define __UINT64_TYPE__ long unsigned int
 +// RISCV64: #define __UINT8_C_SUFFIX__
 +// RISCV64: #define __UINT8_MAX__ 255
 +// RISCV64: #define __UINT8_TYPE__ unsigned char

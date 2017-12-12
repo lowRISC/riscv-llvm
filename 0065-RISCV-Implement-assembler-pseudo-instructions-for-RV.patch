@@ -1,0 +1,400 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement assembler pseudo instructions for RV32I and RV64I
+
+Adds the assembler pseudo instructions of RV32I and RV64I which can
+be mapped to a single canonical instruction. The missing pseudo
+instructions (e.g., call, tail, ...) are marked as TODO. Other
+things, like for example PCREL_LO, have to be implemented first.
+
+Currently, alias emission is disabled by default to keep the patch
+minimal. Alias emission by default will be enabled in a subsequent
+patch which also updates all affected tests. Note that this patch
+should actually break the floating point MC tests. However, the
+used FileCheck configuration is not tight enought to detect the
+breakage.
+
+Differential Revision: https://reviews.llvm.org/D40902
+
+Patch by Mario Werner.
+---
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |  11 +-
+ lib/Target/RISCV/RISCV.td                         |   3 +-
+ lib/Target/RISCV/RISCVInstrInfo.td                |  84 +++++++++++++
+ test/MC/RISCV/rv32i-aliases-invalid.s             |   8 ++
+ test/MC/RISCV/rv32i-aliases-valid.s               |  20 ++++
+ test/MC/RISCV/rv64i-aliases-invalid.s             |   6 +
+ test/MC/RISCV/rv64i-aliases-valid.s               |  20 ++++
+ test/MC/RISCV/rvi-aliases-valid.s                 | 138 ++++++++++++++++++++++
+ 8 files changed, 288 insertions(+), 2 deletions(-)
+ create mode 100644 test/MC/RISCV/rv32i-aliases-invalid.s
+ create mode 100644 test/MC/RISCV/rv32i-aliases-valid.s
+ create mode 100644 test/MC/RISCV/rv64i-aliases-invalid.s
+ create mode 100644 test/MC/RISCV/rv64i-aliases-valid.s
+ create mode 100644 test/MC/RISCV/rvi-aliases-valid.s
+
+diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
+index a396025ccc4..d21c48ec65a 100644
+--- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
++++ b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
+@@ -18,6 +18,7 @@
+ #include "llvm/MC/MCInst.h"
+ #include "llvm/MC/MCRegisterInfo.h"
+ #include "llvm/MC/MCSymbol.h"
++#include "llvm/Support/CommandLine.h"
+ #include "llvm/Support/ErrorHandling.h"
+ #include "llvm/Support/FormattedStream.h"
+ using namespace llvm;
+@@ -28,9 +29,17 @@ using namespace llvm;
+ #define PRINT_ALIAS_INSTR
+ #include "RISCVGenAsmWriter.inc"
+ 
++// Alias instruction emission is disabled by default. A subsequent patch will
++// change this default and fix all affected tests.
++static cl::opt<bool>
++NoAliases("riscv-no-aliases",
++            cl::desc("Disable the emission of assembler pseudo instructions"),
++            cl::init(true),
++            cl::Hidden);
++
+ void RISCVInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
+                                  StringRef Annot, const MCSubtargetInfo &STI) {
+-  if (!printAliasInstr(MI, O))
++  if (NoAliases || !printAliasInstr(MI, O))
+     printInstruction(MI, O);
+   printAnnotation(O, Annot);
+ }
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 5a6f3580b09..7247854d713 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -49,7 +49,8 @@ def Feature64Bit
+     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
+ def IsRV64 : Predicate<"Subtarget->is64Bit()">,
+                        AssemblerPredicate<"Feature64Bit">;
+-def IsRV32 : Predicate<"!Subtarget->is64Bit()">;
++def IsRV32 : Predicate<"!Subtarget->is64Bit()">,
++                       AssemblerPredicate<"!Feature64Bit">;
+ 
+ def RV64 : HwMode<"+64bit">;
+ def RV32 : HwMode<"-64bit">;
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 447100682e4..4217305312d 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -392,6 +392,90 @@ def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
+   let rd = 0;
+ }
+ 
++//===----------------------------------------------------------------------===//
++// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
++//===----------------------------------------------------------------------===//
++
++// TODO la
++// TODO lb lh lw
++// TODO RV64I: ld
++// TODO sb sh sw
++// TODO RV64I: sd
++
++def : InstAlias<"nop",           (ADDI      X0,      X0,       0)>;
++// TODO li
++def : InstAlias<"mv $rd, $rs",   (ADDI GPR:$rd, GPR:$rs,       0)>;
++def : InstAlias<"not $rd, $rs",  (XORI GPR:$rd, GPR:$rs,      -1)>;
++def : InstAlias<"neg $rd, $rs",  (SUB  GPR:$rd,      X0, GPR:$rs)>;
++
++let Predicates = [IsRV64] in {
++def : InstAlias<"negw $rd, $rs",   (SUBW  GPR:$rd,      X0, GPR:$rs)>;
++def : InstAlias<"sext.w $rd, $rs", (ADDIW GPR:$rd, GPR:$rs,       0)>;
++} // Predicates = [IsRV64]
++
++def : InstAlias<"seqz $rd, $rs", (SLTIU GPR:$rd, GPR:$rs,       1)>;
++def : InstAlias<"snez $rd, $rs", (SLTU  GPR:$rd,      X0, GPR:$rs)>;
++def : InstAlias<"sltz $rd, $rs", (SLT   GPR:$rd, GPR:$rs,      X0)>;
++def : InstAlias<"sgtz $rd, $rs", (SLT   GPR:$rd,      X0, GPR:$rs)>;
++
++def : InstAlias<"beqz $rs, $offset",
++                (BEQ GPR:$rs,      X0, simm13_lsb0:$offset)>;
++def : InstAlias<"bnez $rs, $offset",
++                (BNE GPR:$rs,      X0, simm13_lsb0:$offset)>;
++def : InstAlias<"blez $rs, $offset",
++                (BGE      X0, GPR:$rs, simm13_lsb0:$offset)>;
++def : InstAlias<"bgez $rs, $offset",
++                (BGE GPR:$rs,      X0, simm13_lsb0:$offset)>;
++def : InstAlias<"bltz $rs, $offset",
++                (BLT GPR:$rs,      X0, simm13_lsb0:$offset)>;
++def : InstAlias<"bgtz $rs, $offset",
++                (BLT      X0, GPR:$rs, simm13_lsb0:$offset)>;
++
++// Always output the canonical mnemonic for the pseudo branch instructions.
++// The GNU tools emit the canonical mnemonic for the branch pseudo instructions
++// as well (e.g. "bgt" will be recognised by the assembler but never printed by
++// objdump). Match this behaviour by setting a zero weight.
++def : InstAlias<"bgt $rs, $rt, $offset",
++                (BLT  GPR:$rt, GPR:$rs, simm13_lsb0:$offset), 0>;
++def : InstAlias<"ble $rs, $rt, $offset",
++                (BGE  GPR:$rt, GPR:$rs, simm13_lsb0:$offset), 0>;
++def : InstAlias<"bgtu $rs, $rt, $offset",
++                (BLTU GPR:$rt, GPR:$rs, simm13_lsb0:$offset), 0>;
++def : InstAlias<"bleu $rs, $rt, $offset",
++                (BGEU GPR:$rt, GPR:$rs, simm13_lsb0:$offset), 0>;
++
++// "ret" has more weight since "ret" and "jr" alias the same "jalr" instruction.
++def : InstAlias<"j $offset",   (JAL  X0, simm21_lsb0:$offset)>;
++def : InstAlias<"jal $offset", (JAL  X1, simm21_lsb0:$offset)>;
++def : InstAlias<"jr $rs",      (JALR X0, GPR:$rs, 0)>;
++def : InstAlias<"jalr $rs",    (JALR X1, GPR:$rs, 0)>;
++def : InstAlias<"ret",         (JALR X0,      X1, 0), 2>;
++// TODO call
++// TODO tail
++
++def : InstAlias<"fence", (FENCE 0xF, 0xF)>; // 0xF == iorw
++
++// CSR Addresses: 0xC00 == cycle,  0xC01 == time,  0xC02 == instret
++//                0xC80 == cycleh, 0xC81 == timeh, 0xC82 == instreth
++def : InstAlias<"rdinstret $rd", (CSRRS GPR:$rd, 0xC02, X0)>;
++def : InstAlias<"rdcycle $rd",   (CSRRS GPR:$rd, 0xC00, X0)>;
++def : InstAlias<"rdtime $rd",    (CSRRS GPR:$rd, 0xC01, X0)>;
++
++let Predicates = [IsRV32] in {
++def : InstAlias<"rdinstreth $rd", (CSRRS GPR:$rd, 0xC82, X0)>;
++def : InstAlias<"rdcycleh $rd",   (CSRRS GPR:$rd, 0xC80, X0)>;
++def : InstAlias<"rdtimeh $rd",    (CSRRS GPR:$rd, 0xC81, X0)>;
++} // Predicates = [IsRV32]
++
++def : InstAlias<"csrr $rd, $csr", (CSRRS GPR:$rd, uimm12:$csr,      X0)>;
++def : InstAlias<"csrw $csr, $rs", (CSRRW      X0, uimm12:$csr, GPR:$rs)>;
++def : InstAlias<"csrs $csr, $rs", (CSRRS      X0, uimm12:$csr, GPR:$rs)>;
++def : InstAlias<"csrc $csr, $rs", (CSRRC      X0, uimm12:$csr, GPR:$rs)>;
++
++def : InstAlias<"csrwi $csr, $imm", (CSRRWI X0, uimm12:$csr, uimm5:$imm)>;
++def : InstAlias<"csrsi $csr, $imm", (CSRRSI X0, uimm12:$csr, uimm5:$imm)>;
++def : InstAlias<"csrci $csr, $imm", (CSRRCI X0, uimm12:$csr, uimm5:$imm)>;
++
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ //
+diff --git a/test/MC/RISCV/rv32i-aliases-invalid.s b/test/MC/RISCV/rv32i-aliases-invalid.s
+new file mode 100644
+index 00000000000..053b7f8e789
+--- /dev/null
++++ b/test/MC/RISCV/rv32i-aliases-invalid.s
+@@ -0,0 +1,8 @@
++# RUN: not llvm-mc %s -triple=riscv32 -riscv-no-aliases 2>&1 | FileCheck %s
++# RUN: not llvm-mc %s -triple=riscv32 -riscv-no-aliases=false 2>&1 | FileCheck %s
++
++# TODO ld
++# TODO sd
++
++negw x1, x2   # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++sext.w x3, x4 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
+diff --git a/test/MC/RISCV/rv32i-aliases-valid.s b/test/MC/RISCV/rv32i-aliases-valid.s
+new file mode 100644
+index 00000000000..18b8718ef43
+--- /dev/null
++++ b/test/MC/RISCV/rv32i-aliases-valid.s
+@@ -0,0 +1,20 @@
++# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefixes=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefixes=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefixes=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefixes=CHECK-ALIAS %s
++
++# CHECK-INST: csrrs t4, 3202, zero
++# CHECK-ALIAS: rdinstreth t4
++rdinstreth x29
++# CHECK-INST: csrrs s11, 3200, zero
++# CHECK-ALIAS: rdcycleh s11
++rdcycleh x27
++# CHECK-INST: csrrs t3, 3201, zero
++# CHECK-ALIAS: rdtimeh t3
++rdtimeh x28
+diff --git a/test/MC/RISCV/rv64i-aliases-invalid.s b/test/MC/RISCV/rv64i-aliases-invalid.s
+new file mode 100644
+index 00000000000..9b348eeb464
+--- /dev/null
++++ b/test/MC/RISCV/rv64i-aliases-invalid.s
+@@ -0,0 +1,6 @@
++# RUN: not llvm-mc %s -triple=riscv64 -riscv-no-aliases 2>&1 | FileCheck %s
++# RUN: not llvm-mc %s -triple=riscv64 -riscv-no-aliases=false 2>&1 | FileCheck %s
++
++rdinstreth x29 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++rdcycleh x27   # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
++rdtimeh x28    # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
+diff --git a/test/MC/RISCV/rv64i-aliases-valid.s b/test/MC/RISCV/rv64i-aliases-valid.s
+new file mode 100644
+index 00000000000..00e92ea8e1c
+--- /dev/null
++++ b/test/MC/RISCV/rv64i-aliases-valid.s
+@@ -0,0 +1,20 @@
++# RUN: llvm-mc %s -triple=riscv64 -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++
++# TODO ld
++# TODO sd
++
++# CHECK-INST: subw t6, zero, ra
++# CHECK-ALIAS: negw t6, ra
++negw x31, x1
++# CHECK-INST: addiw t6, ra, 0
++# CHECK-ALIAS: sext.w t6, ra
++sext.w x31, x1
+diff --git a/test/MC/RISCV/rvi-aliases-valid.s b/test/MC/RISCV/rvi-aliases-valid.s
+new file mode 100644
+index 00000000000..8d5edf793b1
+--- /dev/null
++++ b/test/MC/RISCV/rvi-aliases-valid.s
+@@ -0,0 +1,138 @@
++# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc %s -triple=riscv64 -riscv-no-aliases\
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++
++# TODO la
++# TODO lb lh lw
++# TODO sb sh sw
++
++# CHECK-INST: addi zero, zero, 0
++# CHECK-ALIAS: nop
++nop
++# TODO li
++# CHECK-INST: addi t6, zero, 0
++# CHECK-ALIAS: mv t6, zero
++mv x31, zero
++# CHECK-INST: xori t6, ra, -1
++# CHECK-ALIAS: not t6, ra
++not x31, x1
++# CHECK-INST: sub t6, zero, ra
++# CHECK-ALIAS: neg t6, ra
++neg x31, x1
++# CHECK-INST: sltiu t6, ra, 1
++# CHECK-ALIAS: seqz t6, ra
++seqz x31, x1
++# CHECK-INST: sltu t6, zero, ra
++# CHECK-ALIAS: snez t6, ra
++snez x31, x1
++# CHECK-INST: slt t6, ra, zero
++# CHECK-ALIAS: sltz t6, ra
++sltz x31, x1
++# CHECK-INST: slt t6, zero, ra
++# CHECK-ALIAS: sgtz t6, ra
++sgtz x31, x1
++
++# CHECK-INST: beq a0, zero, 512
++# CHECK-ALIAS: beqz a0, 512
++beqz x10, 512
++# CHECK-INST: bne a1, zero, 1024
++# CHECK-ALIAS: bnez a1, 1024
++bnez x11, 1024
++# CHECK-INST: bge zero, a2, 4
++# CHECK-ALIAS: blez a2, 4
++blez x12, 4
++# CHECK-INST: bge a3, zero, 8
++# CHECK-ALIAS: bgez a3, 8
++bgez x13, 8
++# CHECK-INST: blt a4, zero, 12
++# CHECK-ALIAS: bltz a4, 12
++bltz x14, 12
++# CHECK-INST: blt zero, a5, 16
++# CHECK-ALIAS: bgtz a5, 16
++bgtz x15, 16
++
++# Always output the canonical mnemonic for the pseudo branch instructions.
++# CHECK-INST: blt a6, a5, 20
++# CHECK-ALIAS: blt a6, a5, 20
++bgt x15, x16, 20
++# CHECK-INST: bge a7, a6, 24
++# CHECK-ALIAS: bge a7, a6, 24
++ble x16, x17, 24
++# CHECK-INST: bltu s2, a7, 28
++# CHECK-ALIAS: bltu s2, a7, 28
++bgtu x17, x18, 28
++# CHECK-INST: bgeu s3, s2, 32
++# CHECK-ALIAS: bgeu s3, s2, 32
++bleu x18, x19, 32
++
++# CHECK-INST: jal zero, 2044
++# CHECK-ALIAS: j 2044
++j 2044
++# CHECK-INST: jal ra, 2040
++# CHECK-ALIAS: jal 2040
++jal 2040
++# CHECK-INST: jalr zero, s4, 0
++# CHECK-ALIAS: jr s4
++jr x20
++# CHECK-INST: jalr ra, s5, 0
++# CHECK-ALIAS: jalr s5
++jalr x21
++# CHECK-INST: jalr zero, ra, 0
++# CHECK-ALIAS: ret
++ret
++# TODO call
++# TODO tail
++
++# CHECK-INST: fence iorw, iorw
++# CHECK-ALIAS: fence
++fence
++
++# CHECK-INST: csrrs s10, 3074, zero
++# CHECK-ALIAS: rdinstret s10
++rdinstret x26
++# CHECK-INST: csrrs s8, 3072, zero
++# CHECK-ALIAS: rdcycle s8
++rdcycle x24
++# CHECK-INST: csrrs s9, 3073, zero
++# CHECK-ALIAS: rdtime s9
++rdtime x25
++
++# CHECK-INST: csrrs  s0, 336, zero
++# CHECK-ALIAS: csrr s0, 336
++csrr x8, 0x150
++# CHECK-INST: csrrw zero, 320, s1
++# CHECK-ALIAS: csrw 320, s1
++csrw 0x140, x9
++# CHECK-INST: csrrs zero, 4095, s6
++# CHECK-ALIAS: csrs 4095, s6
++csrs 0xfff, x22
++# CHECK-INST: csrrc zero, 4095, s7
++# CHECK-ALIAS: csrc 4095, s7
++csrc 0xfff, x23
++
++# CHECK-INST: csrrwi zero, 336, 15
++# CHECK-ALIAS: csrwi 336, 15
++csrwi 0x150, 0xf
++# CHECK-INST: csrrsi zero, 4095, 16
++# CHECK-ALIAS: csrsi 4095, 16
++csrsi 0xfff, 0x10
++# CHECK-INST: csrrci zero, 320, 17
++# CHECK-ALIAS: csrci 320, 17
++csrci 0x140, 0x11
+-- 
+2.15.1
+

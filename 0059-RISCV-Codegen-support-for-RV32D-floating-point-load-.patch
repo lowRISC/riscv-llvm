@@ -31,7 +31,7 @@ index 834c6c4c1a3..2f04c90d17c 100644
  
    setOperationAction(ISD::GlobalAddress, XLenVT, Custom);
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index bcfbd82b75a..e2c09632e4e 100644
+index 105fbb9e0d0..9cdd39f07da 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -73,6 +73,8 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,

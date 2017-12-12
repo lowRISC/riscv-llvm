@@ -74,7 +74,7 @@ index 5b770dc67b3..b6e598f5d69 100644
    std::vector<SDValue> OutChains;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 7c83545e4fb..75050acc227 100644
+index 2d7af365b90..42fc04e5b5e 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -29,8 +29,9 @@
@@ -123,8 +123,8 @@ index 7c83545e4fb..75050acc227 100644
 +  }
  }
  
- // The contents of values added to Cond are not examined outside of
-@@ -287,9 +292,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
+ void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
+@@ -307,9 +312,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
    MachineFunction *MF = MBB.getParent();
    MachineRegisterInfo &MRI = MF->getRegInfo();
    const auto &TM = static_cast<const RISCVTargetMachine &>(MF->getTarget());
@@ -136,7 +136,7 @@ index 7c83545e4fb..75050acc227 100644
  
    if (!isInt<32>(BrOffset))
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 533a11a4519..94682c07e4f 100644
+index 5761d9bedd7..c7c91b64099 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
 @@ -22,10 +22,13 @@
@@ -155,7 +155,7 @@ index 533a11a4519..94682c07e4f 100644
    void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                     const DebugLoc &DL, unsigned DstReg, unsigned SrcReg,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index c8d1a1bbff9..8412cff607e 100644
+index b90a7ef3176..8eb2cdaff1f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -26,7 +26,6 @@ def SDT_RISCVSelectCC     : SDTypeProfile<1, 5, [SDTCisSameAs<1, 2>,
@@ -174,7 +174,7 @@ index c8d1a1bbff9..8412cff607e 100644
  
  // Addressing modes.
  // Necessary because a frameindex can't be matched directly in a pattern.
-@@ -151,6 +151,23 @@ def HI20 : SDNodeXForm<imm, [{
+@@ -146,6 +146,23 @@ def HI20 : SDNodeXForm<imm, [{
                                     SDLoc(N), N->getValueType(0));
  }]>;
  
@@ -198,7 +198,7 @@ index c8d1a1bbff9..8412cff607e 100644
  //===----------------------------------------------------------------------===//
  // Instruction Class Templates
  //===----------------------------------------------------------------------===//
-@@ -366,7 +383,8 @@ def IsOrAdd: PatFrag<(ops node:$A, node:$B), (or node:$A, node:$B), [{
+@@ -361,7 +378,8 @@ def IsOrAdd: PatFrag<(ops node:$A, node:$B), (or node:$A, node:$B), [{
  
  def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
  // TODO: Add a pattern for immediates with all zeroes in the lower 12 bits.
@@ -208,7 +208,7 @@ index c8d1a1bbff9..8412cff607e 100644
  
  /// Simple arithmetic operations
  
-@@ -486,7 +504,7 @@ defm : LdPat<sextloadi8, LB>;
+@@ -481,7 +499,7 @@ defm : LdPat<sextloadi8, LB>;
  defm : LdPat<extloadi8, LB>;
  defm : LdPat<sextloadi16, LH>;
  defm : LdPat<extloadi16, LH>;
@@ -217,7 +217,7 @@ index c8d1a1bbff9..8412cff607e 100644
  defm : LdPat<zextloadi8, LBU>;
  defm : LdPat<zextloadi16, LHU>;
  
-@@ -505,7 +523,7 @@ multiclass StPat<PatFrag StoreOp, RVInst Inst> {
+@@ -500,7 +518,7 @@ multiclass StPat<PatFrag StoreOp, RVInst Inst> {
  
  defm : StPat<truncstorei8, SB>;
  defm : StPat<truncstorei16, SH>;
@@ -226,7 +226,7 @@ index c8d1a1bbff9..8412cff607e 100644
  
  /// Other pseudo-instructions
  
-@@ -517,6 +535,47 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -512,6 +530,47 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
  } // Defs = [X2], Uses = [X2]
  
@@ -275,7 +275,7 @@ index c8d1a1bbff9..8412cff607e 100644
  // Standard extensions
  //===----------------------------------------------------------------------===//
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index a6cdcb92050..f86c59f0df0 100644
+index 6ad8bf7bca0..ca2d11271d4 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -61,6 +61,7 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -284,7 +284,7 @@ index a6cdcb92050..f86c59f0df0 100644
    MachineFunction &MF = *MI.getParent()->getParent();
 +  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
    MachineRegisterInfo &MRI = MF.getRegInfo();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   const RISCVInstrInfo *TII = MF.getSubtarget<RISCVSubtarget>().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
 diff --git a/lib/Target/RISCV/RISCVSubtarget.cpp b/lib/Target/RISCV/RISCVSubtarget.cpp
 index b221ea84a33..f06a068eaca 100644

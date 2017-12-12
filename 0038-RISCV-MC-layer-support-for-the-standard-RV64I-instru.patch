@@ -224,7 +224,7 @@ index ca368792340..83a62cdb52f 100644
    bits<5> rs1;
    bits<5> rd;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 24d3c630e7d..c8d1a1bbff9 100644
+index 8ed73f78588..b90a7ef3176 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -69,6 +69,22 @@ def fencearg : Operand<XLenVT> {
@@ -250,7 +250,7 @@ index 24d3c630e7d..c8d1a1bbff9 100644
  def uimm5 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isUInt<5>(Imm);}]> {
    let ParserMatchClass = UImmAsmOperand<5>;
    let DecoderMethod = "decodeUImmOperand<5>";
-@@ -170,7 +186,7 @@ class ALU_ri<bits<3> funct3, string opcodestr>
+@@ -165,7 +181,7 @@ class ALU_ri<bits<3> funct3, string opcodestr>
  let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
  class Shift_ri<bit arithshift, bits<3> funct3, string opcodestr>
      : RVInstIShift<arithshift, funct3, OPC_OP_IMM, (outs GPR:$rd),
@@ -259,7 +259,7 @@ index 24d3c630e7d..c8d1a1bbff9 100644
                     "$rd, $rs1, $shamt">;
  
  let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-@@ -189,6 +205,17 @@ class CSR_ii<bits<3> funct3, string opcodestr> :
+@@ -184,6 +200,17 @@ class CSR_ii<bits<3> funct3, string opcodestr>
                (ins uimm12:$imm12, uimm5:$rs1),
                opcodestr, "$rd, $imm12, $rs1">;
  
@@ -277,7 +277,7 @@ index 24d3c630e7d..c8d1a1bbff9 100644
  //===----------------------------------------------------------------------===//
  // Instructions
  //===----------------------------------------------------------------------===//
-@@ -288,6 +315,29 @@ def CSRRWI : CSR_ii<0b101, "csrrwi">;
+@@ -283,6 +310,29 @@ def CSRRWI : CSR_ii<0b101, "csrrwi">;
  def CSRRSI : CSR_ii<0b110, "csrrsi">;
  def CSRRCI : CSR_ii<0b111, "csrrci">;
  
@@ -307,7 +307,7 @@ index 24d3c630e7d..c8d1a1bbff9 100644
  //===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //
-@@ -302,9 +352,9 @@ class PatGprGpr<SDPatternOperator OpNode, RVInstR Inst>
+@@ -297,9 +347,9 @@ class PatGprGpr<SDPatternOperator OpNode, RVInstR Inst>
      : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
  class PatGprSimm12<SDPatternOperator OpNode, RVInstI Inst>
      : Pat<(OpNode GPR:$rs1, simm12:$imm12), (Inst GPR:$rs1, simm12:$imm12)>;
@@ -320,7 +320,7 @@ index 24d3c630e7d..c8d1a1bbff9 100644
  
  /// Predicates
  
-@@ -330,11 +380,11 @@ def : PatGprSimm12<and, ANDI>;
+@@ -325,11 +375,11 @@ def : PatGprSimm12<and, ANDI>;
  def : PatGprGpr<xor, XOR>;
  def : PatGprSimm12<xor, XORI>;
  def : PatGprGpr<shl, SLL>;

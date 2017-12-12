@@ -3,8 +3,8 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Implement prolog and epilog insertion
 
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     | 145 ++++++++++++++++++-
- lib/Target/RISCV/RISCVFrameLowering.h       |  12 +-
+ lib/Target/RISCV/RISCVFrameLowering.cpp     | 147 ++++++++++++++++++-
+ lib/Target/RISCV/RISCVFrameLowering.h       |  15 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  14 ++
  test/CodeGen/RISCV/alu32.ll                 | 133 ++++++++++++++++++
  test/CodeGen/RISCV/bare-select.ll           |   7 +
@@ -26,13 +26,13 @@ Subject: [RISCV] Implement prolog and epilog insertion
  test/CodeGen/RISCV/sext-zext-trunc.ll       | 210 ++++++++++++++++++++++++++++
  test/CodeGen/RISCV/shifts.ll                |  15 ++
  test/CodeGen/RISCV/wide-mem.ll              |  14 ++
- 23 files changed, 1035 insertions(+), 49 deletions(-)
+ 23 files changed, 1040 insertions(+), 49 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index cd18a104631..de537aac9c6 100644
+index cd18a104631..e9e003e63d5 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
-@@ -22,11 +22,142 @@ using namespace llvm;
+@@ -22,11 +22,144 @@ using namespace llvm;
  
  bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
  
@@ -70,6 +70,31 @@ index cd18a104631..de537aac9c6 100644
 +  MFI.setStackSize(FrameSize);
 +}
 +
++void RISCVFrameLowering::adjustReg(MachineBasicBlock &MBB,
++                                   MachineBasicBlock::iterator MBBI,
++                                   const DebugLoc &DL, unsigned DestReg,
++                                   unsigned SrcReg, int64_t Val,
++                                   MachineInstr::MIFlag Flag) const {
++  const RISCVInstrInfo *TII = STI.getInstrInfo();
++
++  if (DestReg == SrcReg && Val == 0)
++    return;
++
++  if (!isInt<12>(Val))
++    report_fatal_error("adjustReg cannot yet handle adjustments >12 bits");
++
++  BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), DestReg)
++      .addReg(SrcReg)
++      .addImm(Val)
++      .setMIFlag(Flag);
++}
++
++// Returns the register used to hold the frame pointer.
++static unsigned getFPReg(const RISCVSubtarget &STI) { return RISCV::X8; }
++
++// Returns the register used to hold the stack pointer.
++static unsigned getSPReg(const RISCVSubtarget &STI) { return RISCV::X2; }
++
  void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
 -                                      MachineBasicBlock &MBB) const {}
 +                                      MachineBasicBlock &MBB) const {
@@ -81,11 +106,10 @@ index cd18a104631..de537aac9c6 100644
 +  }
 +
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
-+  const RISCVInstrInfo *TII = STI.getInstrInfo();
 +  MachineBasicBlock::iterator MBBI = MBB.begin();
 +
-+  unsigned FPReg = RISCV::X8;
-+  unsigned SPReg = RISCV::X2;
++  unsigned FPReg = getFPReg(STI);
++  unsigned SPReg = getSPReg(STI);
 +
 +  // Debug location must be unknown since the first debug location is used
 +  // to determine the end of the prologue.
@@ -102,17 +126,8 @@ index cd18a104631..de537aac9c6 100644
 +  if (StackSize == 0 && !MFI.adjustsStack())
 +    return;
 +
-+  if (!isInt<12>(StackSize)) {
-+    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
-+  }
-+
 +  // Allocate space on the stack if necessary.
-+  if (StackSize != 0) {
-+    BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), SPReg)
-+        .addReg(SPReg)
-+        .addImm(-StackSize)
-+        .setMIFlag(MachineInstr::FrameSetup);
-+  }
++  adjustReg(MBB, MBBI, DL, SPReg, SPReg, -StackSize, MachineInstr::FrameSetup);
 +
 +  // The frame pointer is callee-saved, and code has been generated for us to
 +  // save it to the stack. We need to skip over the storing of callee-saved
@@ -124,10 +139,7 @@ index cd18a104631..de537aac9c6 100644
 +  std::advance(MBBI, CSI.size());
 +
 +  // Generate new FP.
-+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), FPReg)
-+      .addReg(SPReg)
-+      .addImm(StackSize)
-+      .setMIFlag(MachineInstr::FrameSetup);
++  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize, MachineInstr::FrameSetup);
 +}
  
  void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
@@ -139,12 +151,11 @@ index cd18a104631..de537aac9c6 100644
 +  }
 +
 +  MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
-+  const RISCVInstrInfo *TII = STI.getInstrInfo();
 +  const RISCVRegisterInfo *RI = STI.getRegisterInfo();
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  DebugLoc DL = MBBI->getDebugLoc();
-+  unsigned FPReg = RISCV::X8;
-+  unsigned SPReg = RISCV::X2;
++  unsigned FPReg = getFPReg(STI);
++  unsigned SPReg = getSPReg(STI);
 +
 +  // Skip to before the restores of callee-saved registers
 +  // FIXME: assumes exactly one instruction is used to restore each
@@ -158,26 +169,17 @@ index cd18a104631..de537aac9c6 100644
 +  // necessary if the stack pointer was modified, meaning the stack size is
 +  // unknown.
 +  if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
-+    BuildMI(MBB, LastFrameDestroy, DL, TII->get(RISCV::ADDI), SPReg)
-+        .addReg(FPReg)
-+        .addImm(-StackSize)
-+        .setMIFlag(MachineInstr::FrameDestroy);
-+  }
-+
-+  if (!isInt<12>(StackSize)) {
-+    report_fatal_error("Stack adjustment won't fit in signed 12-bit immediate");
++    adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg, -StackSize,
++              MachineInstr::FrameDestroy);
 +  }
 +
 +  // Deallocate stack
-+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), SPReg)
-+      .addReg(SPReg)
-+      .addImm(StackSize)
-+      .setMIFlag(MachineInstr::FrameDestroy);
++  adjustReg(MBB, MBBI, DL, SPReg, SPReg, StackSize, MachineInstr::FrameDestroy);
 +}
  
  int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
                                                 int FI,
-@@ -56,3 +187,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+@@ -56,3 +189,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
    }
    return Offset;
  }
@@ -192,7 +194,7 @@ index cd18a104631..de537aac9c6 100644
 +  SavedRegs.set(RISCV::X8);
 +}
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.h b/lib/Target/RISCV/RISCVFrameLowering.h
-index ba093bb83f0..9a5cd4e19de 100644
+index ba093bb83f0..d92bb70c76d 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.h
 +++ b/lib/Target/RISCV/RISCVFrameLowering.h
 @@ -24,7 +24,8 @@ public:
@@ -215,7 +217,7 @@ index ba093bb83f0..9a5cd4e19de 100644
    bool hasFP(const MachineFunction &MF) const override;
  
    MachineBasicBlock::iterator
-@@ -39,6 +43,12 @@ public:
+@@ -39,6 +43,15 @@ public:
                                  MachineBasicBlock::iterator MI) const override {
      return MBB.erase(MI);
    }
@@ -225,6 +227,9 @@ index ba093bb83f0..9a5cd4e19de 100644
 +
 +private:
 +  void determineFrameLayout(MachineFunction &MF) const;
++  void adjustReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
++                 const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
++                 int64_t Val, MachineInstr::MIFlag Flag) const;
  };
  }
  #endif

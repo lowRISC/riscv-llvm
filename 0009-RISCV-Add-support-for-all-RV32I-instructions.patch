@@ -411,7 +411,7 @@ index 9309d493cef..eb0beb028ad 100644
 +
  #include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 1abee900937..37edb89af25 100644
+index 1abee900937..c7efb73d1ab 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -17,35 +17,151 @@ include "RISCVInstrFormats.td"
@@ -518,13 +518,13 @@ index 1abee900937..37edb89af25 100644
                opcodestr, "$rd, $rs1, $rs2">;
  
 +let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
-+class CSR_ir<bits<3> funct3, string opcodestr> :
-+      RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd), (ins uimm12:$imm12, GPR:$rs1),
++class CSR_ir<bits<3> funct3, string opcodestr>
++    : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd), (ins uimm12:$imm12, GPR:$rs1),
 +              opcodestr, "$rd, $imm12, $rs1">;
 +
 +let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
-+class CSR_ii<bits<3> funct3, string opcodestr> :
-+      RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd),
++class CSR_ii<bits<3> funct3, string opcodestr>
++    : RVInstI<funct3, OPC_SYSTEM, (outs GPR:$rd),
 +              (ins uimm12:$imm12, uimm5:$rs1),
 +              opcodestr, "$rd, $imm12, $rs1">;
 +

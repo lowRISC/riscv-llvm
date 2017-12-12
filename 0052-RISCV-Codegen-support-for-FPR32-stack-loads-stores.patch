@@ -8,7 +8,7 @@ Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
  2 files changed, 76 insertions(+), 13 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 75050acc227..366f8743dbd 100644
+index 42fc04e5b5e..28d7ddfdd7f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -54,15 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
@@ -60,7 +60,7 @@ index 75050acc227..366f8743dbd 100644
 +  BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
  }
  
- // The contents of values added to Cond are not examined outside of
+ void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
 diff --git a/test/CodeGen/RISCV/float-mem.ll b/test/CodeGen/RISCV/float-mem.ll
 index f1cbb4330f3..0f543ef083f 100644
 --- a/test/CodeGen/RISCV/float-mem.ll

@@ -347,7 +347,7 @@ index 59ddc703c1d..9121314bfcc 100644
  
    bits<7> Opcode = 0;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 37edb89af25..dd54ab6c06b 100644
+index c7efb73d1ab..27332675e9b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -40,34 +40,42 @@ def FenceArg : AsmOperandClass {

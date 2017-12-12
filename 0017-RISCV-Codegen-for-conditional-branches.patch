@@ -103,7 +103,7 @@ index 8f0c2c4f7eb..05c8378445c 100644
 -
  #endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 7dfdd5b044d..2c21ad31ae5 100644
+index e88e03c8cd6..0e6ff559619 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -67,7 +67,7 @@ def uimm12 : Operand<XLenVT> {

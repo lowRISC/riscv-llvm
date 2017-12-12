@@ -10,7 +10,7 @@ Subject: [RISCV] Reserve an emergency spill slot for the register scavenger
  3 files changed, 114 insertions(+), 7 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 6daeb1cb85a..916239604c3 100644
+index 85a354d0c12..32ed896bc98 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -18,6 +18,7 @@
@@ -21,7 +21,7 @@ index 6daeb1cb85a..916239604c3 100644
  
  using namespace llvm;
  
-@@ -226,3 +227,21 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+@@ -224,3 +225,21 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
    SavedRegs.set(RISCV::X1);
    SavedRegs.set(RISCV::X8);
  }

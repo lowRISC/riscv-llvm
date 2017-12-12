@@ -143,4 +143,4 @@ David Craven, Hal Finkel, Eli Friedman, Ondrej Glasnak, Mandeep Singh Grang,
 David Kipping, James Y Knight, David Majnemer, Ed Maste, John McCall, Dylan
 McKay, Azharuddin Mohammed, Tim Northover, Krzysztof Parzyszek, Ana Pazos,
 Jordy Portman, Philip Reames, John Russo, Colin Schmidt, Ed Schouten, Pavel
-Šnobl, Ulrich Weigand, Eugene Zalenko, Florian Zeitz.
+Šnobl, Ulrich Weigand, Mario Werner, Eugene Zalenko, Florian Zeitz.

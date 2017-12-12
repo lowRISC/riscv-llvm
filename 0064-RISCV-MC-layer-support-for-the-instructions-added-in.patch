@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] MC layer support for the instructions added in the privileged
+ spec
+
+Adds support for the instructions added in the RISC-V privileged ISA
+(https://content.riscv.org/wp-content/uploads/2017/05/riscv-privileged-v1.10.pdf):
+uret, sret, mret, wfi, and sfence.vma.
+
+The commiter (asb) made very minor formatting changes prior to commit.
+
+Differential Revision: https://reviews.llvm.org/D40383
+
+Patch by David Craven.
+---
+ lib/Target/RISCV/RISCVInstrInfo.td | 42 ++++++++++++++++++++++++++++++++++++++
+ test/MC/RISCV/priv-invalid.s       |  7 +++++++
+ test/MC/RISCV/priv-valid.s         | 32 +++++++++++++++++++++++++++++
+ 3 files changed, 81 insertions(+)
+ create mode 100644 test/MC/RISCV/priv-invalid.s
+ create mode 100644 test/MC/RISCV/priv-valid.s
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index fd78c6eaf0b..447100682e4 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -228,6 +228,11 @@ class ALUW_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
+     : RVInstR<funct7, funct3, OPC_OP_32, (outs GPR:$rd),
+               (ins GPR:$rs1, GPR:$rs2), opcodestr, "$rd, $rs1, $rs2">;
+ 
++let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
++class Priv<string opcodestr, bits<7> funct7>
++    : RVInstR<funct7, 0b000, OPC_SYSTEM, (outs), (ins GPR:$rs1, GPR:$rs2),
++              opcodestr, "">;
++
+ //===----------------------------------------------------------------------===//
+ // Instructions
+ //===----------------------------------------------------------------------===//
+@@ -350,6 +355,43 @@ def SRLW  : ALUW_rr<0b0000000, 0b101, "srlw">;
+ def SRAW  : ALUW_rr<0b0100000, 0b101, "sraw">;
+ } // Predicates = [IsRV64]
+ 
++//===----------------------------------------------------------------------===//
++// Privileged instructions
++//===----------------------------------------------------------------------===//
++
++let isBarrier = 1, isReturn = 1, isTerminator = 1 in {
++def URET : Priv<"uret", 0b0000000> {
++  let rd = 0;
++  let rs1 = 0;
++  let rs2 = 0b00010;
++}
++
++def SRET : Priv<"sret", 0b0001000> {
++  let rd = 0;
++  let rs1 = 0;
++  let rs2 = 0b00010;
++}
++
++def MRET : Priv<"mret", 0b0011000> {
++  let rd = 0;
++  let rs1 = 0;
++  let rs2 = 0b00010;
++}
++} // isBarrier = 1, isReturn = 1, isTerminator = 1
++
++def WFI : Priv<"wfi", 0b0001000> {
++  let rd = 0;
++  let rs1 = 0;
++  let rs2 = 0b00101;
++}
++
++let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in
++def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
++                         (ins GPR:$rs1, GPR:$rs2),
++                         "sfence.vma", "$rs1, $rs2"> {
++  let rd = 0;
++}
++
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ //
+diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
+new file mode 100644
+index 00000000000..96ce291bf6d
+--- /dev/null
++++ b/test/MC/RISCV/priv-invalid.s
+@@ -0,0 +1,7 @@
++# RUN: not llvm-mc -triple riscv32 < %s 2>&1 | FileCheck %s
++
++mret 0x10 # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
++
++sfence.vma zero # CHECK: :[[@LINE]]:1: error: too few operands for instruction
++
++sfence.vma a0, 0x10 # CHECK: :[[@LINE]]:16: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/priv-valid.s b/test/MC/RISCV/priv-valid.s
+new file mode 100644
+index 00000000000..e431bf3b088
+--- /dev/null
++++ b/test/MC/RISCV/priv-valid.s
+@@ -0,0 +1,32 @@
++# RUN: llvm-mc %s -triple=riscv32 -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -show-encoding \
++# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
++
++# CHECK-INST: uret
++# CHECK: encoding: [0x73,0x00,0x20,0x00]
++uret
++
++# CHECK-INST: sret
++# CHECK: encoding: [0x73,0x00,0x20,0x10]
++sret
++
++# CHECK-INST: mret
++# CHECK: encoding: [0x73,0x00,0x20,0x30]
++mret
++
++# CHECK-INST: wfi
++# CHECK: encoding: [0x73,0x00,0x50,0x10]
++wfi
++
++# CHECK-INST: sfence.vma zero, zero
++# CHECK: encoding: [0x73,0x00,0x00,0x12]
++sfence.vma zero, zero
++
++# CHECK-INST: sfence.vma a0, a1
++# CHECK: encoding: [0x73,0x00,0xb5,0x12]
++sfence.vma a0, a1
+-- 
+2.15.1
+

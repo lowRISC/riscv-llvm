@@ -10,7 +10,7 @@ Subject: [RISCV] Codegen support for materializing constants
  create mode 100644 test/CodeGen/RISCV/imm.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 23adf1eda9d..a19a636bdec 100644
+index 616e6042070..3c7bc8bd3ed 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -86,6 +86,24 @@ def simm21_lsb0 : Operand<XLenVT> {

@@ -212,7 +212,7 @@ index 4d7b4697fa7..933bc6218d5 100644
  };
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 024bc3ec02c..4d1b6c2e768 100644
+index 72abe14fd71..803f860bd3f 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -328,6 +328,17 @@ def : PatGprSimm12<setlt, SLTI>;

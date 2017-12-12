@@ -16,12 +16,12 @@ optimisation passes (e.g. BranchFolding and MachineBlockPlacement) to work.
  create mode 100644 test/CodeGen/RISCV/analyze-branch.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 186fe363edd..893d29c60d4 100644
+index 673b1f5c311..54922ee9281 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -75,3 +75,194 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-   else
-     llvm_unreachable("Can't load this register from stack slot");
+@@ -95,3 +95,194 @@ void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
+       .addImm(Lo12)
+       .setMIFlag(Flag);
  }
 +
 +// The contents of values added to Cond are not examined outside of
@@ -215,13 +215,13 @@ index 186fe363edd..893d29c60d4 100644
 +  return false;
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 05c8378445c..50f115bb1b9 100644
+index cb2ed0beef1..772bc2cae80 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -41,6 +41,22 @@ public:
-                             MachineBasicBlock::iterator MBBI, unsigned DstReg,
-                             int FrameIndex, const TargetRegisterClass *RC,
-                             const TargetRegisterInfo *TRI) const override;
+@@ -46,6 +46,22 @@ public:
+   void movImm32(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                 const DebugLoc &DL, unsigned DstReg, uint64_t Val,
+                 MachineInstr::MIFlag Flag = MachineInstr::NoFlags) const;
 +
 +  bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
 +                     MachineBasicBlock *&FBB,

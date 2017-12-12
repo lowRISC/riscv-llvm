@@ -743,7 +743,7 @@ index 00000000000..0b3cd4d2ed1
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 213ef63f5f9..23adf1eda9d 100644
+index 7b33603db2b..616e6042070 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -13,6 +13,13 @@

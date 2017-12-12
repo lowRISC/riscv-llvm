@@ -2,6 +2,9 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Support lowering FrameIndex
 
+Introduces the AddrFI "addressing mode", which is necessary simply because
+it's not possible to write a pattern that directly matches a frameindex.
+
 Ensure callee-saved registers are accessed relative to the stackpointer. This
 is necessary as callee-saved register spills are performed before the frame
 pointer is set.
@@ -13,7 +16,7 @@ pointer is set.
  lib/Target/RISCV/RISCVFrameLowering.cpp       | 29 ++++++++
  lib/Target/RISCV/RISCVFrameLowering.h         |  3 +
  lib/Target/RISCV/RISCVISelDAGToDAG.cpp        | 20 ++++++
- lib/Target/RISCV/RISCVInstrInfo.td            | 32 +++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td            | 27 ++++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp        | 14 ++--
  test/CodeGen/RISCV/blockaddress.ll            |  4 +-
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll   | 96 +++++++++++++--------------
@@ -24,7 +27,7 @@ pointer is set.
  test/CodeGen/RISCV/mul.ll                     | 20 +++---
  test/CodeGen/RISCV/rem.ll                     |  8 +--
  test/CodeGen/RISCV/shifts.ll                  | 12 ++--
- 18 files changed, 247 insertions(+), 129 deletions(-)
+ 18 files changed, 242 insertions(+), 129 deletions(-)
  create mode 100644 test/CodeGen/RISCV/frame.ll
 
 diff --git a/include/llvm/CodeGen/SelectionDAGISel.h b/include/llvm/CodeGen/SelectionDAGISel.h
@@ -215,10 +218,10 @@ index 5b038df4ae3..113a45ac7cc 100644
  // for instruction scheduling.
  FunctionPass *llvm::createRISCVISelDag(RISCVTargetMachine &TM) {
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 4d1b6c2e768..ecdf40bb009 100644
+index 803f860bd3f..3031a77d0fe 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -111,6 +111,15 @@ def ixlenimm : Operand<XLenVT>;
+@@ -111,6 +111,10 @@ def ixlenimm : Operand<XLenVT>;
  // Standalone (codegen-only) immleaf patterns.
  def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
  
@@ -226,15 +229,10 @@ index 4d1b6c2e768..ecdf40bb009 100644
 +// Necessary because a frameindex can't be matched directly in a pattern.
 +def AddrFI : ComplexPattern<iPTR, 1, "SelectAddrFI", [frameindex], []>;
 +
-+// Address operands.
-+def MEMii : Operand<XLenVT> {
-+  let MIOperandInfo = (ops ixlenimm, ixlenimm);
-+}
-+
  // Extract least significant 12 bits from an immediate value and sign extend
  // them.
  def LO12Sext : SDNodeXForm<imm, [{
-@@ -297,6 +306,12 @@ class PatGprUimm5<SDPatternOperator OpNode, RVInstIShift Inst>
+@@ -297,6 +301,12 @@ class PatGprUimm5<SDPatternOperator OpNode, RVInstIShift Inst>
      : Pat<(OpNode GPR:$rs1, uimm5:$shamt),
            (Inst GPR:$rs1, uimm5:$shamt)>;
  
@@ -247,7 +245,7 @@ index 4d1b6c2e768..ecdf40bb009 100644
  /// Immediates
  
  def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
-@@ -321,6 +336,13 @@ def : PatGprUimm5<srl, SRLI>;
+@@ -321,6 +331,13 @@ def : PatGprUimm5<srl, SRLI>;
  def : PatGprGpr<sra, SRA>;
  def : PatGprUimm5<sra, SRAI>;
  
@@ -261,7 +259,7 @@ index 4d1b6c2e768..ecdf40bb009 100644
  /// Setcc
  
  def : PatGprGpr<setlt, SLT>;
-@@ -401,8 +423,13 @@ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+@@ -401,8 +418,13 @@ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
  
  multiclass LdPat<PatFrag LoadOp, RVInst Inst> {
    def : Pat<(LoadOp GPR:$rs1), (Inst GPR:$rs1, 0)>;
@@ -275,7 +273,7 @@ index 4d1b6c2e768..ecdf40bb009 100644
  }
  
  defm : LdPat<sextloadi8, LB>;
-@@ -417,8 +444,13 @@ defm : LdPat<zextloadi16, LHU>;
+@@ -417,8 +439,13 @@ defm : LdPat<zextloadi16, LHU>;
  
  multiclass StPat<PatFrag StoreOp, RVInst Inst> {
    def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), (Inst GPR:$rs2, GPR:$rs1, 0)>;

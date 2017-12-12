@@ -60,7 +60,7 @@ index d7352663e17..834c6c4c1a3 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 4637dc1c378..bcfbd82b75a 100644
+index 76c7822202a..105fbb9e0d0 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -44,14 +44,18 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,

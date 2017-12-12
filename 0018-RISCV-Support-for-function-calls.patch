@@ -227,7 +227,7 @@ index 384fa89d18f..186fe363edd 100644
  void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator MBBI,
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 2c21ad31ae5..23f218fda8f 100644
+index 0e6ff559619..6f9067ae839 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -17,8 +17,22 @@ include "RISCVInstrFormats.td"

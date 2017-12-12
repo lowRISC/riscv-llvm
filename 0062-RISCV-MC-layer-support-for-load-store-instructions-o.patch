@@ -399,10 +399,10 @@ index 00000000000..117c86c0bd5
 +  let Inst{1-0} = opcode;
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9c77dfa1c05..fa3264d6ce5 100644
+index 6a3f596b663..fd78c6eaf0b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -587,3 +587,4 @@ include "RISCVInstrInfoM.td"
+@@ -582,3 +582,4 @@ include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
  include "RISCVInstrInfoF.td"
  include "RISCVInstrInfoD.td"

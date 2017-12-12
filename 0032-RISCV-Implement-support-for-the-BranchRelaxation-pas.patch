@@ -18,7 +18,7 @@ instruction's immediate field.
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 893d29c60d4..7c83545e4fb 100644
+index 54922ee9281..2d7af365b90 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -20,6 +20,7 @@
@@ -29,7 +29,7 @@ index 893d29c60d4..7c83545e4fb 100644
  #include "llvm/Support/ErrorHandling.h"
  #include "llvm/Support/TargetRegistry.h"
  
-@@ -204,7 +205,8 @@ bool RISCVInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+@@ -224,7 +225,8 @@ bool RISCVInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
  
  unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
                                        int *BytesRemoved) const {
@@ -39,7 +39,7 @@ index 893d29c60d4..7c83545e4fb 100644
    MachineBasicBlock::iterator I = MBB.getLastNonDebugInstr();
    if (I == MBB.end())
      return 0;
-@@ -215,6 +217,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
+@@ -235,6 +237,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
  
    // Remove the branch.
    I->eraseFromParent();
@@ -48,7 +48,7 @@ index 893d29c60d4..7c83545e4fb 100644
  
    I = MBB.end();
  
-@@ -226,6 +230,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
+@@ -246,6 +250,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
  
    // Remove the branch.
    I->eraseFromParent();
@@ -57,7 +57,7 @@ index 893d29c60d4..7c83545e4fb 100644
    return 2;
  }
  
-@@ -234,7 +240,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
+@@ -254,7 +260,8 @@ unsigned RISCVInstrInfo::removeBranch(MachineBasicBlock &MBB,
  unsigned RISCVInstrInfo::insertBranch(
      MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
      ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
@@ -67,7 +67,7 @@ index 893d29c60d4..7c83545e4fb 100644
  
    // Shouldn't be a fall through.
    assert(TBB && "InsertBranch must not be told to insert a fallthrough");
-@@ -243,26 +250,124 @@ unsigned RISCVInstrInfo::insertBranch(
+@@ -263,26 +270,124 @@ unsigned RISCVInstrInfo::insertBranch(
  
    // Unconditional branch.
    if (Cond.empty()) {
@@ -196,19 +196,19 @@ index 893d29c60d4..7c83545e4fb 100644
 +  }
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
-index 50f115bb1b9..533a11a4519 100644
+index 772bc2cae80..5761d9bedd7 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.h
 +++ b/lib/Target/RISCV/RISCVInstrInfo.h
-@@ -42,6 +42,8 @@ public:
-                             int FrameIndex, const TargetRegisterClass *RC,
-                             const TargetRegisterInfo *TRI) const override;
+@@ -47,6 +47,8 @@ public:
+                 const DebugLoc &DL, unsigned DstReg, uint64_t Val,
+                 MachineInstr::MIFlag Flag = MachineInstr::NoFlags) const;
  
 +  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
 +
    bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                       MachineBasicBlock *&FBB,
                       SmallVectorImpl<MachineOperand> &Cond,
-@@ -52,11 +54,21 @@ public:
+@@ -57,11 +59,21 @@ public:
                          const DebugLoc &dl,
                          int *BytesAdded = nullptr) const override;
  

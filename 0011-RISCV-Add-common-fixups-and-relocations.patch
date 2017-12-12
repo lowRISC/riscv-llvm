@@ -1000,7 +1000,7 @@ index 9121314bfcc..48f6cf8762d 100644
    bits<5> rd;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index dd54ab6c06b..213ef63f5f9 100644
+index 27332675e9b..7b33603db2b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -50,6 +50,7 @@ def uimm5 : Operand<XLenVT> {

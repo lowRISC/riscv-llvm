@@ -41,7 +41,7 @@ when necessary.
  33 files changed, 110 insertions(+), 1036 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index 916239604c3..28fe789e002 100644
+index 32ed896bc98..33703f5ec20 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -22,7 +22,14 @@
@@ -60,7 +60,7 @@ index 916239604c3..28fe789e002 100644
  
  // Determines the size of the frame and maximum call frame size.
  void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
-@@ -105,11 +112,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -103,11 +110,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
                                        MachineBasicBlock &MBB) const {
    assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
  
@@ -72,7 +72,7 @@ index 916239604c3..28fe789e002 100644
    MachineFrameInfo &MFI = MF.getFrameInfo();
    auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
-@@ -145,17 +147,13 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -143,17 +145,13 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
    std::advance(MBBI, CSI.size());
  
    // Generate new FP.
@@ -93,7 +93,7 @@ index 916239604c3..28fe789e002 100644
    MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
    const RISCVRegisterInfo *RI = STI.getRegisterInfo();
    MachineFrameInfo &MFI = MF.getFrameInfo();
-@@ -176,6 +174,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+@@ -174,6 +172,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
    // necessary if the stack pointer was modified, meaning the stack size is
    // unknown.
    if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
@@ -101,7 +101,7 @@ index 916239604c3..28fe789e002 100644
      adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
                -StackSize + RVFI->getVarArgsSaveSize(),
                MachineInstr::FrameDestroy);
-@@ -212,8 +211,10 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+@@ -210,8 +209,10 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
      Offset += MF.getFrameInfo().getStackSize();
    } else {
      FrameReg = RI->getFrameRegister(MF);
@@ -114,7 +114,7 @@ index 916239604c3..28fe789e002 100644
    }
    return Offset;
  }
-@@ -222,10 +223,12 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+@@ -220,10 +221,12 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
                                                BitVector &SavedRegs,
                                                RegScavenger *RS) const {
    TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
@@ -132,7 +132,7 @@ index 916239604c3..28fe789e002 100644
  
  void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 6fdf1a4338c..a6cdcb92050 100644
+index b634097bae3..6ad8bf7bca0 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -71,9 +71,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -145,7 +145,7 @@ index 6fdf1a4338c..a6cdcb92050 100644
    if (!isInt<32>(Offset)) {
      report_fatal_error(
          "Frame offsets outside of the signed 32-bit range not supported");
-@@ -106,7 +103,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+@@ -102,7 +99,8 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
  }
  
  unsigned RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
@@ -3063,7 +3063,7 @@ index df7995cff73..5d00d69a1d2 100644
  ; RV32I-NEXT:    addi sp, sp, 16
  ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index 03a3d59a6ac..01b22faaf9b 100644
+index 9f805b33ac0..a4a918d7eaa 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -1,5 +1,5 @@

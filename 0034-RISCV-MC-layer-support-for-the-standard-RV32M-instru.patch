@@ -41,10 +41,10 @@ index da919acad36..6fc54a517dd 100644
  //===----------------------------------------------------------------------===//
  // Registers, calling conventions, instruction descriptions.
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index ecdf40bb009..d91f333d23f 100644
+index 3031a77d0fe..0ea13f7c1d5 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -466,3 +466,9 @@ def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+@@ -461,3 +461,9 @@ def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
  def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                                [(CallSeqEnd timm:$amt1, timm:$amt2)]>;
  } // Defs = [X2], Uses = [X2]

@@ -8,17 +8,17 @@ points to the bottom of the vararg spill region. This is necessary to ensure
 that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     |  13 +-
+ lib/Target/RISCV/RISCVFrameLowering.cpp     |  15 +-
  lib/Target/RISCV/RISCVISelLowering.cpp      | 141 +++++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   3 +-
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
  test/CodeGen/RISCV/vararg.ll                | 535 ++++++++++++++++++++++++++++
- 5 files changed, 713 insertions(+), 23 deletions(-)
+ 5 files changed, 715 insertions(+), 23 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
-index de537aac9c6..8948ba692db 100644
+index e9e003e63d5..e1448ba7e2b 100644
 --- a/lib/Target/RISCV/RISCVFrameLowering.cpp
 +++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
 @@ -12,6 +12,7 @@
@@ -29,41 +29,43 @@ index de537aac9c6..8948ba692db 100644
  #include "RISCVSubtarget.h"
  #include "llvm/CodeGen/MachineFrameInfo.h"
  #include "llvm/CodeGen/MachineFunction.h"
-@@ -67,6 +68,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+@@ -91,6 +92,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   }
  
    MachineFrameInfo &MFI = MF.getFrameInfo();
-   const RISCVInstrInfo *TII = STI.getInstrInfo();
 +  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    MachineBasicBlock::iterator MBBI = MBB.begin();
  
-   unsigned FPReg = RISCV::X8;
-@@ -111,7 +113,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   unsigned FPReg = getFPReg(STI);
+@@ -124,7 +126,8 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+   std::advance(MBBI, CSI.size());
+ 
    // Generate new FP.
-   BuildMI(MBB, MBBI, DL, TII->get(RISCV::ADDI), FPReg)
-       .addReg(SPReg)
--      .addImm(StackSize)
-+      .addImm(StackSize - RVFI->getVarArgsSaveSize())
-       .setMIFlag(MachineInstr::FrameSetup);
+-  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize, MachineInstr::FrameSetup);
++  adjustReg(MBB, MBBI, DL, FPReg, SPReg, StackSize - RVFI->getVarArgsSaveSize(),
++            MachineInstr::FrameSetup);
  }
  
-@@ -126,6 +128,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
-   const RISCVInstrInfo *TII = STI.getInstrInfo();
+ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+@@ -137,6 +140,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
    const RISCVRegisterInfo *RI = STI.getRegisterInfo();
    MachineFrameInfo &MFI = MF.getFrameInfo();
 +  auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
    DebugLoc DL = MBBI->getDebugLoc();
-   unsigned FPReg = RISCV::X8;
-   unsigned SPReg = RISCV::X2;
-@@ -144,7 +147,7 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   unsigned FPReg = getFPReg(STI);
+   unsigned SPReg = getSPReg(STI);
+@@ -153,7 +157,8 @@ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+   // necessary if the stack pointer was modified, meaning the stack size is
+   // unknown.
    if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
-     BuildMI(MBB, LastFrameDestroy, DL, TII->get(RISCV::ADDI), SPReg)
-         .addReg(FPReg)
--        .addImm(-StackSize)
-+        .addImm(-StackSize + RVFI->getVarArgsSaveSize())
-         .setMIFlag(MachineInstr::FrameDestroy);
+-    adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg, -StackSize,
++    adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
++              -StackSize + RVFI->getVarArgsSaveSize(),
+               MachineInstr::FrameDestroy);
    }
  
-@@ -164,6 +167,7 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+@@ -166,6 +171,7 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
                                                 unsigned &FrameReg) const {
    const MachineFrameInfo &MFI = MF.getFrameInfo();
    const TargetRegisterInfo *RI = MF.getSubtarget().getRegisterInfo();
@@ -71,7 +73,7 @@ index de537aac9c6..8948ba692db 100644
  
    // Callee-saved registers should be referenced relative to the stack
    // pointer (positive offset), otherwise use the frame pointer (negative
-@@ -180,10 +184,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
+@@ -182,10 +188,13 @@ int RISCVFrameLowering::getFrameIndexReference(const MachineFunction &MF,
      MaxCSFI = CSI[CSI.size() - 1].getFrameIdx();
    }
  
@@ -424,7 +426,7 @@ index 00000000000..433a3fb1543
 +#endif // LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
 new file mode 100644
-index 00000000000..03a3d59a6ac
+index 00000000000..9f805b33ac0
 --- /dev/null
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -0,0 +1,535 @@
@@ -571,7 +573,7 @@ index 00000000000..03a3d59a6ac
 +}
 +
 +; Ensure that 2x xlen size+alignment varargs are accessed via an "aligned"
-+; register pair (wher the first register is even-numbered.
++; register pair (where the first register is even-numbered).
 +
 +define double @va2(i8 *%fmt, ...) nounwind {
 +; RV32I-LABEL: va2:

@@ -114,7 +114,7 @@ index b72b45c3dcc..e0100b1679b 100644
    return true;
  }
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index f86c59f0df0..a6cdcb92050 100644
+index ca2d11271d4..6ad8bf7bca0 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -61,7 +61,6 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
@@ -123,7 +123,7 @@ index f86c59f0df0..a6cdcb92050 100644
    MachineFunction &MF = *MI.getParent()->getParent();
 -  const auto &Subtarget = MF.getSubtarget<RISCVSubtarget>();
    MachineRegisterInfo &MRI = MF.getRegInfo();
-   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+   const RISCVInstrInfo *TII = MF.getSubtarget<RISCVSubtarget>().getInstrInfo();
    DebugLoc DL = MI.getDebugLoc();
 diff --git a/test/CodeGen/RISCV/float-imm.ll b/test/CodeGen/RISCV/float-imm.ll
 new file mode 100644
