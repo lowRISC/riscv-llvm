@@ -12,7 +12,7 @@ Subject: [RISCV] Add codegen for RV32F arithmetic and conversion operations
  create mode 100644 test/CodeGen/RISCV/float-convert.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index b6e598f5d69..fc5ef33b431 100644
+index 26904eb4ee3..462689f30c9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -45,6 +45,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

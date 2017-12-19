@@ -14,7 +14,7 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 16c57f1cd90..1faa150f209 100644
+index 52a79e6c917..769941981f0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

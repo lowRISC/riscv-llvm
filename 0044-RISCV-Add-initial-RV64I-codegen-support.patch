@@ -32,7 +32,7 @@ index e3cf8afcf00..170c8ff2825 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 5b770dc67b3..b6e598f5d69 100644
+index 6bf2361c62f..26904eb4ee3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -74,7 +74,7 @@ index 5b770dc67b3..b6e598f5d69 100644
    std::vector<SDValue> OutChains;
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 2d7af365b90..42fc04e5b5e 100644
+index 5f0c67cfa12..6b7b4a1cb4b 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -29,8 +29,9 @@
@@ -124,7 +124,7 @@ index 2d7af365b90..42fc04e5b5e 100644
  }
  
  void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
-@@ -307,9 +312,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
+@@ -282,9 +287,8 @@ unsigned RISCVInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
    MachineFunction *MF = MBB.getParent();
    MachineRegisterInfo &MRI = MF->getRegInfo();
    const auto &TM = static_cast<const RISCVTargetMachine &>(MF->getTarget());

@@ -19,7 +19,7 @@ inputs.
  create mode 100644 test/CodeGen/RISCV/float-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 59e7f409073..16c57f1cd90 100644
+index a164c33af72..52a79e6c917 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -109,6 +109,14 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -54,7 +54,7 @@ index 59e7f409073..16c57f1cd90 100644
    // To "insert" a SELECT instruction, we actually have to insert the triangle
    // control-flow pattern.  The incoming instruction knows the destination vreg
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 28d7ddfdd7f..76c7822202a 100644
+index 75050fc7494..9c048c804a7 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -37,12 +37,21 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,

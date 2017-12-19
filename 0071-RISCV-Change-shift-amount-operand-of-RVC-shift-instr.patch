@@ -1,0 +1,157 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Change shift amount operand of RVC shift instructions to
+ uimmlog2xlennonzero
+
+c.slli/c.srli/c.srai allow a 5-bit shift in RV32C and a 6-bit shift in RV64C.
+This patch adds uimmlog2xlennonzero to reflect this constraint as well as
+tests.
+
+Differential Revision: https://reviews.llvm.org/D41216
+
+Patch by Shiva Chen.
+---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 18 ++++++++++++++++--
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 24 +++++++++++++++++-------
+ test/MC/RISCV/rv32c-invalid.s                 |  2 +-
+ test/MC/RISCV/rv64c-invalid.s                 |  5 +++++
+ test/MC/RISCV/rv64c-valid.s                   | 10 ++++++++++
+ 5 files changed, 49 insertions(+), 10 deletions(-)
+
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index 1bae18bca92..3299a53ff5b 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -216,6 +216,18 @@ public:
+     return (isRV64() && isUInt<6>(Imm)) || isUInt<5>(Imm);
+   }
+ 
++  bool isUImmLog2XLenNonZero() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    if (!isImm())
++      return false;
++    if (!evaluateConstantImm(Imm, VK) || VK != RISCVMCExpr::VK_RISCV_None)
++      return false;
++    if (Imm == 0)
++      return false;
++    return (isRV64() && isUInt<6>(Imm)) || isUInt<5>(Imm);
++  }
++
+   bool isUImm5() const {
+     int64_t Imm;
+     RISCVMCExpr::VariantKind VK;
+@@ -592,10 +604,12 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+     if (isRV64())
+       return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 6) - 1);
+     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
++  case Match_InvalidUImmLog2XLenNonZero:
++    if (isRV64())
++      return generateImmOutOfRangeError(Operands, ErrorInfo, 1, (1 << 6) - 1);
++    return generateImmOutOfRangeError(Operands, ErrorInfo, 1, (1 << 5) - 1);
+   case Match_InvalidUImm5:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
+-  case Match_InvalidUImm5NonZero:
+-    return generateImmOutOfRangeError(Operands, ErrorInfo, 1, (1 << 5) - 1);
+   case Match_InvalidSImm6:
+     return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 5),
+                                       (1 << 5) - 1);
+diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
+index 518f5633585..4ca52652086 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoC.td
++++ b/lib/Target/RISCV/RISCVInstrInfoC.td
+@@ -13,10 +13,20 @@ include "RISCVInstrFormatsC.td"
+ // Operand definitions.
+ //===----------------------------------------------------------------------===//
+ 
+-def uimm5nonzero : Operand<XLenVT>,
+-                   ImmLeaf<XLenVT, [{return isUInt<5>(Imm) && (Imm != 0);}]> {
+-  let ParserMatchClass = UImmAsmOperand<5, "NonZero">;
+-  let DecoderMethod = "decodeUImmOperand<5>";
++def UImmLog2XLenNonZeroAsmOperand : AsmOperandClass {
++  let Name = "UImmLog2XLenNonZero";
++  let RenderMethod = "addImmOperands";
++  let DiagnosticType = "InvalidUImmLog2XLenNonZero";
++}
++
++def uimmlog2xlennonzero : Operand<XLenVT>, ImmLeaf<XLenVT, [{
++  if (Subtarget->is64Bit())
++    return isUInt<6>(Imm) && (Imm != 0);
++  return isUInt<5>(Imm) && (Imm != 0);
++}]> {
++  let ParserMatchClass = UImmLog2XLenNonZeroAsmOperand;
++  // TODO: should ensure invalid shamt is rejected when decoding.
++  let DecoderMethod = "decodeUImmOperand<6>";
+ }
+ 
+ def simm6 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<6>(Imm);}]> {
+@@ -290,8 +300,8 @@ def C_LUI : RVInst16CI<0b011, 0b01, (outs GPRNoX0X2:$rd),
+   let Inst{6-2} = imm{4-0};
+ }
+ 
+-def C_SRLI : Shift_right<0b00, "c.srli", GPRC, uimm5nonzero>;
+-def C_SRAI : Shift_right<0b01, "c.srai", GPRC, uimm5nonzero>;
++def C_SRLI : Shift_right<0b00, "c.srli", GPRC, uimmlog2xlennonzero>;
++def C_SRAI : Shift_right<0b01, "c.srai", GPRC, uimmlog2xlennonzero>;
+ 
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ def C_ANDI : RVInst16CB<0b100, 0b01, (outs GPRC:$rs1_wb), (ins GPRC:$rs1, simm6:$imm),
+@@ -323,7 +333,7 @@ def C_BNEZ : Bcz<0b111, "c.bnez",  setne, GPRC>;
+ 
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ def C_SLLI : RVInst16CI<0b000, 0b10, (outs GPRNoX0:$rd_wb),
+-                        (ins GPRNoX0:$rd, uimm5nonzero:$imm),
++                        (ins GPRNoX0:$rd, uimmlog2xlennonzero:$imm),
+                         "c.slli" ,"$rd, $imm"> {
+   let Constraints = "$rd = $rd_wb";
+   let Inst{6-2} = imm{4-0};
+diff --git a/test/MC/RISCV/rv32c-invalid.s b/test/MC/RISCV/rv32c-invalid.s
+index 83547542825..188bb68c2b5 100644
+--- a/test/MC/RISCV/rv32c-invalid.s
++++ b/test/MC/RISCV/rv32c-invalid.s
+@@ -38,7 +38,7 @@ c.addi16sp  t0, 16 # CHECK: :[[@LINE]]:13: error: invalid operand for instructio
+ 
+ # Out of range immediates
+ 
+-## uimm5nonzero
++## uimmlog2xlennonzero
+ c.slli t0, 64 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 31]
+ c.srli a0, 32 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 31]
+ c.srai a0, 0  # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 31]
+diff --git a/test/MC/RISCV/rv64c-invalid.s b/test/MC/RISCV/rv64c-invalid.s
+index e58c113c69f..fdbcaba244f 100644
+--- a/test/MC/RISCV/rv64c-invalid.s
++++ b/test/MC/RISCV/rv64c-invalid.s
+@@ -12,6 +12,11 @@ c.ldsp  zero, 4(sp) # CHECK: :[[@LINE]]:9: error: invalid operand for instructio
+ 
+ # Out of range immediates
+ 
++## uimmlog2xlennonzero
++c.slli t0, 64 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 63]
++c.srli a0, -1 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 63]
++c.srai a0, 0  # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [1, 63]
++
+ ## simm6
+ c.addiw t0, -33 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-32, 31]
+ c.addiw t0, 32 # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-32, 31]
+diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
+index aa4f710eb55..605695dd924 100644
+--- a/test/MC/RISCV/rv64c-valid.s
++++ b/test/MC/RISCV/rv64c-valid.s
+@@ -32,3 +32,13 @@ c.addiw  a3, -32
+ # CHECK-INST: c.addiw  a3, 31
+ # CHECK: encoding: [0xfd,0x26]
+ c.addiw  a3, 31
++
++# CHECK-INST: c.slli  s0, 1
++# CHECK: encoding: [0x06,0x04]
++c.slli  s0, 1
++# CHECK-INST: c.srli  a3, 63
++# CHECK: encoding: [0xfd,0x92]
++c.srli  a3, 63
++# CHECK-INST: c.srai  a2, 63
++# CHECK: encoding: [0x7d,0x96]
++c.srai  a2, 63
+-- 
+2.15.1
+

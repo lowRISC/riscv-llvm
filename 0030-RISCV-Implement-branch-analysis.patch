@@ -5,21 +5,21 @@ Subject: [RISCV] Implement branch analysis
 This is a prerequisite for the branch relaxation pass, and allows a number of
 optimisation passes (e.g. BranchFolding and MachineBlockPlacement) to work.
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp         | 191 +++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp         | 166 ++++++++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h           |  16 ++
  test/CodeGen/RISCV/analyze-branch.ll        |  91 +++++++++++
  test/CodeGen/RISCV/branch.ll                |  33 ++--
  test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 228 ++++++++++++++--------------
  test/CodeGen/RISCV/jumptable.ll             |  45 +++---
  test/CodeGen/RISCV/select-cc.ll             |   2 +-
- 7 files changed, 447 insertions(+), 159 deletions(-)
+ 7 files changed, 422 insertions(+), 159 deletions(-)
  create mode 100644 test/CodeGen/RISCV/analyze-branch.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 673b1f5c311..54922ee9281 100644
+index 673b1f5c311..9d9a5f07d86 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
-@@ -95,3 +95,194 @@ void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
+@@ -95,3 +95,169 @@ void RISCVInstrInfo::movImm32(MachineBasicBlock &MBB,
        .addImm(Lo12)
        .setMIFlag(Flag);
  }
@@ -27,15 +27,15 @@ index 673b1f5c311..54922ee9281 100644
 +// The contents of values added to Cond are not examined outside of
 +// RISCVInstrInfo, giving us flexibility in what to push to it. For RISCV, we
 +// push BranchOpcode, Reg1, Reg2.
-+static void parseCondBranch(MachineInstr *LastInst, MachineBasicBlock *&Target,
++static void parseCondBranch(MachineInstr &LastInst, MachineBasicBlock *&Target,
 +                            SmallVectorImpl<MachineOperand> &Cond) {
 +  // Block ends with fall-through condbranch.
-+  assert(LastInst->getDesc().isConditionalBranch() &&
++  assert(LastInst.getDesc().isConditionalBranch() &&
 +         "Unknown conditional branch");
-+  Target = LastInst->getOperand(2).getMBB();
-+  Cond.push_back(MachineOperand::CreateImm(LastInst->getOpcode()));
-+  Cond.push_back(LastInst->getOperand(0));
-+  Cond.push_back(LastInst->getOperand(1));
++  Target = LastInst.getOperand(2).getMBB();
++  Cond.push_back(MachineOperand::CreateImm(LastInst.getOpcode()));
++  Cond.push_back(LastInst.getOperand(0));
++  Cond.push_back(LastInst.getOperand(1));
 +}
 +
 +static unsigned getOppositeBranchOpcode(int Opc) {
@@ -62,91 +62,66 @@ index 673b1f5c311..54922ee9281 100644
 +                                   MachineBasicBlock *&FBB,
 +                                   SmallVectorImpl<MachineOperand> &Cond,
 +                                   bool AllowModify) const {
-+  // Implementation derived from AArch64InstrInfo::analyzeBranch.
 +  TBB = FBB = nullptr;
 +  Cond.clear();
 +
 +  // If the block has no terminators, it just falls into the block after it.
 +  MachineBasicBlock::iterator I = MBB.getLastNonDebugInstr();
-+  if (I == MBB.end())
++  if (I == MBB.end() || !isUnpredicatedTerminator(*I))
 +    return false;
 +
-+  if (!isUnpredicatedTerminator(*I))
-+    return false;
-+
-+  // Get the last instruction in the block.
-+  MachineInstr *LastInst = &*I;
-+
-+  // If there is only one terminator instruction, process it.
-+  const MCInstrDesc *LastMCID = &LastInst->getDesc();
-+  if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
-+    if (LastMCID->isUnconditionalBranch()) {
-+      TBB = LastInst->getOperand(0).getMBB();
-+      return false;
-+    }
-+    if (LastMCID->isConditionalBranch()) {
-+      // Block ends with fall-through condbranch.
-+      parseCondBranch(LastInst, TBB, Cond);
-+      return false;
-+    }
-+    return true; // Can't handle indirect branch.
-+  }
-+
-+  // Get the instruction before it if it is a terminator.
-+  MachineInstr *SecondLastInst = &*I;
-+  const MCInstrDesc *SecondLastMCID = &SecondLastInst->getDesc();
-+
-+  // If AllowModify is true and the block ends with two or more unconditional
-+  // branches, delete all but the first unconditional branch.
-+  if (AllowModify && LastMCID->isUnconditionalBranch()) {
-+    while (SecondLastMCID->isUnconditionalBranch()) {
-+      LastInst->eraseFromParent();
-+      LastInst = SecondLastInst;
-+      LastMCID = &LastInst->getDesc();
-+      if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
-+        // Return now the only terminator is an unconditional branch.
-+        TBB = LastInst->getOperand(0).getMBB();
-+        return false;
-+      } else {
-+        SecondLastInst = &*I;
-+        SecondLastMCID = &SecondLastInst->getDesc();
-+      }
++  // Count the number of terminators and find the first unconditional or
++  // indirect branch.
++  MachineBasicBlock::iterator FirstUncondOrIndirectBr = MBB.end();
++  int NumTerminators = 0;
++  for (auto J = I.getReverse(); J != MBB.rend() && isUnpredicatedTerminator(*J);
++       J++) {
++    NumTerminators++;
++    if (J->getDesc().isUnconditionalBranch() ||
++        J->getDesc().isIndirectBranch()) {
++      FirstUncondOrIndirectBr = J.getReverse();
 +    }
 +  }
 +
-+  // If there are three terminators, we don't know what sort of block this is.
-+  if (SecondLastInst && I != MBB.begin() && isUnpredicatedTerminator(*--I))
++  // If AllowModify is true, we can erase any terminators after
++  // FirstUncondOrIndirectBR.
++  if (AllowModify && FirstUncondOrIndirectBr != MBB.end()) {
++    while (std::next(FirstUncondOrIndirectBr) != MBB.end()) {
++      std::next(FirstUncondOrIndirectBr)->eraseFromParent();
++      NumTerminators--;
++    }
++    I = FirstUncondOrIndirectBr;
++  }
++
++  // We can't handle blocks that end in an indirect branch.
++  if (I->getDesc().isIndirectBranch())
 +    return true;
 +
-+  // If the block ends with a bcc and a br, handle it.
-+  if (SecondLastMCID->isConditionalBranch() &&
-+      LastMCID->isUnconditionalBranch()) {
-+    parseCondBranch(SecondLastInst, TBB, Cond);
-+    FBB = LastInst->getOperand(0).getMBB();
-+    return false;
-+  }
-+
-+  // If the block ends with two unconditional branches, handle it. The second
-+  // one is not executed, so remove it.
-+  if (SecondLastMCID->isUnconditionalBranch() &&
-+      LastMCID->isUnconditionalBranch()) {
-+    TBB = SecondLastInst->getOperand(0).getMBB();
-+    I = LastInst;
-+    if (AllowModify)
-+      I->eraseFromParent();
-+    return false;
-+  }
-+
-+  // ...likewise if it ends with an indirect branch followed by an unconditional
-+  // branch.
-+  if (SecondLastMCID->isIndirectBranch() && LastMCID->isUnconditionalBranch()) {
-+    I = LastInst;
-+    if (AllowModify)
-+      I->eraseFromParent();
++  // We can't handle blocks with more than 2 terminators.
++  if (NumTerminators > 2)
 +    return true;
++
++  // Handle a single unconditional branch.
++  if (NumTerminators == 1 && I->getDesc().isUnconditionalBranch()) {
++    TBB = I->getOperand(0).getMBB();
++    return false;
 +  }
 +
-+  // Otherwise, can't handle this.
++  // Handle a single conditional branch.
++  if (NumTerminators == 1 && I->getDesc().isConditionalBranch()) {
++    parseCondBranch(*I, TBB, Cond);
++    return false;
++  }
++
++  // Handle a conditional branch followed by an unconditional branch.
++  if (NumTerminators == 2 && std::prev(I)->getDesc().isConditionalBranch() &&
++      I->getDesc().isUnconditionalBranch()) {
++    parseCondBranch(*std::prev(I), TBB, Cond);
++    FBB = I->getOperand(0).getMBB();
++    return false;
++  }
++
++  // Otherwise, we can't handle this.
 +  return true;
 +}
 +

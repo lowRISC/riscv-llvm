@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Define sfence.vma InstAliases to match the GNU RISC-V tools
+
+Unfortunately these aren't defined explicitly in the privileged spec, but the
+GNU assembler does accept `sfence.vma` and `sfence.vma rs` as well as the
+usual `sfence.vma rs, rt`.
+---
+ lib/Target/RISCV/RISCVInstrInfo.td | 3 +++
+ test/MC/RISCV/priv-invalid.s       | 2 +-
+ test/MC/RISCV/rvi-aliases-valid.s  | 7 +++++++
+ 3 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index 4217305312d..cdeef08640c 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -476,6 +476,9 @@ def : InstAlias<"csrwi $csr, $imm", (CSRRWI X0, uimm12:$csr, uimm5:$imm)>;
+ def : InstAlias<"csrsi $csr, $imm", (CSRRSI X0, uimm12:$csr, uimm5:$imm)>;
+ def : InstAlias<"csrci $csr, $imm", (CSRRCI X0, uimm12:$csr, uimm5:$imm)>;
+ 
++def : InstAlias<"sfence.vma",     (SFENCE_VMA      X0, X0)>;
++def : InstAlias<"sfence.vma $rs", (SFENCE_VMA GPR:$rs, X0)>;
++
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ //
+diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
+index 96ce291bf6d..8f421e471f9 100644
+--- a/test/MC/RISCV/priv-invalid.s
++++ b/test/MC/RISCV/priv-invalid.s
+@@ -2,6 +2,6 @@
+ 
+ mret 0x10 # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
+ 
+-sfence.vma zero # CHECK: :[[@LINE]]:1: error: too few operands for instruction
++sfence.vma zero, a1, a2 # CHECK: :[[@LINE]]:22: error: invalid operand for instruction
+ 
+ sfence.vma a0, 0x10 # CHECK: :[[@LINE]]:16: error: invalid operand for instruction
+diff --git a/test/MC/RISCV/rvi-aliases-valid.s b/test/MC/RISCV/rvi-aliases-valid.s
+index 8d5edf793b1..08d0f8c6590 100644
+--- a/test/MC/RISCV/rvi-aliases-valid.s
++++ b/test/MC/RISCV/rvi-aliases-valid.s
+@@ -136,3 +136,10 @@ csrsi 0xfff, 0x10
+ # CHECK-INST: csrrci zero, 320, 17
+ # CHECK-ALIAS: csrci 320, 17
+ csrci 0x140, 0x11
++
++# CHECK-INST: sfence.vma zero, zero
++# CHECK-ALIAS: sfence.vma
++sfence.vma
++# CHECK-INST: sfence.vma a0, zero
++# CHECK-ALIAS: sfence.vma a0
++sfence.vma a0
+-- 
+2.15.1
+

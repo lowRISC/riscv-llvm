@@ -32,7 +32,7 @@ https://reviews.llvm.org/D38311
  create mode 100644 test/Object/RISCV/lit.local.cfg
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index 8bc0475a83c..5cedd99fdc0 100644
+index dab21b558f3..c902972d93b 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -43,7 +43,7 @@ index 8bc0475a83c..5cedd99fdc0 100644
    EM_LANAI = 244,         // Lanai 32-bit processor
    EM_BPF = 247,           // Linux kernel bpf virtual machine
  
-@@ -615,6 +616,22 @@ enum {
+@@ -617,6 +618,22 @@ enum {
  #include "ELFRelocs/Lanai.def"
  };
  
@@ -132,7 +132,7 @@ index 00000000000..5cc4c0ec302
 +ELF_RELOC(R_RISCV_SET32,             56)
 +ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 75006dcf031..905ce450f7f 100644
+index 8c1133664b5..40503cb6bb9 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
 @@ -981,6 +981,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
@@ -153,7 +153,7 @@ index 75006dcf031..905ce450f7f 100644
      case ELF::EM_S390:
        return "ELF64-s390";
      case ELF::EM_SPARCV9:
-@@ -1054,6 +1058,15 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
+@@ -1053,6 +1057,15 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
      return Triple::ppc;
    case ELF::EM_PPC64:
      return IsLittleEndian ? Triple::ppc64le : Triple::ppc64;

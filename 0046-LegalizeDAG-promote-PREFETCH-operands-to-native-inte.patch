@@ -8,10 +8,10 @@ Subject: [LegalizeDAG] promote PREFETCH operands to native integer width
  2 files changed, 15 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index f3051c9509f..c3a166920ae 100644
+index a42dbe3c66b..0322c25d05b 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -945,6 +945,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
+@@ -968,6 +968,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
  
    case ISD::FRAMEADDR:
    case ISD::RETURNADDR: Res = PromoteIntOp_RETURNADDR(N, OpNo); break;
@@ -21,7 +21,7 @@ index f3051c9509f..c3a166920ae 100644
    }
  
    // If the result is null, the sub-method took care of registering results etc.
-@@ -1333,6 +1336,17 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
+@@ -1356,6 +1359,17 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
    return SDValue(DAG.UpdateNodeOperands(N, Op), 0);
  }
  

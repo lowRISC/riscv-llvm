@@ -18,10 +18,10 @@ that signext is emitted for int32_t/uint32_t return values.
  create mode 100644 test/CodeGen/riscv64-abi.c
 
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 15c8553249..baf0f72bab 100644
+index c3709bf2e4..687a251718 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
-@@ -1920,10 +1920,14 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1925,10 +1925,14 @@ void CodeGenModule::ConstructAttributeList(
    const ABIArgInfo &RetAI = FI.getReturnInfo();
    switch (RetAI.getKind()) {
    case ABIArgInfo::Extend:
@@ -1069,10 +1069,10 @@ index 0000000000..14d1fe8b72
 +  return ret;
 +}
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
-index b338a51923..ed60cffb5a 100644
+index 62985b6127..6f85fa78ad 100644
 --- a/test/Driver/riscv32-toolchain.c
 +++ b/test/Driver/riscv32-toolchain.c
-@@ -42,3 +42,50 @@ int align_ld = __alignof(long double);
+@@ -73,3 +73,50 @@ int align_ld = __alignof(long double);
  
  // CHECK: @align_vl = global i32 4
  int align_vl = __alignof(va_list);
@@ -1124,7 +1124,7 @@ index b338a51923..ed60cffb5a 100644
 +// CHECK: define fp128 @check_longdouble()
 +long double check_longdouble() { return 0; }
 diff --git a/test/Driver/riscv64-toolchain.c b/test/Driver/riscv64-toolchain.c
-index a0da51d7d4..6ececb7947 100644
+index 5c7d76006c..8a3f3228ed 100644
 --- a/test/Driver/riscv64-toolchain.c
 +++ b/test/Driver/riscv64-toolchain.c
 @@ -42,3 +42,50 @@ int align_ld = __alignof(long double);

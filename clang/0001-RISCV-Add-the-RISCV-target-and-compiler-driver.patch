@@ -2,29 +2,64 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add the RISCV target and compiler driver
 
+For now, focus on RV32.
 ---
- lib/Basic/CMakeLists.txt             |   1 +
- lib/Basic/Targets.cpp                |   6 +
- lib/Basic/Targets/RISCV.cpp          |  52 +++++
- lib/Basic/Targets/RISCV.h            | 103 +++++++++
- lib/Driver/CMakeLists.txt            |   1 +
- lib/Driver/ToolChains/Arch/RISCV.cpp |  61 ++++++
- lib/Driver/ToolChains/Arch/RISCV.h   |  32 +++
- lib/Driver/ToolChains/Clang.cpp      |  39 ++++
- lib/Driver/ToolChains/Clang.h        |   2 +
- lib/Driver/ToolChains/Gnu.cpp        |  60 +++++-
- lib/Driver/ToolChains/Linux.cpp      |  23 ++
- test/Driver/frame-pointer.c          |  12 ++
- test/Driver/riscv-abi.c              |  47 +++++
- test/Driver/riscv-features.c         |   4 +
- test/Driver/riscv32-toolchain.c      |  44 ++++
- test/Driver/riscv64-toolchain.c      |  44 ++++
- test/Preprocessor/init.c             | 395 +++++++++++++++++++++++++++++++++++
- 17 files changed, 925 insertions(+), 1 deletion(-)
+ lib/Basic/CMakeLists.txt                           |   1 +
+ lib/Basic/Targets.cpp                              |   6 +
+ lib/Basic/Targets/RISCV.cpp                        |  52 +++
+ lib/Basic/Targets/RISCV.h                          | 103 ++++++
+ lib/Driver/CMakeLists.txt                          |   1 +
+ lib/Driver/ToolChains/Arch/RISCV.cpp               |  61 ++++
+ lib/Driver/ToolChains/Arch/RISCV.h                 |  32 ++
+ lib/Driver/ToolChains/Clang.cpp                    |  39 ++
+ lib/Driver/ToolChains/Clang.h                      |   2 +
+ lib/Driver/ToolChains/Gnu.cpp                      |  60 +++-
+ lib/Driver/ToolChains/Linux.cpp                    |  23 ++
+ .../Inputs/multilib_riscv_linux_sdk/bin/.keep      |   0
+ .../Inputs/multilib_riscv_linux_sdk/include/.keep  |   0
+ .../gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o |   0
+ .../7.2.0/lib32/ilp32/crtbegin.o                   |   0
+ .../7.2.0/lib32/ilp32d/crtbegin.o                  |   0
+ .../7.2.0/lib64/lp64/crtbegin.o                    |   0
+ .../7.2.0/lib64/lp64d/crtbegin.o                   |   0
+ .../riscv64-unknown-linux-gnu/bin/ld               |   1 +
+ .../multilib_riscv_linux_sdk/sysroot/lib/.keep     |   0
+ .../sysroot/lib32/ilp32/.keep                      |   0
+ .../sysroot/lib32/ilp32d/.keep                     |   0
+ .../sysroot/lib64/lp64/.keep                       |   0
+ .../sysroot/lib64/lp64d/.keep                      |   0
+ .../sysroot/usr/lib32/ilp32/.keep                  |   0
+ .../sysroot/usr/lib32/ilp32d/.keep                 |   0
+ .../sysroot/usr/lib64/lp64/.keep                   |   0
+ .../sysroot/usr/lib64/lp64d/.keep                  |   0
+ test/Driver/frame-pointer.c                        |  12 +
+ test/Driver/riscv-abi.c                            |  47 +++
+ test/Driver/riscv-features.c                       |   4 +
+ test/Driver/riscv32-toolchain.c                    |  75 ++++
+ test/Driver/riscv64-toolchain.c                    |  44 +++
+ test/Preprocessor/init.c                           | 395 +++++++++++++++++++++
+ 34 files changed, 957 insertions(+), 1 deletion(-)
  create mode 100644 lib/Basic/Targets/RISCV.cpp
  create mode 100644 lib/Basic/Targets/RISCV.h
  create mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
  create mode 100644 lib/Driver/ToolChains/Arch/RISCV.h
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/bin/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/include/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32/crtbegin.o
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d/crtbegin.o
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64/crtbegin.o
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64d/crtbegin.o
+ create mode 100755 test/Driver/Inputs/multilib_riscv_linux_sdk/riscv64-unknown-linux-gnu/bin/ld
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64d/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64/.keep
+ create mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d/.keep
  create mode 100644 test/Driver/riscv-abi.c
  create mode 100644 test/Driver/riscv-features.c
  create mode 100644 test/Driver/riscv32-toolchain.c
@@ -351,7 +386,7 @@ index 0000000000..beda14979f
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index 2d6ac642f0..f8038aff6d 100644
+index 0a89ff96d3..a9cb9829a3 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,6 +12,7 @@
@@ -362,7 +397,7 @@ index 2d6ac642f0..f8038aff6d 100644
  #include "Arch/Sparc.h"
  #include "Arch/SystemZ.h"
  #include "Arch/X86.h"
-@@ -306,6 +307,10 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
+@@ -327,6 +328,10 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
    case llvm::Triple::ppc64le:
      ppc::getPPCTargetFeatures(D, Triple, Args, Features);
      break;
@@ -373,7 +408,7 @@ index 2d6ac642f0..f8038aff6d 100644
    case llvm::Triple::systemz:
      systemz::getSystemZTargetFeatures(Args, Features);
      break;
-@@ -526,6 +531,14 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
+@@ -547,6 +552,14 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
      }
    }
  
@@ -388,7 +423,7 @@ index 2d6ac642f0..f8038aff6d 100644
    if (Triple.isOSWindows()) {
      switch (Triple.getArch()) {
      case llvm::Triple::x86:
-@@ -1261,6 +1274,8 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
+@@ -1282,6 +1295,8 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
  
    case llvm::Triple::hexagon:
    case llvm::Triple::ppc64le:
@@ -397,7 +432,7 @@ index 2d6ac642f0..f8038aff6d 100644
    case llvm::Triple::systemz:
    case llvm::Triple::xcore:
      return false;
-@@ -1370,6 +1385,11 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
+@@ -1391,6 +1406,11 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
      AddPPCTargetArgs(Args, CmdArgs);
      break;
  
@@ -409,7 +444,7 @@ index 2d6ac642f0..f8038aff6d 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::sparcv9:
-@@ -1647,6 +1667,25 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
+@@ -1668,6 +1688,25 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
    }
  }
  
@@ -636,6 +671,61 @@ index 1301cdf114..9ce2407d99 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDir = "lib";
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/bin/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/bin/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/include/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/include/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o b/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32/crtbegin.o b/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32/crtbegin.o
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d/crtbegin.o b/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d/crtbegin.o
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64/crtbegin.o b/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64/crtbegin.o
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64d/crtbegin.o b/test/Driver/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib64/lp64d/crtbegin.o
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/riscv64-unknown-linux-gnu/bin/ld b/test/Driver/Inputs/multilib_riscv_linux_sdk/riscv64-unknown-linux-gnu/bin/ld
+new file mode 100755
+index 0000000000..b23e55619b
+--- /dev/null
++++ b/test/Driver/Inputs/multilib_riscv_linux_sdk/riscv64-unknown-linux-gnu/bin/ld
+@@ -0,0 +1 @@
++#!/bin/true
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64d/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/lib64/lp64d/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d/.keep b/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d/.keep
+new file mode 100644
+index 0000000000..e69de29bb2
 diff --git a/test/Driver/frame-pointer.c b/test/Driver/frame-pointer.c
 index ecb16af3cf..cf5c07d542 100644
 --- a/test/Driver/frame-pointer.c
@@ -724,16 +814,47 @@ index 0000000000..565596cdd3
 +// CHECK: fno-signed-char
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
 new file mode 100644
-index 0000000000..b338a51923
+index 0000000000..62985b6127
 --- /dev/null
 +++ b/test/Driver/riscv32-toolchain.c
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,75 @@
 +// A basic clang -cc1 command-line, and simple environment check.
 +
 +// RUN: %clang %s -### -no-canonical-prefixes -target riscv32 2>&1 | FileCheck -check-prefix=CC1 %s
-+// RUN: %clang -target riscv32 %s -emit-llvm -S -o - | FileCheck %s
-+
 +// CC1: clang{{.*}} "-cc1" "-triple" "riscv32"
++
++
++// RUN: %clang %s -### -no-canonical-prefixes \
++// RUN:   -target riscv32-linux-unknown-elf \
++// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
++// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
++// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32 %s
++
++// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin/ld"
++// CC1-RV32-LINUX-ILP32: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
++// CC1-RV32-LINUX-ILP32: "-m" "elf32lriscv"
++// CC1-RV32-LINUX-ILP32: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32.so.1"
++// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32/crtbegin.o"
++// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32"
++// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32"
++// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32"
++
++// RUN: %clang %s -### -no-canonical-prefixes \
++// RUN:   -target riscv32-linux-unknown-elf -march=rv32imafd -mabi=ilp32d \
++// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
++// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
++// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32D %s
++
++// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin/ld"
++// CC1-RV32-LINUX-ILP32D: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
++// CC1-RV32-LINUX-ILP32D: "-m" "elf32lriscv"
++// CC1-RV32-LINUX-ILP32D: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32d.so.1"
++// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d/crtbegin.o"
++// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d"
++// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d"
++// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d"
++
++// RUN: %clang -target riscv32 %s -emit-llvm -S -o - | FileCheck %s
 +
 +typedef __builtin_va_list va_list;
 +typedef __SIZE_TYPE__ size_t;
@@ -774,16 +895,16 @@ index 0000000000..b338a51923
 +int align_vl = __alignof(va_list);
 diff --git a/test/Driver/riscv64-toolchain.c b/test/Driver/riscv64-toolchain.c
 new file mode 100644
-index 0000000000..a0da51d7d4
+index 0000000000..5c7d76006c
 --- /dev/null
 +++ b/test/Driver/riscv64-toolchain.c
 @@ -0,0 +1,44 @@
 +// A basic clang -cc1 command-line, and simple environment check.
 +
 +// RUN: %clang %s -### -no-canonical-prefixes -target riscv64 2>&1 | FileCheck -check-prefix=CC1 %s
-+// RUN: %clang -target riscv64 %s -emit-llvm -S -o - | FileCheck %s
-+
 +// CC1: clang{{.*}} "-cc1" "-triple" "riscv64"
++
++// RUN: %clang -target riscv64 %s -emit-llvm -S -o - | FileCheck %s
 +
 +typedef __builtin_va_list va_list;
 +typedef __SIZE_TYPE__ size_t;

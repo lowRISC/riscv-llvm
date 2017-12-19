@@ -89,7 +89,7 @@ index e9e003e63d5..e1448ba7e2b 100644
    return Offset;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 7d32954936b..77fd8a8b8b1 100644
+index 7d32954936b..34dd6f2ab59 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -183,7 +183,7 @@ index 7d32954936b..77fd8a8b8b1 100644
      MachineFunction &MF, CCState &CCInfo,
      const SmallVectorImpl<ISD::InputArg> &Ins, bool IsRet) const {
    unsigned NumArgs = Ins.size();
-+  FunctionType *FType = MF.getFunction()->getFunctionType();
++  FunctionType *FType = MF.getFunction().getFunctionType();
  
    for (unsigned i = 0; i != NumArgs; ++i) {
      MVT ArgVT = Ins[i].VT;
