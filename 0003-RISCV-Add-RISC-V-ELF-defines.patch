@@ -170,7 +170,7 @@ index 8c1133664b5..40503cb6bb9 100644
      return Triple::systemz;
  
 diff --git a/include/llvm/module.modulemap b/include/llvm/module.modulemap
-index 47c32d3aa91..382942be64a 100644
+index de27c5f62bd..d8b07c4f54d 100644
 --- a/include/llvm/module.modulemap
 +++ b/include/llvm/module.modulemap
 @@ -56,6 +56,7 @@ module LLVM_BinaryFormat {
@@ -182,7 +182,7 @@ index 47c32d3aa91..382942be64a 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 1caa0ccaa18..c72a1258c1e 100644
+index 3ad5795b66f..5906dc5f530 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
 @@ -102,6 +102,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
@@ -275,7 +275,7 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index 1a797c499ee..02eaa89f088 100644
+index 6316840cc05..3a9112423cf 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
 @@ -750,6 +750,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
@@ -287,10 +287,10 @@ index 1a797c499ee..02eaa89f088 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 2a341077e3c..9678667abff 100644
+index 1752a65b0af..5605eaea755 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -995,6 +995,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -1006,6 +1006,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -298,7 +298,7 @@ index 2a341077e3c..9678667abff 100644
    ENUM_ENT(EM_WEBASSEMBLY,   "EM_WEBASSEMBLY"),
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
-@@ -1248,6 +1249,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
+@@ -1259,6 +1260,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_ARCH_GCN)
  };
  
@@ -313,7 +313,7 @@ index 2a341077e3c..9678667abff 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3633,6 +3642,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3707,6 +3716,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));

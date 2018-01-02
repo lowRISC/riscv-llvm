@@ -18,7 +18,7 @@ that signext is emitted for int32_t/uint32_t return values.
  create mode 100644 test/CodeGen/riscv64-abi.c
 
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index c3709bf2e4..687a251718 100644
+index 38d7344572..d17e058e16 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -1925,10 +1925,14 @@ void CodeGenModule::ConstructAttributeList(
@@ -36,7 +36,7 @@ index c3709bf2e4..687a251718 100644
 +      else
 +        RetAttrs.addAttribute(llvm::Attribute::ZExt);
 +    }
-     // FALL THROUGH
+     LLVM_FALLTHROUGH;
    case ABIArgInfo::Direct:
      if (RetAI.getInReg())
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
