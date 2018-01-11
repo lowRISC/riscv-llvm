@@ -7452,7 +7452,7 @@ index 18299548ffa..3203d6e6d3f 100644
  # RUN:     | FileCheck -check-prefix=CHECK-RV32 %s
  
 diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
-index c32ea144cb7..aa4f710eb55 100644
+index 2ee9a12cf39..605695dd924 100644
 --- a/test/MC/RISCV/rv64c-valid.s
 +++ b/test/MC/RISCV/rv64c-valid.s
 @@ -1,7 +1,8 @@

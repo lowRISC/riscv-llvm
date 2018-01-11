@@ -16,7 +16,7 @@ Subject: [RISCV] Codegen support for RV32D floating point comparison
  create mode 100644 test/CodeGen/RISCV/double-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 1ed3f936ea5..ca20d4d5053 100644
+index 4d93f1f723e..ab16f2e4f8d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -108,13 +108,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -60,7 +60,7 @@ index 1ed3f936ea5..ca20d4d5053 100644
    }
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 9c048c804a7..1a538103774 100644
+index a9424a6b077..d218b7c2959 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -44,14 +44,18 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,

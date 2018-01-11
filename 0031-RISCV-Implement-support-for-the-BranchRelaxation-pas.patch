@@ -18,7 +18,7 @@ instruction's immediate field.
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 9d9a5f07d86..5f0c67cfa12 100644
+index 9d9a5f07d86..6a10329d4b8 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -20,6 +20,7 @@
@@ -124,7 +124,6 @@ index 9d9a5f07d86..5f0c67cfa12 100644
 +  // scavenger won't work with empty blocks (SIInstrInfo::insertIndirectBranch
 +  // uses the same workaround).
 +  unsigned ScratchReg = MRI.createVirtualRegister(&RISCV::GPRRegClass);
-+
 +  auto II = MBB.end();
 +
 +  MachineInstr &LuiMI = *BuildMI(MBB, II, DL, get(RISCV::LUI), ScratchReg)
@@ -132,6 +131,7 @@ index 9d9a5f07d86..5f0c67cfa12 100644
 +  BuildMI(MBB, II, DL, get(RISCV::PseudoBRIND))
 +      .addReg(ScratchReg, RegState::Kill)
 +      .addMBB(&DestBB, RISCVII::MO_LO);
++
 +  RS->enterBasicBlockEnd(MBB);
 +  unsigned Scav = RS->scavengeRegisterBackwards(
 +      RISCV::GPRRegClass, MachineBasicBlock::iterator(LuiMI), false, 0);

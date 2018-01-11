@@ -6,6 +6,8 @@ Subject: [RISCV] MC layer support for load/store instructions of the C
 Differential Revision: https://reviews.llvm.org/D40001
 
 Patch by Shiva Chen.
+
+This patch has been further modified since the upstreamed version.
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  48 ++++++++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  62 ++++++++--
@@ -97,7 +99,7 @@ index 588e39ee3cf..c4a3116b33a 100644
      return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
                                        (1 << 11) - 1);
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-index 2649f1b3729..91c0b5a9d24 100644
+index 2649f1b3729..eeada77dae3 100644
 --- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 @@ -130,10 +130,41 @@ static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
@@ -128,8 +130,8 @@ index 2649f1b3729..91c0b5a9d24 100644
 +// Add implied SP operand for instructions *SP compressed instructions. The SP
 +// operand isn't explicitly encoded in the instruction.
 +static void addImplySP(MCInst &Inst, int64_t Address, const void *Decoder) {
-+  if (Inst.getOpcode() == RISCV::CLWSP || Inst.getOpcode() == RISCV::CSWSP ||
-+      Inst.getOpcode() == RISCV::CLDSP || Inst.getOpcode() == RISCV::CSDSP) {
++  if (Inst.getOpcode() == RISCV::C_LWSP || Inst.getOpcode() == RISCV::C_SWSP ||
++      Inst.getOpcode() == RISCV::C_LDSP || Inst.getOpcode() == RISCV::C_SDSP) {
 +    DecodeGPRRegisterClass(Inst, 2, Address, Decoder);
 +  }
 +}
@@ -409,7 +411,7 @@ index 6a3f596b663..fd78c6eaf0b 100644
 +include "RISCVInstrInfoC.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
 new file mode 100644
-index 00000000000..b1dd9e67655
+index 00000000000..d0d9bb395c2
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoC.td
 @@ -0,0 +1,132 @@
@@ -466,26 +468,26 @@ index 00000000000..b1dd9e67655
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 +class CStackLoad<bits<3> funct3, string OpcodeStr,
-+                 RegisterClass cls, DAGOperand opnd> :
-+      RVInst16CI<funct3, 0b10, (outs cls:$rd), (ins SP:$rs1, opnd:$imm),
++                 RegisterClass cls, DAGOperand opnd>
++    : RVInst16CI<funct3, 0b10, (outs cls:$rd), (ins SP:$rs1, opnd:$imm),
 +                 OpcodeStr, "$rd, ${imm}(${rs1})">;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 +class CStackStore<bits<3> funct3, string OpcodeStr,
-+                  RegisterClass cls, DAGOperand opnd> :
-+      RVInst16CSS<funct3, 0b10, (outs), (ins cls:$rs2, SP:$rs1, opnd:$imm),
++                  RegisterClass cls, DAGOperand opnd>
++    : RVInst16CSS<funct3, 0b10, (outs), (ins cls:$rs2, SP:$rs1, opnd:$imm),
 +                  OpcodeStr, "$rs2, ${imm}(${rs1})">;
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 +class CLoad_ri<bits<3> funct3, string OpcodeStr,
-+               RegisterClass cls, DAGOperand opnd> :
-+      RVInst16CL<funct3, 0b00, (outs cls:$rd), (ins cls:$rs1, opnd:$imm),
++               RegisterClass cls, DAGOperand opnd>
++    : RVInst16CL<funct3, 0b00, (outs cls:$rd), (ins cls:$rs1, opnd:$imm),
 +                 OpcodeStr, "$rd, ${imm}(${rs1})">;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 +class CStore_rri<bits<3> funct3, string OpcodeStr,
-+                 RegisterClass cls, DAGOperand opnd> :
-+      RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
++                 RegisterClass cls, DAGOperand opnd>
++    : RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
 +                 OpcodeStr, "$rs2, ${imm}(${rs1})">;
 +
 +//===----------------------------------------------------------------------===//
@@ -494,52 +496,52 @@ index 00000000000..b1dd9e67655
 +
 +let Predicates = [HasStdExtC] in {
 +
-+def CLW : CLoad_ri<0b010, "c.lw", GPRC, uimm7_lsb00> {
++def C_LW : CLoad_ri<0b010, "c.lw", GPRC, uimm7_lsb00> {
 +  bits<7> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6} = imm{2};
 +  let Inst{5} = imm{6};
 +}
 +
-+def CLD : CLoad_ri<0b011, "c.ld", GPRC, uimm8_lsb000>,
-+          Requires<[IsRV64]> {
++def C_LD : CLoad_ri<0b011, "c.ld", GPRC, uimm8_lsb000>,
++           Requires<[IsRV64]> {
 +  bits<8> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6-5} = imm{7-6};
 +}
 +
-+def CSW : CStore_rri<0b110, "c.sw", GPRC, uimm7_lsb00> {
++def C_SW : CStore_rri<0b110, "c.sw", GPRC, uimm7_lsb00> {
 +  bits<7> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6} = imm{2};
 +  let Inst{5} = imm{6};
 +}
 +
-+def CSD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
-+          Requires<[IsRV64]> {
++def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
++           Requires<[IsRV64]> {
 +  bits<8> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6-5} = imm{7-6};
 +}
 +
-+def CLWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
++def C_LWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
 +  let Inst{6-4} = imm{4-2};
 +  let Inst{3-2} = imm{7-6};
 +}
 +
-+def CLDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
-+            Requires<[IsRV64]> {
++def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
++             Requires<[IsRV64]> {
 +  let Inst{6-5} = imm{4-3};
 +  let Inst{4-2} = imm{8-6};
 +}
 +
-+def CSWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
++def C_SWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
 +  let Inst{12-9} = imm{5-2};
 +  let Inst{8-7}  = imm{7-6};
 +}
 +
-+def CSDSP : CStackStore<0b111, "c.sdsp", GPR, uimm9_lsb000>,
-+            Requires<[IsRV64]> {
++def C_SDSP : CStackStore<0b111, "c.sdsp", GPR, uimm9_lsb000>,
++             Requires<[IsRV64]> {
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{9-7}   = imm{8-6};
 +}

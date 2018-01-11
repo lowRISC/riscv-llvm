@@ -40,10 +40,10 @@ index 38d7344572..d17e058e16 100644
    case ABIArgInfo::Direct:
      if (RetAI.getInReg())
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 4b8006428f..bc785cc3d9 100644
+index e3f3ba1be4..6aeb84ce7e 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8780,6 +8780,187 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8774,6 +8774,187 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -231,7 +231,7 @@ index 4b8006428f..bc785cc3d9 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8894,6 +9075,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8888,6 +9069,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  

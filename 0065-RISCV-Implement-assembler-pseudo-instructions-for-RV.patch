@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] Implement assembler pseudo instructions for RV32I and RV64I
+Subject: [RISCV] Implement assembler pseudo instructions for RV{32,64}IFD
 
 Adds the assembler pseudo instructions of RV32I and RV64I which can
 be mapped to a single canonical instruction. The missing pseudo
@@ -14,23 +14,39 @@ should actually break the floating point MC tests. However, the
 used FileCheck configuration is not tight enought to detect the
 breakage.
 
+Also adds the assembler aliases for the floating point instructions
+which can be mapped to a single canonical instruction. The missing
+pseudo instructions (flw, fld, fsw, fsd) are marked as TODO. Other
+things, like for example PCREL_LO, have to be implemented first.
+
 Differential Revision: https://reviews.llvm.org/D40902
+Differential Revision: https://reviews.llvm.org/D41071
 
 Patch by Mario Werner.
+
+Patch has been modified since the upstream version (combining multiple
+commits).
 ---
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |  11 +-
  lib/Target/RISCV/RISCV.td                         |   3 +-
- lib/Target/RISCV/RISCVInstrInfo.td                |  84 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td                |  87 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td               |  13 ++
+ lib/Target/RISCV/RISCVInstrInfoF.td               |  33 +++++
+ test/MC/RISCV/priv-invalid.s                      |   2 +-
  test/MC/RISCV/rv32i-aliases-invalid.s             |   8 ++
- test/MC/RISCV/rv32i-aliases-valid.s               |  20 ++++
+ test/MC/RISCV/rv32i-aliases-valid.s               |  20 +++
  test/MC/RISCV/rv64i-aliases-invalid.s             |   6 +
- test/MC/RISCV/rv64i-aliases-valid.s               |  20 ++++
- test/MC/RISCV/rvi-aliases-valid.s                 | 138 ++++++++++++++++++++++
- 8 files changed, 288 insertions(+), 2 deletions(-)
+ test/MC/RISCV/rv64i-aliases-valid.s               |  20 +++
+ test/MC/RISCV/rvd-aliases-valid.s                 |  33 +++++
+ test/MC/RISCV/rvf-aliases-valid.s                 |  77 ++++++++++++
+ test/MC/RISCV/rvi-aliases-valid.s                 | 145 ++++++++++++++++++++++
+ 13 files changed, 455 insertions(+), 3 deletions(-)
  create mode 100644 test/MC/RISCV/rv32i-aliases-invalid.s
  create mode 100644 test/MC/RISCV/rv32i-aliases-valid.s
  create mode 100644 test/MC/RISCV/rv64i-aliases-invalid.s
  create mode 100644 test/MC/RISCV/rv64i-aliases-valid.s
+ create mode 100644 test/MC/RISCV/rvd-aliases-valid.s
+ create mode 100644 test/MC/RISCV/rvf-aliases-valid.s
  create mode 100644 test/MC/RISCV/rvi-aliases-valid.s
 
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
@@ -79,10 +95,10 @@ index 5a6f3580b09..7247854d713 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 447100682e4..4217305312d 100644
+index 447100682e4..cdeef08640c 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -392,6 +392,90 @@ def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
+@@ -392,6 +392,93 @@ def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
    let rd = 0;
  }
  
@@ -170,9 +186,92 @@ index 447100682e4..4217305312d 100644
 +def : InstAlias<"csrsi $csr, $imm", (CSRRSI X0, uimm12:$csr, uimm5:$imm)>;
 +def : InstAlias<"csrci $csr, $imm", (CSRRCI X0, uimm12:$csr, uimm5:$imm)>;
 +
++def : InstAlias<"sfence.vma",     (SFENCE_VMA      X0, X0)>;
++def : InstAlias<"sfence.vma $rs", (SFENCE_VMA GPR:$rs, X0)>;
++
  //===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //
+diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
+index 7d9ef7f3521..14bc3f20067 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoD.td
++++ b/lib/Target/RISCV/RISCVInstrInfoD.td
+@@ -160,6 +160,19 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
+ }
+ } // Predicates = [HasStdExtD, IsRV64]
+ 
++//===----------------------------------------------------------------------===//
++// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
++//===----------------------------------------------------------------------===//
++
++let Predicates = [HasStdExtD] in {
++// TODO fld
++// TODO fsd
++
++def : InstAlias<"fmv.d $rd, $rs",  (FSGNJ_D  FPR64:$rd, FPR64:$rs, FPR64:$rs)>;
++def : InstAlias<"fabs.d $rd, $rs", (FSGNJX_D FPR64:$rd, FPR64:$rs, FPR64:$rs)>;
++def : InstAlias<"fneg.d $rd, $rs", (FSGNJN_D FPR64:$rd, FPR64:$rs, FPR64:$rs)>;
++} // Predicates = [HasStdExtD]
++
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ //===----------------------------------------------------------------------===//
+diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
+index 8c2a8ace895..71d316c6d4e 100644
+--- a/lib/Target/RISCV/RISCVInstrInfoF.td
++++ b/lib/Target/RISCV/RISCVInstrInfoF.td
+@@ -188,6 +188,39 @@ def FCVT_S_LU : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.lu"> {
+ def           : FPUnaryOpDynFrmAlias<FCVT_S_LU, "fcvt.s.lu", FPR32, GPR>;
+ } // Predicates = [HasStdExtF, IsRV64]
+ 
++//===----------------------------------------------------------------------===//
++// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
++//===----------------------------------------------------------------------===//
++
++let Predicates = [HasStdExtF] in {
++// TODO flw
++// TODO fsw
++
++def : InstAlias<"fmv.s $rd, $rs",  (FSGNJ_S  FPR32:$rd, FPR32:$rs, FPR32:$rs)>;
++def : InstAlias<"fabs.s $rd, $rs", (FSGNJX_S FPR32:$rd, FPR32:$rs, FPR32:$rs)>;
++def : InstAlias<"fneg.s $rd, $rs", (FSGNJN_S FPR32:$rd, FPR32:$rs, FPR32:$rs)>;
++
++// The following csr instructions actually alias instructions from the base ISA.
++// However, it only makes sense to support them when the F extension is enabled.
++// CSR Addresses: 0x003 == fcsr, 0x002 == frm, 0x001 == fflags
++// NOTE: "frcsr", "frrm", and "frflags" are more specialized version of "csrr".
++def : InstAlias<"frcsr $rd",      (CSRRS GPR:$rd, 0x003, X0), 2>;
++def : InstAlias<"fscsr $rd, $rs", (CSRRW GPR:$rd, 0x003, GPR:$rs)>;
++def : InstAlias<"fscsr $rs",      (CSRRW      X0, 0x003, GPR:$rs), 2>;
++
++def : InstAlias<"frrm $rd",        (CSRRS  GPR:$rd, 0x002, X0), 2>;
++def : InstAlias<"fsrm $rd, $rs",   (CSRRW  GPR:$rd, 0x002, GPR:$rs)>;
++def : InstAlias<"fsrm $rs",        (CSRRW       X0, 0x002, GPR:$rs), 2>;
++def : InstAlias<"fsrmi $rd, $imm", (CSRRWI GPR:$rd, 0x002, uimm5:$imm)>;
++def : InstAlias<"fsrmi $imm",      (CSRRWI      X0, 0x002, uimm5:$imm), 2>;
++
++def : InstAlias<"frflags $rd",        (CSRRS  GPR:$rd, 0x001, X0), 2>;
++def : InstAlias<"fsflags $rd, $rs",   (CSRRW  GPR:$rd, 0x001, GPR:$rs)>;
++def : InstAlias<"fsflags $rs",        (CSRRW       X0, 0x001, GPR:$rs), 2>;
++def : InstAlias<"fsflagsi $rd, $imm", (CSRRWI GPR:$rd, 0x001, uimm5:$imm)>;
++def : InstAlias<"fsflagsi $imm",      (CSRRWI      X0, 0x001, uimm5:$imm), 2>;
++} // Predicates = [HasStdExtF]
++
+ //===----------------------------------------------------------------------===//
+ // Pseudo-instructions and codegen patterns
+ //===----------------------------------------------------------------------===//
+diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
+index 96ce291bf6d..8f421e471f9 100644
+--- a/test/MC/RISCV/priv-invalid.s
++++ b/test/MC/RISCV/priv-invalid.s
+@@ -2,6 +2,6 @@
+ 
+ mret 0x10 # CHECK: :[[@LINE]]:6: error: invalid operand for instruction
+ 
+-sfence.vma zero # CHECK: :[[@LINE]]:1: error: too few operands for instruction
++sfence.vma zero, a1, a2 # CHECK: :[[@LINE]]:22: error: invalid operand for instruction
+ 
+ sfence.vma a0, 0x10 # CHECK: :[[@LINE]]:16: error: invalid operand for instruction
 diff --git a/test/MC/RISCV/rv32i-aliases-invalid.s b/test/MC/RISCV/rv32i-aliases-invalid.s
 new file mode 100644
 index 00000000000..053b7f8e789
@@ -251,12 +350,134 @@ index 00000000000..00e92ea8e1c
 +# CHECK-INST: addiw t6, ra, 0
 +# CHECK-ALIAS: sext.w t6, ra
 +sext.w x31, x1
+diff --git a/test/MC/RISCV/rvd-aliases-valid.s b/test/MC/RISCV/rvd-aliases-valid.s
+new file mode 100644
+index 00000000000..e0006d6c98c
+--- /dev/null
++++ b/test/MC/RISCV/rvd-aliases-valid.s
+@@ -0,0 +1,33 @@
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+d -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+d -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+d -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+d -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+d < %s \
++# RUN:     | llvm-objdump -d -mattr=+d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+d < %s \
++# RUN:     | llvm-objdump -d -mattr=+d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+d < %s \
++# RUN:     | llvm-objdump -d -mattr=+d -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+d < %s \
++# RUN:     | llvm-objdump -d -mattr=+d -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++
++# TODO fld
++# TODO fsd
++
++# CHECK-INST: fsgnj.d ft0, ft1, ft1
++# CHECK-ALIAS: fmv.d ft0, ft1
++fmv.d f0, f1
++# CHECK-INST: fsgnjx.d ft1, ft2, ft2
++# CHECK-ALIAS: fabs.d ft1, ft2
++fabs.d f1, f2
++# CHECK-INST: fsgnjn.d ft2, ft3, ft3
++# CHECK-ALIAS: fneg.d ft2, ft3
++fneg.d f2, f3
+diff --git a/test/MC/RISCV/rvf-aliases-valid.s b/test/MC/RISCV/rvf-aliases-valid.s
+new file mode 100644
+index 00000000000..2806bd75710
+--- /dev/null
++++ b/test/MC/RISCV/rvf-aliases-valid.s
+@@ -0,0 +1,77 @@
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+f -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv32 -mattr=+f -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+f -riscv-no-aliases \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+f -riscv-no-aliases=false \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
++# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
++# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
++# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
++# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases=false - \
++# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
++
++# TODO flw
++# TODO fsw
++
++# CHECK-INST: fsgnj.s ft0, ft1, ft1
++# CHECK-ALIAS: fmv.s ft0, ft1
++fmv.s f0, f1
++# CHECK-INST: fsgnjx.s ft1, ft2, ft2
++# CHECK-ALIAS: fabs.s ft1, ft2
++fabs.s f1, f2
++# CHECK-INST: fsgnjn.s ft2, ft3, ft3
++# CHECK-ALIAS: fneg.s ft2, ft3
++fneg.s f2, f3
++
++# The following instructions actually alias instructions from the base ISA.
++# However, it only makes sense to support them when the F extension is enabled.
++# CHECK-INST: csrrs t0, 3, zero
++# CHECK-ALIAS: frcsr t0
++frcsr x5
++# CHECK-INST: csrrw t1, 3, t2
++# CHECK-ALIAS: fscsr t1, t2
++fscsr x6, x7
++# CHECK-INST: csrrw  zero, 3, t3
++# CHECK-ALIAS: fscsr t3
++fscsr x28
++
++# CHECK-INST: csrrs t4, 2, zero
++# CHECK-ALIAS: frrm t4
++frrm x29
++# CHECK-INST: csrrw  t5, 2, t4
++# CHECK-ALIAS: fsrm t5, t4
++fsrm x30, x29
++# CHECK-INST: csrrw  zero, 2, t6
++# CHECK-ALIAS: fsrm t6
++fsrm x31
++# CHECK-INST: csrrwi a0, 2, 31
++# CHECK-ALIAS: fsrmi a0, 31
++fsrmi x10, 0x1f
++# CHECK-INST: csrrwi  zero, 2, 30
++# CHECK-ALIAS: fsrmi 30
++fsrmi 0x1e
++
++# CHECK-INST: csrrs a1, 1, zero
++# CHECK-ALIAS: frflags a1
++frflags x11
++# CHECK-INST: csrrw a2, 1, a1
++# CHECK-ALIAS: fsflags a2, a1
++fsflags x12, x11
++# CHECK-INST: csrrw zero, 1, a3
++# CHECK-ALIAS: fsflags a3
++fsflags x13
++# CHECK-INST: csrrwi a4, 1, 29
++# CHECK-ALIAS: fsflagsi a4, 29
++fsflagsi x14, 0x1d
++# CHECK-INST: csrrwi zero, 1, 28
++# CHECK-ALIAS: fsflagsi 28
++fsflagsi 0x1c
 diff --git a/test/MC/RISCV/rvi-aliases-valid.s b/test/MC/RISCV/rvi-aliases-valid.s
 new file mode 100644
-index 00000000000..8d5edf793b1
+index 00000000000..08d0f8c6590
 --- /dev/null
 +++ b/test/MC/RISCV/rvi-aliases-valid.s
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,145 @@
 +# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases \
 +# RUN:     | FileCheck -check-prefix=CHECK-INST %s
 +# RUN: llvm-mc %s -triple=riscv32 -riscv-no-aliases=false \
@@ -395,6 +616,13 @@ index 00000000000..8d5edf793b1
 +# CHECK-INST: csrrci zero, 320, 17
 +# CHECK-ALIAS: csrci 320, 17
 +csrci 0x140, 0x11
++
++# CHECK-INST: sfence.vma zero, zero
++# CHECK-ALIAS: sfence.vma
++sfence.vma
++# CHECK-INST: sfence.vma a0, zero
++# CHECK-ALIAS: sfence.vma a0
++sfence.vma a0
 -- 
 2.15.1
 

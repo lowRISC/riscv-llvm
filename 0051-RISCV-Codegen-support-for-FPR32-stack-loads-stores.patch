@@ -8,7 +8,7 @@ Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
  2 files changed, 76 insertions(+), 13 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 6b7b4a1cb4b..75050fc7494 100644
+index e2fc3ad91e0..b630fb87286 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -54,15 +54,19 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,

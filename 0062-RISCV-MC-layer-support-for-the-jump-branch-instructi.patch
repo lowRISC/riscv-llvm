@@ -6,6 +6,8 @@ Subject: [RISCV] MC layer support for the jump/branch instructions of the RVC
 Differential Revision: https://reviews.llvm.org/D40002
 
 Patch by Shiva Chen.
+
+This patch has been further modified since the upstreamed version.
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 12 +++++
  lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 42 +++++++++++++++-
@@ -66,7 +68,7 @@ index c4a3116b33a..cde00f5d515 100644
      return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 12) - 1);
    case Match_InvalidSImm13Lsb0:
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index e4e17bed5af..b91467fe145 100644
+index 06b8f47cf72..6e06a4975e2 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -63,7 +63,9 @@ public:
@@ -246,7 +248,7 @@ index 117c86c0bd5..fe4778bd313 100644
 +  let Inst{1-0} = opcode;
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
-index b1dd9e67655..76c3d559c70 100644
+index d0d9bb395c2..5618fd44e8c 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoC.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoC.td
 @@ -37,6 +37,13 @@ def uimm8_lsb000 : Operand<XLenVT>,
@@ -278,7 +280,7 @@ index b1dd9e67655..76c3d559c70 100644
  // Instruction Class Templates
  //===----------------------------------------------------------------------===//
 @@ -73,6 +87,20 @@ class CStore_rri<bits<3> funct3, string OpcodeStr,
-       RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
+     : RVInst16CS<funct3, 0b00, (outs), (ins cls:$rs2, cls:$rs1, opnd:$imm),
                   OpcodeStr, "$rs2, ${imm}(${rs1})">;
  
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
@@ -298,35 +300,35 @@ index b1dd9e67655..76c3d559c70 100644
  //===----------------------------------------------------------------------===//
  // Instructions
  //===----------------------------------------------------------------------===//
-@@ -107,6 +135,21 @@ def CSD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
+@@ -107,6 +135,21 @@ def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
    let Inst{6-5} = imm{7-6};
  }
  
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0, isCall = 1 in
-+def CJAL : RVInst16CJ<0b001, 0b01, (outs), (ins simm12_lsb0:$offset),
-+                      "c.jal", "$offset">;
++def C_JAL : RVInst16CJ<0b001, 0b01, (outs), (ins simm12_lsb0:$offset),
++                       "c.jal", "$offset">;
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-+def CJ : RVInst16CJ<0b101, 0b01, (outs), (ins simm12_lsb0:$offset),
-+                    "c.j", "$offset"> {
++def C_J : RVInst16CJ<0b101, 0b01, (outs), (ins simm12_lsb0:$offset),
++                     "c.j", "$offset"> {
 +  let isBranch = 1;
 +  let isTerminator=1;
 +  let isBarrier=1;
 +}
 +
-+def CBEQZ : Bcz<0b110, "c.beqz",  seteq, GPRC>;
-+def CBNEZ : Bcz<0b111, "c.bnez",  setne, GPRC>;
++def C_BEQZ : Bcz<0b110, "c.beqz",  seteq, GPRC>;
++def C_BNEZ : Bcz<0b111, "c.bnez",  setne, GPRC>;
 +
- def CLWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
+ def C_LWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
    let Inst{6-4} = imm{4-2};
    let Inst{3-2} = imm{7-6};
-@@ -118,6 +161,21 @@ def CLDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
+@@ -118,6 +161,21 @@ def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
    let Inst{4-2} = imm{8-6};
  }
  
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
-+def CJR : RVInst16CR<0b1000, 0b10, (outs), (ins GPRNoX0:$rs1),
-+                     "c.jr", "$rs1"> {
++def C_JR : RVInst16CR<0b1000, 0b10, (outs), (ins GPRNoX0:$rs1),
++                      "c.jr", "$rs1"> {
 +  let isBranch = 1;
 +  let isBarrier = 1;
 +  let isTerminator = 1;
@@ -336,10 +338,10 @@ index b1dd9e67655..76c3d559c70 100644
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 0,
 +    isCall=1, Defs=[X1], rs2 = 0 in
-+def CJALR : RVInst16CR<0b1001, 0b10, (outs), (ins GPRNoX0:$rs1),
-+                       "c.jalr", "$rs1">;
++def C_JALR : RVInst16CR<0b1001, 0b10, (outs), (ins GPRNoX0:$rs1),
++                        "c.jalr", "$rs1">;
 +
- def CSWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
+ def C_SWSP : CStackStore<0b110, "c.swsp", GPR, uimm8_lsb00> {
    let Inst{12-9} = imm{5-2};
    let Inst{8-7}  = imm{7-6};
 diff --git a/test/MC/RISCV/fixups-compressed.s b/test/MC/RISCV/fixups-compressed.s

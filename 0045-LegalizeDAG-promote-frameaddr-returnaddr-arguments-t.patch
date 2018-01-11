@@ -9,10 +9,10 @@ Subject: [LegalizeDAG] promote frameaddr/returnaddr arguments to native
  2 files changed, 10 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 29f0bb475b0..a42dbe3c66b 100644
+index eaa827309b0..fb2c2fa0381 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -965,6 +965,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
+@@ -954,6 +954,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
  
    case ISD::ADDCARRY:
    case ISD::SUBCARRY: Res = PromoteIntOp_ADDSUBCARRY(N, OpNo); break;
@@ -22,7 +22,7 @@ index 29f0bb475b0..a42dbe3c66b 100644
    }
  
    // If the result is null, the sub-method took care of registering results etc.
-@@ -1347,6 +1350,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
+@@ -1336,6 +1339,12 @@ SDValue DAGTypeLegalizer::PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo) {
    return SDValue(DAG.UpdateNodeOperands(N, LHS, RHS, Carry), 0);
  }
  

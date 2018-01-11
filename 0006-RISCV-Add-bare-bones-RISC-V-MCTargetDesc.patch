@@ -16,7 +16,7 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/LLVMBuild.txt                     |  2 +-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  7 ++
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        | 23 ++++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 94 ++++++++++++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 95 ++++++++++++++++++++++
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 50 ++++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   | 25 ++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 +++++++
@@ -25,7 +25,7 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 59 ++++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h              |  3 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
- 13 files changed, 442 insertions(+), 8 deletions(-)
+ 13 files changed, 443 insertions(+), 8 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
@@ -110,10 +110,10 @@ index 00000000000..e48f04963ff
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 00000000000..e275548dea0
+index 00000000000..cb794c5a4e3
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,95 @@
 +//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -202,9 +202,10 @@ index 00000000000..e275548dea0
 +} // end anonymous namespace
 +
 +MCAsmBackend *llvm::createRISCVAsmBackend(const Target &T,
++                                          const MCSubtargetInfo &STI,
 +                                          const MCRegisterInfo &MRI,
-+                                          const Triple &TT, StringRef CPU,
 +                                          const MCTargetOptions &Options) {
++  const Triple &TT = STI.getTargetTriple();
 +  uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
 +  return new RISCVAsmBackend(OSABI, TT.isArch64Bit());
 +}
@@ -495,7 +496,7 @@ index 00000000000..bad5f440061
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 new file mode 100644
-index 00000000000..df0ad68a2ec
+index 00000000000..be9970eb796
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 @@ -0,0 +1,59 @@
@@ -541,8 +542,8 @@ index 00000000000..df0ad68a2ec
 +                                        const MCRegisterInfo &MRI,
 +                                        MCContext &Ctx);
 +
-+MCAsmBackend *createRISCVAsmBackend(const Target &T, const MCRegisterInfo &MRI,
-+                                    const Triple &TT, StringRef CPU,
++MCAsmBackend *createRISCVAsmBackend(const Target &T, const MCSubtargetInfo &STI,
++                                    const MCRegisterInfo &MRI,
 +                                    const MCTargetOptions &Options);
 +
 +std::unique_ptr<MCObjectWriter>

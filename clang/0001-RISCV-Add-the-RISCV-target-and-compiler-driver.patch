@@ -386,7 +386,7 @@ index 0000000000..beda14979f
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index c445669a5a..5d931a6f3b 100644
+index 5c536575da..3d374a4c6f 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,6 +12,7 @@

@@ -10,7 +10,7 @@ Subject: [RISCV] Add support for llvm.{frameaddress,returnaddress} intrinsics
  create mode 100644 test/CodeGen/RISCV/frameaddr-returnaddr.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d2fbd7eea11..54c784243b0 100644
+index 0dec008a3e9..d5d23129ff9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -166,6 +166,10 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
@@ -35,7 +35,7 @@ index d2fbd7eea11..54c784243b0 100644
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  MFI.setFrameAddressIsTaken(true);
 +  unsigned FrameReg = RI.getFrameRegister(MF);
-+  int XLenInBytes = Subtarget.getXLen()/8;
++  int XLenInBytes = Subtarget.getXLen() / 8;
 +
 +  EVT VT = Op.getValueType();
 +  SDLoc DL(Op);
@@ -58,7 +58,7 @@ index d2fbd7eea11..54c784243b0 100644
 +  MachineFrameInfo &MFI = MF.getFrameInfo();
 +  MFI.setReturnAddressIsTaken(true);
 +  MVT XLenVT = Subtarget.getXLenVT();
-+  int XLenInBytes = Subtarget.getXLen()/8;
++  int XLenInBytes = Subtarget.getXLen() / 8;
 +
 +  if (verifyReturnAddressArgumentIsConstant(Op, DAG))
 +    return SDValue();

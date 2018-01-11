@@ -17,7 +17,7 @@ used to materialise f32 constants.
  create mode 100644 test/CodeGen/RISCV/float-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 462689f30c9..a164c33af72 100644
+index ceda3dd3cc9..f75a883c757 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -113,6 +113,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

@@ -319,7 +319,7 @@ index 72485c5cd08..45de976ec6c 100644
    }
  }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
-index df0ad68a2ec..bea2f8800fa 100644
+index be9970eb796..ef58a6b8cbc 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 @@ -56,4 +56,7 @@ createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI, bool Is64Bit);

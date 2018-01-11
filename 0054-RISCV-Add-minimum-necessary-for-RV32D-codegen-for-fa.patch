@@ -14,7 +14,7 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 52a79e6c917..769941981f0 100644
+index 572dafaf66d..44a2538a665 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -26,7 +26,7 @@ index 52a79e6c917..769941981f0 100644
  
    // Compute derived properties from the register classes.
    computeRegisterProperties(STI.getRegisterInfo());
-@@ -1151,3 +1153,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+@@ -1153,3 +1155,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
  
    return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
  }

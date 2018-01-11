@@ -12,7 +12,7 @@ Subject: [RISCV] Add codegen for RV32F arithmetic and conversion operations
  create mode 100644 test/CodeGen/RISCV/float-convert.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 26904eb4ee3..462689f30c9 100644
+index 1bad44bd1b7..ceda3dd3cc9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -45,6 +45,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -49,7 +49,7 @@ index 26904eb4ee3..462689f30c9 100644
    assert(LocVT == XLenVT && "Unexpected LocVT");
  
    // Any return value split in to more than two values can't be returned
-@@ -626,6 +637,7 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
+@@ -627,6 +638,7 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
    MachineFunction &MF = DAG.getMachineFunction();
    MachineRegisterInfo &RegInfo = MF.getRegInfo();
    EVT LocVT = VA.getLocVT();
@@ -57,7 +57,7 @@ index 26904eb4ee3..462689f30c9 100644
    SDValue Val;
  
    unsigned VReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-@@ -637,8 +649,12 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
+@@ -638,8 +650,12 @@ static SDValue unpackFromRegLoc(SelectionDAG &DAG, SDValue Chain,
      llvm_unreachable("Unexpected CCValAssign::LocInfo");
    case CCValAssign::Full:
    case CCValAssign::Indirect:
@@ -71,7 +71,7 @@ index 26904eb4ee3..462689f30c9 100644
  }
  
  // The caller is responsible for loading the full value if the argument is
-@@ -858,6 +874,9 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -860,6 +876,9 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      switch (VA.getLocInfo()) {
      case CCValAssign::Full:
        break;
@@ -81,7 +81,7 @@ index 26904eb4ee3..462689f30c9 100644
      case CCValAssign::Indirect: {
        // Store the argument in a stack slot and pass its address.
        SDValue SpillSlot = DAG.CreateStackTemporary(Outs[i].ArgVT);
-@@ -972,7 +991,16 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -974,7 +993,16 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
      Chain = RetValue.getValue(1);
      Glue = RetValue.getValue(2);
  
@@ -99,7 +99,7 @@ index 26904eb4ee3..462689f30c9 100644
      InVals.push_back(RetValue);
    }
  
-@@ -994,6 +1022,22 @@ bool RISCVTargetLowering::CanLowerReturn(
+@@ -996,6 +1024,22 @@ bool RISCVTargetLowering::CanLowerReturn(
    return true;
  }
  
@@ -122,7 +122,7 @@ index 26904eb4ee3..462689f30c9 100644
  SDValue
  RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   bool IsVarArg,
-@@ -1018,8 +1062,7 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -1020,8 +1064,7 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
      SDValue Val = OutVals[i];
      CCValAssign &VA = RVLocs[i];
      assert(VA.isRegLoc() && "Can only return in registers!");

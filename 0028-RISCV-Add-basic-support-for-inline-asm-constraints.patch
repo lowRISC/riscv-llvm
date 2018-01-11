@@ -122,10 +122,10 @@ index 113a45ac7cc..23a0382d442 100644
    if (auto FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
      Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), Subtarget->getXLenVT());
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 34dd6f2ab59..d2fbd7eea11 100644
+index bd44ab9a138..0dec008a3e9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -993,3 +993,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
+@@ -994,3 +994,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
    }
    return nullptr;
  }

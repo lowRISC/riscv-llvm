@@ -323,7 +323,7 @@ index d79de74f7cf..60429647edd 100644
 +  RISCVMCTargetDesc.cpp
  )
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index e275548dea0..e4e17bed5af 100644
+index cb794c5a4e3..06b8f47cf72 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -7,9 +7,12 @@

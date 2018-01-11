@@ -4,7 +4,7 @@ Subject: [RISCV] Add initial RV64I codegen support
 
 ---
  lib/Target/RISCV/RISCV.td                 |   1 +
- lib/Target/RISCV/RISCVISelLowering.cpp    |   9 +-
+ lib/Target/RISCV/RISCVISelLowering.cpp    |   6 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp       |  24 +-
  lib/Target/RISCV/RISCVInstrInfo.h         |   5 +-
  lib/Target/RISCV/RISCVInstrInfo.td        |  67 ++++-
@@ -15,7 +15,7 @@ Subject: [RISCV] Add initial RV64I codegen support
  test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/imm.ll                 |  64 ++++
  test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
- 12 files changed, 1115 insertions(+), 21 deletions(-)
+ 12 files changed, 1114 insertions(+), 19 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
 
@@ -32,7 +32,7 @@ index e3cf8afcf00..170c8ff2825 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 6bf2361c62f..26904eb4ee3 100644
+index 40a9683e963..1bad44bd1b7 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -62,19 +62,8 @@ index 6bf2361c62f..26904eb4ee3 100644
      report_fatal_error("Unable to lowerExternalSymbol");
  
    SDValue GAHi = DAG.getTargetExternalSymbol(Sym, Ty, RISCVII::MO_HI);
-@@ -686,9 +686,8 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
- 
-   MachineFunction &MF = DAG.getMachineFunction();
-   MVT XLenVT = Subtarget.getXLenVT();
-+  unsigned XLenInBytes = Subtarget.getXLen() / 8;
-   EVT PtrVT = getPointerTy(DAG.getDataLayout());
--  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
--  unsigned XLenInBytes = XLen / 8;
-   // Used with vargs to acumulate store chains.
-   std::vector<SDValue> OutChains;
- 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
-index 5f0c67cfa12..6b7b4a1cb4b 100644
+index 6a10329d4b8..e2fc3ad91e0 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.cpp
 +++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
 @@ -29,8 +29,9 @@

@@ -9,11 +9,11 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |  15 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 141 +++++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 145 ++++++--
  lib/Target/RISCV/RISCVISelLowering.h        |   3 +-
  lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
  test/CodeGen/RISCV/vararg.ll                | 535 ++++++++++++++++++++++++++++
- 5 files changed, 715 insertions(+), 23 deletions(-)
+ 5 files changed, 718 insertions(+), 24 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
 
@@ -89,7 +89,7 @@ index e9e003e63d5..e1448ba7e2b 100644
    return Offset;
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 7d32954936b..34dd6f2ab59 100644
+index 805ca7dd956..bd44ab9a138 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -14,6 +14,7 @@
@@ -143,7 +143,7 @@ index 7d32954936b..34dd6f2ab59 100644
  MachineBasicBlock *
  RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
-@@ -398,19 +421,33 @@ static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
+@@ -398,19 +421,34 @@ static bool CC_RISCVAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
  // Implements the RISC-V calling convention. Returns true upon failure.
  static bool CC_RISCV(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
                       CCValAssign::LocInfo LocInfo, ISD::ArgFlagsTy ArgFlags,
@@ -161,25 +161,26 @@ index 7d32954936b..34dd6f2ab59 100644
    if (IsRet && ValNo > 1)
      return true;
  
-+  // If this is a variadic argument, ensure it is assigned an even register
-+  // if it has 8-byte alignment (RV32) or 16-byte alignment (RV64)
-+  // An aligned register should be used regardless of
-+  // whether the original argument is 'split' or not. The argument will not be
-+  // passed by registers if the original type is larger than 2*XLEN, so don't
-+  // bother aligning for that case.
++  // If this is a variadic argument, the RISC-V calling convention requires
++  // that it is assigned an 'even' or 'aligned' register if it has 8-byte
++  // alignment (RV32) or 16-byte alignment (RV64). An aligned register should
++  // be used regardless of whether the original argument was split during
++  // legalisation or not. The argument will not be passed by registers if the
++  // original type is larger than 2*XLEN, so the register alignment rule does
++  // not apply.
 +  unsigned TwoXLenInBytes = (2 * XLen) / 8;
 +  if (!IsFixed && ArgFlags.getOrigAlign() == TwoXLenInBytes &&
 +      DL.getTypeAllocSize(OrigTy) == TwoXLenInBytes) {
 +    unsigned RegIdx = State.getFirstUnallocated(ArgGPRs);
-+    if (RegIdx != array_lengthof(ArgGPRs) && RegIdx % 2 == 1) {
++    // Skip 'odd' register if necessary.
++    if (RegIdx != array_lengthof(ArgGPRs) && RegIdx % 2 == 1)
 +      State.AllocateReg(ArgGPRs);
-+    }
 +  }
 +
    SmallVectorImpl<CCValAssign> &PendingLocs = State.getPendingLocs();
    SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
        State.getPendingArgFlags();
-@@ -482,13 +519,20 @@ void RISCVTargetLowering::analyzeInputArgs(
+@@ -482,13 +520,20 @@ void RISCVTargetLowering::analyzeInputArgs(
      MachineFunction &MF, CCState &CCInfo,
      const SmallVectorImpl<ISD::InputArg> &Ins, bool IsRet) const {
    unsigned NumArgs = Ins.size();
@@ -201,7 +202,7 @@ index 7d32954936b..34dd6f2ab59 100644
        DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << '\n');
        llvm_unreachable(nullptr);
-@@ -498,15 +542,17 @@ void RISCVTargetLowering::analyzeInputArgs(
+@@ -498,15 +543,17 @@ void RISCVTargetLowering::analyzeInputArgs(
  
  void RISCVTargetLowering::analyzeOutputArgs(
      MachineFunction &MF, CCState &CCInfo,
@@ -221,21 +222,30 @@ index 7d32954936b..34dd6f2ab59 100644
        DEBUG(dbgs() << "OutputArg #" << i << " has unhandled type "
                     << EVT(ArgVT).getEVTString() << "\n");
        llvm_unreachable(nullptr);
-@@ -582,9 +628,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -581,9 +628,10 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+ 
    MachineFunction &MF = DAG.getMachineFunction();
-   MVT XLenVT = Subtarget.getXLenVT();
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
 -
 -  if (IsVarArg)
 -    report_fatal_error("VarArg not supported");
-+  unsigned XLen = DAG.getDataLayout().getLargestLegalIntTypeSizeInBits();
-+  unsigned XLenInBytes = XLen / 8;
++  MVT XLenVT = Subtarget.getXLenVT();
++  unsigned XLenInBytes = Subtarget.getXLen() / 8;
 +  // Used with vargs to acumulate store chains.
 +  std::vector<SDValue> OutChains;
  
    // Assign locations to all of the incoming arguments.
    SmallVector<CCValAssign, 16> ArgLocs;
-@@ -621,6 +668,69 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+@@ -592,7 +640,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+ 
+   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+     CCValAssign &VA = ArgLocs[i];
+-    assert(VA.getLocVT() == Subtarget.getXLenVT() && "Unhandled argument type");
++    assert(VA.getLocVT() == XLenVT && "Unhandled argument type");
+     SDValue ArgValue;
+     if (VA.isRegLoc())
+       ArgValue = unpackFromRegLoc(DAG, Chain, VA, DL);
+@@ -620,6 +668,70 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
      }
      InVals.push_back(ArgValue);
    }
@@ -268,8 +278,9 @@ index 7d32954936b..34dd6f2ab59 100644
 +    int FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset, true);
 +    RVFI->setVarArgsFrameIndex(FI);
 +
-+    // If saving an odd-number of registers, create an extra stack slot to
-+    // ensure even-numbered registers are always 2*XLEN-aligned.
++    // If saving an odd number of registers then create an extra stack slot to
++    // ensure that the frame pointer is 2*XLEN-aligned, which in turn ensures
++    // offsets to even-numbered registered remain 2*XLEN-aligned.
 +    if (Idx % 2) {
 +      FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset - (int)XLenInBytes,
 +                                 true);
@@ -285,8 +296,8 @@ index 7d32954936b..34dd6f2ab59 100644
 +      SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, XLenVT);
 +      FI = MFI.CreateFixedObject(XLenInBytes, VaArgOffset, true);
 +      SDValue PtrOff = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
-+      SDValue Store =
-+          DAG.getStore(Chain, DL, ArgValue, PtrOff, MachinePointerInfo());
++      SDValue Store = DAG.getStore(Chain, DL, ArgValue, PtrOff,
++                                   MachinePointerInfo::getFixedStack(MF, FI));
 +      cast<StoreSDNode>(Store.getNode())
 +          ->getMemOperand()
 +          ->setValue((Value *)nullptr);
@@ -305,7 +316,7 @@ index 7d32954936b..34dd6f2ab59 100644
    return Chain;
  }
  
-@@ -641,16 +751,12 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+@@ -640,16 +752,12 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
    EVT PtrVT = getPointerTy(DAG.getDataLayout());
    MVT XLenVT = Subtarget.getXLenVT();
  
@@ -323,7 +334,7 @@ index 7d32954936b..34dd6f2ab59 100644
  
    // Get a count of how many bytes are to be pushed on the stack.
    unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-@@ -824,7 +930,7 @@ bool RISCVTargetLowering::CanLowerReturn(
+@@ -823,7 +931,7 @@ bool RISCVTargetLowering::CanLowerReturn(
      MVT VT = Outs[i].VT;
      ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
      if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
@@ -332,7 +343,7 @@ index 7d32954936b..34dd6f2ab59 100644
        return false;
    }
    return true;
-@@ -836,10 +942,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -835,10 +943,6 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   const SmallVectorImpl<SDValue> &OutVals,
                                   const SDLoc &DL, SelectionDAG &DAG) const {
@@ -343,7 +354,7 @@ index 7d32954936b..34dd6f2ab59 100644
    // Stores the assignment of the return value to a location.
    SmallVector<CCValAssign, 16> RVLocs;
  
-@@ -847,7 +949,8 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+@@ -846,7 +950,8 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
    CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                   *DAG.getContext());
  
