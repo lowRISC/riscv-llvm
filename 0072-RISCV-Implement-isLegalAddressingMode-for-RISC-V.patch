@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement isLegalAddressingMode for RISC-V
+
+Doesn't change codegen at all for my small benchmark set, very minor changes
+across the gcc torture suite (not always positive). Despite that, presenting
+correct information to LLVM seems the right thing to do.
+
+TODO: test that captures codegen change.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 24 ++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  4 ++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index bc388ea3be6..e9c003aeba9 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -149,6 +149,30 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   setMinimumJumpTableEntries(INT_MAX);
+ }
+ 
++bool RISCVTargetLowering::isLegalAddressingMode(const DataLayout &DL,
++       const AddrMode &AM, Type *Ty, unsigned AS, Instruction *I) const {
++  // No global is ever allowed as a base.
++  if (AM.BaseGV)
++    return false;
++
++  // Require a 12-bit signed offset.
++  if (!isInt<12>(AM.BaseOffs))
++    return false;
++
++  switch (AM.Scale) {
++  case 0: // "r+i" or just "i", depending on HasBaseReg.
++    break;
++  case 1:
++    if (!AM.HasBaseReg) // allow "r+i".
++      break;
++    return false; // disallow "r+r" or "r+r+i".
++  default:
++    return false;
++  }
++
++  return true;
++}
++
+ // Changes the condition code and swaps operands if necessary, so the SetCC
+ // operation matches one of the comparisons supported directly in the RISC-V
+ // ISA.
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 30403f45045..e7dd46fc835 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -37,6 +37,10 @@ public:
+   explicit RISCVTargetLowering(const TargetMachine &TM,
+                                const RISCVSubtarget &STI);
+ 
++  bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM, Type *Ty,
++                             unsigned AS,
++                             Instruction *I = nullptr) const override;
++
+   // Provide custom lowering hooks for some operations.
+   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+ 
+-- 
+2.15.1
+

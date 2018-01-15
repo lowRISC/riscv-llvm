@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement computeKnownBitsForTargetNote for
+ RISCVISD::SELECT_CC
+
+Doesn't seem to have any real impact on the code I'm testing against.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 14 ++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  5 +++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index adf0d0c70ab..bac74ee62c5 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -30,6 +30,7 @@
+ #include "llvm/IR/DiagnosticPrinter.h"
+ #include "llvm/Support/Debug.h"
+ #include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/KnownBits.h"
+ #include "llvm/Support/raw_ostream.h"
+ 
+ using namespace llvm;
+@@ -215,6 +216,19 @@ bool RISCVTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
+   return TargetLowering::isZExtFree(Val, VT2);
+ }
+ 
++void RISCVTargetLowering::computeKnownBitsForTargetNode(
++    const SDValue Op, KnownBits &Known, const APInt &DemandedElts,
++    const SelectionDAG &DAG, unsigned Depth) const {
++  if (Op.getOpcode() != RISCVISD::SELECT_CC)
++    return;
++
++  KnownBits Known2;
++  DAG.computeKnownBits(Op->getOperand(3), Known, Depth + 1);
++  DAG.computeKnownBits(Op->getOperand(4), Known2, Depth + 1);
++  Known.Zero &= Known2.Zero;
++  Known.One &= Known2.One;
++}
++
+ // Changes the condition code and swaps operands if necessary, so the SetCC
+ // operation matches one of the comparisons supported directly in the RISC-V
+ // ISA.
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index ccce434f69f..807cb9c0b8d 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -46,6 +46,11 @@ public:
+   bool isTruncateFree(EVT SrcVT, EVT DstVT) const override;
+   bool isZExtFree(SDValue Val, EVT VT2) const override;
+ 
++  void computeKnownBitsForTargetNode(const SDValue Op, KnownBits &Known,
++                                     const APInt &DemandedElts,
++                                     const SelectionDAG &DAG,
++                                     unsigned Depth = 0) const override;
++
+   // Provide custom lowering hooks for some operations.
+   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+ 
+-- 
+2.15.1
+

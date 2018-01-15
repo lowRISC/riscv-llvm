@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement isZExtFree
+
+Returns true if it's a load, where we know LBU/LHU/LWU will be selected. Saves
+a number of unnecessary zexts across the torture suite.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 14 ++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h   |  1 +
+ 2 files changed, 15 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index c60b4abc2c8..adf0d0c70ab 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -201,6 +201,20 @@ bool RISCVTargetLowering::isTruncateFree(EVT SrcVT, EVT DstVT) const {
+   return (SrcBits == 64 && DestBits == 32);
+ }
+ 
++bool RISCVTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
++  // Zexts are free if they can be combined with a load.
++  if (auto *LD = dyn_cast<LoadSDNode>(Val)) {
++    EVT MemVT = LD->getMemoryVT();
++    if ((MemVT == MVT::i8 || MemVT == MVT::i16 ||
++         (Subtarget.is64Bit() && MemVT == MVT::i32)) &&
++        (LD->getExtensionType() == ISD::NON_EXTLOAD ||
++         LD->getExtensionType() == ISD::ZEXTLOAD))
++      return true;
++  }
++
++  return TargetLowering::isZExtFree(Val, VT2);
++}
++
+ // Changes the condition code and swaps operands if necessary, so the SetCC
+ // operation matches one of the comparisons supported directly in the RISC-V
+ // ISA.
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index d6dfbf6625e..ccce434f69f 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -44,6 +44,7 @@ public:
+   bool isLegalAddImmediate(int64_t Imm) const override;
+   bool isTruncateFree(Type *SrcTy, Type *DstTy) const override;
+   bool isTruncateFree(EVT SrcVT, EVT DstVT) const override;
++  bool isZExtFree(SDValue Val, EVT VT2) const override;
+ 
+   // Provide custom lowering hooks for some operations.
+   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+-- 
+2.15.1
+

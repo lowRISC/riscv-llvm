@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement isLoadFromStackSlot and isStoreToStackSlot
+
+This does result in some codegen changes to the torture suite.
+---
+ lib/Target/RISCV/RISCVInstrInfo.cpp | 49 +++++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.h   |  5 ++++
+ 2 files changed, 54 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
+index 7f557f2ab87..f99fbf5576c 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.cpp
++++ b/lib/Target/RISCV/RISCVInstrInfo.cpp
+@@ -33,6 +33,55 @@ RISCVInstrInfo::RISCVInstrInfo(const RISCVSubtarget &Subtarget)
+     : RISCVGenInstrInfo(RISCV::ADJCALLSTACKDOWN, RISCV::ADJCALLSTACKUP),
+       Subtarget(Subtarget) {}
+ 
++unsigned RISCVInstrInfo::isLoadFromStackSlot(const MachineInstr &MI,
++                                             int &FrameIndex) const {
++  switch (MI.getOpcode()) {
++  default:
++    return 0;
++  case RISCV::LB:
++  case RISCV::LBU:
++  case RISCV::LH:
++  case RISCV::LHU:
++  case RISCV::LW:
++  case RISCV::FLW:
++  case RISCV::LWU:
++  case RISCV::LD:
++  case RISCV::FLD:
++    break;
++  }
++
++  if (MI.getOperand(1).isFI() && MI.getOperand(2).isImm() &&
++      MI.getOperand(2).getImm() == 0) {
++    FrameIndex = MI.getOperand(1).getIndex();
++    return MI.getOperand(0).getReg();
++  }
++
++  return 0;
++}
++
++unsigned RISCVInstrInfo::isStoreToStackSlot(const MachineInstr &MI,
++                                            int &FrameIndex) const {
++  switch (MI.getOpcode()) {
++  default:
++    return 0;
++  case RISCV::SB:
++  case RISCV::SH:
++  case RISCV::SW:
++  case RISCV::FSW:
++  case RISCV::SD:
++  case RISCV::FSD:
++    break;
++  }
++
++  if (MI.getOperand(0).isFI() && MI.getOperand(1).isImm() &&
++      MI.getOperand(1).getImm() == 0) {
++    FrameIndex = MI.getOperand(0).getIndex();
++    return MI.getOperand(2).getReg();
++  }
++
++  return 0;
++}
++
+ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator MBBI,
+                                  const DebugLoc &DL, unsigned DstReg,
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.h b/lib/Target/RISCV/RISCVInstrInfo.h
+index c7c91b64099..d9b7ea55e77 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.h
++++ b/lib/Target/RISCV/RISCVInstrInfo.h
+@@ -30,6 +30,11 @@ class RISCVInstrInfo : public RISCVGenInstrInfo {
+ public:
+   explicit RISCVInstrInfo(const RISCVSubtarget &Subtarget);
+ 
++  unsigned isLoadFromStackSlot(const MachineInstr &MI,
++                               int &FrameIndex) const override;
++  unsigned isStoreToStackSlot(const MachineInstr &MI,
++                              int &FrameIndex) const override;
++
+   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                    const DebugLoc &DL, unsigned DstReg, unsigned SrcReg,
+                    bool KillSrc) const override;
+-- 
+2.15.1
+

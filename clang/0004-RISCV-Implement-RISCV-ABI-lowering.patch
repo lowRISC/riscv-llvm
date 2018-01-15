@@ -2,48 +2,36 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Implement RISCV ABI lowering
 
-Specified in terms of XLEN for both RV32 and RV64 compatibility.
+RISCVABIInfo is implemented in terms of XLen, supporting both RV32 and RV64.
+Unfortunately we need to count argument registers in the frontend in order to
+determine when to emit signext and zeroext attributes. Integer scalars are
+extended according to their type up to 32-bits and then sign-extended to XLen
+when passed in registers, but are anyext when passed on the stack. This patch
+only implements the base integer (soft float) ABIs.
 
-It was necessary to modify CodeGenModule::ConstructAttributeList to ensure
-that signext is emitted for int32_t/uint32_t return values.
+For more information on the RISC-V ABI, see [the ABI
+doc](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md),
+my [golden model](https://github.com/lowRISC/riscv-calling-conv-model), and
+the [LLVM RISC-V calling convention
+patch](https://reviews.llvm.org/D39898#2d1595b4) (specifically the comment
+documenting frontend expectations).
+
+Differential Revision: https://reviews.llvm.org/D40023
 ---
- lib/CodeGen/CGCall.cpp          |  10 +-
- lib/CodeGen/TargetInfo.cpp      | 186 ++++++++++++++++++
- test/CodeGen/riscv32-abi.c      | 407 ++++++++++++++++++++++++++++++++++++++++
- test/CodeGen/riscv64-abi.c      | 406 +++++++++++++++++++++++++++++++++++++++
+ lib/CodeGen/TargetInfo.cpp      | 181 +++++++++++++++++
+ test/CodeGen/riscv32-abi.c      | 426 ++++++++++++++++++++++++++++++++++++++++
+ test/CodeGen/riscv64-abi.c      | 425 +++++++++++++++++++++++++++++++++++++++
  test/Driver/riscv32-toolchain.c |  47 +++++
  test/Driver/riscv64-toolchain.c |  47 +++++
- 6 files changed, 1100 insertions(+), 3 deletions(-)
+ 5 files changed, 1126 insertions(+)
  create mode 100644 test/CodeGen/riscv32-abi.c
  create mode 100644 test/CodeGen/riscv64-abi.c
 
-diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 38d7344572..d17e058e16 100644
---- a/lib/CodeGen/CGCall.cpp
-+++ b/lib/CodeGen/CGCall.cpp
-@@ -1925,10 +1925,14 @@ void CodeGenModule::ConstructAttributeList(
-   const ABIArgInfo &RetAI = FI.getReturnInfo();
-   switch (RetAI.getKind()) {
-   case ABIArgInfo::Extend:
--    if (RetTy->hasSignedIntegerRepresentation())
-+    if (RetTy->hasSignedIntegerRepresentation()) {
-       RetAttrs.addAttribute(llvm::Attribute::SExt);
--    else if (RetTy->hasUnsignedIntegerRepresentation())
--      RetAttrs.addAttribute(llvm::Attribute::ZExt);
-+    } else if (RetTy->hasUnsignedIntegerRepresentation()) {
-+      if (getTypes().getABIInfo().shouldSignExtUnsignedType(RetTy))
-+        RetAttrs.addAttribute(llvm::Attribute::SExt);
-+      else
-+        RetAttrs.addAttribute(llvm::Attribute::ZExt);
-+    }
-     LLVM_FALLTHROUGH;
-   case ABIArgInfo::Direct:
-     if (RetAI.getInReg())
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index e3f3ba1be4..6aeb84ce7e 100644
+index 84719428ba..d9d44fa4c1 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8774,6 +8774,187 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8770,6 +8770,182 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -54,7 +42,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +namespace {
 +class RISCVABIInfo : public DefaultABIInfo {
 +private:
-+  unsigned XLen;
++  unsigned XLen; // Size of the integer ('x') registers in bits.
 +  static const int NumArgGPRs = 8;
 +
 +public:
@@ -72,7 +60,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
 +                    QualType Ty) const override;
 +
-+  bool shouldSignExtUnsignedType(QualType Ty) const override;
++  ABIArgInfo extendType(QualType Ty) const;
 +};
 +} // end anonymous namespace
 +
@@ -86,7 +74,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +  // is passed direct in LLVM IR, relying on the backend lowering code to
 +  // rewrite the argument list and pass indirectly on RV32.
 +  bool IsRetIndirect = FI.getReturnInfo().getKind() == ABIArgInfo::Indirect ||
-+                       getContext().getTypeSize(RetTy) > 2 * XLen;
++                       getContext().getTypeSize(RetTy) > (2 * XLen);
 +
 +  // We must track the number of GPRs used in order to conform to the RISC-V
 +  // ABI, as integer scalars passed in registers should have signext/zeroext
@@ -110,7 +98,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +  Ty = useFirstFieldIfTransparentUnion(Ty);
 +
 +  // Structures with either a non-trivial destructor or a non-trivial
-+  // copy constructor are always indirectly.
++  // copy constructor are always passed indirectly.
 +  if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI())) {
 +    if (ArgGPRsLeft)
 +      ArgGPRsLeft -= 1;
@@ -124,19 +112,15 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +
 +  uint64_t Size = getContext().getTypeSize(Ty);
 +  uint64_t NeededAlign = getContext().getTypeAlign(Ty);
-+  int NeededArgGPRs;
 +  bool MustUseStack = false;
-+  // Determine the number of arguments GPRs needed to pass the current
-+  // argument according to the ABI. 2xlen-aligned varargs are passed in
-+  // "aligned" register pairs, so may consume 3 registers.
++  // Determine the number of GPRs needed to pass the current argument
++  // according to the ABI. 2*XLen-aligned varargs are passed in "aligned"
++  // register pairs, so may consume 3 registers.
++  int NeededArgGPRs = 1;
 +  if (!IsFixed && NeededAlign == 2 * XLen)
 +    NeededArgGPRs = 2 + (ArgGPRsLeft % 2);
-+  else if (Size <= XLen)
-+    NeededArgGPRs = 1;
-+  else if (Size <= 2 * XLen)
++  else if (Size > XLen && Size <= 2 * XLen)
 +    NeededArgGPRs = 2;
-+  else
-+    NeededArgGPRs = 1;
 +
 +  if (NeededArgGPRs > ArgGPRsLeft) {
 +    MustUseStack = true;
@@ -153,19 +137,19 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +    // All integral types are promoted to XLen width, unless passed on the
 +    // stack.
 +    if (Size < XLen && Ty->isIntegralOrEnumerationType() && !MustUseStack) {
-+      return ABIArgInfo::getExtend();
++      return extendType(Ty);
 +    }
 +
 +    return ABIArgInfo::getDirect();
 +  }
 +
-+  // Aggregates which are <= 2*xlen will be passed in registers if possible,
++  // Aggregates which are <= 2*XLen will be passed in registers if possible,
 +  // so coerce to integers.
 +  if (Size <= 2 * XLen) {
 +    unsigned Alignment = getContext().getTypeAlign(Ty);
 +
-+    // Use a single XLen int if possible, 2XLen if 2XLen alignment is required,
-+    // and a 2-element XLen array if only XLen alignment is required.
++    // Use a single XLen int if possible, 2*XLen if 2*XLen alignment is
++    // required, and a 2-element XLen array if only XLen alignment is required.
 +    if (Size <= XLen) {
 +      return ABIArgInfo::getDirect(
 +          llvm::IntegerType::get(getVMContext(), XLen));
@@ -177,7 +161,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +          llvm::IntegerType::get(getVMContext(), XLen), 2));
 +    }
 +  }
-+  return getNaturalAlignIndirect(Ty, /*ByVal=*/true);
++  return getNaturalAlignIndirect(Ty, /*ByVal=*/false);
 +}
 +
 +ABIArgInfo RISCVABIInfo::classifyReturnType(QualType RetTy) const {
@@ -202,23 +186,22 @@ index e3f3ba1be4..6aeb84ce7e 100644
 +    return Addr;
 +  }
 +
-+  // The size of the actual thing passed, which might end up just
-+  // being a pointer for indirect types.
-+  auto TyInfo = getContext().getTypeInfoInChars(Ty);
++  std::pair<CharUnits, CharUnits> SizeAndAlign =
++      getContext().getTypeInfoInChars(Ty);
 +
-+  // Arguments bigger than 2*xlen bytes are passed indirectly.
-+  bool IsIndirect = TyInfo.first.getQuantity() > ((2 * XLen) / 8);
++  // Arguments bigger than 2*Xlen bytes are passed indirectly.
++  bool IsIndirect = SizeAndAlign.first > 2 * SlotSize;
 +
-+  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, IsIndirect, TyInfo, SlotSize,
-+                          /*AllowHigherAlign*/ true);
++  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, IsIndirect, SizeAndAlign,
++                          SlotSize, /*AllowHigherAlign=*/true);
 +}
 +
-+bool RISCVABIInfo::shouldSignExtUnsignedType(QualType Ty) const {
++ABIArgInfo RISCVABIInfo::extendType(QualType Ty) const {
 +  int TySize = getContext().getTypeSize(Ty);
 +  // RV64 ABI requires unsigned 32 bit integers to be sign extended.
 +  if (XLen == 64 && Ty->isUnsignedIntegerOrEnumerationType() && TySize == 32)
-+    return true;
-+  return false;
++    return ABIArgInfo::getSignExtend(Ty);
++  return ABIArgInfo::getExtend(Ty);
 +}
 +
 +namespace {
@@ -231,7 +214,7 @@ index e3f3ba1be4..6aeb84ce7e 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8888,6 +9069,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8884,6 +9060,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
    case llvm::Triple::msp430:
      return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
  
@@ -245,10 +228,10 @@ index e3f3ba1be4..6aeb84ce7e 100644
      return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 new file mode 100644
-index 0000000000..3c4f3be1ac
+index 0000000000..e32a8c258f
 --- /dev/null
 +++ b/test/CodeGen/riscv32-abi.c
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,426 @@
 +// RUN: %clang_cc1 -triple riscv32 -emit-llvm %s -o - | FileCheck %s
 +
 +#include <stddef.h>
@@ -259,6 +242,9 @@ index 0000000000..3c4f3be1ac
 +
 +// Scalar arguments and return values smaller than the word size are extended
 +// according to the sign of their type, up to 32 bits
++
++// CHECK-LABEL: define zeroext i1 @f_scalar_0(i1 zeroext %x)
++_Bool f_scalar_0(_Bool x) { return x; }
 +
 +// CHECK-LABEL: define signext i8 @f_scalar_1(i8 signext %x)
 +int8_t f_scalar_1(int8_t x) { return x; }
@@ -284,6 +270,22 @@ index 0000000000..3c4f3be1ac
 +
 +// CHECK-LABEL: define fp128 @f_fp_scalar_3(fp128 %x)
 +long double f_fp_scalar_3(long double x) { return x; }
++
++// Empty structs or unions are ignored.
++
++struct empty_s {};
++
++// CHECK-LABEL: define void @f_agg_empty_struct()
++struct empty_s f_agg_empty_struct(struct empty_s x) {
++  return x;
++}
++
++union empty_u {};
++
++// CHECK-LABEL: define void @f_agg_empty_union()
++union empty_u f_agg_empty_union(union empty_u x) {
++  return x;
++}
 +
 +// Aggregates <= 2*xlen may be passed in registers, so will be coerced to
 +// integer arguments. The rules for return are the same.
@@ -388,7 +390,7 @@ index 0000000000..3c4f3be1ac
 +  int32_t a, b, c, d;
 +};
 +
-+// CHECK-LABEL: define void @f_agg_large(%struct.large* byval align 4 %x)
++// CHECK-LABEL: define void @f_agg_large(%struct.large* %x)
 +void f_agg_large(struct large x) {
 +  x.a = x.b + x.c + x.d;
 +}
@@ -402,7 +404,7 @@ index 0000000000..3c4f3be1ac
 +
 +typedef unsigned char v16i8 __attribute__((vector_size(16)));
 +
-+// CHECK-LABEL: define void @f_vec_large_v16i8(<16 x i8>* byval align 16)
++// CHECK-LABEL: define void @f_vec_large_v16i8(<16 x i8>*)
 +void f_vec_large_v16i8(v16i8 x) {
 +  x[0] = x[7];
 +}
@@ -415,7 +417,7 @@ index 0000000000..3c4f3be1ac
 +// Scalars passed on the stack should have signext/zeroext attributes (they
 +// are anyext).
 +
-+// CHECK-LABEL: define i32 @f_scalar_stack_1(i32 %a.coerce, [2 x i32] %b.coerce, i64 %c.coerce, %struct.large* byval align 4 %d, i8 zeroext %e, i8 signext %f, i8 %g, i8 %h)
++// CHECK-LABEL: define i32 @f_scalar_stack_1(i32 %a.coerce, [2 x i32] %b.coerce, i64 %c.coerce, %struct.large* %d, i8 zeroext %e, i8 signext %f, i8 %g, i8 %h)
 +int f_scalar_stack_1(struct tiny a, struct small b, struct small_aligned c,
 +                     struct large d, uint8_t e, int8_t f, uint8_t g, int8_t h) {
 +  return g + h;
@@ -450,7 +452,7 @@ index 0000000000..3c4f3be1ac
 +void f_scalar_stack_5(double a, int64_t b, double c, int64_t d, int e,
 +                      int64_t f, float g, double h, long double i) {}
 +
-+// CHECK-LABEL: define void @f_agg_stack(double %a, i64 %b, double %c, i64 %d, i32 %e.coerce, [2 x i32] %f.coerce, i64 %g.coerce, %struct.large* byval align 4 %h)
++// CHECK-LABEL: define void @f_agg_stack(double %a, i64 %b, double %c, i64 %d, i32 %e.coerce, [2 x i32] %f.coerce, i64 %g.coerce, %struct.large* %h)
 +void f_agg_stack(double a, int64_t b, double c, int64_t d, struct tiny e,
 +                 struct small f, struct small_aligned g, struct large h) {}
 +
@@ -461,7 +463,7 @@ index 0000000000..3c4f3be1ac
 +int f_va_callee(int, ...);
 +
 +// CHECK-LABEL: define void @f_va_caller()
-+// CHECK: call i32 (i32, ...) @f_va_callee(i32 1, i32 2, i64 3, double 4.000000e+00, double 5.000000e+00, i32 {{%.*}}, [2 x i32] {{%.*}}, i64 {{%.*}}, %struct.large* byval align 4 {{%.*}})
++// CHECK: call i32 (i32, ...) @f_va_callee(i32 1, i32 2, i64 3, double 4.000000e+00, double 5.000000e+00, i32 {{%.*}}, [2 x i32] {{%.*}}, i64 {{%.*}}, %struct.large* {{%.*}})
 +void f_va_caller() {
 +  f_va_callee(1, 2, 3LL, 4.0f, 5.0, (struct tiny){6, 7, 8, 9},
 +              (struct small){10, NULL}, (struct small_aligned){11},
@@ -658,10 +660,10 @@ index 0000000000..3c4f3be1ac
 +}
 diff --git a/test/CodeGen/riscv64-abi.c b/test/CodeGen/riscv64-abi.c
 new file mode 100644
-index 0000000000..14d1fe8b72
+index 0000000000..90bc54f071
 --- /dev/null
 +++ b/test/CodeGen/riscv64-abi.c
-@@ -0,0 +1,406 @@
+@@ -0,0 +1,425 @@
 +// RUN: %clang_cc1 -triple riscv64 -emit-llvm %s -o - | FileCheck %s
 +
 +#include <stddef.h>
@@ -672,6 +674,9 @@ index 0000000000..14d1fe8b72
 +
 +// Scalar arguments and return values smaller than the word size are extended
 +// according to the sign of their type, up to 32 bits
++
++// CHECK-LABEL: define zeroext i1 @f_scalar_0(i1 zeroext %x)
++_Bool f_scalar_0(_Bool x) { return x; }
 +
 +// CHECK-LABEL: define signext i8 @f_scalar_1(i8 signext %x)
 +int8_t f_scalar_1(int8_t x) { return x; }
@@ -693,6 +698,22 @@ index 0000000000..14d1fe8b72
 +
 +// CHECK-LABEL: define fp128 @f_fp_scalar_3(fp128 %x)
 +long double f_fp_scalar_3(long double x) { return x; }
++
++// Empty structs or unions are ignored.
++
++struct empty_s {};
++
++// CHECK-LABEL: define void @f_agg_empty_struct()
++struct empty_s f_agg_empty_struct(struct empty_s x) {
++  return x;
++}
++
++union empty_u {};
++
++// CHECK-LABEL: define void @f_agg_empty_union()
++union empty_u f_agg_empty_union(union empty_u x) {
++  return x;
++}
 +
 +// Aggregates <= 2*xlen may be passed in registers, so will be coerced to
 +// integer arguments. The rules for return are the same.
@@ -797,7 +818,7 @@ index 0000000000..14d1fe8b72
 +  int64_t a, b, c, d;
 +};
 +
-+// CHECK-LABEL: define void @f_agg_large(%struct.large* byval align 8 %x)
++// CHECK-LABEL: define void @f_agg_large(%struct.large* %x)
 +void f_agg_large(struct large x) {
 +  x.a = x.b + x.c + x.d;
 +}
@@ -811,7 +832,7 @@ index 0000000000..14d1fe8b72
 +
 +typedef unsigned char v32i8 __attribute__((vector_size(32)));
 +
-+// CHECK-LABEL: define void @f_vec_large_v32i8(<32 x i8>* byval align 32)
++// CHECK-LABEL: define void @f_vec_large_v32i8(<32 x i8>*)
 +void f_vec_large_v32i8(v32i8 x) {
 +  x[0] = x[7];
 +}
@@ -824,13 +845,13 @@ index 0000000000..14d1fe8b72
 +// Scalars passed on the stack should have signext/zeroext attributes (they
 +// are anyext).
 +
-+// CHECK-LABEL: define signext i32 @f_scalar_stack_1(i64 %a.coerce, [2 x i64] %b.coerce, i128 %c.coerce, %struct.large* byval align 8 %d, i8 zeroext %e, i8 signext %f, i8 %g, i8 %h)
++// CHECK-LABEL: define signext i32 @f_scalar_stack_1(i64 %a.coerce, [2 x i64] %b.coerce, i128 %c.coerce, %struct.large* %d, i8 zeroext %e, i8 signext %f, i8 %g, i8 %h)
 +int f_scalar_stack_1(struct tiny a, struct small b, struct small_aligned c,
 +                     struct large d, uint8_t e, int8_t f, uint8_t g, int8_t h) {
 +  return g + h;
 +}
 +
-+// CHECK-LABEL: define signext i32 @f_scalar_stack_2(i32 signext %a, i128 %b, float %c, fp128 %d, <32 x i8>* byval align 32, i8 zeroext %f, i8 %g, i8 %h)
++// CHECK-LABEL: define signext i32 @f_scalar_stack_2(i32 signext %a, i128 %b, float %c, fp128 %d, <32 x i8>*, i8 zeroext %f, i8 %g, i8 %h)
 +int f_scalar_stack_2(int32_t a, __int128_t b, float c, long double d, v32i8 e,
 +                     uint8_t f, int8_t g, uint8_t h) {
 +  return g + h;
@@ -840,7 +861,7 @@ index 0000000000..14d1fe8b72
 +// the presence of large return values that consume a register due to the need
 +// to pass a pointer.
 +
-+// CHECK-LABEL: define void @f_scalar_stack_3(%struct.large* noalias sret %agg.result, i32 signext %a, i128 %b, fp128 %c, <32 x i8>* byval align 32, i8 zeroext %e, i8 %f, i8 %g)
++// CHECK-LABEL: define void @f_scalar_stack_3(%struct.large* noalias sret %agg.result, i32 signext %a, i128 %b, fp128 %c, <32 x i8>*, i8 zeroext %e, i8 %f, i8 %g)
 +struct large f_scalar_stack_3(uint32_t a, __int128_t b, long double c, v32i8 d,
 +                              uint8_t e, int8_t f, uint8_t g) {
 +  return (struct large){a, e, f, g};
@@ -855,7 +876,7 @@ index 0000000000..14d1fe8b72
 +
 +// CHECK-LABEL: define void @f_va_caller()
 +void f_va_caller() {
-+  // CHECK: call signext i32 (i32, ...) @f_va_callee(i32 signext 1, i32 signext 2, i64 3, double 4.000000e+00, double 5.000000e+00, i64 {{%.*}}, [2 x i64] {{%.*}}, i128 {{%.*}}, %struct.large* byval align 8 {{%.*}})
++  // CHECK: call signext i32 (i32, ...) @f_va_callee(i32 signext 1, i32 signext 2, i64 3, double 4.000000e+00, double 5.000000e+00, i64 {{%.*}}, [2 x i64] {{%.*}}, i128 {{%.*}}, %struct.large* {{%.*}})
 +  f_va_callee(1, 2, 3LL, 4.0f, 5.0, (struct tiny){6, 7, 8, 9},
 +              (struct small){10, NULL}, (struct small_aligned){11},
 +              (struct large){12, 13, 14, 15});
@@ -1069,7 +1090,7 @@ index 0000000000..14d1fe8b72
 +  return ret;
 +}
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
-index 62985b6127..6f85fa78ad 100644
+index efe550e0f2..3839f8e59c 100644
 --- a/test/Driver/riscv32-toolchain.c
 +++ b/test/Driver/riscv32-toolchain.c
 @@ -73,3 +73,50 @@ int align_ld = __alignof(long double);

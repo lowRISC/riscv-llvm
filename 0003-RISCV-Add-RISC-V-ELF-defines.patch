@@ -132,7 +132,7 @@ index 00000000000..5cc4c0ec302
 +ELF_RELOC(R_RISCV_SET32,             56)
 +ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 8c1133664b5..40503cb6bb9 100644
+index c39a7448dbc..32aabec952a 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
 @@ -981,6 +981,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
@@ -287,7 +287,7 @@ index 6316840cc05..3a9112423cf 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 24b32cc755d..85ac3ad16bb 100644
+index fd082b23334..dfc5560cc7a 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -1006,6 +1006,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -313,7 +313,7 @@ index 24b32cc755d..85ac3ad16bb 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3706,6 +3715,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3703,6 +3712,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));

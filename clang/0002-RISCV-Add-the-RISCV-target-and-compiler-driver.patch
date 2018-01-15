@@ -2,7 +2,10 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add the RISCV target and compiler driver
 
-For now, focus on RV32.
+As RV64 codegen has not yet been upstreamed into LLVM, we focus on RV32 driver
+support (RV64 to follow).
+
+Differential Revision: https://reviews.llvm.org/D39963
 ---
  lib/Basic/CMakeLists.txt                           |   1 +
  lib/Basic/Targets.cpp                              |   6 +
@@ -814,7 +817,7 @@ index 0000000000..565596cdd3
 +// CHECK: fno-signed-char
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
 new file mode 100644
-index 0000000000..62985b6127
+index 0000000000..efe550e0f2
 --- /dev/null
 +++ b/test/Driver/riscv32-toolchain.c
 @@ -0,0 +1,75 @@
@@ -824,32 +827,32 @@ index 0000000000..62985b6127
 +// CC1: clang{{.*}} "-cc1" "-triple" "riscv32"
 +
 +
-+// RUN: %clang %s -### -no-canonical-prefixes \
++// RUN: %clang %s -### -no-canonical-prefixes -fuse-ld=ld \
 +// RUN:   -target riscv32-linux-unknown-elf \
 +// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
 +// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
 +// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32 %s
 +
-+// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin/ld"
++// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
 +// CC1-RV32-LINUX-ILP32: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
 +// CC1-RV32-LINUX-ILP32: "-m" "elf32lriscv"
 +// CC1-RV32-LINUX-ILP32: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32.so.1"
-+// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32/crtbegin.o"
++// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32{{/|\\\\}}crtbegin.o"
 +// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32"
 +// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32"
 +// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32"
 +
-+// RUN: %clang %s -### -no-canonical-prefixes \
++// RUN: %clang %s -### -no-canonical-prefixes -fuse-ld=ld \
 +// RUN:   -target riscv32-linux-unknown-elf -march=rv32imafd -mabi=ilp32d \
 +// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
 +// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
 +// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32D %s
 +
-+// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin/ld"
++// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
 +// CC1-RV32-LINUX-ILP32D: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
 +// CC1-RV32-LINUX-ILP32D: "-m" "elf32lriscv"
 +// CC1-RV32-LINUX-ILP32D: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32d.so.1"
-+// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d/crtbegin.o"
++// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d{{/|\\\\}}crtbegin.o"
 +// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d"
 +// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d"
 +// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d"

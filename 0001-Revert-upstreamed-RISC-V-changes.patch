@@ -24,8 +24,8 @@ basis.
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  274 -----
  lib/Target/RISCV/InstPrinter/CMakeLists.txt        |    3 -
  lib/Target/RISCV/InstPrinter/LLVMBuild.txt         |   23 -
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |   86 --
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   48 -
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |   90 --
+ lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   53 -
  lib/Target/RISCV/LLVMBuild.txt                     |   35 -
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |    8 -
  lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |   23 -
@@ -41,7 +41,7 @@ basis.
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |   80 --
  lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |   62 --
  lib/Target/RISCV/RISCV.h                           |   37 -
- lib/Target/RISCV/RISCV.td                          |   90 --
+ lib/Target/RISCV/RISCV.td                          |   95 --
  lib/Target/RISCV/RISCVAsmPrinter.cpp               |  127 ---
  lib/Target/RISCV/RISCVCallingConv.td               |   20 -
  lib/Target/RISCV/RISCVFrameLowering.cpp            |  245 -----
@@ -104,6 +104,7 @@ basis.
  test/CodeGen/RISCV/shifts.ll                       |   60 --
  test/CodeGen/RISCV/vararg.ll                       |  535 ----------
  test/CodeGen/RISCV/wide-mem.ll                     |   48 -
+ test/MC/RISCV/csr-aliases.s                        |  117 ---
  test/MC/RISCV/elf-header.s                         |   42 -
  test/MC/RISCV/fixups-compressed.s                  |   18 -
  test/MC/RISCV/fixups-diagnostics.s                 |   18 -
@@ -156,7 +157,7 @@ basis.
  tools/llvm-readobj/ELFDumper.cpp                   |   11 -
  unittests/ADT/TripleTest.cpp                       |   36 -
  utils/update_llc_test_checks.py                    |   18 -
- 151 files changed, 16108 deletions(-)
+ 152 files changed, 16239 deletions(-)
  delete mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  delete mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
  delete mode 100644 lib/Target/RISCV/AsmParser/LLVMBuild.txt
@@ -247,6 +248,7 @@ basis.
  delete mode 100644 test/CodeGen/RISCV/shifts.ll
  delete mode 100644 test/CodeGen/RISCV/vararg.ll
  delete mode 100644 test/CodeGen/RISCV/wide-mem.ll
+ delete mode 100644 test/MC/RISCV/csr-aliases.s
  delete mode 100644 test/MC/RISCV/elf-header.s
  delete mode 100644 test/MC/RISCV/fixups-compressed.s
  delete mode 100644 test/MC/RISCV/fixups-diagnostics.s
@@ -425,7 +427,7 @@ index 5cc4c0ec302..00000000000
 -ELF_RELOC(R_RISCV_SET32,             56)
 -ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 40503cb6bb9..8c1133664b5 100644
+index 32aabec952a..c39a7448dbc 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
 @@ -981,8 +981,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
@@ -2043,10 +2045,10 @@ index 5f4545e3d67..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 deleted file mode 100644
-index ff56fc5d90f..00000000000
+index f1fa2ecbcb2..00000000000
 --- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
 +++ /dev/null
-@@ -1,86 +0,0 @@
+@@ -1,90 +0,0 @@
 -//===-- RISCVInstPrinter.cpp - Convert RISCV MCInst to asm syntax ---------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2066,6 +2068,7 @@ index ff56fc5d90f..00000000000
 -#include "llvm/MC/MCExpr.h"
 -#include "llvm/MC/MCInst.h"
 -#include "llvm/MC/MCRegisterInfo.h"
+-#include "llvm/MC/MCSubtargetInfo.h"
 -#include "llvm/MC/MCSymbol.h"
 -#include "llvm/Support/CommandLine.h"
 -#include "llvm/Support/ErrorHandling.h"
@@ -2086,8 +2089,8 @@ index ff56fc5d90f..00000000000
 -
 -void RISCVInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 -                                 StringRef Annot, const MCSubtargetInfo &STI) {
--  if (NoAliases || !printAliasInstr(MI, O))
--    printInstruction(MI, O);
+-  if (NoAliases || !printAliasInstr(MI, STI, O))
+-    printInstruction(MI, STI, O);
 -  printAnnotation(O, Annot);
 -}
 -
@@ -2096,6 +2099,7 @@ index ff56fc5d90f..00000000000
 -}
 -
 -void RISCVInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
+-                                    const MCSubtargetInfo &STI,
 -                                    raw_ostream &O, const char *Modifier) {
 -  assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
 -  const MCOperand &MO = MI->getOperand(OpNo);
@@ -2115,6 +2119,7 @@ index ff56fc5d90f..00000000000
 -}
 -
 -void RISCVInstPrinter::printFenceArg(const MCInst *MI, unsigned OpNo,
+-                                     const MCSubtargetInfo &STI,
 -                                     raw_ostream &O) {
 -  unsigned FenceArg = MI->getOperand(OpNo).getImm();
 -  if ((FenceArg & RISCVFenceField::I) != 0)
@@ -2128,6 +2133,7 @@ index ff56fc5d90f..00000000000
 -}
 -
 -void RISCVInstPrinter::printFRMArg(const MCInst *MI, unsigned OpNo,
+-                                   const MCSubtargetInfo &STI,
 -                                   raw_ostream &O) {
 -  auto FRMArg =
 -      static_cast<RISCVFPRndMode::RoundingMode>(MI->getOperand(OpNo).getImm());
@@ -2135,10 +2141,10 @@ index ff56fc5d90f..00000000000
 -}
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
 deleted file mode 100644
-index 58f3f841015..00000000000
+index 241be8daf11..00000000000
 --- a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h
 +++ /dev/null
-@@ -1,48 +0,0 @@
+@@ -1,53 +0,0 @@
 -//===-- RISCVInstPrinter.h - Convert RISCV MCInst to asm syntax ---*- C++ -*--//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -2171,16 +2177,21 @@ index 58f3f841015..00000000000
 -                 const MCSubtargetInfo &STI) override;
 -  void printRegName(raw_ostream &O, unsigned RegNo) const override;
 -
--  void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
--                    const char *Modifier = nullptr);
--  void printFenceArg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
--  void printFRMArg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+-  void printOperand(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
+-                    raw_ostream &O, const char *Modifier = nullptr);
+-  void printFenceArg(const MCInst *MI, unsigned OpNo,
+-                     const MCSubtargetInfo &STI, raw_ostream &O);
+-  void printFRMArg(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
+-                   raw_ostream &O);
 -
 -  // Autogenerated by tblgen.
--  void printInstruction(const MCInst *MI, raw_ostream &O);
--  bool printAliasInstr(const MCInst *MI, raw_ostream &O);
+-  void printInstruction(const MCInst *MI, const MCSubtargetInfo &STI,
+-                        raw_ostream &O);
+-  bool printAliasInstr(const MCInst *MI, const MCSubtargetInfo &STI,
+-                       raw_ostream &O);
 -  void printCustomAliasOperand(const MCInst *MI, unsigned OpIdx,
--                               unsigned PrintMethodIdx, raw_ostream &O);
+-                               unsigned PrintMethodIdx,
+-                               const MCSubtargetInfo &STI, raw_ostream &O);
 -  static const char *getRegisterName(unsigned RegNo,
 -                                     unsigned AltIdx = RISCV::ABIRegAltName);
 -};
@@ -3426,10 +3437,10 @@ index 884cb2e5014..00000000000
 -#endif
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
 deleted file mode 100644
-index c74d560b2e0..00000000000
+index 4caaaa43c10..00000000000
 --- a/lib/Target/RISCV/RISCV.td
 +++ /dev/null
-@@ -1,90 +0,0 @@
+@@ -1,95 +0,0 @@
 -//===-- RISCV.td - Describe the RISCV Target Machine -------*- tablegen -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3516,9 +3527,14 @@ index c74d560b2e0..00000000000
 -  let AllowDuplicateRegisterNames = 1;
 -}
 -
+-def RISCVAsmWriter : AsmWriter {
+-  int PassSubtarget = 1;
+-}
+-
 -def RISCV : Target {
 -  let InstructionSet = RISCVInstrInfo;
 -  let AssemblyParsers = [RISCVAsmParser];
+-  let AssemblyWriters = [RISCVAsmWriter];
 -}
 diff --git a/lib/Target/RISCV/RISCVAsmPrinter.cpp b/lib/Target/RISCV/RISCVAsmPrinter.cpp
 deleted file mode 100644
@@ -14588,6 +14604,129 @@ index cd5c1d26b98..00000000000
 -  %1 = load i64, i64* @val64
 -  ret i64 %1
 -}
+diff --git a/test/MC/RISCV/csr-aliases.s b/test/MC/RISCV/csr-aliases.s
+deleted file mode 100644
+index cc51e9536d3..00000000000
+--- a/test/MC/RISCV/csr-aliases.s
++++ /dev/null
+@@ -1,117 +0,0 @@
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases - \
+-# RUN:     | FileCheck -check-prefix=CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=-f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=-f < %s \
+-# RUN:     | llvm-objdump -d -mattr=-f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F-OFF %s
+-# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=-f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F-OFF %s
+-
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases - \
+-# RUN:     | FileCheck -check-prefix=CHECK-INST %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-ALIAS %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=-f < %s \
+-# RUN:     | llvm-objdump -d -mattr=+f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=-f < %s \
+-# RUN:     | llvm-objdump -d -mattr=-f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F-OFF %s
+-# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+f < %s \
+-# RUN:     | llvm-objdump -d -mattr=-f - \
+-# RUN:     | FileCheck -check-prefix=CHECK-EXT-F-OFF %s
+-
+-
+-# CHECK-INST: csrrs t0, 3, zero
+-# CHECK-ALIAS: frcsr t0
+-# CHECK-EXT-F:  frcsr t0
+-# CHECK-EXT-F-OFF: csrr t0, 3
+-csrrs t0, 3, zero
+-
+-# CHECK-INST: csrrw t1, 3, t2
+-# CHECK-ALIAS: fscsr t1, t2
+-# CHECK-EXT-F-ON: fscsr t1, t2
+-# CHECK-EXT-F-OFF: csrrw t1, 3, t2
+-csrrw t1, 3, t2
+-
+-# CHECK-INST: csrrw zero, 3, t2
+-# CHECK-ALIAS: fscsr t2
+-# CHECK-EXT-F-ON: fscsr t2
+-# CHECK-EXT-F-OFF: csrw 3, t2
+-csrrw zero, 3, t2
+-
+-# CHECK-INST: csrrw zero, 3, t2
+-# CHECK-ALIAS: fscsr t2
+-# CHECK-EXT-F-ON: fscsr t2
+-# CHECK-EXT-F-OFF: csrw 3, t2
+-csrrw zero, 3, t2
+-
+-# CHECK-INST: csrrw t0, 2, zero
+-# CHECK-ALIAS: fsrm  t0, zero
+-# CHECK-EXT-F-ON: fsrm t0, zero
+-# CHECK-EXT-F-OFF: csrrw t0, 2, zero
+-csrrw t0, 2, zero
+-
+-# CHECK-INST: csrrw t0, 2, t1
+-# CHECK-ALIAS: fsrm t0, t1
+-# CHECK-EXT-F-ON: fsrm t0, t1
+-# CHECK-EXT-F-OFF: csrrw t0, 2, t1
+-csrrw t0, 2, t1
+-
+-# CHECK-INST: csrrwi t0, 2, 31
+-# CHECK-ALIAS: fsrmi t0, 31
+-# CHECK-EXT-F-ON: fsrmi t0, 31
+-# CHECK-EXT-F-OFF: csrrwi t0, 2, 31
+-csrrwi t0, 2, 31
+-
+-# CHECK-INST: csrrwi zero, 2, 31
+-# CHECK-ALIAS: fsrmi 31
+-# CHECK-EXT-F-ON: fsrmi 31
+-# CHECK-EXT-F-OFF:  csrwi 2, 31
+-csrrwi zero, 2, 31
+-
+-# CHECK-INST: csrrs t0, 1, zero
+-# CHECK-ALIAS: frflags t0
+-# CHECK-EXT-F-ON: frflags t0
+-# CHECK-EXT-F-OFF: csrr t0, 1
+-csrrs t0, 1, zero
+-
+-# CHECK-INST: csrrw t0, 1, t2
+-# CHECK-ALIAS: fsflags t0, t2
+-# CHECK-EXT-F-ON: fsflags t0, t2
+-# CHECK-EXT-F-OFF: csrrw t0, 1, t2
+-csrrw t0, 1, t2
+-
+-# CHECK-INST: csrrw zero, 1, t2
+-# CHECK-ALIAS: fsflags t2
+-# CHECK-EXT-F-ON: fsflags t2
+-# CHECK-EXT-F-OFF: csrw 1, t2
+-csrrw zero, 1, t2
+-
+-# CHECK-INST: csrrwi t0, 1, 31
+-# CHECK-ALIAS: fsflagsi t0, 31
+-# CHECK-EXT-F: fsflagsi t0, 31
+-# CHECK-EXT-F-OFF: csrrwi t0, 1, 31
+-csrrwi t0, 1, 31
+-
+-# CHECK-INST: csrrwi zero, 1, 31
+-# CHECK-ALIAS: fsflagsi 31
+-# CHECK-EXT-F: fsflagsi 31
+-# CHECK-EXT-F-OFF: csrwi 1, 31
+-csrrwi zero, 1, 31
+-
 diff --git a/test/MC/RISCV/elf-header.s b/test/MC/RISCV/elf-header.s
 deleted file mode 100644
 index 29a7036f2fc..00000000000
@@ -17397,7 +17536,7 @@ index 3a9112423cf..6316840cc05 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index 85ac3ad16bb..24b32cc755d 100644
+index dfc5560cc7a..fd082b23334 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -1006,7 +1006,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -17423,7 +17562,7 @@ index 85ac3ad16bb..24b32cc755d 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3715,8 +3706,6 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3712,8 +3703,6 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
                     unsigned(ELF::EF_AMDGPU_ARCH));

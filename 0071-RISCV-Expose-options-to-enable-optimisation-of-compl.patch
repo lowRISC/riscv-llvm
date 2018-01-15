@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Expose options to enable optimisation of complex GEPs
+
+Experimental, it seems both PPC and AArch64 have experimented with this. Seems
+to have minimal effect on generated code in my current benchmark set.
+---
+ lib/Target/RISCV/LLVMBuild.txt          |  2 +-
+ lib/Target/RISCV/RISCVTargetMachine.cpp | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/lib/Target/RISCV/LLVMBuild.txt b/lib/Target/RISCV/LLVMBuild.txt
+index ab21565b0c2..840f3a47f22 100644
+--- a/lib/Target/RISCV/LLVMBuild.txt
++++ b/lib/Target/RISCV/LLVMBuild.txt
+@@ -31,5 +31,5 @@ type = Library
+ name = RISCVCodeGen
+ parent = RISCV
+ required_libraries = AsmPrinter Core CodeGen MC RISCVAsmPrinter RISCVDesc
+-  RISCVInfo SelectionDAG Support Target
++  RISCVInfo Scalar SelectionDAG Support Target
+ add_to_library_groups = RISCV
+diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
+index 7cf90fa66e2..8b2adaeac3b 100644
+--- a/lib/Target/RISCV/RISCVTargetMachine.cpp
++++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
+@@ -21,8 +21,15 @@
+ #include "llvm/Support/FormattedStream.h"
+ #include "llvm/Support/TargetRegistry.h"
+ #include "llvm/Target/TargetOptions.h"
++#include "llvm/Transforms/Scalar.h"
++
+ using namespace llvm;
+ 
++static cl::opt<bool>
++EnableGEPOpt("riscv-gep-opt", cl::Hidden,
++             cl::desc("Enable optimizations on complex GEPs"),
++             cl::init(false));
++
+ extern "C" void LLVMInitializeRISCVTarget() {
+   RegisterTargetMachine<RISCVTargetMachine> X(getTheRISCV32Target());
+   RegisterTargetMachine<RISCVTargetMachine> Y(getTheRISCV64Target());
+@@ -87,6 +94,19 @@ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
+ void RISCVPassConfig::addIRPasses() {
+   addPass(createAtomicExpandPass());
+ 
++  if (TM->getOptLevel() == CodeGenOpt::Aggressive && EnableGEPOpt) {
++    // Call SeparateConstOffsetFromGEP pass to extract constants within indices
++    // and lower a GEP with multiple indices to either arithmetic operations or
++    // multiple GEPs with single index.
++    addPass(createSeparateConstOffsetFromGEPPass(TM, true));
++    // Call EarlyCSE pass to find and remove subexpressions in the lowered
++    // result.
++    addPass(createEarlyCSEPass());
++    // Do loop invariant code motion in case part of the lowered result is
++    // invariant.
++    addPass(createLICMPass());
++  }
++
+   TargetPassConfig::addIRPasses();
+ }
+ 
+-- 
+2.15.1
+

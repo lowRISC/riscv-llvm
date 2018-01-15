@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement isLegalICmpImmediate
+
+No change in codegen for the torture suite, some minor changes for small
+benchmark set.
+---
+ lib/Target/RISCV/RISCVISelLowering.cpp | 4 ++++
+ lib/Target/RISCV/RISCVISelLowering.h   | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 9ab1270f2f8..a9f9f5c7d56 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -173,6 +173,10 @@ bool RISCVTargetLowering::isLegalAddressingMode(const DataLayout &DL,
+   return true;
+ }
+ 
++bool RISCVTargetLowering::isLegalICmpImmediate(int64_t Imm) const {
++  return isInt<12>(Imm);
++}
++
+ bool RISCVTargetLowering::isLegalAddImmediate(int64_t Imm) const {
+   return isInt<12>(Imm);
+ }
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index eae01bae883..17183004df6 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -40,6 +40,7 @@ public:
+   bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM, Type *Ty,
+                              unsigned AS,
+                              Instruction *I = nullptr) const override;
++  bool isLegalICmpImmediate(int64_t Imm) const override;
+   bool isLegalAddImmediate(int64_t Imm) const override;
+ 
+   // Provide custom lowering hooks for some operations.
+-- 
+2.15.1
+
