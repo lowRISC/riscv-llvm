@@ -1,0 +1,131 @@
+# Initial steps towards codegen support
+
+The next implementation task is to add support for basic code generation.
+There's a reasonable amount of boilerplate code needed to do this, which means 
+most of the difficulty comes from identifying the minimal set of needed 
+support code. A truly minimal starting point would be to implement codegen for 
+a function with no argument that returns void. However, the incremental 
+difficulty of supporting code-gen for simple arithmetic operations is very low 
+and doing that extra work gives much greater assurance that the implementation 
+is correct. Therefore, start by implementing support for the RV32I ALU 
+operations.
+
+## An overview of newly added support code
+
+* RISCVAsmPrinter and RISCVMCInstLower
+  * Responsible for converting a MachineInstr to an MCInst. This is handled by 
+  `llvm::LowerRISCVMachineInstrToMCInst` which simply sets the opcode and adds 
+  corresponding MCOperands for register or immediate operands for the input 
+  MachineInstr.
+* RISCVInstrInfo
+  * At this stage, requires no hand-written code. RISCVInstrInfo.{h,cpp} 
+  include RISCVGenInstrInfo.inc which is generated from RISCVInstrInfo.td.
+  This defines an enum containing all defined RISCV instructions, e.g.
+  `RISCV::ADDI`.
+* RISCVRegisterInfo
+  * Just like RISCVInstrInfo, this is heavily reliant on table-generated code.
+  * We need to pass the return address register to the RISCVGenRegisterInfo 
+  constructor.
+  * getReservedRegs must indicate all registers which should be considered 
+  reserved and so ignored by the register allocator.
+  * getFrameRegister simply returns the register used for frame indices. Given 
+  we are yet to implement frame pointer elimination, always return RISCV::X8.
+  * eliminateFrameIndex needs to be present, but for now it's just a stub that 
+  calls `report_fatal_error`.
+* RISCVSubtarget
+  * Contains a number of accessors for instances of the classes we've 
+  implemented. e.g. `getFrameLowering`, `getInstrInfo`, `getRegisterInfo`, 
+  `getTargetLowering` and so on.
+* RISCVPassConfig
+* RISCVISelDAGToDAG
+  * This is responsible for selecting an appropriate RISC-V instruction for 
+  each SelectionDAG node. `RISCVDAGToDAGISel::Select` is the main entry point 
+  for this process, which simply calls the tablegenerated `SelectCode` 
+  function. See below for details on specifying patterns which control this 
+  process.
+* RISCVISelLowering
+  * Ultimately lowers LLVM code into the SelectionDAG. The majority of the 
+  code which performs this transformation is target independent, and we just 
+  need to implement a few hooks to influence this process. See below for more 
+  details.
+
+## Specifying patterns in RISCVInstrInfo.td
+
+The RISC-V backend structures RISCVInstrInfo.td so instruction selection 
+patterns are specified separately from the instruction definitions. A pattern 
+for add can be trivially specified:
+
+    def : Pat<(add GPR:$rs1, GPR:$rs2), (ADD GPR:$rs1, GPR:$rs2)>;
+
+The first parameter to Pat specifies the SelectionDAG node to match. See 
+`include/llvm/Target/TargetSelectionDAG.td` for a full listing of such nodes.
+The second parameter specifies the RISC-V instruction(s) to lower it to.
+
+The register-immediate form of add (`addi`) can be matched as below:
+
+    def : Pat<(add GPR:$rs1, simm12:$imm12), (ADDI GPR:$rs1, simm12:$imm12)>;
+
+Note that to lower ADDI we are matching the same SelectionDAG node (`add`) but 
+with different constraints - the immediate operand. The LLVM SelectionDAG 
+infrastructure will handle checking the preconditions for each pattern. For 
+the above pattern to work, `simm12` must also be constrained in a way that can 
+be understood by SelectionDAG. We make it derive from `ImmLeaf` in addition to 
+`Operand`, as it was before:
+
+    def simm12 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<12>(Imm);}]> {
+    ...
+    }
+
+## RISCVISelLowering
+
+The constructor calls several helper functions which influence lowering.
+Importantly, `addRegisterClass(XLenVT, &RISCV::GPRRegClass);` will ensure that 
+`XLenVT` (`i32` for RV32) is considered a legal type. Future patches will add 
+more code, for instance specifying which operations should be expanded into 
+semantic equivalents rather than attempting to lower them directly.
+
+The two key methods to implement at this stage are `LowerFormalArguments` and 
+`LowerReturn`. The former will determine which registers each argument is 
+passed in, and create an appropriate virtual register. `LowerReturn` will copy 
+the return value into the register appropriate for the target calling 
+convention.
+
+<!-- More info on RISCVISD::RET_FLAG --!>
+
+## Specifying the calling convention
+
+At this stage, we won't attempt to support the full detail of the [RISC-V 
+calling 
+convention](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md).  
+Instead, specify the basic register assignments in RISCVCallingConv.td:
+
+		// RISCV 32-bit C return-value convention.
+		def RetCC_RISCV32 : CallingConv<[CCIfType<[i32], CCAssignToReg<[X10, X11]>>]>;
+
+		// RISCV 32-bit C Calling convention.
+		def CC_RISCV32 : CallingConv<[
+			// Promote i8/i16 args to i32
+			CCIfType<[ i8, i16 ], CCPromoteToType<i32>>,
+
+			// All arguments get passed in integer registers if there is space.
+			CCIfType<[i32], CCAssignToReg<[ X10, X11, X12, X13, X14, X15, X16, X17]>>,
+
+			// Could be assigned to the stack in 8-byte aligned units, but unsupported
+			CCAssignToStack<8, 8>
+		]>;
+
+This will generate `CC_RISCV32` and `RetCC_RISCV32` functions which you can make us of in RISCVISelLowering.cpp.
+
+Also list the callee-saved registers:
+
+		def CSR : CalleeSavedRegs<(add X1, X3, X4, X8, X9, (sequence "X%u", 18, 27))>;
+
+## Specifying tests
+
+Tests for the MC layer were written in `test/MC/RISCV` and utilised 
+`FileCheck`. You can write tests using `FileCheck` again for codegen, placing 
+them in `test/CodeGen/RISCV`. These tests take the form of simple functions 
+written in LLVM IR, and include checks on the generated assembly after 
+compilation with `llc`. I strongly recommend the use of 
+`update_llc_test_checks.py` to automate the generation of check lines.
+

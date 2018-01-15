@@ -1,0 +1,38 @@
+# Supporting the RISC-V calling convention
+
+Although the tablegen-specified calling convention will work for simple cases, 
+it fails to represent the complete set of rules that describe the [RISC-V 
+calling 
+convention](https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md).  
+`CC_RISCV` implements the RISC-V calling convention. It is passed each 
+argument in pieces, after it has been legalised. For instance, an `i64` will 
+be split to a pair of `i32`. Therefore, `CC_RISCV` contains logic to track 
+such split values to determine if the original argument's size indicates it 
+should be passed in registers or on the stack.
+
+The expectations for frontend ABI lowering vary from target to target.
+Ideally, an LLVM frontend would be able to avoid worrying about many ABI
+details, but this is a longer term goal. For now, we simply try to keep the
+role of the frontend as simple and well-defined as possible. The rules can
+be summarised as:
+
+* Never split up large scalar arguments. We handle them here.
+* If a hardfloat calling convention is being used, and the struct may be
+passed in a pair of registers (fp+fp, int+fp), and both registers are
+available, then pass as two separate arguments. If either the GPRs or FPRs
+are exhausted, then pass according to the rule below.
+* If a struct could never be passed in registers or directly in a stack
+slot (as it is larger than `2*XLEN` and the floating point rules don't
+apply), then pass it using a pointer with the byval attribute.
+* If a struct is less than `2*XLEN`, then coerce to either a two-element
+word-sized array or a `2*XLEN` scalar (depending on alignment).
+* The frontend can determine whether a struct is returned by reference or
+not based on its size and fields. If it will be returned by reference, the
+frontend must modify the prototype so a pointer with the sret annotation is
+passed as the first argument. This is not necessary for large scalar
+returns.
+* Struct return values and varargs should be coerced to structs containing
+register-size fields in the same situations they would be for fixed
+arguments.
+
+<!-- More details on varargs --!>

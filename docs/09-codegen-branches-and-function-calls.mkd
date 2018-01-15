@@ -1,0 +1,58 @@
+# Codegen for branches and function calls
+
+## Lowering branches
+
+Reviewing `include/llvm/CodeGen/ISDOpcodes.h` you can see that there are two 
+representations of conditional branches. `BRCOND` has condition and target 
+operands, while `BR_CC` is a compare+branch taking a condition code, the nodes 
+to compare, and the block to branch to if the condition is true. Although 
+`BR_CC` is a closer match to the RISC-V compare+branch instructions, the 
+`BRCOND` form is easier to write tablegen patterns to match. Therefore, 
+request that `BR_CC` be expanded:
+
+    setOperationAction(ISD::BR_CC, XLenVT, Expand);
+
+And define patterns such as:
+
+    // Match `(brcond (CondOp ..), ..)` and lower to the appropriate RISC-V branch
+    // instruction.
+    class BccPat<PatFrag CondOp, RVInstB Inst>
+        : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
+              (Inst GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12)>;
+ 
+    def : BccPat<seteq, BEQ>;
+
+A number of `setcc` condition codes don't have directly matching RISC-V 
+instructions but can be supported by swapping the input operands:
+
+    class BccSwapPat<PatFrag CondOp, RVInst InstBcc>
+        : Pat<(brcond (i32 (CondOp GPR:$rs1, GPR:$rs2)), bb:$imm12),
+              (InstBcc GPR:$rs2, GPR:$rs1, bb:$imm12)>;
+
+    // Condition codes that don't have matching RISC-V branch instructions, but
+    // are trivially supported by swapping the two input operands
+    def : BccSwapPat<setgt, BLT>;
+    def : BccSwapPat<setle, BGE>;
+    def : BccSwapPat<setugt, BLTU>;
+    def : BccSwapPat<setule, BGEU>;
+
+In order for the branch test function to work, 
+`RISCVInstrInfo::storeRegToStackSlot` and 
+`RISCVInstrInfo::loadRegFromStackSlot` must be implemented, as they are 
+required for the generated register spills. These functions simply require 
+generating an appropriate load or store.
+
+## Codegen for functioncalls
+
+Define a pseudo-instruction for call which expands to `JALR`:
+
+    let isCall = 1, Defs=[X1] in
+    def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
+                     PseudoInstExpansion<(JALR X1, GPR:$rs1, 0)>;
+
+The major missing component which needs to be implemented is 
+`RISCVTargetLowering::LowerCall`. This is responsible for lowering a call to 
+the appropriate SelectionDAG nodes: `call_start`, `CALL`, and `callseq_end`.
+It is responsible for copying the arguments and copying the result.
+
+<!-- Codegen for ISD::SELECT --!>

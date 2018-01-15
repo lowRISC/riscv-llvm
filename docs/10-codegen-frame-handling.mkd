@@ -1,0 +1,41 @@
+# Codegen for frame handling
+
+The RISC-V backend is now able to lower function calls, but doesn't yet 
+generate function prolog/epilog or correctly lower FrameIndex references.
+
+## Lowering FrameIndex
+
+First, define a dummy "addressing mode". This matches a frameindex, and is 
+necessary as as a frameindex can't be matched directly in a pattern.
+
+    def AddrFI : ComplexPattern<iPTR, 1, "SelectAddrFI", [frameindex], []>;
+
+    def : Pat<(LoadOp (add AddrFI:$rs1, simm12:$imm12)),
+              (Inst AddrFI:$rs1, simm12:$imm12)>;
+    def : Pat<(LoadOp (IsOrAdd AddrFI:$rs1, simm12:$imm12)),
+              (Inst AddrFI:$rs1, simm12:$imm12)>;
+
+Modify `RISCVDAGToDAGISel::Select` so it lowers `ISD::FrameIndex` to an `ADDI` 
+with appropriate operands:
+
+    if (Opcode == ISD::FrameIndex) {
+      SDLoc DL(Node);
+      SDValue Imm = CurDAG->getTargetConstant(0, DL, XLenVT);
+      int FI = dyn_cast<FrameIndexSDNode>(Node)->getIndex();
+      EVT VT = Node->getValueType(0);
+      SDValue TFI = CurDAG->getTargetFrameIndex(FI, VT);
+      ReplaceNode(Node, CurDAG->getMachineNode(RISCV::ADDI, DL, VT, TFI, Imm));
+      return;
+    }
+
+Finally, `RISCVFrameLowering::getFrameIndexReference` must be implemented.
+This must select the correct frame register and offset. Callee-save registers 
+are referenced relative to the stack pointer, otherwise the frame pointer is 
+used.
+
+## Prolog and epilog insertion
+
+`RISCVFrameLowering::emitPrologue` and `RISCVFrameLowering::emitEpilogue` were 
+previously stubbed out, but must now allocate and deallocate space on the 
+stack, and manipulate the frame pointer appropriately.
+

@@ -2,5 +2,8 @@ Documentation is shared here in the spirit of "release early, release often".
 It will soon be posted to lowrisc.org. Please wait until then before spreading 
 more widely.
 
+The codegen documentation in particular could do with further expansion so it
+is more accessible to those who are new to LLVM.
+
 Files in this directory are placed under the Creative Commons CC-BY-SA 4.0
 license <https://creativecommons.org/licenses/by-sa/4.0/>.
