@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Alex Bradbury <asb@lowrisc.org>
-Subject: [RISCV] Implement computeKnownBitsForTargetNote for
+Subject: [RISCV] Implement computeKnownBitsForTargetNode for
  RISCVISD::SELECT_CC
 
 Doesn't seem to have any real impact on the code I'm testing against.
@@ -58,5 +58,5 @@ index ccce434f69f..807cb9c0b8d 100644
    SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
  
 -- 
-2.15.1
+2.16.2
 

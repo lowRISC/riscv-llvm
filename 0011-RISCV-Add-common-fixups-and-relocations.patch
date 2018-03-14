@@ -23,7 +23,7 @@ Contains cleanups from https://reviews.llvm.org/rL317908
  lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   4 +-
  .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
  lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  58 ++++++-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  62 ++++++-
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 +++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++
  lib/Target/RISCV/RISCVInstrFormats.td              |  35 +++-
@@ -34,7 +34,7 @@ Contains cleanups from https://reviews.llvm.org/rL317908
  test/MC/RISCV/relocations.s                        |  65 +++++++
  test/MC/RISCV/rv32i-invalid.s                      |  64 ++++++-
  test/MC/RISCV/rv32i-valid.s                        |  21 +++
- 17 files changed, 855 insertions(+), 41 deletions(-)
+ 17 files changed, 859 insertions(+), 41 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
@@ -576,7 +576,7 @@ index 00000000000..115229414d5
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..f94c37aae8f 100644
+index f4eaf06f622..ce766ddf2fe 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -648,7 +648,7 @@ index f4eaf06f622..f94c37aae8f 100644
  }
  
  unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
-@@ -118,11 +125,50 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+@@ -118,11 +125,54 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
  
    const MCOperand &MO = MI.getOperand(OpNo);
  
@@ -673,8 +673,12 @@ index f4eaf06f622..f94c37aae8f 100644
 +    case RISCVMCExpr::VK_RISCV_Invalid:
 +      llvm_unreachable("Unhandled fixup kind!");
 +    case RISCVMCExpr::VK_RISCV_LO:
-+      FixupKind = MIFrm == RISCVII::InstFormatI ? RISCV::fixup_riscv_lo12_i
-+                                                : RISCV::fixup_riscv_lo12_s;
++      if (MIFrm == RISCVII::InstFormatI)
++        FixupKind = RISCV::fixup_riscv_lo12_i;
++      else if (MIFrm == RISCVII::InstFormatS)
++        FixupKind = RISCV::fixup_riscv_lo12_s;
++      else
++        llvm_unreachable("VK_RISCV_LO used with unexpected instruction format");
 +      break;
 +    case RISCVMCExpr::VK_RISCV_HI:
 +      FixupKind = RISCV::fixup_riscv_hi20;
@@ -1363,5 +1367,5 @@ index 95d9da4bb51..be6560062bb 100644
  # CHECK: encoding: [0x93,0x70,0xf1,0x7f]
  andi ra, sp, 2047
 -- 
-2.15.1
+2.16.2
 

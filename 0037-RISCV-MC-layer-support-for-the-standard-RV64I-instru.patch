@@ -481,5 +481,5 @@ index 00000000000..d33b1d1ef43
 +# CHECK: encoding: [0x3b,0xdf,0x0f,0x40]
 +sraw t5, t6, zero
 -- 
-2.15.1
+2.16.2
 

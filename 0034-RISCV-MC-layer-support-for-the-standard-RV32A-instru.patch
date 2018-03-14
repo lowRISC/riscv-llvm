@@ -428,5 +428,5 @@ index 763d4c547a2..c321d0481ca 100644
  mul a4, ra, s0 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 +amomaxu.w s5, s4, (s3) # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 -- 
-2.15.1
+2.16.2
 

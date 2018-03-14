@@ -1,0 +1,184 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add ELFObjectFileBase::getRISCVFeatures let llvm-objdump
+ could get RISCV target feature
+
+llvm-objdump could get C feature by ELF::EF_RISCV_RVC e_flag,
+so then we don't have to add -mattr=+c on the command line.
+
+Differential Revision: https://reviews.llvm.org/D42629
+Patch by Shiva Chen.
+---
+ include/llvm/Object/ELFObjectFile.h |  2 ++
+ lib/Object/ELFObjectFile.cpp        | 13 +++++++++++++
+ test/MC/RISCV/cnop.s                |  2 +-
+ test/MC/RISCV/fixups-compressed.s   |  2 +-
+ test/MC/RISCV/rv32c-only-valid.s    |  2 +-
+ test/MC/RISCV/rv32c-valid.s         |  4 ++--
+ test/MC/RISCV/rv32dc-valid.s        |  2 +-
+ test/MC/RISCV/rv32fc-valid.s        |  2 +-
+ test/MC/RISCV/rv64c-valid.s         |  2 +-
+ test/MC/RISCV/rv64dc-valid.s        |  8 ++++----
+ 10 files changed, 27 insertions(+), 12 deletions(-)
+
+diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
+index 9c691e1c283..4d001039238 100644
+--- a/include/llvm/Object/ELFObjectFile.h
++++ b/include/llvm/Object/ELFObjectFile.h
+@@ -80,6 +80,8 @@ public:
+ 
+   SubtargetFeatures getARMFeatures() const;
+ 
++  SubtargetFeatures getRISCVFeatures() const;
++
+   void setARMSubArch(Triple &TheTriple) const override;
+ };
+ 
+diff --git a/lib/Object/ELFObjectFile.cpp b/lib/Object/ELFObjectFile.cpp
+index 3c1bdf5a1de..e806c8f28b1 100644
+--- a/lib/Object/ELFObjectFile.cpp
++++ b/lib/Object/ELFObjectFile.cpp
+@@ -238,12 +238,25 @@ SubtargetFeatures ELFObjectFileBase::getARMFeatures() const {
+   return Features;
+ }
+ 
++SubtargetFeatures ELFObjectFileBase::getRISCVFeatures() const {
++  SubtargetFeatures Features;
++  unsigned PlatformFlags = getPlatformFlags();
++
++  if (PlatformFlags & ELF::EF_RISCV_RVC) {
++    Features.AddFeature("c");
++  }
++
++  return Features;
++}
++
+ SubtargetFeatures ELFObjectFileBase::getFeatures() const {
+   switch (getEMachine()) {
+   case ELF::EM_MIPS:
+     return getMIPSFeatures();
+   case ELF::EM_ARM:
+     return getARMFeatures();
++  case ELF::EM_RISCV:
++    return getRISCVFeatures();
+   default:
+     return SubtargetFeatures();
+   }
+diff --git a/test/MC/RISCV/cnop.s b/test/MC/RISCV/cnop.s
+index 8d526263724..ff2acee8868 100644
+--- a/test/MC/RISCV/cnop.s
++++ b/test/MC/RISCV/cnop.s
+@@ -1,5 +1,5 @@
+ # RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
+-# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
+ 
+ # alpha and main are 8 byte alignment
+ # but the alpha function's size is 6
+diff --git a/test/MC/RISCV/fixups-compressed.s b/test/MC/RISCV/fixups-compressed.s
+index bf6cbfc3556..65e4c773eca 100644
+--- a/test/MC/RISCV/fixups-compressed.s
++++ b/test/MC/RISCV/fixups-compressed.s
+@@ -1,7 +1,7 @@
+ # RUN: llvm-mc %s -triple riscv32 -mattr=+c -show-encoding \
+ # RUN:     | FileCheck -check-prefix=CHECK-FIXUP %s
+ # RUN: llvm-mc -triple riscv32 -filetype=obj -mattr=+c < %s \
+-# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INSTR %s
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INSTR %s
+ 
+ .LBB0_2:
+ # CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_jump
+diff --git a/test/MC/RISCV/rv32c-only-valid.s b/test/MC/RISCV/rv32c-only-valid.s
+index f46c2a3ea93..1cc8494fe47 100644
+--- a/test/MC/RISCV/rv32c-only-valid.s
++++ b/test/MC/RISCV/rv32c-only-valid.s
+@@ -1,7 +1,7 @@
+ # RUN: llvm-mc -triple=riscv32 -mattr=+c -riscv-no-aliases -show-encoding < %s \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c -riscv-no-aliases < %s \
+-# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv32 \
+ # RUN:     -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+diff --git a/test/MC/RISCV/rv32c-valid.s b/test/MC/RISCV/rv32c-valid.s
+index 338c8e0ee75..449e3be51a7 100644
+--- a/test/MC/RISCV/rv32c-valid.s
++++ b/test/MC/RISCV/rv32c-valid.s
+@@ -3,10 +3,10 @@
+ # RUN: llvm-mc -triple=riscv64 -mattr=+c -riscv-no-aliases -show-encoding < %s \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
+-# RUN:     | llvm-objdump -mattr=+c -riscv-no-aliases -d - \
++# RUN:     | llvm-objdump -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
+-# RUN:     | llvm-objdump -mattr=+c -riscv-no-aliases -d - \
++# RUN:     | llvm-objdump -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ 
+ # TODO: more exhaustive testing of immediate encoding.
+diff --git a/test/MC/RISCV/rv32dc-valid.s b/test/MC/RISCV/rv32dc-valid.s
+index 507b39170ec..764bcbd2fb1 100644
+--- a/test/MC/RISCV/rv32dc-valid.s
++++ b/test/MC/RISCV/rv32dc-valid.s
+@@ -1,7 +1,7 @@
+ # RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+d -riscv-no-aliases -show-encoding \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple=riscv32 -mattr=+c,+d < %s \
+-# RUN:     | llvm-objdump -mattr=+c,+d -riscv-no-aliases -d - \
++# RUN:     | llvm-objdump -mattr=+d -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv32 -mattr=+c\
+ # RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+diff --git a/test/MC/RISCV/rv32fc-valid.s b/test/MC/RISCV/rv32fc-valid.s
+index a66498c1468..f744759cd07 100644
+--- a/test/MC/RISCV/rv32fc-valid.s
++++ b/test/MC/RISCV/rv32fc-valid.s
+@@ -1,7 +1,7 @@
+ # RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+f -riscv-no-aliases -show-encoding \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple=riscv32 -mattr=+c,+f < %s \
+-# RUN:     | llvm-objdump -mattr=+c,+f -riscv-no-aliases -d - \
++# RUN:     | llvm-objdump -mattr=+f -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv32 -mattr=+c \
+ # RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
+index 5e7b901ad0e..c436fe5414c 100644
+--- a/test/MC/RISCV/rv64c-valid.s
++++ b/test/MC/RISCV/rv64c-valid.s
+@@ -1,7 +1,7 @@
+ # RUN: llvm-mc -triple=riscv64 -mattr=+c -riscv-no-aliases -show-encoding < %s \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
+-# RUN:     | llvm-objdump -mattr=+c -riscv-no-aliases -d - \
++# RUN:     | llvm-objdump -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv64 \
+ # RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+diff --git a/test/MC/RISCV/rv64dc-valid.s b/test/MC/RISCV/rv64dc-valid.s
+index 0d7ea62e9b0..e54f6411ad3 100644
+--- a/test/MC/RISCV/rv64dc-valid.s
++++ b/test/MC/RISCV/rv64dc-valid.s
+@@ -1,13 +1,13 @@
+-# RUN: llvm-mc %s -triple=riscv64 -mattr=+c,+d -show-encoding \
++# RUN: llvm-mc %s -triple=riscv64 -mattr=+c,+d -riscv-no-aliases -show-encoding \
+ # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
+ # RUN: llvm-mc -filetype=obj -triple=riscv64 -mattr=+c,+d < %s \
+-# RUN:     | llvm-objdump -mattr=+c,+d -d - \
++# RUN:     | llvm-objdump -mattr=+d -riscv-no-aliases -d - \
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv64 -mattr=+c\
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+ # RUN: not llvm-mc -triple riscv64 \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+ 
+ # CHECK-INST: c.fldsp  fs0, 504(sp)
+-- 
+2.16.2
+

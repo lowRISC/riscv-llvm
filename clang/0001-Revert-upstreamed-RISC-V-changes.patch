@@ -6,19 +6,19 @@ This allows the patch series to be maintained and modified on an ongoing
 basis.
 ---
  lib/Basic/CMakeLists.txt                           |   1 -
- lib/Basic/Targets.cpp                              |   6 -
+ lib/Basic/Targets.cpp                              |  12 -
  lib/Basic/Targets/RISCV.cpp                        |  52 ---
  lib/Basic/Targets/RISCV.h                          | 103 -----
- lib/CodeGen/TargetInfo.cpp                         | 181 ---------
+ lib/CodeGen/TargetInfo.cpp                         | 176 ---------
  lib/Driver/CMakeLists.txt                          |   1 -
  lib/Driver/ToolChains/Arch/RISCV.cpp               |  61 ---
  lib/Driver/ToolChains/Arch/RISCV.h                 |  32 --
  lib/Driver/ToolChains/Clang.cpp                    |  39 --
  lib/Driver/ToolChains/Clang.h                      |   2 -
- lib/Driver/ToolChains/Gnu.cpp                      |  60 +--
+ lib/Driver/ToolChains/Gnu.cpp                      |  72 +---
  lib/Driver/ToolChains/Linux.cpp                    |  23 --
- test/CodeGen/riscv32-abi.c                         | 426 ---------------------
- test/CodeGen/riscv64-abi.c                         | 425 --------------------
+ test/CodeGen/riscv32-abi.c                         | 430 ---------------------
+ test/CodeGen/riscv64-abi.c                         | 422 --------------------
  .../Inputs/multilib_riscv_linux_sdk/bin/.keep      |   0
  .../Inputs/multilib_riscv_linux_sdk/include/.keep  |   0
  .../gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o |   0
@@ -39,10 +39,11 @@ basis.
  test/Driver/frame-pointer.c                        |  12 -
  test/Driver/riscv-abi.c                            |  47 ---
  test/Driver/riscv-features.c                       |   4 -
+ test/Driver/riscv-gnutools.c                       |  19 -
  test/Driver/riscv32-toolchain.c                    | 122 ------
  test/Driver/riscv64-toolchain.c                    |  91 -----
- test/Preprocessor/init.c                           | 395 -------------------
- 37 files changed, 1 insertion(+), 2083 deletions(-)
+ test/Preprocessor/init.c                           | 417 --------------------
+ 38 files changed, 1 insertion(+), 2138 deletions(-)
  delete mode 100644 lib/Basic/Targets/RISCV.cpp
  delete mode 100644 lib/Basic/Targets/RISCV.h
  delete mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
@@ -68,6 +69,7 @@ basis.
  delete mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d/.keep
  delete mode 100644 test/Driver/riscv-abi.c
  delete mode 100644 test/Driver/riscv-features.c
+ delete mode 100644 test/Driver/riscv-gnutools.c
  delete mode 100644 test/Driver/riscv32-toolchain.c
  delete mode 100644 test/Driver/riscv64-toolchain.c
 
@@ -84,7 +86,7 @@ index 823b908184..d0c9b902f6 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index 931b8afb69..7deebc06c3 100644
+index e325403a1f..ae56f8bed2 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -29,7 +29,6 @@
@@ -95,13 +97,19 @@ index 931b8afb69..7deebc06c3 100644
  #include "Targets/SPIR.h"
  #include "Targets/Sparc.h"
  #include "Targets/SystemZ.h"
-@@ -371,11 +370,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -372,17 +371,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
    case llvm::Triple::r600:
      return new AMDGPUTargetInfo(Triple, Opts);
  
 -  case llvm::Triple::riscv32:
+-    // TODO: add cases for FreeBSD, NetBSD, RTEMS once tested.
+-    if (os == llvm::Triple::Linux)
+-      return new LinuxTargetInfo<RISCV32TargetInfo>(Triple, Opts);
 -    return new RISCV32TargetInfo(Triple, Opts);
 -  case llvm::Triple::riscv64:
+-    // TODO: add cases for FreeBSD, NetBSD, RTEMS once tested.
+-    if (os == llvm::Triple::Linux)
+-      return new LinuxTargetInfo<RISCV64TargetInfo>(Triple, Opts);
 -    return new RISCV64TargetInfo(Triple, Opts);
 -
    case llvm::Triple::sparc:
@@ -275,10 +283,10 @@ index b35afd736d..0000000000
 -
 -#endif // LLVM_CLANG_LIB_BASIC_TARGETS_RISCV_H
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index d9d44fa4c1..84719428ba 100644
+index aadbd3016b..98b72c7a73 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8770,182 +8770,6 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8762,182 +8762,6 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -461,18 +469,6 @@ index d9d44fa4c1..84719428ba 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -9060,11 +8884,6 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
-   case llvm::Triple::msp430:
-     return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
- 
--  case llvm::Triple::riscv32:
--    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 32));
--  case llvm::Triple::riscv64:
--    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 64));
--
-   case llvm::Triple::systemz: {
-     bool HasVector = getTarget().getABI() == "vector";
-     return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
 index afb1cdf375..5bf91f2be9 100644
 --- a/lib/Driver/CMakeLists.txt
@@ -591,7 +587,7 @@ index beda14979f..0000000000
 -
 -#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index 3d374a4c6f..5c536575da 100644
+index 3c08e88bcd..4fec4ef9db 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,7 +12,6 @@
@@ -637,7 +633,7 @@ index 3d374a4c6f..5c536575da 100644
    case llvm::Triple::systemz:
    case llvm::Triple::xcore:
      return false;
-@@ -1406,11 +1391,6 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
+@@ -1408,11 +1393,6 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
      AddPPCTargetArgs(Args, CmdArgs);
      break;
  
@@ -649,7 +645,7 @@ index 3d374a4c6f..5c536575da 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::sparcv9:
-@@ -1688,25 +1668,6 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
+@@ -1690,25 +1670,6 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
    }
  }
  
@@ -689,7 +685,7 @@ index 8893d88a8c..e23822b9c6 100644
                            llvm::opt::ArgStringList &CmdArgs) const;
    void AddSystemZTargetArgs(const llvm::opt::ArgList &Args,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index d7cc101a60..7845781f12 100644
+index 041bf78f7b..17cb675c89 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
 @@ -8,14 +8,13 @@
@@ -708,7 +704,7 @@ index d7cc101a60..7845781f12 100644
  #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  #include "clang/Driver/Compilation.h"
-@@ -272,10 +271,6 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+@@ -274,10 +273,6 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
      return "elf64ppc";
    case llvm::Triple::ppc64le:
      return "elf64lppc";
@@ -719,7 +715,26 @@ index d7cc101a60..7845781f12 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      return "elf32_sparc";
-@@ -861,10 +856,6 @@ static bool isMicroMips(const ArgList &Args) {
+@@ -629,18 +624,6 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
+       ppc::getPPCAsmModeForCPU(getCPUName(Args, getToolChain().getTriple())));
+     break;
+   }
+-  case llvm::Triple::riscv32:
+-  case llvm::Triple::riscv64: {
+-    StringRef ABIName = riscv::getRISCVABI(Args, getToolChain().getTriple());
+-    CmdArgs.push_back("-mabi");
+-    CmdArgs.push_back(ABIName.data());
+-    if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
+-      StringRef MArch = A->getValue();
+-      CmdArgs.push_back("-march");
+-      CmdArgs.push_back(MArch.data());
+-    }
+-    break;
+-  }
+   case llvm::Triple::sparc:
+   case llvm::Triple::sparcel: {
+     CmdArgs.push_back("-32");
+@@ -873,10 +856,6 @@ static bool isMicroMips(const ArgList &Args) {
    return A && A->getOption().matches(options::OPT_mmicromips);
  }
  
@@ -730,7 +745,7 @@ index d7cc101a60..7845781f12 100644
  static Multilib makeMultilib(StringRef commonSuffix) {
    return Multilib(commonSuffix, commonSuffix, commonSuffix);
  }
-@@ -1410,41 +1401,6 @@ static void findAndroidArmMultilibs(const Driver &D,
+@@ -1422,41 +1401,6 @@ static void findAndroidArmMultilibs(const Driver &D,
      Result.Multilibs = AndroidArmMultilibs;
  }
  
@@ -772,7 +787,7 @@ index d7cc101a60..7845781f12 100644
  static bool findBiarchMultilibs(const Driver &D,
                                  const llvm::Triple &TargetTriple,
                                  StringRef Path, const ArgList &Args,
-@@ -1827,10 +1783,6 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1895,10 +1839,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
        "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
        "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
  
@@ -783,7 +798,7 @@ index d7cc101a60..7845781f12 100644
    static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
    static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
                                                 "sparcv8-linux-gnu"};
-@@ -1976,12 +1928,6 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -2076,12 +2016,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
      LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
      TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
      break;
@@ -796,7 +811,7 @@ index d7cc101a60..7845781f12 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
-@@ -2079,8 +2025,6 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+@@ -2129,8 +2063,6 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
    } else if (tools::isMipsArch(TargetArch)) {
      if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
        return false;
@@ -805,7 +820,7 @@ index d7cc101a60..7845781f12 100644
    } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                    NeedsBiarchSuffix, Detected)) {
      return false;
-@@ -2296,8 +2240,6 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
+@@ -2342,8 +2274,6 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
    case llvm::Triple::ppc:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -815,7 +830,7 @@ index d7cc101a60..7845781f12 100644
    case llvm::Triple::mips:
    case llvm::Triple::mipsel:
 diff --git a/lib/Driver/ToolChains/Linux.cpp b/lib/Driver/ToolChains/Linux.cpp
-index 9ce2407d99..1301cdf114 100644
+index 4e9d0f1f9f..236591bb56 100644
 --- a/lib/Driver/ToolChains/Linux.cpp
 +++ b/lib/Driver/ToolChains/Linux.cpp
 @@ -11,7 +11,6 @@
@@ -878,11 +893,13 @@ index 9ce2407d99..1301cdf114 100644
      LibDir = "lib";
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 deleted file mode 100644
-index e32a8c258f..0000000000
+index 04eceb3a81..0000000000
 --- a/test/CodeGen/riscv32-abi.c
 +++ /dev/null
-@@ -1,426 +0,0 @@
+@@ -1,430 +0,0 @@
 -// RUN: %clang_cc1 -triple riscv32 -emit-llvm %s -o - | FileCheck %s
+-// RUN: %clang_cc1 -triple riscv32 -emit-llvm -fforce-enable-int128 %s -o - \
+-// RUN: | FileCheck %s -check-prefixes=CHECK,CHECK-FORCEINT128
 -
 -#include <stddef.h>
 -#include <stdint.h>
@@ -907,6 +924,11 @@ index e32a8c258f..0000000000
 -
 -// CHECK-LABEL: define i64 @f_scalar_4(i64 %x)
 -int64_t f_scalar_4(int64_t x) { return x; }
+-
+-#ifdef __SIZEOF_INT128__
+-// CHECK-FORCEINT128-LABEL: define i128 @f_scalar_5(i128 %x)
+-__int128_t f_scalar_5(__int128_t x) { return x; }
+-#endif
 -
 -// CHECK-LABEL: define float @f_fp_scalar_1(float %x)
 -float f_fp_scalar_1(float x) { return x; }
@@ -1153,8 +1175,7 @@ index e32a8c258f..0000000000
 -// correct offsets are used.
 -
 -// CHECK-LABEL: @f_va_2(
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[V:%.*]] = alloca double, align 8
 -// CHECK-NEXT:    store i8* [[FMT:%.*]], i8** [[FMT_ADDR]], align 4
@@ -1187,8 +1208,7 @@ index e32a8c258f..0000000000
 -// Two "aligned" register pairs.
 -
 -// CHECK-LABEL: @f_va_3(
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[V:%.*]] = alloca double, align 8
 -// CHECK-NEXT:    [[W:%.*]] = alloca i32, align 4
@@ -1241,8 +1261,7 @@ index e32a8c258f..0000000000
 -}
 -
 -// CHECK-LABEL: define i32 @f_va_4(i8* %fmt, ...) {{.*}} {
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 -// CHECK-NEXT:    [[V:%.*]] = alloca i32, align 4
 -// CHECK-NEXT:    [[LD:%.*]] = alloca fp128, align 16
@@ -1272,14 +1291,14 @@ index e32a8c258f..0000000000
 -// CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8* [[ARGP_CUR4]] to %struct.tiny*
 -// CHECK-NEXT:    [[TMP6:%.*]] = bitcast %struct.tiny* [[TS]] to i8*
 -// CHECK-NEXT:    [[TMP7:%.*]] = bitcast %struct.tiny* [[TMP5]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* [[TMP6]], i8* [[TMP7]], i32 4, i32 1, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 1 [[TMP6]], i8* align 4 [[TMP7]], i32 4, i1 false)
 -// CHECK-NEXT:    [[ARGP_CUR6:%.*]] = load i8*, i8** [[VA]], align 4
 -// CHECK-NEXT:    [[ARGP_NEXT7:%.*]] = getelementptr inbounds i8, i8* [[ARGP_CUR6]], i32 8
 -// CHECK-NEXT:    store i8* [[ARGP_NEXT7]], i8** [[VA]], align 4
 -// CHECK-NEXT:    [[TMP8:%.*]] = bitcast i8* [[ARGP_CUR6]] to %struct.small*
 -// CHECK-NEXT:    [[TMP9:%.*]] = bitcast %struct.small* [[SS]] to i8*
 -// CHECK-NEXT:    [[TMP10:%.*]] = bitcast %struct.small* [[TMP8]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* [[TMP9]], i8* [[TMP10]], i32 8, i32 4, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 [[TMP9]], i8* align 4 [[TMP10]], i32 8, i1 false)
 -// CHECK-NEXT:    [[ARGP_CUR8:%.*]] = load i8*, i8** [[VA]], align 4
 -// CHECK-NEXT:    [[ARGP_NEXT9:%.*]] = getelementptr inbounds i8, i8* [[ARGP_CUR8]], i32 4
 -// CHECK-NEXT:    store i8* [[ARGP_NEXT9]], i8** [[VA]], align 4
@@ -1287,7 +1306,7 @@ index e32a8c258f..0000000000
 -// CHECK-NEXT:    [[TMP12:%.*]] = load %struct.large*, %struct.large** [[TMP11]], align 4
 -// CHECK-NEXT:    [[TMP13:%.*]] = bitcast %struct.large* [[LS]] to i8*
 -// CHECK-NEXT:    [[TMP14:%.*]] = bitcast %struct.large* [[TMP12]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* [[TMP13]], i8* [[TMP14]], i32 16, i32 4, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 [[TMP13]], i8* align 4 [[TMP14]], i32 16, i1 false)
 -// CHECK-NEXT:    [[VA10:%.*]] = bitcast i8** [[VA]] to i8*
 -// CHECK-NEXT:    call void @llvm.va_end(i8* [[VA10]])
 -int f_va_4(char *fmt, ...) {
@@ -1310,10 +1329,10 @@ index e32a8c258f..0000000000
 -}
 diff --git a/test/CodeGen/riscv64-abi.c b/test/CodeGen/riscv64-abi.c
 deleted file mode 100644
-index 90bc54f071..0000000000
+index 7a0f065fb4..0000000000
 --- a/test/CodeGen/riscv64-abi.c
 +++ /dev/null
-@@ -1,425 +0,0 @@
+@@ -1,422 +0,0 @@
 -// RUN: %clang_cc1 -triple riscv64 -emit-llvm %s -o - | FileCheck %s
 -
 -#include <stddef.h>
@@ -1583,8 +1602,7 @@ index 90bc54f071..0000000000
 -// correct offsets are used.
 -
 -// CHECK-LABEL: @f_va_2(
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[V:%.*]] = alloca fp128, align 16
 -// CHECK-NEXT:    store i8* [[FMT:%.*]], i8** [[FMT_ADDR]], align 8
@@ -1617,8 +1635,7 @@ index 90bc54f071..0000000000
 -// Two "aligned" register pairs.
 -
 -// CHECK-LABEL: @f_va_3(
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[V:%.*]] = alloca fp128, align 16
 -// CHECK-NEXT:    [[W:%.*]] = alloca i32, align 4
@@ -1671,8 +1688,7 @@ index 90bc54f071..0000000000
 -}
 -
 -// CHECK-LABEL: @f_va_4(
--// CHECK-NEXT:  entry:
--// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
+-// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 -// CHECK-NEXT:    [[V:%.*]] = alloca i32, align 4
 -// CHECK-NEXT:    [[TS:%.*]] = alloca [[STRUCT_TINY:%.*]], align 2
@@ -1694,14 +1710,14 @@ index 90bc54f071..0000000000
 -// CHECK-NEXT:    [[TMP2:%.*]] = bitcast i8* [[ARGP_CUR2]] to %struct.tiny*
 -// CHECK-NEXT:    [[TMP3:%.*]] = bitcast %struct.tiny* [[TS]] to i8*
 -// CHECK-NEXT:    [[TMP4:%.*]] = bitcast %struct.tiny* [[TMP2]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[TMP3]], i8* [[TMP4]], i64 8, i32 2, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 [[TMP3]], i8* align 8 [[TMP4]], i64 8, i1 false)
 -// CHECK-NEXT:    [[ARGP_CUR4:%.*]] = load i8*, i8** [[VA]], align 8
 -// CHECK-NEXT:    [[ARGP_NEXT5:%.*]] = getelementptr inbounds i8, i8* [[ARGP_CUR4]], i64 16
 -// CHECK-NEXT:    store i8* [[ARGP_NEXT5]], i8** [[VA]], align 8
 -// CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8* [[ARGP_CUR4]] to %struct.small*
 -// CHECK-NEXT:    [[TMP6:%.*]] = bitcast %struct.small* [[SS]] to i8*
 -// CHECK-NEXT:    [[TMP7:%.*]] = bitcast %struct.small* [[TMP5]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[TMP6]], i8* [[TMP7]], i64 16, i32 8, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[TMP6]], i8* align 8 [[TMP7]], i64 16, i1 false)
 -// CHECK-NEXT:    [[ARGP_CUR6:%.*]] = load i8*, i8** [[VA]], align 8
 -// CHECK-NEXT:    [[ARGP_NEXT7:%.*]] = getelementptr inbounds i8, i8* [[ARGP_CUR6]], i64 8
 -// CHECK-NEXT:    store i8* [[ARGP_NEXT7]], i8** [[VA]], align 8
@@ -1709,7 +1725,7 @@ index 90bc54f071..0000000000
 -// CHECK-NEXT:    [[TMP9:%.*]] = load %struct.large*, %struct.large** [[TMP8]], align 8
 -// CHECK-NEXT:    [[TMP10:%.*]] = bitcast %struct.large* [[LS]] to i8*
 -// CHECK-NEXT:    [[TMP11:%.*]] = bitcast %struct.large* [[TMP9]] to i8*
--// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* [[TMP10]], i8* [[TMP11]], i64 32, i32 8, i1 false)
+-// CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[TMP10]], i8* align 8 [[TMP11]], i64 32, i1 false)
 -// CHECK-NEXT:    [[VA8:%.*]] = bitcast i8** [[VA]] to i8*
 -// CHECK-NEXT:    call void @llvm.va_end(i8* [[VA8]])
 -// CHECK-NEXT:    [[A:%.*]] = getelementptr inbounds [[STRUCT_TINY]], %struct.tiny* [[TS]], i32 0, i32 0
@@ -1880,9 +1896,34 @@ index 565596cdd3..0000000000
 -// RUN: %clang -target riscv64-unknown-elf -### %s -fsyntax-only 2>&1 | FileCheck %s
 -
 -// CHECK: fno-signed-char
+diff --git a/test/Driver/riscv-gnutools.c b/test/Driver/riscv-gnutools.c
+deleted file mode 100644
+index afcb5052aa..0000000000
+--- a/test/Driver/riscv-gnutools.c
++++ /dev/null
+@@ -1,19 +0,0 @@
+-// Check gnutools are invoked with propagated values for -mabi and -march.
+-
+-// RUN: %clang -target riscv32 -fno-integrated-as %s -###  -c \
+-// RUN: 2>&1 | FileCheck -check-prefix=MABI-ILP32 %s
+-
+-// RUN: %clang -target riscv32 -fno-integrated-as -march=rv32g %s -### -c \
+-// RUN: 2>&1 | FileCheck -check-prefix=MABI-ILP32-MARCH-G %s
+-
+-// RUN: %clang -target riscv64 -fno-integrated-as %s -###  -c \
+-// RUN: 2>&1 | FileCheck -check-prefix=MABI-ILP64 %s
+-
+-// RUN: %clang -target riscv64 -fno-integrated-as -march=rv64g %s -### -c \
+-// RUN: 2>&1 | FileCheck -check-prefix=MABI-ILP64-MARCH-G %s
+-
+-// MABI-ILP32: "{{.*}}as{{(.exe)?}}" "-mabi" "ilp32"
+-// MABI-ILP32-MARCH-G: "{{.*}}as{{(.exe)?}}" "-mabi" "ilp32" "-march" "rv32g"
+-
+-// MABI-ILP64: "{{.*}}as{{(.exe)?}}" "-mabi" "lp64"
+-// MABI-ILP64-MARCH-G: "{{.*}}as{{(.exe)?}}" "-mabi" "lp64" "-march" "rv64g"
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
 deleted file mode 100644
-index 3839f8e59c..0000000000
+index 36ba4b6df3..0000000000
 --- a/test/Driver/riscv32-toolchain.c
 +++ /dev/null
 @@ -1,122 +0,0 @@
@@ -1929,37 +1970,37 @@ index 3839f8e59c..0000000000
 -typedef __PTRDIFF_TYPE__ ptrdiff_t;
 -typedef __WCHAR_TYPE__ wchar_t;
 -
--// CHECK: @align_c = global i32 1
+-// CHECK: @align_c = dso_local global i32 1
 -int align_c = __alignof(char);
 -
--// CHECK: @align_s = global i32 2
+-// CHECK: @align_s = dso_local global i32 2
 -int align_s = __alignof(short);
 -
--// CHECK: @align_i = global i32 4
+-// CHECK: @align_i = dso_local global i32 4
 -int align_i = __alignof(int);
 -
--// CHECK: @align_wc = global i32 4
+-// CHECK: @align_wc = dso_local global i32 4
 -int align_wc = __alignof(wchar_t);
 -
--// CHECK: @align_l = global i32 4
+-// CHECK: @align_l = dso_local global i32 4
 -int align_l = __alignof(long);
 -
--// CHECK: @align_ll = global i32 8
+-// CHECK: @align_ll = dso_local global i32 8
 -int align_ll = __alignof(long long);
 -
--// CHECK: @align_p = global i32 4
+-// CHECK: @align_p = dso_local global i32 4
 -int align_p = __alignof(void*);
 -
--// CHECK: @align_f = global i32 4
+-// CHECK: @align_f = dso_local global i32 4
 -int align_f = __alignof(float);
 -
--// CHECK: @align_d = global i32 8
+-// CHECK: @align_d = dso_local global i32 8
 -int align_d = __alignof(double);
 -
--// CHECK: @align_ld = global i32 16
+-// CHECK: @align_ld = dso_local global i32 16
 -int align_ld = __alignof(long double);
 -
--// CHECK: @align_vl = global i32 4
+-// CHECK: @align_vl = dso_local global i32 4
 -int align_vl = __alignof(va_list);
 -
 -// Check types
@@ -1967,50 +2008,50 @@ index 3839f8e59c..0000000000
 -// CHECK: zeroext i8 @check_char()
 -char check_char() { return 0; }
 -
--// CHECK: define signext i16 @check_short()
+-// CHECK: define dso_local signext i16 @check_short()
 -short check_short() { return 0; }
 -
--// CHECK: define i32 @check_int()
+-// CHECK: define dso_local i32 @check_int()
 -int check_int() { return 0; }
 -
--// CHECK: define i32 @check_wchar_t()
+-// CHECK: define dso_local i32 @check_wchar_t()
 -int check_wchar_t() { return 0; }
 -
--// CHECK: define i32 @check_long()
+-// CHECK: define dso_local i32 @check_long()
 -long check_long() { return 0; }
 -
--// CHECK: define i64 @check_longlong()
+-// CHECK: define dso_local i64 @check_longlong()
 -long long check_longlong() { return 0; }
 -
--// CHECK: define zeroext i8 @check_uchar()
+-// CHECK: define dso_local zeroext i8 @check_uchar()
 -unsigned char check_uchar() { return 0; }
 -
--// CHECK: define zeroext i16 @check_ushort()
+-// CHECK: define dso_local zeroext i16 @check_ushort()
 -unsigned short check_ushort() { return 0; }
 -
--// CHECK: define i32 @check_uint()
+-// CHECK: define dso_local i32 @check_uint()
 -unsigned int check_uint() { return 0; }
 -
--// CHECK: define i32 @check_ulong()
+-// CHECK: define dso_local i32 @check_ulong()
 -unsigned long check_ulong() { return 0; }
 -
--// CHECK: define i64 @check_ulonglong()
+-// CHECK: define dso_local i64 @check_ulonglong()
 -unsigned long long check_ulonglong() { return 0; }
 -
--// CHECK: define i32 @check_size_t()
+-// CHECK: define dso_local i32 @check_size_t()
 -size_t check_size_t() { return 0; }
 -
--// CHECK: define float @check_float()
+-// CHECK: define dso_local float @check_float()
 -float check_float() { return 0; }
 -
--// CHECK: define double @check_double()
+-// CHECK: define dso_local double @check_double()
 -double check_double() { return 0; }
 -
--// CHECK: define fp128 @check_longdouble()
+-// CHECK: define dso_local fp128 @check_longdouble()
 -long double check_longdouble() { return 0; }
 diff --git a/test/Driver/riscv64-toolchain.c b/test/Driver/riscv64-toolchain.c
 deleted file mode 100644
-index 8a3f3228ed..0000000000
+index 44dcc937df..0000000000
 --- a/test/Driver/riscv64-toolchain.c
 +++ /dev/null
 @@ -1,91 +0,0 @@
@@ -2026,95 +2067,100 @@ index 8a3f3228ed..0000000000
 -typedef __PTRDIFF_TYPE__ ptrdiff_t;
 -typedef __WCHAR_TYPE__ wchar_t;
 -
--// CHECK: @align_c = global i32 1
+-// CHECK: @align_c = dso_local global i32 1
 -int align_c = __alignof(char);
 -
--// CHECK: @align_s = global i32 2
+-// CHECK: @align_s = dso_local global i32 2
 -int align_s = __alignof(short);
 -
--// CHECK: @align_i = global i32 4
+-// CHECK: @align_i = dso_local global i32 4
 -int align_i = __alignof(int);
 -
--// CHECK: @align_wc = global i32 4
+-// CHECK: @align_wc = dso_local global i32 4
 -int align_wc = __alignof(wchar_t);
 -
--// CHECK: @align_l = global i32 8
+-// CHECK: @align_l = dso_local global i32 8
 -int align_l = __alignof(long);
 -
--// CHECK: @align_ll = global i32 8
+-// CHECK: @align_ll = dso_local global i32 8
 -int align_ll = __alignof(long long);
 -
--// CHECK: @align_p = global i32 8
+-// CHECK: @align_p = dso_local global i32 8
 -int align_p = __alignof(void*);
 -
--// CHECK: @align_f = global i32 4
+-// CHECK: @align_f = dso_local global i32 4
 -int align_f = __alignof(float);
 -
--// CHECK: @align_d = global i32 8
+-// CHECK: @align_d = dso_local global i32 8
 -int align_d = __alignof(double);
 -
--// CHECK: @align_ld = global i32 16
+-// CHECK: @align_ld = dso_local global i32 16
 -int align_ld = __alignof(long double);
 -
--// CHECK: @align_vl = global i32 8
+-// CHECK: @align_vl = dso_local global i32 8
 -int align_vl = __alignof(va_list);
 -
 -// Check types
 -
--// CHECK: define zeroext i8 @check_char()
+-// CHECK: define dso_local zeroext i8 @check_char()
 -char check_char() { return 0; }
 -
--// CHECK: define signext i16 @check_short()
+-// CHECK: define dso_local signext i16 @check_short()
 -short check_short() { return 0; }
 -
--// CHECK: define signext i32 @check_int()
+-// CHECK: define dso_local signext i32 @check_int()
 -int check_int() { return 0; }
 -
--// CHECK: define signext i32 @check_wchar_t()
+-// CHECK: define dso_local signext i32 @check_wchar_t()
 -int check_wchar_t() { return 0; }
 -
--// CHECK: define i64 @check_long()
+-// CHECK: define dso_local i64 @check_long()
 -long check_long() { return 0; }
 -
--// CHECK: define i64 @check_longlong()
+-// CHECK: define dso_local i64 @check_longlong()
 -long long check_longlong() { return 0; }
 -
--// CHECK: define zeroext i8 @check_uchar()
+-// CHECK: define dso_local zeroext i8 @check_uchar()
 -unsigned char check_uchar() { return 0; }
 -
--// CHECK: define zeroext i16 @check_ushort()
+-// CHECK: define dso_local zeroext i16 @check_ushort()
 -unsigned short check_ushort() { return 0; }
 -
--// CHECK: define signext i32 @check_uint()
+-// CHECK: define dso_local signext i32 @check_uint()
 -unsigned int check_uint() { return 0; }
 -
--// CHECK: define i64 @check_ulong()
+-// CHECK: define dso_local i64 @check_ulong()
 -unsigned long check_ulong() { return 0; }
 -
--// CHECK: define i64 @check_ulonglong()
+-// CHECK: define dso_local i64 @check_ulonglong()
 -unsigned long long check_ulonglong() { return 0; }
 -
--// CHECK: define i64 @check_size_t()
+-// CHECK: define dso_local i64 @check_size_t()
 -size_t check_size_t() { return 0; }
 -
--// CHECK: define float @check_float()
+-// CHECK: define dso_local float @check_float()
 -float check_float() { return 0; }
 -
--// CHECK: define double @check_double()
+-// CHECK: define dso_local double @check_double()
 -double check_double() { return 0; }
 -
--// CHECK: define fp128 @check_longdouble()
+-// CHECK: define dso_local fp128 @check_longdouble()
 -long double check_longdouble() { return 0; }
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index 5f3fe7a327..51e1233456 100644
+index 1b4f500742..9fd39e6006 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
-@@ -10003,398 +10003,3 @@
+@@ -10006,420 +10006,3 @@
  // ARM-DARWIN-BAREMETAL-64: #define __PTRDIFF_TYPE__ long int
  // ARM-DARWIN-BAREMETAL-64: #define __SIZE_TYPE__ long unsigned int
  
 -// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv32 < /dev/null \
 -// RUN:   | FileCheck -match-full-lines -check-prefix=RISCV32 %s
+-// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv32-unknown-linux < /dev/null \
+-// RUN:   | FileCheck -match-full-lines -check-prefixes=RISCV32,RISCV32-LINUX %s
+-// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv32 \
+-// RUN: -fforce-enable-int128 < /dev/null | FileCheck -match-full-lines \
+-// RUN: -check-prefixes=RISCV32,RISCV32-INT128 %s
 -// RISCV32: #define _ILP32 1
 -// RISCV32: #define __ATOMIC_ACQUIRE 2
 -// RISCV32: #define __ATOMIC_ACQ_REL 4
@@ -2244,6 +2290,7 @@ index 5f3fe7a327..51e1233456 100644
 -// RISCV32: #define __SIG_ATOMIC_WIDTH__ 32
 -// RISCV32: #define __SIZEOF_DOUBLE__ 8
 -// RISCV32: #define __SIZEOF_FLOAT__ 4
+-// RISCV32-INT128: #define __SIZEOF_INT128__ 16
 -// RISCV32: #define __SIZEOF_INT__ 4
 -// RISCV32: #define __SIZEOF_LONG_DOUBLE__ 16
 -// RISCV32: #define __SIZEOF_LONG_LONG__ 8
@@ -2306,13 +2353,22 @@ index 5f3fe7a327..51e1233456 100644
 -// RISCV32: #define __WINT_TYPE__ unsigned int
 -// RISCV32: #define __WINT_UNSIGNED__ 1
 -// RISCV32: #define __WINT_WIDTH__ 32
+-// RISCV32-LINUX: #define __gnu_linux__ 1
+-// RISCV32-LINUX: #define __linux 1
+-// RISCV32-LINUX: #define __linux__ 1
 -// RISCV32: #define __riscv 1
 -// RISCV32: #define __riscv_cmodel_medlow 1
 -// RISCV32: #define __riscv_float_abi_soft 1
 -// RISCV32: #define __riscv_xlen 32
+-// RISCV32-LINUX: #define __unix 1
+-// RISCV32-LINUX: #define __unix__ 1
+-// RISCV32-LINUX: #define linux 1
+-// RISCV32-LINUX: #define unix 1
 -
 -// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv64 < /dev/null \
 -// RUN:   | FileCheck -match-full-lines -check-prefix=RISCV64 %s
+-// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv64-unknown-linux < /dev/null \
+-// RUN:   | FileCheck -match-full-lines -check-prefixes=RISCV64,RISCV64-LINUX %s
 -// RISCV64: #define _LP64 1
 -// RISCV64: #define __ATOMIC_ACQUIRE 2
 -// RISCV64: #define __ATOMIC_ACQ_REL 4
@@ -2504,10 +2560,17 @@ index 5f3fe7a327..51e1233456 100644
 -// RISCV64: #define __WINT_TYPE__ unsigned int
 -// RISCV64: #define __WINT_UNSIGNED__ 1
 -// RISCV64: #define __WINT_WIDTH__ 32
+-// RISCV64-LINUX: #define __gnu_linux__ 1
+-// RISCV64-LINUX: #define __linux 1
+-// RISCV64-LINUX: #define __linux__ 1
 -// RISCV64: #define __riscv 1
 -// RISCV64: #define __riscv_cmodel_medlow 1
 -// RISCV64: #define __riscv_float_abi_soft 1
 -// RISCV64: #define __riscv_xlen 64
+-// RISCV64-LINUX: #define __unix 1
+-// RISCV64-LINUX: #define __unix__ 1
+-// RISCV64-LINUX: #define linux 1
+-// RISCV64-LINUX: #define unix 1
 -- 
-2.15.1
+2.16.2
 

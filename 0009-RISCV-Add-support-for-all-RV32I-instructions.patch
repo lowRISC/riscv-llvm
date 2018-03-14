@@ -865,5 +865,5 @@ index fc89cd42016..4c883e9a0ae 100644
 +# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 +csrrci t1, 0x140, 5
 -- 
-2.15.1
+2.16.2
 

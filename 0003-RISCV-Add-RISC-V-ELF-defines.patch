@@ -32,7 +32,7 @@ https://reviews.llvm.org/D38311
  create mode 100644 test/Object/RISCV/lit.local.cfg
 
 diff --git a/include/llvm/BinaryFormat/ELF.h b/include/llvm/BinaryFormat/ELF.h
-index dab21b558f3..c902972d93b 100644
+index 38090afb0c3..a2321e72c98 100644
 --- a/include/llvm/BinaryFormat/ELF.h
 +++ b/include/llvm/BinaryFormat/ELF.h
 @@ -309,6 +309,7 @@ enum {
@@ -132,7 +132,7 @@ index 00000000000..5cc4c0ec302
 +ELF_RELOC(R_RISCV_SET32,             56)
 +ELF_RELOC(R_RISCV_32_PCREL,          57)
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index c39a7448dbc..32aabec952a 100644
+index 5eda163acfc..9c691e1c283 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
 @@ -981,6 +981,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
@@ -182,7 +182,7 @@ index de27c5f62bd..d8b07c4f54d 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/Object/ELF.cpp b/lib/Object/ELF.cpp
-index 3ad5795b66f..5906dc5f530 100644
+index 2b9244c3c7c..92a64f48924 100644
 --- a/lib/Object/ELF.cpp
 +++ b/lib/Object/ELF.cpp
 @@ -102,6 +102,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
@@ -200,7 +200,7 @@ index 3ad5795b66f..5906dc5f530 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index ccd1cbbc209..7e7f3d1fdde 100644
+index 084eafc03c0..928b7b2b1c2 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -213,6 +213,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -224,9 +224,9 @@ index ccd1cbbc209..7e7f3d1fdde 100644
 +    BCase(EF_RISCV_RVE);
 +    break;
    case ELF::EM_AMDGPU:
-     BCaseMask(EF_AMDGPU_ARCH_R600, EF_AMDGPU_ARCH);
-     BCaseMask(EF_AMDGPU_ARCH_GCN, EF_AMDGPU_ARCH);
-@@ -586,6 +595,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
+     BCaseMask(EF_AMDGPU_MACH_NONE, EF_AMDGPU_MACH);
+     BCaseMask(EF_AMDGPU_MACH_R600_R600, EF_AMDGPU_MACH);
+@@ -616,6 +625,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
    case ELF::EM_ARC:
  #include "llvm/BinaryFormat/ELFRelocs/ARC.def"
      break;
@@ -275,10 +275,10 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 diff --git a/tools/llvm-objdump/llvm-objdump.cpp b/tools/llvm-objdump/llvm-objdump.cpp
-index 6316840cc05..3a9112423cf 100644
+index 9f590ad8018..3be2c423bb5 100644
 --- a/tools/llvm-objdump/llvm-objdump.cpp
 +++ b/tools/llvm-objdump/llvm-objdump.cpp
-@@ -750,6 +750,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
+@@ -756,6 +756,7 @@ static std::error_code getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
    case ELF::EM_HEXAGON:
    case ELF::EM_MIPS:
    case ELF::EM_BPF:
@@ -287,10 +287,10 @@ index 6316840cc05..3a9112423cf 100644
      break;
    case ELF::EM_WEBASSEMBLY:
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index fd082b23334..dfc5560cc7a 100644
+index ac8747a2f32..36cda459225 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
-@@ -1006,6 +1006,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
+@@ -1011,6 +1011,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
    ENUM_ENT(EM_78KOR,         "EM_78KOR"),
    ENUM_ENT(EM_56800EX,       "EM_56800EX"),
    ENUM_ENT(EM_AMDGPU,        "EM_AMDGPU"),
@@ -298,8 +298,8 @@ index fd082b23334..dfc5560cc7a 100644
    ENUM_ENT(EM_WEBASSEMBLY,   "EM_WEBASSEMBLY"),
    ENUM_ENT(EM_LANAI,         "EM_LANAI"),
    ENUM_ENT(EM_BPF,           "EM_BPF"),
-@@ -1259,6 +1260,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
-   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_ARCH_GCN)
+@@ -1292,6 +1293,14 @@ static const EnumEntry<unsigned> ElfHeaderAMDGPUFlags[] = {
+   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_XNACK)
  };
  
 +static const EnumEntry<unsigned> ElfHeaderRISCVFlags[] = {
@@ -313,15 +313,15 @@ index fd082b23334..dfc5560cc7a 100644
  static const EnumEntry<unsigned> ElfSymOtherFlags[] = {
    LLVM_READOBJ_ENUM_ENT(ELF, STV_INTERNAL),
    LLVM_READOBJ_ENUM_ENT(ELF, STV_HIDDEN),
-@@ -3703,6 +3712,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
+@@ -3747,6 +3756,8 @@ template <class ELFT> void LLVMStyle<ELFT>::printFileHeaders(const ELFO *Obj) {
      else if (e->e_machine == EM_AMDGPU)
        W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderAMDGPUFlags),
-                    unsigned(ELF::EF_AMDGPU_ARCH));
+                    unsigned(ELF::EF_AMDGPU_MACH));
 +    else if (e->e_machine == EM_RISCV)
 +      W.printFlags("Flags", e->e_flags, makeArrayRef(ElfHeaderRISCVFlags));
      else
        W.printFlags("Flags", e->e_flags);
      W.printNumber("HeaderSize", e->e_ehsize);
 -- 
-2.15.1
+2.16.2
 

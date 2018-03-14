@@ -122,5 +122,5 @@ index 00000000000..e24fd250d43
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fcvt.lu.d a1, ft1, rup
 -- 
-2.15.1
+2.16.2
 

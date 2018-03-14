@@ -28,7 +28,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVCallingConv.td    |  29 +++++
  lib/Target/RISCV/RISCVFrameLowering.cpp |  29 +++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  35 ++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  63 +++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  60 +++++++++++
  lib/Target/RISCV/RISCVISelLowering.cpp  | 170 +++++++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h    |  62 +++++++++++
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
@@ -44,7 +44,7 @@ Differential Revision: https://reviews.llvm.org/D29933
  lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
  test/CodeGen/RISCV/alu32.ll             | 183 ++++++++++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
- 24 files changed, 1123 insertions(+), 11 deletions(-)
+ 24 files changed, 1120 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
  create mode 100644 lib/Target/RISCV/RISCVAsmPrinter.cpp
  create mode 100644 lib/Target/RISCV/RISCVCallingConv.td
@@ -356,10 +356,10 @@ index 00000000000..71f85864a39
 +#endif
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 new file mode 100644
-index 00000000000..78f61fa4184
+index 00000000000..6ce7a163f2f
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,60 @@
 +//===-- RISCVISelDAGToDAG.cpp - A dag to dag inst selector for RISCV ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -404,9 +404,6 @@ index 00000000000..78f61fa4184
 +}
 +
 +void RISCVDAGToDAGISel::Select(SDNode *Node) {
-+  // Dump information about the Node being selected.
-+  DEBUG(dbgs() << "Selecting: "; Node->dump(CurDAG); dbgs() << "\n");
-+
 +  // If we have a custom node, we have already selected
 +  if (Node->isMachineOpcode()) {
 +    DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
@@ -1431,5 +1428,5 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 -- 
-2.15.1
+2.16.2
 

@@ -8,15 +8,15 @@ support (RV64 to follow).
 Differential Revision: https://reviews.llvm.org/D39963
 ---
  lib/Basic/CMakeLists.txt                           |   1 +
- lib/Basic/Targets.cpp                              |   6 +
+ lib/Basic/Targets.cpp                              |  12 +
  lib/Basic/Targets/RISCV.cpp                        |  52 +++
- lib/Basic/Targets/RISCV.h                          | 103 ++++++
+ lib/Basic/Targets/RISCV.h                          | 103 +++++
  lib/Driver/CMakeLists.txt                          |   1 +
- lib/Driver/ToolChains/Arch/RISCV.cpp               |  61 ++++
+ lib/Driver/ToolChains/Arch/RISCV.cpp               |  61 +++
  lib/Driver/ToolChains/Arch/RISCV.h                 |  32 ++
  lib/Driver/ToolChains/Clang.cpp                    |  39 ++
  lib/Driver/ToolChains/Clang.h                      |   2 +
- lib/Driver/ToolChains/Gnu.cpp                      |  60 +++-
+ lib/Driver/ToolChains/Gnu.cpp                      |  60 ++-
  lib/Driver/ToolChains/Linux.cpp                    |  23 ++
  .../Inputs/multilib_riscv_linux_sdk/bin/.keep      |   0
  .../Inputs/multilib_riscv_linux_sdk/include/.keep  |   0
@@ -40,8 +40,8 @@ Differential Revision: https://reviews.llvm.org/D39963
  test/Driver/riscv-features.c                       |   4 +
  test/Driver/riscv32-toolchain.c                    |  75 ++++
  test/Driver/riscv64-toolchain.c                    |  44 +++
- test/Preprocessor/init.c                           | 395 +++++++++++++++++++++
- 34 files changed, 957 insertions(+), 1 deletion(-)
+ test/Preprocessor/init.c                           | 413 +++++++++++++++++++++
+ 34 files changed, 981 insertions(+), 1 deletion(-)
  create mode 100644 lib/Basic/Targets/RISCV.cpp
  create mode 100644 lib/Basic/Targets/RISCV.h
  create mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
@@ -81,7 +81,7 @@ index d0c9b902f6..823b908184 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index 7deebc06c3..931b8afb69 100644
+index ae56f8bed2..e325403a1f 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -29,6 +29,7 @@
@@ -92,13 +92,19 @@ index 7deebc06c3..931b8afb69 100644
  #include "Targets/SPIR.h"
  #include "Targets/Sparc.h"
  #include "Targets/SystemZ.h"
-@@ -370,6 +371,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -371,6 +372,17 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
    case llvm::Triple::r600:
      return new AMDGPUTargetInfo(Triple, Opts);
  
 +  case llvm::Triple::riscv32:
++    // TODO: add cases for FreeBSD, NetBSD, RTEMS once tested.
++    if (os == llvm::Triple::Linux)
++      return new LinuxTargetInfo<RISCV32TargetInfo>(Triple, Opts);
 +    return new RISCV32TargetInfo(Triple, Opts);
 +  case llvm::Triple::riscv64:
++    // TODO: add cases for FreeBSD, NetBSD, RTEMS once tested.
++    if (os == llvm::Triple::Linux)
++      return new LinuxTargetInfo<RISCV64TargetInfo>(Triple, Opts);
 +    return new RISCV64TargetInfo(Triple, Opts);
 +
    case llvm::Triple::sparc:
@@ -389,7 +395,7 @@ index 0000000000..beda14979f
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index 5c536575da..3d374a4c6f 100644
+index 4fec4ef9db..3c08e88bcd 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,6 +12,7 @@
@@ -435,7 +441,7 @@ index 5c536575da..3d374a4c6f 100644
    case llvm::Triple::systemz:
    case llvm::Triple::xcore:
      return false;
-@@ -1391,6 +1406,11 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
+@@ -1393,6 +1408,11 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
      AddPPCTargetArgs(Args, CmdArgs);
      break;
  
@@ -447,7 +453,7 @@ index 5c536575da..3d374a4c6f 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::sparcv9:
-@@ -1668,6 +1688,25 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
+@@ -1670,6 +1690,25 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
    }
  }
  
@@ -487,7 +493,7 @@ index e23822b9c6..8893d88a8c 100644
                            llvm::opt::ArgStringList &CmdArgs) const;
    void AddSystemZTargetArgs(const llvm::opt::ArgList &Args,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index 7845781f12..d7cc101a60 100644
+index 17cb675c89..fa5cfa0a0c 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
 @@ -8,13 +8,14 @@
@@ -506,7 +512,7 @@ index 7845781f12..d7cc101a60 100644
  #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  #include "clang/Driver/Compilation.h"
-@@ -271,6 +272,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+@@ -273,6 +274,10 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
      return "elf64ppc";
    case llvm::Triple::ppc64le:
      return "elf64lppc";
@@ -570,7 +576,7 @@ index 7845781f12..d7cc101a60 100644
  static bool findBiarchMultilibs(const Driver &D,
                                  const llvm::Triple &TargetTriple,
                                  StringRef Path, const ArgList &Args,
-@@ -1783,6 +1827,10 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1839,6 +1883,10 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
        "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
        "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
  
@@ -581,7 +587,7 @@ index 7845781f12..d7cc101a60 100644
    static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
    static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
                                                 "sparcv8-linux-gnu"};
-@@ -1928,6 +1976,12 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -2016,6 +2064,12 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
      LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
      TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
      break;
@@ -594,7 +600,7 @@ index 7845781f12..d7cc101a60 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
-@@ -2025,6 +2079,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+@@ -2063,6 +2117,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
    } else if (tools::isMipsArch(TargetArch)) {
      if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
        return false;
@@ -603,7 +609,7 @@ index 7845781f12..d7cc101a60 100644
    } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                    NeedsBiarchSuffix, Detected)) {
      return false;
-@@ -2240,6 +2296,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
+@@ -2274,6 +2330,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
    case llvm::Triple::ppc:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -613,7 +619,7 @@ index 7845781f12..d7cc101a60 100644
    case llvm::Triple::mips:
    case llvm::Triple::mipsel:
 diff --git a/lib/Driver/ToolChains/Linux.cpp b/lib/Driver/ToolChains/Linux.cpp
-index 1301cdf114..9ce2407d99 100644
+index 236591bb56..4e9d0f1f9f 100644
 --- a/lib/Driver/ToolChains/Linux.cpp
 +++ b/lib/Driver/ToolChains/Linux.cpp
 @@ -11,6 +11,7 @@
@@ -947,15 +953,17 @@ index 0000000000..5c7d76006c
 +// CHECK: @align_vl = global i32 8
 +int align_vl = __alignof(va_list);
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index 51e1233456..5f3fe7a327 100644
+index 9fd39e6006..eaa0506a91 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
-@@ -10003,3 +10003,398 @@
+@@ -10006,3 +10006,416 @@
  // ARM-DARWIN-BAREMETAL-64: #define __PTRDIFF_TYPE__ long int
  // ARM-DARWIN-BAREMETAL-64: #define __SIZE_TYPE__ long unsigned int
  
 +// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv32 < /dev/null \
 +// RUN:   | FileCheck -match-full-lines -check-prefix=RISCV32 %s
++// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv32-unknown-linux < /dev/null \
++// RUN:   | FileCheck -match-full-lines -check-prefixes=RISCV32,RISCV32-LINUX %s
 +// RISCV32: #define _ILP32 1
 +// RISCV32: #define __ATOMIC_ACQUIRE 2
 +// RISCV32: #define __ATOMIC_ACQ_REL 4
@@ -1147,13 +1155,22 @@ index 51e1233456..5f3fe7a327 100644
 +// RISCV32: #define __WINT_TYPE__ unsigned int
 +// RISCV32: #define __WINT_UNSIGNED__ 1
 +// RISCV32: #define __WINT_WIDTH__ 32
++// RISCV32-LINUX: #define __gnu_linux__ 1
++// RISCV32-LINUX: #define __linux 1
++// RISCV32-LINUX: #define __linux__ 1
 +// RISCV32: #define __riscv 1
 +// RISCV32: #define __riscv_cmodel_medlow 1
 +// RISCV32: #define __riscv_float_abi_soft 1
 +// RISCV32: #define __riscv_xlen 32
++// RISCV32-LINUX: #define __unix 1
++// RISCV32-LINUX: #define __unix__ 1
++// RISCV32-LINUX: #define linux 1
++// RISCV32-LINUX: #define unix 1
 +
 +// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv64 < /dev/null \
 +// RUN:   | FileCheck -match-full-lines -check-prefix=RISCV64 %s
++// RUN: %clang_cc1 -E -dM -ffreestanding -triple=riscv64-unknown-linux < /dev/null \
++// RUN:   | FileCheck -match-full-lines -check-prefixes=RISCV64,RISCV64-LINUX %s
 +// RISCV64: #define _LP64 1
 +// RISCV64: #define __ATOMIC_ACQUIRE 2
 +// RISCV64: #define __ATOMIC_ACQ_REL 4
@@ -1345,10 +1362,17 @@ index 51e1233456..5f3fe7a327 100644
 +// RISCV64: #define __WINT_TYPE__ unsigned int
 +// RISCV64: #define __WINT_UNSIGNED__ 1
 +// RISCV64: #define __WINT_WIDTH__ 32
++// RISCV64-LINUX: #define __gnu_linux__ 1
++// RISCV64-LINUX: #define __linux 1
++// RISCV64-LINUX: #define __linux__ 1
 +// RISCV64: #define __riscv 1
 +// RISCV64: #define __riscv_cmodel_medlow 1
 +// RISCV64: #define __riscv_float_abi_soft 1
 +// RISCV64: #define __riscv_xlen 64
++// RISCV64-LINUX: #define __unix 1
++// RISCV64-LINUX: #define __unix__ 1
++// RISCV64-LINUX: #define linux 1
++// RISCV64-LINUX: #define unix 1
 -- 
-2.15.1
+2.16.2
 

@@ -17,7 +17,7 @@ physical register being used where a virtual register is expected.
  4 files changed, 38 insertions(+), 29 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 78f61fa4184..5b038df4ae3 100644
+index 6ce7a163f2f..daac114b557 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -26,6 +26,8 @@ using namespace llvm;
@@ -48,10 +48,10 @@ index 78f61fa4184..5b038df4ae3 100644
 +  unsigned Opcode = Node->getOpcode();
 +  MVT XLenVT = Subtarget->getXLenVT();
 +
-   // Dump information about the Node being selected.
-   DEBUG(dbgs() << "Selecting: "; Node->dump(CurDAG); dbgs() << "\n");
- 
-@@ -52,6 +62,21 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
+   // If we have a custom node, we have already selected
+   if (Node->isMachineOpcode()) {
+     DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
+@@ -49,6 +59,21 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
      return;
    }
  
@@ -225,5 +225,5 @@ index 2a13685fcd5..80bd2d2b204 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sext i1 %a to i64
 -- 
-2.15.1
+2.16.2
 

@@ -11,7 +11,7 @@ Upstream commit: https://reviews.llvm.org/rL285708
  3 files changed, 59 insertions(+)
 
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 61010c55ebd..13b63738db3 100644
+index 965bd246b83..00fa9c08299 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,6 +66,8 @@ public:
@@ -24,7 +24,7 @@ index 61010c55ebd..13b63738db3 100644
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 6412bc9511f..4f0a30042b7 100644
+index 9b1a739c911..5062fc43266 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -41,6 +41,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -46,7 +46,7 @@ index 6412bc9511f..4f0a30042b7 100644
    }
  }
  
-@@ -274,6 +279,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -273,6 +278,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -55,7 +55,7 @@ index 6412bc9511f..4f0a30042b7 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -399,6 +406,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -398,6 +405,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -64,7 +64,7 @@ index 6412bc9511f..4f0a30042b7 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -649,6 +658,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -647,6 +656,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -140,10 +140,10 @@ index 6412bc9511f..4f0a30042b7 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index 375993e8c1a..ed4a88067b1 100644
+index 93606a98076..c19ad43c723 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
-@@ -278,6 +278,24 @@ TEST(TripleTest, ParsedIDs) {
+@@ -295,6 +295,24 @@ TEST(TripleTest, ParsedIDs) {
    EXPECT_EQ(Triple::AMDPAL, T.getOS());
    EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
  
@@ -168,7 +168,7 @@ index 375993e8c1a..ed4a88067b1 100644
    T = Triple("armv7hl-suse-linux-gnueabi");
    EXPECT_EQ(Triple::arm, T.getArch());
    EXPECT_EQ(Triple::SUSE, T.getVendor());
-@@ -625,6 +643,16 @@ TEST(TripleTest, BitWidthPredicates) {
+@@ -639,6 +657,16 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -185,7 +185,7 @@ index 375993e8c1a..ed4a88067b1 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -716,6 +744,14 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -730,6 +758,14 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  
@@ -201,5 +201,5 @@ index 375993e8c1a..ed4a88067b1 100644
    EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
 -- 
-2.15.1
+2.16.2
 

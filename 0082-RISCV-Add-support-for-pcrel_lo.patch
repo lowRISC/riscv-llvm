@@ -1,0 +1,252 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Add support for %pcrel_lo.
+
+Differential Revision: https://reviews.llvm.org/D42515
+Patch by Ahmed Charles.
+---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  5 +++--
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 22 +++++++++++++---------
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++++
+ lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 ++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  9 +++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  5 ++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  1 +
+ test/MC/RISCV/relocations.s                        | 20 ++++++++++++++++++++
+ test/MC/RISCV/rv32i-invalid.s                      |  9 +++++++++
+ 9 files changed, 69 insertions(+), 12 deletions(-)
+
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index ae2a83f577b..b861922e765 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -335,8 +335,9 @@ public:
+       IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
+     else
+       IsValid = isInt<12>(Imm);
+-    return IsValid &&
+-           (VK == RISCVMCExpr::VK_RISCV_None || VK == RISCVMCExpr::VK_RISCV_LO);
++    return IsValid && (VK == RISCVMCExpr::VK_RISCV_None ||
++                       VK == RISCVMCExpr::VK_RISCV_LO ||
++                       VK == RISCVMCExpr::VK_RISCV_PCREL_LO);
+   }
+ 
+   bool isSImm12Lsb0() const { return isBareSimmNLsb0<12>(); }
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+index 3dcd36f1b71..c42177e0b4f 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+@@ -58,15 +58,17 @@ public:
+       // This table *must* be in the order that the fixup_* kinds are defined in
+       // RISCVFixupKinds.h.
+       //
+-      // name                    offset bits  flags
+-      { "fixup_riscv_hi20",       12,     20,  0 },
+-      { "fixup_riscv_lo12_i",     20,     12,  0 },
+-      { "fixup_riscv_lo12_s",      0,     32,  0 },
+-      { "fixup_riscv_pcrel_hi20", 12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_jal",        12,     20,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_branch",      0,     32,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_rvc_jump",    2,     11,  MCFixupKindInfo::FKF_IsPCRel },
+-      { "fixup_riscv_rvc_branch",  0,     16,  MCFixupKindInfo::FKF_IsPCRel }
++      // name                      offset bits  flags
++      { "fixup_riscv_hi20",         12,     20,  0 },
++      { "fixup_riscv_lo12_i",       20,     12,  0 },
++      { "fixup_riscv_lo12_s",        0,     32,  0 },
++      { "fixup_riscv_pcrel_hi20",   12,     20,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_pcrel_lo12_i", 20,     12,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_pcrel_lo12_s",  0,     32,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_jal",          12,     20,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_branch",        0,     32,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_rvc_jump",      2,     11,  MCFixupKindInfo::FKF_IsPCRel },
++      { "fixup_riscv_rvc_branch",    0,     16,  MCFixupKindInfo::FKF_IsPCRel }
+     };
+ 
+     if (Kind < FirstTargetFixupKind)
+@@ -122,8 +124,10 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+   case FK_Data_8:
+     return Value;
+   case RISCV::fixup_riscv_lo12_i:
++  case RISCV::fixup_riscv_pcrel_lo12_i:
+     return Value & 0xfff;
+   case RISCV::fixup_riscv_lo12_s:
++  case RISCV::fixup_riscv_pcrel_lo12_s:
+     return (((Value >> 5) & 0x7f) << 25) | ((Value & 0x1f) << 7);
+   case RISCV::fixup_riscv_hi20:
+   case RISCV::fixup_riscv_pcrel_hi20:
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+index ad53228c104..0dc371c46f2 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
+@@ -55,6 +55,10 @@ unsigned RISCVELFObjectWriter::getRelocType(MCContext &Ctx,
+     return ELF::R_RISCV_LO12_S;
+   case RISCV::fixup_riscv_pcrel_hi20:
+     return ELF::R_RISCV_PCREL_HI20;
++  case RISCV::fixup_riscv_pcrel_lo12_i:
++    return ELF::R_RISCV_PCREL_LO12_I;
++  case RISCV::fixup_riscv_pcrel_lo12_s:
++    return ELF::R_RISCV_PCREL_LO12_S;
+   case RISCV::fixup_riscv_jal:
+     return ELF::R_RISCV_JAL;
+   case RISCV::fixup_riscv_branch:
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
+index cfb5d99e79f..604c3dc9921 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
+@@ -29,6 +29,12 @@ enum Fixups {
+   // fixup_riscv_pcrel_hi20 - 20-bit fixup corresponding to pcrel_hi(foo) for
+   // instructions like auipc
+   fixup_riscv_pcrel_hi20,
++  // fixup_riscv_pcrel_lo12_i - 12-bit fixup corresponding to pcrel_lo(foo) for
++  // instructions like addi
++  fixup_riscv_pcrel_lo12_i,
++  // fixup_riscv_pcrel_lo12_s - 12-bit fixup corresponding to pcrel_lo(foo) for
++  // the S-type store instructions
++  fixup_riscv_pcrel_lo12_s,
+   // fixup_riscv_jal - 20-bit fixup for symbol references in the jal
+   // instruction
+   fixup_riscv_jal,
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+index 68d4d96d9d0..a1ecb3e5937 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
+@@ -171,6 +171,15 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+     case RISCVMCExpr::VK_RISCV_HI:
+       FixupKind = RISCV::fixup_riscv_hi20;
+       break;
++    case RISCVMCExpr::VK_RISCV_PCREL_LO:
++      if (MIFrm == RISCVII::InstFormatI)
++        FixupKind = RISCV::fixup_riscv_pcrel_lo12_i;
++      else if (MIFrm == RISCVII::InstFormatS)
++        FixupKind = RISCV::fixup_riscv_pcrel_lo12_s;
++      else
++        llvm_unreachable(
++            "VK_RISCV_PCREL_LO used with unexpected instruction format");
++      break;
+     case RISCVMCExpr::VK_RISCV_PCREL_HI:
+       FixupKind = RISCV::fixup_riscv_pcrel_hi20;
+       break;
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
+index b36236ea155..68cdb3783b1 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
+@@ -53,6 +53,7 @@ RISCVMCExpr::VariantKind RISCVMCExpr::getVariantKindForName(StringRef name) {
+   return StringSwitch<RISCVMCExpr::VariantKind>(name)
+       .Case("lo", VK_RISCV_LO)
+       .Case("hi", VK_RISCV_HI)
++      .Case("pcrel_lo", VK_RISCV_PCREL_LO)
+       .Case("pcrel_hi", VK_RISCV_PCREL_HI)
+       .Default(VK_RISCV_Invalid);
+ }
+@@ -65,6 +66,8 @@ StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
+     return "lo";
+   case VK_RISCV_HI:
+     return "hi";
++  case VK_RISCV_PCREL_LO:
++    return "pcrel_lo";
+   case VK_RISCV_PCREL_HI:
+     return "pcrel_hi";
+   }
+@@ -73,7 +76,7 @@ StringRef RISCVMCExpr::getVariantKindName(VariantKind Kind) {
+ bool RISCVMCExpr::evaluateAsConstant(int64_t &Res) const {
+   MCValue Value;
+ 
+-  if (Kind == VK_RISCV_PCREL_HI)
++  if (Kind == VK_RISCV_PCREL_HI || Kind == VK_RISCV_PCREL_LO)
+     return false;
+ 
+   if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
+index 69b55ca6f7c..c49593f0b9c 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
+@@ -26,6 +26,7 @@ public:
+     VK_RISCV_None,
+     VK_RISCV_LO,
+     VK_RISCV_HI,
++    VK_RISCV_PCREL_LO,
+     VK_RISCV_PCREL_HI,
+     VK_RISCV_Invalid
+   };
+diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
+index 81affb7d223..13c6b512f26 100644
+--- a/test/MC/RISCV/relocations.s
++++ b/test/MC/RISCV/relocations.s
+@@ -54,6 +54,26 @@ auipc t1, %pcrel_hi(foo+4)
+ # INSTR: auipc t1, %pcrel_hi(foo+4)
+ # FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo+4), kind: fixup_riscv_pcrel_hi20
+ 
++addi t1, t1, %pcrel_lo(foo)
++# RELOC: R_RISCV_PCREL_LO12_I foo 0x0
++# INSTR: addi t1, t1, %pcrel_lo(foo)
++# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo), kind: fixup_riscv_pcrel_lo12_i
++
++addi t1, t1, %pcrel_lo(foo+4)
++# RELOC: R_RISCV_PCREL_LO12_I foo 0x4
++# INSTR: addi t1, t1, %pcrel_lo(foo+4)
++# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo+4), kind: fixup_riscv_pcrel_lo12_i
++
++sb t1, %pcrel_lo(foo)(a2)
++# RELOC: R_RISCV_PCREL_LO12_S foo 0x0
++# INSTR: sb t1, %pcrel_lo(foo)(a2)
++# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo), kind: fixup_riscv_pcrel_lo12_s
++
++sb t1, %pcrel_lo(foo+4)(a2)
++# RELOC: R_RISCV_PCREL_LO12_S foo 0x4
++# INSTR: sb t1, %pcrel_lo(foo+4)(a2)
++# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo+4), kind: fixup_riscv_pcrel_lo12_s
++
+ jal zero, foo
+ # RELOC: R_RISCV_JAL
+ # INSTR: jal zero, foo
+diff --git a/test/MC/RISCV/rv32i-invalid.s b/test/MC/RISCV/rv32i-invalid.s
+index 938298e4347..61c8dfc1826 100644
+--- a/test/MC/RISCV/rv32i-invalid.s
++++ b/test/MC/RISCV/rv32i-invalid.s
+@@ -53,6 +53,7 @@ jal gp, 1 # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes
+ fence %hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+ fence %lo(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+ fence %pcrel_hi(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
++fence %pcrel_lo(iorw), iorw # CHECK: :[[@LINE]]:7: error: operand must be formed of letters selected in-order from 'iorw'
+ 
+ ## uimm5
+ slli a0, a0, %lo(1) # CHECK: :[[@LINE]]:14: error: immediate must be an integer in the range [0, 31]
+@@ -61,6 +62,8 @@ srai a0, a0, %hi(2) # CHECK: :[[@LINE]]:14: error: immediate must be an integer
+ csrrwi a1, 0x1, %hi(b) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
+ csrrsi t1, 999, %pcrel_hi(3) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
+ csrrci x0, 43, %pcrel_hi(c) # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
++csrrsi t1, 999, %pcrel_lo(4) # CHECK: :[[@LINE]]:17: error: immediate must be an integer in the range [0, 31]
++csrrci x0, 43, %pcrel_lo(d) # CHECK: :[[@LINE]]:16: error: immediate must be an integer in the range [0, 31]
+ 
+ ## simm12
+ ori a0, a1, %hi(foo) # CHECK: :[[@LINE]]:13: error: immediate must be an integer in the range [-2048, 2047]
+@@ -74,6 +77,8 @@ csrrs a0, %hi(2), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer
+ csrrc a0, %hi(b), a0 # CHECK: :[[@LINE]]:11: error: immediate must be an integer in the range [0, 4095]
+ csrrwi a0, %pcrel_hi(3), 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+ csrrsi a0, %pcrel_hi(c), a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
++csrrwi a0, %pcrel_lo(4), 0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
++csrrsi a0, %pcrel_lo(d), a0 # CHECK: :[[@LINE]]:12: error: immediate must be an integer in the range [0, 4095]
+ 
+ ## simm13_lsb0
+ beq t0, t1, %lo(1) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+@@ -82,6 +87,8 @@ blt t0, t1, %hi(2) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple o
+ bge t0, t1, %hi(b) # CHECK: :[[@LINE]]:13: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+ bltu t0, t1, %pcrel_hi(3) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+ bgeu t0, t1, %pcrel_hi(c) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bltu t0, t1, %pcrel_lo(4) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
++bgeu t0, t1, %pcrel_lo(d) # CHECK: :[[@LINE]]:14: error: immediate must be a multiple of 2 bytes in the range [-4096, 4094]
+ 
+ ## uimm20
+ lui a0, %lo(1) # CHECK: :[[@LINE]]:9: error: immediate must be an integer in the range [0, 1048575]
+@@ -94,6 +101,8 @@ jal gp, %hi(2) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 b
+ jal gp, %hi(b) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+ jal gp, %pcrel_hi(3) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+ jal gp, %pcrel_hi(c) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %pcrel_lo(4) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
++jal gp, %pcrel_lo(d) # CHECK: :[[@LINE]]:9: error: immediate must be a multiple of 2 bytes in the range [-1048576, 1048574]
+ 
+ # Unrecognized operand modifier
+ addi t0, sp, %modifer(255) # CHECK: :[[@LINE]]:15: error: unrecognized operand modifier
+-- 
+2.16.2
+

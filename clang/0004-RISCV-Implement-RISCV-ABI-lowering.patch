@@ -18,20 +18,20 @@ documenting frontend expectations).
 
 Differential Revision: https://reviews.llvm.org/D40023
 ---
- lib/CodeGen/TargetInfo.cpp      | 181 +++++++++++++++++
- test/CodeGen/riscv32-abi.c      | 426 ++++++++++++++++++++++++++++++++++++++++
- test/CodeGen/riscv64-abi.c      | 425 +++++++++++++++++++++++++++++++++++++++
+ lib/CodeGen/TargetInfo.cpp      | 176 +++++++++++++++++
+ test/CodeGen/riscv32-abi.c      | 423 ++++++++++++++++++++++++++++++++++++++++
+ test/CodeGen/riscv64-abi.c      | 422 +++++++++++++++++++++++++++++++++++++++
  test/Driver/riscv32-toolchain.c |  47 +++++
  test/Driver/riscv64-toolchain.c |  47 +++++
- 5 files changed, 1126 insertions(+)
+ 5 files changed, 1115 insertions(+)
  create mode 100644 test/CodeGen/riscv32-abi.c
  create mode 100644 test/CodeGen/riscv64-abi.c
 
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 84719428ba..d9d44fa4c1 100644
+index 98b72c7a73..aadbd3016b 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8770,6 +8770,182 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -8762,6 +8762,182 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -214,24 +214,12 @@ index 84719428ba..d9d44fa4c1 100644
  
  //===----------------------------------------------------------------------===//
  // Driver code
-@@ -8884,6 +9060,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
-   case llvm::Triple::msp430:
-     return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
- 
-+  case llvm::Triple::riscv32:
-+    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 32));
-+  case llvm::Triple::riscv64:
-+    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 64));
-+
-   case llvm::Triple::systemz: {
-     bool HasVector = getTarget().getABI() == "vector";
-     return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 new file mode 100644
-index 0000000000..e32a8c258f
+index 0000000000..d83a8f5d74
 --- /dev/null
 +++ b/test/CodeGen/riscv32-abi.c
-@@ -0,0 +1,426 @@
+@@ -0,0 +1,423 @@
 +// RUN: %clang_cc1 -triple riscv32 -emit-llvm %s -o - | FileCheck %s
 +
 +#include <stddef.h>
@@ -503,8 +491,7 @@ index 0000000000..e32a8c258f
 +// correct offsets are used.
 +
 +// CHECK-LABEL: @f_va_2(
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[V:%.*]] = alloca double, align 8
 +// CHECK-NEXT:    store i8* [[FMT:%.*]], i8** [[FMT_ADDR]], align 4
@@ -537,8 +524,7 @@ index 0000000000..e32a8c258f
 +// Two "aligned" register pairs.
 +
 +// CHECK-LABEL: @f_va_3(
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[V:%.*]] = alloca double, align 8
 +// CHECK-NEXT:    [[W:%.*]] = alloca i32, align 4
@@ -591,8 +577,7 @@ index 0000000000..e32a8c258f
 +}
 +
 +// CHECK-LABEL: define i32 @f_va_4(i8* %fmt, ...) {{.*}} {
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 4
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 4
 +// CHECK-NEXT:    [[V:%.*]] = alloca i32, align 4
 +// CHECK-NEXT:    [[LD:%.*]] = alloca fp128, align 16
@@ -660,10 +645,10 @@ index 0000000000..e32a8c258f
 +}
 diff --git a/test/CodeGen/riscv64-abi.c b/test/CodeGen/riscv64-abi.c
 new file mode 100644
-index 0000000000..90bc54f071
+index 0000000000..321c0e3df3
 --- /dev/null
 +++ b/test/CodeGen/riscv64-abi.c
-@@ -0,0 +1,425 @@
+@@ -0,0 +1,422 @@
 +// RUN: %clang_cc1 -triple riscv64 -emit-llvm %s -o - | FileCheck %s
 +
 +#include <stddef.h>
@@ -933,8 +918,7 @@ index 0000000000..90bc54f071
 +// correct offsets are used.
 +
 +// CHECK-LABEL: @f_va_2(
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[V:%.*]] = alloca fp128, align 16
 +// CHECK-NEXT:    store i8* [[FMT:%.*]], i8** [[FMT_ADDR]], align 8
@@ -967,8 +951,7 @@ index 0000000000..90bc54f071
 +// Two "aligned" register pairs.
 +
 +// CHECK-LABEL: @f_va_3(
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[V:%.*]] = alloca fp128, align 16
 +// CHECK-NEXT:    [[W:%.*]] = alloca i32, align 4
@@ -1021,8 +1004,7 @@ index 0000000000..90bc54f071
 +}
 +
 +// CHECK-LABEL: @f_va_4(
-+// CHECK-NEXT:  entry:
-+// CHECK-NEXT:    [[FMT_ADDR:%.*]] = alloca i8*, align 8
++// CHECK:         [[FMT_ADDR:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[VA:%.*]] = alloca i8*, align 8
 +// CHECK-NEXT:    [[V:%.*]] = alloca i32, align 4
 +// CHECK-NEXT:    [[TS:%.*]] = alloca [[STRUCT_TINY:%.*]], align 2
@@ -1200,5 +1182,5 @@ index 5c7d76006c..8a3f3228ed 100644
 +// CHECK: define fp128 @check_longdouble()
 +long double check_longdouble() { return 0; }
 -- 
-2.15.1
+2.16.2
 

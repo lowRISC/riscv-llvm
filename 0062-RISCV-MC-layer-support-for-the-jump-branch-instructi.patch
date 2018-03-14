@@ -8,6 +8,10 @@ Differential Revision: https://reviews.llvm.org/D40002
 Patch by Shiva Chen.
 
 This patch has been further modified since the upstreamed version.
+
+Also incorporates changes from:
+Differential Revision: https://reviews.llvm.org/D42132
+Patch by Ana Pazos.
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 12 +++++
  lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 42 +++++++++++++++-
@@ -178,10 +182,10 @@ index 115229414d5..cfb5d99e79f 100644
    // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
    fixup_riscv_invalid,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index ca323d8941d..641997e67e0 100644
+index 81c7a4d9059..68d4d96d9d0 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-@@ -177,6 +177,10 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
+@@ -181,6 +181,10 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
        FixupKind = RISCV::fixup_riscv_jal;
      } else if (MIFrm == RISCVII::InstFormatB) {
        FixupKind = RISCV::fixup_riscv_branch;
@@ -248,7 +252,7 @@ index 117c86c0bd5..fe4778bd313 100644
 +  let Inst{1-0} = opcode;
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
-index d0d9bb395c2..5618fd44e8c 100644
+index 8c898875536..ed42a291713 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoC.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoC.td
 @@ -37,6 +37,13 @@ def uimm8_lsb000 : Operand<XLenVT>,
@@ -300,7 +304,7 @@ index d0d9bb395c2..5618fd44e8c 100644
  //===----------------------------------------------------------------------===//
  // Instructions
  //===----------------------------------------------------------------------===//
-@@ -107,6 +135,21 @@ def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
+@@ -107,6 +135,21 @@ def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000> {
    let Inst{6-5} = imm{7-6};
  }
  
@@ -322,7 +326,7 @@ index d0d9bb395c2..5618fd44e8c 100644
  def C_LWSP : CStackLoad<0b010, "c.lwsp", GPRNoX0, uimm8_lsb00> {
    let Inst{6-4} = imm{4-2};
    let Inst{3-2} = imm{7-6};
-@@ -118,6 +161,21 @@ def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
+@@ -118,6 +161,21 @@ def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000> {
    let Inst{4-2} = imm{8-6};
  }
  
@@ -457,5 +461,5 @@ index 86c2dff5698..ce4273d3802 100644
 +# CHECK: encoding: [0xfd,0xef]
 +c.bnez  a5,  254
 -- 
-2.15.1
+2.16.2
 

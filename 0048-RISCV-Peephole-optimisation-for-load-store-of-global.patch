@@ -17,7 +17,7 @@ Subject: [RISCV] Peephole optimisation for load/store of global value or
  8 files changed, 132 insertions(+), 72 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index e81136ecb10..da02a4ba14e 100644
+index d07301df718..2dbbd704f26 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -42,6 +42,8 @@ public:
@@ -44,7 +44,7 @@ index e81136ecb10..da02a4ba14e 100644
  void RISCVDAGToDAGISel::Select(SDNode *Node) {
    unsigned Opcode = Node->getOpcode();
    MVT XLenVT = Subtarget->getXLenVT();
-@@ -120,6 +127,90 @@ bool RISCVDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base) {
+@@ -117,6 +124,90 @@ bool RISCVDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base) {
    return false;
  }
  
@@ -158,126 +158,126 @@ index 266bf4f2b27..8bf50bdb544 100644
  ; RV32I-NEXT:  .Ltmp0: # Block address taken
  ; RV32I-NEXT:  .LBB0_1: # %block
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
-index 934596a7853..a027d606291 100644
+index 30ba8e6562e..5e2783b6ce3 100644
 --- a/test/CodeGen/RISCV/byval.ll
 +++ b/test/CodeGen/RISCV/byval.ll
-@@ -32,20 +32,16 @@ define void @caller() nounwind {
- ; RV32I-NEXT:    sw s0, 24(sp)
- ; RV32I-NEXT:    addi s0, sp, 32
+@@ -23,20 +23,16 @@ define void @caller() nounwind {
+ ; RV32I-NEXT:    addi sp, sp, -32
+ ; RV32I-NEXT:    sw ra, 28(sp)
  ; RV32I-NEXT:    lui a0, %hi(foo+12)
 -; RV32I-NEXT:    addi a0, a0, %lo(foo+12)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(foo+12)(a0)
- ; RV32I-NEXT:    sw a0, -12(s0)
+ ; RV32I-NEXT:    sw a0, 24(sp)
  ; RV32I-NEXT:    lui a0, %hi(foo+8)
 -; RV32I-NEXT:    addi a0, a0, %lo(foo+8)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(foo+8)(a0)
- ; RV32I-NEXT:    sw a0, -16(s0)
+ ; RV32I-NEXT:    sw a0, 20(sp)
  ; RV32I-NEXT:    lui a0, %hi(foo+4)
 -; RV32I-NEXT:    addi a0, a0, %lo(foo+4)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(foo+4)(a0)
- ; RV32I-NEXT:    sw a0, -20(s0)
+ ; RV32I-NEXT:    sw a0, 16(sp)
  ; RV32I-NEXT:    lui a0, %hi(foo)
 -; RV32I-NEXT:    addi a0, a0, %lo(foo)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(foo)(a0)
- ; RV32I-NEXT:    sw a0, -24(s0)
+ ; RV32I-NEXT:    sw a0, 12(sp)
  ; RV32I-NEXT:    lui a0, %hi(callee)
  ; RV32I-NEXT:    addi a1, a0, %lo(callee)
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
-index e6d179862ec..6c9dd8ca457 100644
+index 0e3b6debd9e..8041efb1699 100644
 --- a/test/CodeGen/RISCV/fp128.ll
 +++ b/test/CodeGen/RISCV/fp128.ll
-@@ -16,36 +16,28 @@ define i32 @test_load_and_cmp() nounwind {
- ; RV32I-NEXT:    sw s0, 40(sp)
- ; RV32I-NEXT:    addi s0, sp, 48
+@@ -14,36 +14,28 @@ define i32 @test_load_and_cmp() nounwind {
+ ; RV32I-NEXT:    addi sp, sp, -48
+ ; RV32I-NEXT:    sw ra, 44(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+12)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+12)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+12)(a0)
- ; RV32I-NEXT:    sw a0, -28(s0)
+ ; RV32I-NEXT:    sw a0, 20(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+8)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+8)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+8)(a0)
- ; RV32I-NEXT:    sw a0, -32(s0)
+ ; RV32I-NEXT:    sw a0, 16(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+4)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+4)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+4)(a0)
- ; RV32I-NEXT:    sw a0, -36(s0)
+ ; RV32I-NEXT:    sw a0, 12(sp)
  ; RV32I-NEXT:    lui a0, %hi(y)
 -; RV32I-NEXT:    addi a0, a0, %lo(y)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y)(a0)
- ; RV32I-NEXT:    sw a0, -40(s0)
+ ; RV32I-NEXT:    sw a0, 8(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+12)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+12)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+12)(a0)
- ; RV32I-NEXT:    sw a0, -12(s0)
+ ; RV32I-NEXT:    sw a0, 36(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+8)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+8)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+8)(a0)
- ; RV32I-NEXT:    sw a0, -16(s0)
+ ; RV32I-NEXT:    sw a0, 32(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+4)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+4)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+4)(a0)
- ; RV32I-NEXT:    sw a0, -20(s0)
+ ; RV32I-NEXT:    sw a0, 28(sp)
  ; RV32I-NEXT:    lui a0, %hi(x)
 -; RV32I-NEXT:    addi a0, a0, %lo(x)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x)(a0)
- ; RV32I-NEXT:    sw a0, -24(s0)
+ ; RV32I-NEXT:    sw a0, 24(sp)
  ; RV32I-NEXT:    lui a0, %hi(__netf2)
  ; RV32I-NEXT:    addi a2, a0, %lo(__netf2)
-@@ -73,36 +65,28 @@ define i32 @test_add_and_fptosi() nounwind {
- ; RV32I-NEXT:    sw s0, 72(sp)
- ; RV32I-NEXT:    addi s0, sp, 80
+@@ -68,36 +60,28 @@ define i32 @test_add_and_fptosi() nounwind {
+ ; RV32I-NEXT:    addi sp, sp, -80
+ ; RV32I-NEXT:    sw ra, 76(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+12)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+12)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+12)(a0)
- ; RV32I-NEXT:    sw a0, -44(s0)
+ ; RV32I-NEXT:    sw a0, 36(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+8)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+8)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+8)(a0)
- ; RV32I-NEXT:    sw a0, -48(s0)
+ ; RV32I-NEXT:    sw a0, 32(sp)
  ; RV32I-NEXT:    lui a0, %hi(y+4)
 -; RV32I-NEXT:    addi a0, a0, %lo(y+4)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y+4)(a0)
- ; RV32I-NEXT:    sw a0, -52(s0)
+ ; RV32I-NEXT:    sw a0, 28(sp)
  ; RV32I-NEXT:    lui a0, %hi(y)
 -; RV32I-NEXT:    addi a0, a0, %lo(y)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(y)(a0)
- ; RV32I-NEXT:    sw a0, -56(s0)
+ ; RV32I-NEXT:    sw a0, 24(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+12)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+12)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+12)(a0)
- ; RV32I-NEXT:    sw a0, -28(s0)
+ ; RV32I-NEXT:    sw a0, 52(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+8)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+8)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+8)(a0)
- ; RV32I-NEXT:    sw a0, -32(s0)
+ ; RV32I-NEXT:    sw a0, 48(sp)
  ; RV32I-NEXT:    lui a0, %hi(x+4)
 -; RV32I-NEXT:    addi a0, a0, %lo(x+4)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x+4)(a0)
- ; RV32I-NEXT:    sw a0, -36(s0)
+ ; RV32I-NEXT:    sw a0, 44(sp)
  ; RV32I-NEXT:    lui a0, %hi(x)
 -; RV32I-NEXT:    addi a0, a0, %lo(x)
 -; RV32I-NEXT:    lw a0, 0(a0)
 +; RV32I-NEXT:    lw a0, %lo(x)(a0)
- ; RV32I-NEXT:    sw a0, -40(s0)
+ ; RV32I-NEXT:    sw a0, 40(sp)
  ; RV32I-NEXT:    lui a0, %hi(__addtf3)
  ; RV32I-NEXT:    addi a3, a0, %lo(__addtf3)
 diff --git a/test/CodeGen/RISCV/inline-asm.ll b/test/CodeGen/RISCV/inline-asm.ll
@@ -381,5 +381,5 @@ index cbb89f631a5..33a51efe818 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.15.1
+2.16.2
 

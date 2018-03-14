@@ -132,5 +132,5 @@ index 00000000000..e431bf3b088
 +# CHECK: encoding: [0x73,0x00,0xb5,0x12]
 +sfence.vma a0, a1
 -- 
-2.15.1
+2.16.2
 

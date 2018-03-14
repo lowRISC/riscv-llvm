@@ -20,56 +20,56 @@ Patch by Mario Werner.
 in to github.com/lowrisc/riscv-llvm).
 ---
  lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |   4 +-
- test/CodeGen/RISCV/addc-adde-sube-subc.ll         |  22 +--
+ test/CodeGen/RISCV/addc-adde-sube-subc.ll         |  22 +-
  test/CodeGen/RISCV/alloca.ll                      |  16 +-
- test/CodeGen/RISCV/alu32.ll                       |  96 ++++++------
- test/CodeGen/RISCV/alu64.ll                       | 162 ++++++++++-----------
+ test/CodeGen/RISCV/alu32.ll                       |  96 ++++-----
+ test/CodeGen/RISCV/alu64.ll                       | 162 +++++++--------
  test/CodeGen/RISCV/analyze-branch.ll              |  12 +-
  test/CodeGen/RISCV/bare-select.ll                 |  16 +-
  test/CodeGen/RISCV/blockaddress.ll                |   4 +-
  test/CodeGen/RISCV/branch-relaxation.ll           |  12 +-
  test/CodeGen/RISCV/branch.ll                      |   4 +-
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll       | 128 ++++++++--------
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll       | 128 ++++++------
  test/CodeGen/RISCV/byval.ll                       |   6 +-
- test/CodeGen/RISCV/calling-conv-sext-zext.ll      |  90 ++++++------
- test/CodeGen/RISCV/calling-conv.ll                | 114 +++++++--------
- test/CodeGen/RISCV/calls.ll                       |  74 +++++-----
- test/CodeGen/RISCV/cfi-info.ll                    |  46 ++++--
- test/CodeGen/RISCV/div.ll                         |  72 ++++-----
- test/CodeGen/RISCV/double-arith.ll                | 170 +++++++++++++++++++++-
- test/CodeGen/RISCV/double-br-fcmp.ll              | 120 +++++++--------
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll      |  90 ++++-----
+ test/CodeGen/RISCV/calling-conv.ll                | 233 +++++++++++-----------
+ test/CodeGen/RISCV/calls.ll                       |  74 +++----
+ test/CodeGen/RISCV/cfi-info.ll                    |  46 +++--
+ test/CodeGen/RISCV/div.ll                         |  72 +++----
+ test/CodeGen/RISCV/double-arith.ll                | 170 +++++++++++++++-
+ test/CodeGen/RISCV/double-br-fcmp.ll              | 112 +++++------
  test/CodeGen/RISCV/double-convert.ll              |  12 +-
- test/CodeGen/RISCV/double-fcmp.ll                 |  50 +++----
+ test/CodeGen/RISCV/double-fcmp.ll                 |  44 ++--
  test/CodeGen/RISCV/double-imm.ll                  |   4 +-
- test/CodeGen/RISCV/double-mem.ll                  |  18 +--
- test/CodeGen/RISCV/double-select-fcmp.ll          | 116 +++++++--------
+ test/CodeGen/RISCV/double-mem.ll                  |  18 +-
+ test/CodeGen/RISCV/double-select-fcmp.ll          | 110 +++++-----
  test/CodeGen/RISCV/double-stack-spill-restore.ll  |   8 +-
- test/CodeGen/RISCV/float-arith.ll                 |  32 ++--
- test/CodeGen/RISCV/float-br-fcmp.ll               | 120 +++++++--------
+ test/CodeGen/RISCV/float-arith.ll                 |  32 +--
+ test/CodeGen/RISCV/float-br-fcmp.ll               | 112 +++++------
  test/CodeGen/RISCV/float-convert.ll               |  12 +-
- test/CodeGen/RISCV/float-fcmp.ll                  |  50 +++----
+ test/CodeGen/RISCV/float-fcmp.ll                  |  44 ++--
  test/CodeGen/RISCV/float-fma.ll                   |   8 +-
  test/CodeGen/RISCV/float-imm.ll                   |   4 +-
- test/CodeGen/RISCV/float-mem.ll                   |  18 +--
- test/CodeGen/RISCV/float-select-fcmp.ll           | 114 +++++++--------
+ test/CodeGen/RISCV/float-mem.ll                   |  18 +-
+ test/CodeGen/RISCV/float-select-fcmp.ll           | 108 +++++-----
  test/CodeGen/RISCV/fp128.ll                       |  12 +-
  test/CodeGen/RISCV/frame.ll                       |  12 +-
  test/CodeGen/RISCV/frameaddr-returnaddr.ll        |  16 +-
  test/CodeGen/RISCV/i32-icmp.ll                    |  24 +--
- test/CodeGen/RISCV/imm.ll                         |  32 ++--
+ test/CodeGen/RISCV/imm.ll                         |  32 +--
  test/CodeGen/RISCV/indirectbr.ll                  |  10 +-
  test/CodeGen/RISCV/inline-asm.ll                  |   8 +-
  test/CodeGen/RISCV/jumptable.ll                   |   8 +-
- test/CodeGen/RISCV/large-stack.ll                 |   6 +-
- test/CodeGen/RISCV/mem.ll                         |  28 ++--
- test/CodeGen/RISCV/mem64.ll                       |  30 ++--
- test/CodeGen/RISCV/mul.ll                         |  62 ++++----
+ test/CodeGen/RISCV/large-stack.ll                 |  10 +-
+ test/CodeGen/RISCV/mem.ll                         |  28 +--
+ test/CodeGen/RISCV/mem64.ll                       |  30 +--
+ test/CodeGen/RISCV/mul.ll                         |  62 +++---
  test/CodeGen/RISCV/rem.ll                         |  12 +-
  test/CodeGen/RISCV/rotl-rotr.ll                   |   4 +-
- test/CodeGen/RISCV/select-cc.ll                   |  22 +--
- test/CodeGen/RISCV/sext-zext-trunc.ll             |  78 +++++-----
+ test/CodeGen/RISCV/select-cc.ll                   |  22 +-
+ test/CodeGen/RISCV/sext-zext-trunc.ll             |  78 ++++----
  test/CodeGen/RISCV/shifts.ll                      |  12 +-
- test/CodeGen/RISCV/vararg.ll                      |  76 +++++-----
+ test/CodeGen/RISCV/vararg.ll                      | 153 +++++++-------
  test/CodeGen/RISCV/wide-mem.ll                    |   6 +-
  test/MC/RISCV/fixups.s                            |   5 +-
  test/MC/RISCV/priv-valid.s                        |  10 +-
@@ -77,28 +77,28 @@ in to github.com/lowrisc/riscv-llvm).
  test/MC/RISCV/rv32a-valid.s                       |  10 +-
  test/MC/RISCV/rv32c-only-valid.s                  |   4 +-
  test/MC/RISCV/rv32c-valid.s                       |  10 +-
- test/MC/RISCV/rv32d-valid.s                       |  56 +++----
- test/MC/RISCV/rv32dc-valid.s                      |   5 +-
- test/MC/RISCV/rv32f-valid.s                       |  62 ++++----
- test/MC/RISCV/rv32fc-valid.s                      |   5 +-
+ test/MC/RISCV/rv32d-valid.s                       |  56 +++---
+ test/MC/RISCV/rv32dc-valid.s                      |  12 +-
+ test/MC/RISCV/rv32f-valid.s                       |  62 +++---
+ test/MC/RISCV/rv32fc-valid.s                      |  10 +-
  test/MC/RISCV/rv32i-aliases-invalid.s             |   2 +-
  test/MC/RISCV/rv32i-aliases-valid.s               |   6 +-
  test/MC/RISCV/rv32i-valid.s                       |  10 +-
  test/MC/RISCV/rv32m-valid.s                       |  10 +-
  test/MC/RISCV/rv64a-valid.s                       |   5 +-
- test/MC/RISCV/rv64c-valid.s                       |   5 +-
- test/MC/RISCV/rv64d-aliases-valid.s               |  27 ++++
- test/MC/RISCV/rv64d-valid.s                       |  21 +--
- test/MC/RISCV/rv64f-aliases-valid.s               |  27 ++++
- test/MC/RISCV/rv64f-valid.s                       |  21 +--
+ test/MC/RISCV/rv64c-valid.s                       |   8 +-
+ test/MC/RISCV/rv64d-aliases-valid.s               |  27 +++
+ test/MC/RISCV/rv64d-valid.s                       |  21 +-
+ test/MC/RISCV/rv64f-aliases-valid.s               |  27 +++
+ test/MC/RISCV/rv64f-valid.s                       |  21 +-
  test/MC/RISCV/rv64i-aliases-invalid.s             |   2 +-
  test/MC/RISCV/rv64i-aliases-valid.s               |   6 +-
  test/MC/RISCV/rv64i-valid.s                       |   5 +-
  test/MC/RISCV/rv64m-valid.s                       |   5 +-
- test/MC/RISCV/rvd-aliases-valid.s                 |  53 ++++++-
- test/MC/RISCV/rvf-aliases-valid.s                 |  56 ++++++-
+ test/MC/RISCV/rvd-aliases-valid.s                 |  53 ++++-
+ test/MC/RISCV/rvf-aliases-valid.s                 |  56 +++++-
  test/MC/RISCV/rvi-aliases-valid.s                 |   8 +-
- 79 files changed, 1494 insertions(+), 1136 deletions(-)
+ 79 files changed, 1580 insertions(+), 1225 deletions(-)
  create mode 100644 test/MC/RISCV/rv64d-aliases-valid.s
  create mode 100644 test/MC/RISCV/rv64f-aliases-valid.s
 
@@ -1692,25 +1692,24 @@ index 8d257ce964f..6ef034c48ee 100644
    ret i32 %1
  }
 diff --git a/test/CodeGen/RISCV/byval.ll b/test/CodeGen/RISCV/byval.ll
-index a027d606291..b687efb20f3 100644
+index 5e2783b6ce3..943983aa819 100644
 --- a/test/CodeGen/RISCV/byval.ll
 +++ b/test/CodeGen/RISCV/byval.ll
-@@ -16,7 +16,7 @@ define i32 @callee(%struct.Foo* byval %f) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
+@@ -9,7 +9,7 @@ define i32 @callee(%struct.Foo* byval %f) nounwind {
+ ; RV32I-LABEL: callee:
+ ; RV32I:       # %bb.0: # %entry
+ ; RV32I-NEXT:    lw a0, 0(a0)
 -; RV32I-NEXT:    jalr zero, ra, 0
 +; RV32I-NEXT:    ret
  entry:
    %0 = getelementptr inbounds %struct.Foo, %struct.Foo* %f, i32 0, i32 0
    %1 = load i32, i32* %0, align 4
-@@ -46,11 +46,11 @@ define void @caller() nounwind {
+@@ -37,10 +37,10 @@ define void @caller() nounwind {
  ; RV32I-NEXT:    lui a0, %hi(callee)
  ; RV32I-NEXT:    addi a1, a0, %lo(callee)
- ; RV32I-NEXT:    addi a0, s0, -24
+ ; RV32I-NEXT:    addi a0, sp, 12
 -; RV32I-NEXT:    jalr ra, a1, 0
 +; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw s0, 24(sp)
  ; RV32I-NEXT:    lw ra, 28(sp)
  ; RV32I-NEXT:    addi sp, sp, 32
 -; RV32I-NEXT:    jalr zero, ra, 0
@@ -2044,385 +2043,746 @@ index 5cc7f1a0b99..8f921b630f0 100644
    ret i32 %1
  }
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
-index cf1027fd785..5e1dfbf235d 100644
+index c1d8be833f7..d068df62422 100644
 --- a/test/CodeGen/RISCV/calling-conv.ll
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -19,15 +19,15 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
- ; RV32I-NEXT:    sw s3, 12(sp)
- ; RV32I-NEXT:    sw s4, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 32
--; RV32I-NEXT:    addi s1, a4, 0
--; RV32I-NEXT:    addi s2, a3, 0
--; RV32I-NEXT:    addi s3, a1, 0
--; RV32I-NEXT:    addi s4, a0, 0
-+; RV32I-NEXT:    mv s1, a4
-+; RV32I-NEXT:    mv s2, a3
-+; RV32I-NEXT:    mv s3, a1
-+; RV32I-NEXT:    mv s4, a0
- ; RV32I-NEXT:    lui a0, %hi(__fixdfsi)
- ; RV32I-NEXT:    addi a2, a0, %lo(__fixdfsi)
--; RV32I-NEXT:    addi a0, a5, 0
--; RV32I-NEXT:    addi a1, a6, 0
--; RV32I-NEXT:    jalr ra, a2, 0
-+; RV32I-NEXT:    mv a0, a5
-+; RV32I-NEXT:    mv a1, a6
-+; RV32I-NEXT:    jalr a2
- ; RV32I-NEXT:    add a1, s4, s3
- ; RV32I-NEXT:    add a1, a1, s2
- ; RV32I-NEXT:    add a1, a1, s1
-@@ -39,7 +39,7 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+ ; RV32I-FPELIM-NEXT:    sw s2, 20(sp)
+ ; RV32I-FPELIM-NEXT:    sw s3, 16(sp)
+ ; RV32I-FPELIM-NEXT:    sw s4, 12(sp)
+-; RV32I-FPELIM-NEXT:    addi s1, a4, 0
+-; RV32I-FPELIM-NEXT:    addi s2, a3, 0
+-; RV32I-FPELIM-NEXT:    addi s3, a1, 0
+-; RV32I-FPELIM-NEXT:    addi s4, a0, 0
++; RV32I-FPELIM-NEXT:    mv s1, a4
++; RV32I-FPELIM-NEXT:    mv s2, a3
++; RV32I-FPELIM-NEXT:    mv s3, a1
++; RV32I-FPELIM-NEXT:    mv s4, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(__fixdfsi)
+ ; RV32I-FPELIM-NEXT:    addi a2, a0, %lo(__fixdfsi)
+-; RV32I-FPELIM-NEXT:    addi a0, a5, 0
+-; RV32I-FPELIM-NEXT:    addi a1, a6, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a2, 0
++; RV32I-FPELIM-NEXT:    mv a0, a5
++; RV32I-FPELIM-NEXT:    mv a1, a6
++; RV32I-FPELIM-NEXT:    jalr a2
+ ; RV32I-FPELIM-NEXT:    add a1, s4, s3
+ ; RV32I-FPELIM-NEXT:    add a1, a1, s2
+ ; RV32I-FPELIM-NEXT:    add a1, a1, s1
+@@ -38,7 +38,7 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
+ ; RV32I-FPELIM-NEXT:    lw s1, 24(sp)
+ ; RV32I-FPELIM-NEXT:    lw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -50,15 +50,15 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s3, 12(sp)
+ ; RV32I-WITHFP-NEXT:    sw s4, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 32
+-; RV32I-WITHFP-NEXT:    addi s1, a4, 0
+-; RV32I-WITHFP-NEXT:    addi s2, a3, 0
+-; RV32I-WITHFP-NEXT:    addi s3, a1, 0
+-; RV32I-WITHFP-NEXT:    addi s4, a0, 0
++; RV32I-WITHFP-NEXT:    mv s1, a4
++; RV32I-WITHFP-NEXT:    mv s2, a3
++; RV32I-WITHFP-NEXT:    mv s3, a1
++; RV32I-WITHFP-NEXT:    mv s4, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(__fixdfsi)
+ ; RV32I-WITHFP-NEXT:    addi a2, a0, %lo(__fixdfsi)
+-; RV32I-WITHFP-NEXT:    addi a0, a5, 0
+-; RV32I-WITHFP-NEXT:    addi a1, a6, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a2, 0
++; RV32I-WITHFP-NEXT:    mv a0, a5
++; RV32I-WITHFP-NEXT:    mv a1, a6
++; RV32I-WITHFP-NEXT:    jalr a2
+ ; RV32I-WITHFP-NEXT:    add a1, s4, s3
+ ; RV32I-WITHFP-NEXT:    add a1, a1, s2
+ ; RV32I-WITHFP-NEXT:    add a1, a1, s1
+@@ -70,7 +70,7 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %b_trunc = trunc i64 %b to i32
    %e_fptosi = fptosi double %e to i32
    %1 = add i32 %a, %b_trunc
-@@ -57,20 +57,20 @@ define i32 @caller_scalars() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, 262464
--; RV32I-NEXT:    addi a6, a0, 0
-+; RV32I-NEXT:    mv a6, a0
- ; RV32I-NEXT:    lui a0, %hi(callee_scalars)
- ; RV32I-NEXT:    addi a7, a0, %lo(callee_scalars)
- ; RV32I-NEXT:    addi a0, zero, 1
- ; RV32I-NEXT:    addi a1, zero, 2
- ; RV32I-NEXT:    addi a3, zero, 3
- ; RV32I-NEXT:    addi a4, zero, 4
--; RV32I-NEXT:    addi a2, zero, 0
--; RV32I-NEXT:    addi a5, zero, 0
--; RV32I-NEXT:    jalr ra, a7, 0
-+; RV32I-NEXT:    mv a2, zero
-+; RV32I-NEXT:    mv a5, zero
-+; RV32I-NEXT:    jalr a7
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -86,19 +86,19 @@ define i32 @caller_scalars() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -16
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 262464
+-; RV32I-FPELIM-NEXT:    addi a6, a0, 0
++; RV32I-FPELIM-NEXT:    mv a6, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_scalars)
+ ; RV32I-FPELIM-NEXT:    addi a7, a0, %lo(callee_scalars)
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 1
+ ; RV32I-FPELIM-NEXT:    addi a1, zero, 2
+ ; RV32I-FPELIM-NEXT:    addi a3, zero, 3
+ ; RV32I-FPELIM-NEXT:    addi a4, zero, 4
+-; RV32I-FPELIM-NEXT:    addi a2, zero, 0
+-; RV32I-FPELIM-NEXT:    addi a5, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a7, 0
++; RV32I-FPELIM-NEXT:    mv a2, zero
++; RV32I-FPELIM-NEXT:    mv a5, zero
++; RV32I-FPELIM-NEXT:    jalr a7
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -107,20 +107,20 @@ define i32 @caller_scalars() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, 262464
+-; RV32I-WITHFP-NEXT:    addi a6, a0, 0
++; RV32I-WITHFP-NEXT:    mv a6, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_scalars)
+ ; RV32I-WITHFP-NEXT:    addi a7, a0, %lo(callee_scalars)
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 1
+ ; RV32I-WITHFP-NEXT:    addi a1, zero, 2
+ ; RV32I-WITHFP-NEXT:    addi a3, zero, 3
+ ; RV32I-WITHFP-NEXT:    addi a4, zero, 4
+-; RV32I-WITHFP-NEXT:    addi a2, zero, 0
+-; RV32I-WITHFP-NEXT:    addi a5, zero, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a7, 0
++; RV32I-WITHFP-NEXT:    mv a2, zero
++; RV32I-WITHFP-NEXT:    mv a5, zero
++; RV32I-WITHFP-NEXT:    jalr a7
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_scalars(i32 1, i64 2, i32 3, i32 4, double 5.000000e+00)
    ret i32 %1
  }
-@@ -100,11 +100,11 @@ define i32 @callee_large_scalars(i128 %a, fp128 %b) nounwind {
- ; RV32I-NEXT:    or a0, a0, a3
- ; RV32I-NEXT:    or a0, a0, a2
- ; RV32I-NEXT:    xor a0, a0, zero
--; RV32I-NEXT:    sltiu a0, a0, 1
-+; RV32I-NEXT:    seqz a0, a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -146,8 +146,8 @@ define i32 @callee_large_scalars(i128 %a, fp128 %b) nounwind {
+ ; RV32I-FPELIM-NEXT:    or a0, a0, a3
+ ; RV32I-FPELIM-NEXT:    or a0, a0, a2
+ ; RV32I-FPELIM-NEXT:    xor a0, a0, zero
+-; RV32I-FPELIM-NEXT:    sltiu a0, a0, 1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    seqz a0, a0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_large_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -171,11 +171,11 @@ define i32 @callee_large_scalars(i128 %a, fp128 %b) nounwind {
+ ; RV32I-WITHFP-NEXT:    or a0, a0, a3
+ ; RV32I-WITHFP-NEXT:    or a0, a0, a2
+ ; RV32I-WITHFP-NEXT:    xor a0, a0, zero
+-; RV32I-WITHFP-NEXT:    sltiu a0, a0, 1
++; RV32I-WITHFP-NEXT:    seqz a0, a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %b_bitcast = bitcast fp128 %b to i128
    %1 = icmp eq i128 %a, %b_bitcast
    %2 = zext i1 %1 to i32
-@@ -127,17 +127,17 @@ define i32 @caller_large_scalars() nounwind {
- ; RV32I-NEXT:    addi a0, zero, 1
- ; RV32I-NEXT:    sw a0, -24(s0)
- ; RV32I-NEXT:    lui a0, 524272
--; RV32I-NEXT:    addi a0, a0, 0
-+; RV32I-NEXT:    mv a0, a0
- ; RV32I-NEXT:    sw a0, -36(s0)
- ; RV32I-NEXT:    lui a0, %hi(callee_large_scalars)
- ; RV32I-NEXT:    addi a2, a0, %lo(callee_large_scalars)
- ; RV32I-NEXT:    addi a0, s0, -24
- ; RV32I-NEXT:    addi a1, s0, -48
--; RV32I-NEXT:    jalr ra, a2, 0
-+; RV32I-NEXT:    jalr a2
- ; RV32I-NEXT:    lw s0, 40(sp)
- ; RV32I-NEXT:    lw ra, 44(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -196,16 +196,16 @@ define i32 @caller_large_scalars() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 1
+ ; RV32I-FPELIM-NEXT:    sw a0, 24(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 524272
+-; RV32I-FPELIM-NEXT:    addi a0, a0, 0
++; RV32I-FPELIM-NEXT:    mv a0, a0
+ ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_large_scalars)
+ ; RV32I-FPELIM-NEXT:    addi a2, a0, %lo(callee_large_scalars)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 24
+-; RV32I-FPELIM-NEXT:    addi a1, sp, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a2, 0
++; RV32I-FPELIM-NEXT:    mv a1, sp
++; RV32I-FPELIM-NEXT:    jalr a2
+ ; RV32I-FPELIM-NEXT:    lw ra, 44(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_large_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -222,17 +222,17 @@ define i32 @caller_large_scalars() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 1
+ ; RV32I-WITHFP-NEXT:    sw a0, -24(s0)
+ ; RV32I-WITHFP-NEXT:    lui a0, 524272
+-; RV32I-WITHFP-NEXT:    addi a0, a0, 0
++; RV32I-WITHFP-NEXT:    mv a0, a0
+ ; RV32I-WITHFP-NEXT:    sw a0, -36(s0)
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_large_scalars)
+ ; RV32I-WITHFP-NEXT:    addi a2, a0, %lo(callee_large_scalars)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -24
+ ; RV32I-WITHFP-NEXT:    addi a1, s0, -48
+-; RV32I-WITHFP-NEXT:    jalr ra, a2, 0
++; RV32I-WITHFP-NEXT:    jalr a2
+ ; RV32I-WITHFP-NEXT:    lw s0, 40(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 44(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_large_scalars(i128 1, fp128 0xL00000000000000007FFF000000000000)
    ret i32 %1
  }
-@@ -169,11 +169,11 @@ define i32 @callee_large_scalars_exhausted_regs(i32 %a, i32 %b, i32 %c, i32 %d,
- ; RV32I-NEXT:    or a0, a0, a2
- ; RV32I-NEXT:    or a0, a0, a1
- ; RV32I-NEXT:    xor a0, a0, zero
--; RV32I-NEXT:    sltiu a0, a0, 1
-+; RV32I-NEXT:    seqz a0, a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -241,6 +241,7 @@ define i32 @caller_large_scalars() nounwind {
+ define i32 @callee_large_scalars_exhausted_regs(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e, i32 %f, i32 %g, i128 %h, i32 %i, fp128 %j) nounwind {
+ ; Check that arguments larger than 2*xlen are handled correctly when their
+ ; address is passed on the stack rather than in memory
++;
+ ; RV32I-FPELIM-LABEL: callee_large_scalars_exhausted_regs:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    lw a0, 4(sp)
+@@ -260,8 +261,8 @@ define i32 @callee_large_scalars_exhausted_regs(i32 %a, i32 %b, i32 %c, i32 %d,
+ ; RV32I-FPELIM-NEXT:    or a0, a0, a2
+ ; RV32I-FPELIM-NEXT:    or a0, a0, a1
+ ; RV32I-FPELIM-NEXT:    xor a0, a0, zero
+-; RV32I-FPELIM-NEXT:    sltiu a0, a0, 1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    seqz a0, a0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_large_scalars_exhausted_regs:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -286,11 +287,11 @@ define i32 @callee_large_scalars_exhausted_regs(i32 %a, i32 %b, i32 %c, i32 %d,
+ ; RV32I-WITHFP-NEXT:    or a0, a0, a2
+ ; RV32I-WITHFP-NEXT:    or a0, a0, a1
+ ; RV32I-WITHFP-NEXT:    xor a0, a0, zero
+-; RV32I-WITHFP-NEXT:    sltiu a0, a0, 1
++; RV32I-WITHFP-NEXT:    seqz a0, a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %j_bitcast = bitcast fp128 %j to i128
    %1 = icmp eq i128 %h, %j_bitcast
    %2 = zext i1 %1 to i32
-@@ -200,7 +200,7 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
- ; RV32I-NEXT:    addi a0, zero, 8
- ; RV32I-NEXT:    sw a0, -24(s0)
- ; RV32I-NEXT:    lui a0, 524272
--; RV32I-NEXT:    addi a0, a0, 0
-+; RV32I-NEXT:    mv a0, a0
- ; RV32I-NEXT:    sw a0, -36(s0)
- ; RV32I-NEXT:    lui a0, %hi(callee_large_scalars_exhausted_regs)
- ; RV32I-NEXT:    addi t0, a0, %lo(callee_large_scalars_exhausted_regs)
-@@ -212,11 +212,11 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
- ; RV32I-NEXT:    addi a5, zero, 6
- ; RV32I-NEXT:    addi a6, zero, 7
- ; RV32I-NEXT:    addi a7, s0, -24
--; RV32I-NEXT:    jalr ra, t0, 0
-+; RV32I-NEXT:    jalr t0
- ; RV32I-NEXT:    lw s0, 56(sp)
- ; RV32I-NEXT:    lw ra, 60(sp)
- ; RV32I-NEXT:    addi sp, sp, 64
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -315,7 +316,7 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 8
+ ; RV32I-FPELIM-NEXT:    sw a0, 40(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 524272
+-; RV32I-FPELIM-NEXT:    addi a0, a0, 0
++; RV32I-FPELIM-NEXT:    mv a0, a0
+ ; RV32I-FPELIM-NEXT:    sw a0, 28(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_large_scalars_exhausted_regs)
+ ; RV32I-FPELIM-NEXT:    addi t0, a0, %lo(callee_large_scalars_exhausted_regs)
+@@ -327,10 +328,10 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a5, zero, 6
+ ; RV32I-FPELIM-NEXT:    addi a6, zero, 7
+ ; RV32I-FPELIM-NEXT:    addi a7, sp, 40
+-; RV32I-FPELIM-NEXT:    jalr ra, t0, 0
++; RV32I-FPELIM-NEXT:    jalr t0
+ ; RV32I-FPELIM-NEXT:    lw ra, 60(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 64
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_large_scalars_exhausted_regs:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -351,7 +352,7 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 8
+ ; RV32I-WITHFP-NEXT:    sw a0, -24(s0)
+ ; RV32I-WITHFP-NEXT:    lui a0, 524272
+-; RV32I-WITHFP-NEXT:    addi a0, a0, 0
++; RV32I-WITHFP-NEXT:    mv a0, a0
+ ; RV32I-WITHFP-NEXT:    sw a0, -36(s0)
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_large_scalars_exhausted_regs)
+ ; RV32I-WITHFP-NEXT:    addi t0, a0, %lo(callee_large_scalars_exhausted_regs)
+@@ -363,11 +364,11 @@ define i32 @caller_large_scalars_exhausted_regs() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a5, zero, 6
+ ; RV32I-WITHFP-NEXT:    addi a6, zero, 7
+ ; RV32I-WITHFP-NEXT:    addi a7, s0, -24
+-; RV32I-WITHFP-NEXT:    jalr ra, t0, 0
++; RV32I-WITHFP-NEXT:    jalr t0
+ ; RV32I-WITHFP-NEXT:    lw s0, 56(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 60(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 64
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_large_scalars_exhausted_regs(
        i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i128 8, i32 9,
        fp128 0xL00000000000000007FFF000000000000)
-@@ -232,17 +232,17 @@ define i32 @caller_mixed_scalar_libcalls(i64 %a) nounwind {
- ; RV32I-NEXT:    sw ra, 28(sp)
- ; RV32I-NEXT:    sw s0, 24(sp)
- ; RV32I-NEXT:    addi s0, sp, 32
--; RV32I-NEXT:    addi a2, a1, 0
--; RV32I-NEXT:    addi a1, a0, 0
-+; RV32I-NEXT:    mv a2, a1
-+; RV32I-NEXT:    mv a1, a0
- ; RV32I-NEXT:    lui a0, %hi(__floatditf)
- ; RV32I-NEXT:    addi a3, a0, %lo(__floatditf)
- ; RV32I-NEXT:    addi a0, s0, -24
--; RV32I-NEXT:    jalr ra, a3, 0
-+; RV32I-NEXT:    jalr a3
- ; RV32I-NEXT:    lw a0, -24(s0)
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -381,16 +382,16 @@ define i32 @caller_mixed_scalar_libcalls(i64 %a) nounwind {
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -32
+ ; RV32I-FPELIM-NEXT:    sw ra, 28(sp)
+-; RV32I-FPELIM-NEXT:    addi a2, a1, 0
+-; RV32I-FPELIM-NEXT:    addi a1, a0, 0
++; RV32I-FPELIM-NEXT:    mv a2, a1
++; RV32I-FPELIM-NEXT:    mv a1, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(__floatditf)
+ ; RV32I-FPELIM-NEXT:    addi a3, a0, %lo(__floatditf)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 8
+-; RV32I-FPELIM-NEXT:    jalr ra, a3, 0
++; RV32I-FPELIM-NEXT:    jalr a3
+ ; RV32I-FPELIM-NEXT:    lw a0, 8(sp)
+ ; RV32I-FPELIM-NEXT:    lw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_mixed_scalar_libcalls:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -398,17 +399,17 @@ define i32 @caller_mixed_scalar_libcalls(i64 %a) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    sw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 32
+-; RV32I-WITHFP-NEXT:    addi a2, a1, 0
+-; RV32I-WITHFP-NEXT:    addi a1, a0, 0
++; RV32I-WITHFP-NEXT:    mv a2, a1
++; RV32I-WITHFP-NEXT:    mv a1, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(__floatditf)
+ ; RV32I-WITHFP-NEXT:    addi a3, a0, %lo(__floatditf)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -24
+-; RV32I-WITHFP-NEXT:    jalr ra, a3, 0
++; RV32I-WITHFP-NEXT:    jalr a3
+ ; RV32I-WITHFP-NEXT:    lw a0, -24(s0)
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = sitofp i64 %a to fp128
    %2 = bitcast fp128 %1 to i128
    %3 = trunc i128 %2 to i32
-@@ -269,7 +269,7 @@ define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i
- ; RV32I-NEXT:    andi a0, a0, 255
- ; RV32I-NEXT:    add a0, a0, a1
- ; RV32I-NEXT:    add a0, a0, a2
--; RV32I-NEXT:    sltiu a1, a3, 1
-+; RV32I-NEXT:    seqz a1, a3
- ; RV32I-NEXT:    add a0, a1, a0
- ; RV32I-NEXT:    add a0, a0, a5
- ; RV32I-NEXT:    add a0, a0, a6
-@@ -278,7 +278,7 @@ define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -431,13 +432,13 @@ define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i
+ ; RV32I-FPELIM-NEXT:    andi a0, a0, 255
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a2
+-; RV32I-FPELIM-NEXT:    sltiu a1, a3, 1
++; RV32I-FPELIM-NEXT:    seqz a1, a3
+ ; RV32I-FPELIM-NEXT:    add a0, a1, a0
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a5
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a6
+ ; RV32I-FPELIM-NEXT:    lw a1, 4(sp)
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_many_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -456,7 +457,7 @@ define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i
+ ; RV32I-WITHFP-NEXT:    andi a0, a0, 255
+ ; RV32I-WITHFP-NEXT:    add a0, a0, a1
+ ; RV32I-WITHFP-NEXT:    add a0, a0, a2
+-; RV32I-WITHFP-NEXT:    sltiu a1, a3, 1
++; RV32I-WITHFP-NEXT:    seqz a1, a3
+ ; RV32I-WITHFP-NEXT:    add a0, a1, a0
+ ; RV32I-WITHFP-NEXT:    add a0, a0, a5
+ ; RV32I-WITHFP-NEXT:    add a0, a0, a6
+@@ -465,7 +466,7 @@ define i32 @callee_many_scalars(i8 %a, i16 %b, i32 %c, i64 %d, i32 %e, i32 %f, i
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %a_ext = zext i8 %a to i32
    %b_ext = zext i16 %b to i32
    %1 = add i32 %a_ext, %b_ext
-@@ -311,12 +311,12 @@ define i32 @caller_many_scalars() nounwind {
- ; RV32I-NEXT:    addi a5, zero, 5
- ; RV32I-NEXT:    addi a6, zero, 6
- ; RV32I-NEXT:    addi a7, zero, 7
--; RV32I-NEXT:    addi a4, zero, 0
--; RV32I-NEXT:    jalr ra, t0, 0
-+; RV32I-NEXT:    mv a4, zero
-+; RV32I-NEXT:    jalr t0
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -496,11 +497,11 @@ define i32 @caller_many_scalars() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a5, zero, 5
+ ; RV32I-FPELIM-NEXT:    addi a6, zero, 6
+ ; RV32I-FPELIM-NEXT:    addi a7, zero, 7
+-; RV32I-FPELIM-NEXT:    addi a4, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, t0, 0
++; RV32I-FPELIM-NEXT:    mv a4, zero
++; RV32I-FPELIM-NEXT:    jalr t0
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_many_scalars:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -520,12 +521,12 @@ define i32 @caller_many_scalars() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a5, zero, 5
+ ; RV32I-WITHFP-NEXT:    addi a6, zero, 6
+ ; RV32I-WITHFP-NEXT:    addi a7, zero, 7
+-; RV32I-WITHFP-NEXT:    addi a4, zero, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, t0, 0
++; RV32I-WITHFP-NEXT:    mv a4, zero
++; RV32I-WITHFP-NEXT:    jalr t0
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_many_scalars(i8 1, i16 2, i32 3, i64 4, i32 5, i32 6, i64 7, i32 8)
    ret i32 %1
  }
-@@ -333,11 +333,11 @@ define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    xor a0, a0, a1
--; RV32I-NEXT:    sltiu a0, a0, 1
-+; RV32I-NEXT:    seqz a0, a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -538,8 +539,8 @@ define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) nounwind {
+ ; RV32I-FPELIM-LABEL: callee_small_coerced_struct:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    xor a0, a0, a1
+-; RV32I-FPELIM-NEXT:    sltiu a0, a0, 1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    seqz a0, a0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_small_coerced_struct:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -548,11 +549,11 @@ define i32 @callee_small_coerced_struct([2 x i32] %a.coerce) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    xor a0, a0, a1
+-; RV32I-WITHFP-NEXT:    sltiu a0, a0, 1
++; RV32I-WITHFP-NEXT:    seqz a0, a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = extractvalue [2 x i32] %a.coerce, 0
    %2 = extractvalue [2 x i32] %a.coerce, 1
    %3 = icmp eq i32 %1, %2
-@@ -356,11 +356,11 @@ define i32 @caller_small_coerced_struct() nounwind {
- ; RV32I-NEXT:    addi a2, a0, %lo(callee_small_coerced_struct)
- ; RV32I-NEXT:    addi a0, zero, 1
- ; RV32I-NEXT:    addi a1, zero, 2
--; RV32I-NEXT:    jalr ra, a2, 0
-+; RV32I-NEXT:    jalr a2
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -569,10 +570,10 @@ define i32 @caller_small_coerced_struct() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a2, a0, %lo(callee_small_coerced_struct)
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 1
+ ; RV32I-FPELIM-NEXT:    addi a1, zero, 2
+-; RV32I-FPELIM-NEXT:    jalr ra, a2, 0
++; RV32I-FPELIM-NEXT:    jalr a2
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_small_coerced_struct:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -584,11 +585,11 @@ define i32 @caller_small_coerced_struct() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a2, a0, %lo(callee_small_coerced_struct)
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 1
+ ; RV32I-WITHFP-NEXT:    addi a1, zero, 2
+-; RV32I-WITHFP-NEXT:    jalr ra, a2, 0
++; RV32I-WITHFP-NEXT:    jalr a2
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_small_coerced_struct([2 x i32] [i32 1, i32 2])
    ret i32 %1
  }
-@@ -382,7 +382,7 @@ define i32 @callee_large_struct(%struct.large* byval align 4 %a) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -603,7 +604,7 @@ define i32 @callee_large_struct(%struct.large* byval align 4 %a) nounwind {
+ ; RV32I-FPELIM-NEXT:    lw a1, 12(a0)
+ ; RV32I-FPELIM-NEXT:    lw a0, 0(a0)
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_large_struct:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -617,7 +618,7 @@ define i32 @callee_large_struct(%struct.large* byval align 4 %a) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = getelementptr inbounds %struct.large, %struct.large* %a, i32 0, i32 0
    %2 = getelementptr inbounds %struct.large, %struct.large* %a, i32 0, i32 3
    %3 = load i32, i32* %1
-@@ -413,11 +413,11 @@ define i32 @caller_large_struct() nounwind {
- ; RV32I-NEXT:    lui a0, %hi(callee_large_struct)
- ; RV32I-NEXT:    addi a1, a0, %lo(callee_large_struct)
- ; RV32I-NEXT:    addi a0, s0, -40
--; RV32I-NEXT:    jalr ra, a1, 0
-+; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw s0, 40(sp)
- ; RV32I-NEXT:    lw ra, 44(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -646,10 +647,10 @@ define i32 @caller_large_struct() nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_large_struct)
+ ; RV32I-FPELIM-NEXT:    addi a1, a0, %lo(callee_large_struct)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 8
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
++; RV32I-FPELIM-NEXT:    jalr a1
+ ; RV32I-FPELIM-NEXT:    lw ra, 44(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_large_struct:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -672,11 +673,11 @@ define i32 @caller_large_struct() nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_large_struct)
+ ; RV32I-WITHFP-NEXT:    addi a1, a0, %lo(callee_large_struct)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -40
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
++; RV32I-WITHFP-NEXT:    jalr a1
+ ; RV32I-WITHFP-NEXT:    lw s0, 40(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 44(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %ls = alloca %struct.large, align 4
    %1 = bitcast %struct.large* %ls to i8*
    %a = getelementptr inbounds %struct.large, %struct.large* %ls, i32 0, i32 0
-@@ -456,7 +456,7 @@ define i32 @callee_aligned_stack(i32 %a, i32 %b, fp128 %c, i32 %d, i32 %e, i64 %
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -708,7 +709,7 @@ define i32 @callee_aligned_stack(i32 %a, i32 %b, fp128 %c, i32 %d, i32 %e, i64 %
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+ ; RV32I-FPELIM-NEXT:    lw a1, 20(sp)
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_aligned_stack:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -729,7 +730,7 @@ define i32 @callee_aligned_stack(i32 %a, i32 %b, fp128 %c, i32 %d, i32 %e, i64 %
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = bitcast fp128 %c to i128
    %2 = trunc i128 %1 to i32
    %3 = add i32 %2, %g
-@@ -516,11 +516,11 @@ define void @caller_aligned_stack() nounwind {
- ; RV32I-NEXT:    addi a4, zero, 13
- ; RV32I-NEXT:    addi a6, zero, 4
- ; RV32I-NEXT:    addi a7, zero, 14
--; RV32I-NEXT:    jalr ra, t0, 0
-+; RV32I-NEXT:    jalr t0
- ; RV32I-NEXT:    lw s0, 56(sp)
- ; RV32I-NEXT:    lw ra, 60(sp)
- ; RV32I-NEXT:    addi sp, sp, 64
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -787,10 +788,10 @@ define void @caller_aligned_stack() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a4, zero, 13
+ ; RV32I-FPELIM-NEXT:    addi a6, zero, 4
+ ; RV32I-FPELIM-NEXT:    addi a7, zero, 14
+-; RV32I-FPELIM-NEXT:    jalr ra, t0, 0
++; RV32I-FPELIM-NEXT:    jalr t0
+ ; RV32I-FPELIM-NEXT:    lw ra, 60(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 64
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_aligned_stack:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -835,11 +836,11 @@ define void @caller_aligned_stack() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a4, zero, 13
+ ; RV32I-WITHFP-NEXT:    addi a6, zero, 4
+ ; RV32I-WITHFP-NEXT:    addi a7, zero, 14
+-; RV32I-WITHFP-NEXT:    jalr ra, t0, 0
++; RV32I-WITHFP-NEXT:    jalr t0
+ ; RV32I-WITHFP-NEXT:    lw s0, 56(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 60(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 64
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 @callee_aligned_stack(i32 1, i32 11,
      fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13,
      i64 20000000000, i32 14, i32 15, double 2.720000e+00, i32 16,
-@@ -543,7 +543,7 @@ define i64 @callee_small_scalar_ret() nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -855,7 +856,7 @@ define i64 @callee_small_scalar_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a0, 466866
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, 1677
+ ; RV32I-FPELIM-NEXT:    addi a1, zero, 287
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_small_scalar_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -869,7 +870,7 @@ define i64 @callee_small_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    ret i64 1234567898765
  }
  
-@@ -556,7 +556,7 @@ define i32 @caller_small_scalar_ret() nounwind {
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, %hi(callee_small_scalar_ret)
- ; RV32I-NEXT:    addi a0, a0, %lo(callee_small_scalar_ret)
--; RV32I-NEXT:    jalr ra, a0, 0
-+; RV32I-NEXT:    jalr a0
- ; RV32I-NEXT:    lui a2, 56
- ; RV32I-NEXT:    addi a2, a2, 580
- ; RV32I-NEXT:    xor a1, a1, a2
-@@ -565,11 +565,11 @@ define i32 @caller_small_scalar_ret() nounwind {
- ; RV32I-NEXT:    xor a0, a0, a2
- ; RV32I-NEXT:    or a0, a0, a1
- ; RV32I-NEXT:    xor a0, a0, zero
--; RV32I-NEXT:    sltiu a0, a0, 1
-+; RV32I-NEXT:    seqz a0, a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -880,7 +881,7 @@ define i32 @caller_small_scalar_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_small_scalar_ret)
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, %lo(callee_small_scalar_ret)
+-; RV32I-FPELIM-NEXT:    jalr ra, a0, 0
++; RV32I-FPELIM-NEXT:    jalr a0
+ ; RV32I-FPELIM-NEXT:    lui a2, 56
+ ; RV32I-FPELIM-NEXT:    addi a2, a2, 580
+ ; RV32I-FPELIM-NEXT:    xor a1, a1, a2
+@@ -889,10 +890,10 @@ define i32 @caller_small_scalar_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    xor a0, a0, a2
+ ; RV32I-FPELIM-NEXT:    or a0, a0, a1
+ ; RV32I-FPELIM-NEXT:    xor a0, a0, zero
+-; RV32I-FPELIM-NEXT:    sltiu a0, a0, 1
++; RV32I-FPELIM-NEXT:    seqz a0, a0
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_small_scalar_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -902,7 +903,7 @@ define i32 @caller_small_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_small_scalar_ret)
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, %lo(callee_small_scalar_ret)
+-; RV32I-WITHFP-NEXT:    jalr ra, a0, 0
++; RV32I-WITHFP-NEXT:    jalr a0
+ ; RV32I-WITHFP-NEXT:    lui a2, 56
+ ; RV32I-WITHFP-NEXT:    addi a2, a2, 580
+ ; RV32I-WITHFP-NEXT:    xor a1, a1, a2
+@@ -911,11 +912,11 @@ define i32 @caller_small_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    xor a0, a0, a2
+ ; RV32I-WITHFP-NEXT:    or a0, a0, a1
+ ; RV32I-WITHFP-NEXT:    xor a0, a0, zero
+-; RV32I-WITHFP-NEXT:    sltiu a0, a0, 1
++; RV32I-WITHFP-NEXT:    seqz a0, a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i64 @callee_small_scalar_ret()
    %2 = icmp eq i64 987654321234567, %1
    %3 = zext i1 %2 to i32
-@@ -586,11 +586,11 @@ define %struct.small @callee_small_struct_ret() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    addi a0, zero, 1
--; RV32I-NEXT:    addi a1, zero, 0
-+; RV32I-NEXT:    mv a1, zero
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -928,8 +929,8 @@ define %struct.small @callee_small_struct_ret() nounwind {
+ ; RV32I-FPELIM-LABEL: callee_small_struct_ret:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 1
+-; RV32I-FPELIM-NEXT:    addi a1, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    mv a1, zero
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_small_struct_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -938,11 +939,11 @@ define %struct.small @callee_small_struct_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 1
+-; RV32I-WITHFP-NEXT:    addi a1, zero, 0
++; RV32I-WITHFP-NEXT:    mv a1, zero
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    ret %struct.small { i32 1, i32* null }
  }
  
-@@ -603,12 +603,12 @@ define i32 @caller_small_struct_ret() nounwind {
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, %hi(callee_small_struct_ret)
- ; RV32I-NEXT:    addi a0, a0, %lo(callee_small_struct_ret)
--; RV32I-NEXT:    jalr ra, a0, 0
-+; RV32I-NEXT:    jalr a0
- ; RV32I-NEXT:    add a0, a0, a1
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -953,11 +954,11 @@ define i32 @caller_small_struct_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_small_struct_ret)
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, %lo(callee_small_struct_ret)
+-; RV32I-FPELIM-NEXT:    jalr ra, a0, 0
++; RV32I-FPELIM-NEXT:    jalr a0
+ ; RV32I-FPELIM-NEXT:    add a0, a0, a1
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_small_struct_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -967,12 +968,12 @@ define i32 @caller_small_struct_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_small_struct_ret)
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, %lo(callee_small_struct_ret)
+-; RV32I-WITHFP-NEXT:    jalr ra, a0, 0
++; RV32I-WITHFP-NEXT:    jalr a0
+ ; RV32I-WITHFP-NEXT:    add a0, a0, a1
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call %struct.small @callee_small_struct_ret()
    %2 = extractvalue %struct.small %1, 0
    %3 = extractvalue %struct.small %1, 1
-@@ -627,7 +627,7 @@ define fp128 @callee_large_scalar_ret() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a1, 524272
--; RV32I-NEXT:    addi a1, a1, 0
-+; RV32I-NEXT:    mv a1, a1
- ; RV32I-NEXT:    sw a1, 12(a0)
- ; RV32I-NEXT:    sw zero, 8(a0)
- ; RV32I-NEXT:    sw zero, 4(a0)
-@@ -635,7 +635,7 @@ define fp128 @callee_large_scalar_ret() nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -987,12 +988,12 @@ define fp128 @callee_large_scalar_ret() nounwind {
+ ; RV32I-FPELIM-LABEL: callee_large_scalar_ret:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    lui a1, 524272
+-; RV32I-FPELIM-NEXT:    addi a1, a1, 0
++; RV32I-FPELIM-NEXT:    mv a1, a1
+ ; RV32I-FPELIM-NEXT:    sw a1, 12(a0)
+ ; RV32I-FPELIM-NEXT:    sw zero, 8(a0)
+ ; RV32I-FPELIM-NEXT:    sw zero, 4(a0)
+ ; RV32I-FPELIM-NEXT:    sw zero, 0(a0)
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_large_scalar_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -1001,7 +1002,7 @@ define fp128 @callee_large_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a1, 524272
+-; RV32I-WITHFP-NEXT:    addi a1, a1, 0
++; RV32I-WITHFP-NEXT:    mv a1, a1
+ ; RV32I-WITHFP-NEXT:    sw a1, 12(a0)
+ ; RV32I-WITHFP-NEXT:    sw zero, 8(a0)
+ ; RV32I-WITHFP-NEXT:    sw zero, 4(a0)
+@@ -1009,7 +1010,7 @@ define fp128 @callee_large_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    ret fp128 0xL00000000000000007FFF000000000000
  }
  
-@@ -649,11 +649,11 @@ define void @caller_large_scalar_ret() nounwind {
- ; RV32I-NEXT:    lui a0, %hi(callee_large_scalar_ret)
- ; RV32I-NEXT:    addi a1, a0, %lo(callee_large_scalar_ret)
- ; RV32I-NEXT:    addi a0, s0, -32
--; RV32I-NEXT:    jalr ra, a1, 0
-+; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -1020,11 +1021,11 @@ define void @caller_large_scalar_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    sw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_large_scalar_ret)
+ ; RV32I-FPELIM-NEXT:    addi a1, a0, %lo(callee_large_scalar_ret)
+-; RV32I-FPELIM-NEXT:    addi a0, sp, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
++; RV32I-FPELIM-NEXT:    mv a0, sp
++; RV32I-FPELIM-NEXT:    jalr a1
+ ; RV32I-FPELIM-NEXT:    lw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_large_scalar_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -1035,11 +1036,11 @@ define void @caller_large_scalar_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_large_scalar_ret)
+ ; RV32I-WITHFP-NEXT:    addi a1, a0, %lo(callee_large_scalar_ret)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -32
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
++; RV32I-WITHFP-NEXT:    jalr a1
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call fp128 @callee_large_scalar_ret()
    ret void
  }
-@@ -678,7 +678,7 @@ define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) no
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -1057,7 +1058,7 @@ define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) no
+ ; RV32I-FPELIM-NEXT:    sw a1, 8(a0)
+ ; RV32I-FPELIM-NEXT:    addi a1, zero, 4
+ ; RV32I-FPELIM-NEXT:    sw a1, 12(a0)
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: callee_large_struct_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -1076,7 +1077,7 @@ define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) no
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %a = getelementptr inbounds %struct.large, %struct.large* %agg.result, i32 0, i32 0
    store i32 1, i32* %a, align 4
    %b = getelementptr inbounds %struct.large, %struct.large* %agg.result, i32 0, i32 1
-@@ -700,14 +700,14 @@ define i32 @caller_large_struct_ret() nounwind {
- ; RV32I-NEXT:    lui a0, %hi(callee_large_struct_ret)
- ; RV32I-NEXT:    addi a1, a0, %lo(callee_large_struct_ret)
- ; RV32I-NEXT:    addi a0, s0, -24
--; RV32I-NEXT:    jalr ra, a1, 0
-+; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw a0, -12(s0)
- ; RV32I-NEXT:    lw a1, -24(s0)
- ; RV32I-NEXT:    add a0, a1, a0
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -1096,13 +1097,13 @@ define i32 @caller_large_struct_ret() nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(callee_large_struct_ret)
+ ; RV32I-FPELIM-NEXT:    addi a1, a0, %lo(callee_large_struct_ret)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 8
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
++; RV32I-FPELIM-NEXT:    jalr a1
+ ; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
+ ; RV32I-FPELIM-NEXT:    lw a1, 8(sp)
+ ; RV32I-FPELIM-NEXT:    add a0, a1, a0
+ ; RV32I-FPELIM-NEXT:    lw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: caller_large_struct_ret:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -1113,14 +1114,14 @@ define i32 @caller_large_struct_ret() nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(callee_large_struct_ret)
+ ; RV32I-WITHFP-NEXT:    addi a1, a0, %lo(callee_large_struct_ret)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -24
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
++; RV32I-WITHFP-NEXT:    jalr a1
+ ; RV32I-WITHFP-NEXT:    lw a0, -12(s0)
+ ; RV32I-WITHFP-NEXT:    lw a1, -24(s0)
+ ; RV32I-WITHFP-NEXT:    add a0, a1, a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = alloca %struct.large
    call void @callee_large_struct_ret(%struct.large* sret %1)
    %2 = getelementptr inbounds %struct.large, %struct.large* %1, i32 0, i32 0
@@ -3139,7 +3499,7 @@ index cc8ed150b4f..c15f7752eb5 100644
    %2 = zext i1 %1 to i32
    ret i32 %2
 diff --git a/test/CodeGen/RISCV/double-br-fcmp.ll b/test/CodeGen/RISCV/double-br-fcmp.ll
-index e5abe6b8f73..79967730d0d 100644
+index a2915c08524..6ba8e99584e 100644
 --- a/test/CodeGen/RISCV/double-br-fcmp.ll
 +++ b/test/CodeGen/RISCV/double-br-fcmp.ll
 @@ -11,15 +11,15 @@ define void @br_fcmp_false(double %a, double %b) nounwind {
@@ -3180,13 +3540,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp oeq double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -78,17 +78,17 @@ define void @br_fcmp_oeq_alt(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    and a0, a1, a0
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
- ; RV32IFD-NEXT:    xori a1, a1, 1
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -75,15 +75,15 @@ define void @br_fcmp_oeq_alt(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    feq.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    beq a0, zero, .LBB2_2
 +; RV32IFD-NEXT:    beqz a0, .LBB2_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3202,7 +3559,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp oeq double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.then:
-@@ -110,15 +110,15 @@ define void @br_fcmp_ogt(double %a, double %b) nounwind {
+@@ -105,15 +105,15 @@ define void @br_fcmp_ogt(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 16(sp)
  ; RV32IFD-NEXT:    fld ft1, 8(sp)
  ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
@@ -3221,7 +3578,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ogt double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -140,15 +140,15 @@ define void @br_fcmp_oge(double %a, double %b) nounwind {
+@@ -135,15 +135,15 @@ define void @br_fcmp_oge(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 16(sp)
  ; RV32IFD-NEXT:    fld ft1, 8(sp)
  ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
@@ -3240,7 +3597,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp oge double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -170,15 +170,15 @@ define void @br_fcmp_olt(double %a, double %b) nounwind {
+@@ -165,15 +165,15 @@ define void @br_fcmp_olt(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 8(sp)
  ; RV32IFD-NEXT:    fld ft1, 16(sp)
  ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
@@ -3259,7 +3616,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp olt double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -200,15 +200,15 @@ define void @br_fcmp_ole(double %a, double %b) nounwind {
+@@ -195,15 +195,15 @@ define void @br_fcmp_ole(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 8(sp)
  ; RV32IFD-NEXT:    fld ft1, 16(sp)
  ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
@@ -3278,12 +3635,15 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ole double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -234,17 +234,17 @@ define void @br_fcmp_one(double %a, double %b) nounwind {
+@@ -229,19 +229,19 @@ define void @br_fcmp_one(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
 -; RV32IFD-NEXT:    xori a1, a1, -1
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
 +; RV32IFD-NEXT:    not a1, a1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    and a0, a1, a0
 -; RV32IFD-NEXT:    bne a0, zero, .LBB7_2
 +; RV32IFD-NEXT:    bnez a0, .LBB7_2
@@ -3300,10 +3660,13 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp one double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -268,15 +268,15 @@ define void @br_fcmp_ord(double %a, double %b) nounwind {
+@@ -265,17 +265,17 @@ define void @br_fcmp_ord(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 16(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    and a0, a1, a0
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB8_2
 +; RV32IFD-NEXT:    bnez a0, .LBB8_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3319,7 +3682,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ord double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -301,17 +301,17 @@ define void @br_fcmp_ueq(double %a, double %b) nounwind {
+@@ -300,17 +300,17 @@ define void @br_fcmp_ueq(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
  ; RV32IFD-NEXT:    and a1, a2, a1
@@ -3341,13 +3704,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ueq double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -336,17 +336,17 @@ define void @br_fcmp_ugt(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    feq.d a2, ft0, ft0
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -333,15 +333,15 @@ define void @br_fcmp_ugt(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB10_2
 +; RV32IFD-NEXT:    bnez a0, .LBB10_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3363,13 +3723,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ugt double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -371,17 +371,17 @@ define void @br_fcmp_uge(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    feq.d a2, ft0, ft0
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -364,15 +364,15 @@ define void @br_fcmp_uge(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB11_2
 +; RV32IFD-NEXT:    bnez a0, .LBB11_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3385,13 +3742,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp uge double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -406,17 +406,17 @@ define void @br_fcmp_ult(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
- ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -395,15 +395,15 @@ define void @br_fcmp_ult(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 8(sp)
+ ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB12_2
 +; RV32IFD-NEXT:    bnez a0, .LBB12_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3407,13 +3761,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ult double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -441,17 +441,17 @@ define void @br_fcmp_ule(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
- ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -426,15 +426,15 @@ define void @br_fcmp_ule(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 8(sp)
+ ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB13_2
 +; RV32IFD-NEXT:    bnez a0, .LBB13_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3429,13 +3780,10 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp ule double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -477,17 +477,17 @@ define void @br_fcmp_une(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    and a0, a1, a0
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
- ; RV32IFD-NEXT:    xori a1, a1, 1
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -457,15 +457,15 @@ define void @br_fcmp_une(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    feq.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB14_2
 +; RV32IFD-NEXT:    bnez a0, .LBB14_2
  ; RV32IFD-NEXT:  # %bb.1: # %if.else
@@ -3451,7 +3799,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp une double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -512,16 +512,16 @@ define void @br_fcmp_uno(double %a, double %b) nounwind {
+@@ -490,16 +490,16 @@ define void @br_fcmp_uno(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 16(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    and a0, a1, a0
@@ -3472,7 +3820,7 @@ index e5abe6b8f73..79967730d0d 100644
    %1 = fcmp uno double %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -537,15 +537,15 @@ define void @br_fcmp_true(double %a, double %b) nounwind {
+@@ -515,15 +515,15 @@ define void @br_fcmp_true(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    addi sp, sp, -16
  ; RV32IFD-NEXT:    sw ra, 12(sp)
  ; RV32IFD-NEXT:    addi a0, zero, 1
@@ -3550,7 +3898,7 @@ index 4b2c9707aa4..3312ce08d6a 100644
    ret double %1
  }
 diff --git a/test/CodeGen/RISCV/double-fcmp.ll b/test/CodeGen/RISCV/double-fcmp.ll
-index d90e1b88ef3..96ca22355ae 100644
+index b10f4a04392..5511143967c 100644
 --- a/test/CodeGen/RISCV/double-fcmp.ll
 +++ b/test/CodeGen/RISCV/double-fcmp.ll
 @@ -5,8 +5,8 @@
@@ -3609,12 +3957,15 @@ index d90e1b88ef3..96ca22355ae 100644
    %1 = fcmp ole double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -116,10 +116,10 @@ define i32 @fcmp_one(double %a, double %b) nounwind {
+@@ -116,12 +116,12 @@ define i32 @fcmp_one(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
 -; RV32IFD-NEXT:    xori a1, a1, -1
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
 +; RV32IFD-NEXT:    not a1, a1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    and a0, a1, a0
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
@@ -3622,16 +3973,20 @@ index d90e1b88ef3..96ca22355ae 100644
    %1 = fcmp one double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -139,7 +139,7 @@ define i32 @fcmp_ord(double %a, double %b) nounwind {
+@@ -140,10 +140,10 @@ define i32 @fcmp_ord(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft0, 8(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    and a0, a1, a0
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp ord double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -159,10 +159,10 @@ define i32 @fcmp_ueq(double %a, double %b) nounwind {
+@@ -163,10 +163,10 @@ define i32 @fcmp_ueq(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
  ; RV32IFD-NEXT:    and a1, a2, a1
@@ -3644,72 +3999,52 @@ index d90e1b88ef3..96ca22355ae 100644
    %1 = fcmp ueq double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -182,10 +182,10 @@ define i32 @fcmp_ugt(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    feq.d a2, ft0, ft0
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -185,7 +185,7 @@ define i32 @fcmp_ugt(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp ugt double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -205,10 +205,10 @@ define i32 @fcmp_uge(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    feq.d a2, ft0, ft0
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -204,7 +204,7 @@ define i32 @fcmp_uge(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp uge double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -228,10 +228,10 @@ define i32 @fcmp_ult(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
- ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -223,7 +223,7 @@ define i32 @fcmp_ult(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp ult double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -251,10 +251,10 @@ define i32 @fcmp_ule(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
- ; RV32IFD-NEXT:    feq.d a2, ft1, ft1
- ; RV32IFD-NEXT:    and a1, a2, a1
--; RV32IFD-NEXT:    sltiu a1, a1, 1
-+; RV32IFD-NEXT:    seqz a1, a1
- ; RV32IFD-NEXT:    or a0, a0, a1
+@@ -242,7 +242,7 @@ define i32 @fcmp_ule(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp ule double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -275,10 +275,10 @@ define i32 @fcmp_une(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    and a0, a1, a0
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
- ; RV32IFD-NEXT:    xori a1, a1, 1
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -261,7 +261,7 @@ define i32 @fcmp_une(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    feq.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    addi sp, sp, 16
 -; RV32IFD-NEXT:    jalr zero, ra, 0
 +; RV32IFD-NEXT:    ret
    %1 = fcmp une double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -297,9 +297,9 @@ define i32 @fcmp_uno(double %a, double %b) nounwind {
+@@ -280,9 +280,9 @@ define i32 @fcmp_uno(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 8(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft0, ft0
  ; RV32IFD-NEXT:    and a0, a1, a0
@@ -3721,7 +4056,7 @@ index d90e1b88ef3..96ca22355ae 100644
    %1 = fcmp uno double %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -309,7 +309,7 @@ define i32 @fcmp_true(double %a, double %b) nounwind {
+@@ -292,7 +292,7 @@ define i32 @fcmp_true(double %a, double %b) nounwind {
  ; RV32IFD-LABEL: fcmp_true:
  ; RV32IFD:       # %bb.0:
  ; RV32IFD-NEXT:    addi a0, zero, 1
@@ -3833,7 +4168,7 @@ index 03400d8ec29..8133bcd0f91 100644
    store float %1, float* %a, align 4
    ret void
 diff --git a/test/CodeGen/RISCV/double-select-fcmp.ll b/test/CodeGen/RISCV/double-select-fcmp.ll
-index f407991fa3c..3bf33727b65 100644
+index 3a5ec81b44e..09787effc15 100644
 --- a/test/CodeGen/RISCV/double-select-fcmp.ll
 +++ b/test/CodeGen/RISCV/double-select-fcmp.ll
 @@ -5,9 +5,9 @@
@@ -3944,12 +4279,15 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ole double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -153,17 +153,17 @@ define double @select_fcmp_one(double %a, double %b) nounwind {
+@@ -153,19 +153,19 @@ define double @select_fcmp_one(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
 -; RV32IFD-NEXT:    xori a1, a1, -1
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
 +; RV32IFD-NEXT:    not a1, a1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
  ; RV32IFD-NEXT:    and a0, a1, a0
 -; RV32IFD-NEXT:    bne a0, zero, .LBB6_2
 +; RV32IFD-NEXT:    bnez a0, .LBB6_2
@@ -3966,10 +4304,13 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp one double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -182,15 +182,15 @@ define double @select_fcmp_ord(double %a, double %b) nounwind {
+@@ -184,17 +184,17 @@ define double @select_fcmp_ord(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft1, 24(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
+-; RV32IFD-NEXT:    sltiu a0, a0, 1
++; RV32IFD-NEXT:    seqz a0, a0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB7_2
 +; RV32IFD-NEXT:    bnez a0, .LBB7_2
  ; RV32IFD-NEXT:  # %bb.1:
@@ -3985,7 +4326,7 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ord double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -209,18 +209,18 @@ define double @select_fcmp_ueq(double %a, double %b) nounwind {
+@@ -213,18 +213,18 @@ define double @select_fcmp_ueq(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft1, 24(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
@@ -4008,21 +4349,17 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ueq double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -239,18 +239,18 @@ define double @select_fcmp_ugt(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    fld ft1, 24(sp)
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    and a0, a1, a0
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    flt.d a1, ft0, ft1
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -242,15 +242,15 @@ define double @select_fcmp_ugt(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft0, 24(sp)
+ ; RV32IFD-NEXT:    fle.d a0, ft0, ft1
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB9_2
 +; RV32IFD-NEXT:    bnez a0, .LBB9_2
  ; RV32IFD-NEXT:  # %bb.1:
--; RV32IFD-NEXT:    fsgnj.d ft1, ft0, ft0
-+; RV32IFD-NEXT:    fmv.d ft1, ft0
+-; RV32IFD-NEXT:    fsgnj.d ft0, ft1, ft1
++; RV32IFD-NEXT:    fmv.d ft0, ft1
  ; RV32IFD-NEXT:  .LBB9_2:
- ; RV32IFD-NEXT:    fsd ft1, 8(sp)
+ ; RV32IFD-NEXT:    fsd ft0, 8(sp)
  ; RV32IFD-NEXT:    lw a0, 8(sp)
  ; RV32IFD-NEXT:    lw a1, 12(sp)
  ; RV32IFD-NEXT:    addi sp, sp, 32
@@ -4031,21 +4368,17 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ugt double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -269,18 +269,18 @@ define double @select_fcmp_uge(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    fld ft1, 24(sp)
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    and a0, a1, a0
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    fle.d a1, ft0, ft1
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -268,15 +268,15 @@ define double @select_fcmp_uge(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft0, 24(sp)
+ ; RV32IFD-NEXT:    flt.d a0, ft0, ft1
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB10_2
 +; RV32IFD-NEXT:    bnez a0, .LBB10_2
  ; RV32IFD-NEXT:  # %bb.1:
--; RV32IFD-NEXT:    fsgnj.d ft1, ft0, ft0
-+; RV32IFD-NEXT:    fmv.d ft1, ft0
+-; RV32IFD-NEXT:    fsgnj.d ft0, ft1, ft1
++; RV32IFD-NEXT:    fmv.d ft0, ft1
  ; RV32IFD-NEXT:  .LBB10_2:
- ; RV32IFD-NEXT:    fsd ft1, 8(sp)
+ ; RV32IFD-NEXT:    fsd ft0, 8(sp)
  ; RV32IFD-NEXT:    lw a0, 8(sp)
  ; RV32IFD-NEXT:    lw a1, 12(sp)
  ; RV32IFD-NEXT:    addi sp, sp, 32
@@ -4054,21 +4387,17 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp uge double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -299,18 +299,18 @@ define double @select_fcmp_ult(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    fld ft1, 24(sp)
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    and a0, a1, a0
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    flt.d a1, ft1, ft0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -294,15 +294,15 @@ define double @select_fcmp_ult(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    fle.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB11_2
 +; RV32IFD-NEXT:    bnez a0, .LBB11_2
  ; RV32IFD-NEXT:  # %bb.1:
--; RV32IFD-NEXT:    fsgnj.d ft1, ft0, ft0
-+; RV32IFD-NEXT:    fmv.d ft1, ft0
+-; RV32IFD-NEXT:    fsgnj.d ft0, ft1, ft1
++; RV32IFD-NEXT:    fmv.d ft0, ft1
  ; RV32IFD-NEXT:  .LBB11_2:
- ; RV32IFD-NEXT:    fsd ft1, 8(sp)
+ ; RV32IFD-NEXT:    fsd ft0, 8(sp)
  ; RV32IFD-NEXT:    lw a0, 8(sp)
  ; RV32IFD-NEXT:    lw a1, 12(sp)
  ; RV32IFD-NEXT:    addi sp, sp, 32
@@ -4077,21 +4406,17 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ult double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -329,18 +329,18 @@ define double @select_fcmp_ule(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    fld ft1, 24(sp)
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
- ; RV32IFD-NEXT:    and a0, a1, a0
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    fle.d a1, ft1, ft0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -320,15 +320,15 @@ define double @select_fcmp_ule(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft1, 16(sp)
+ ; RV32IFD-NEXT:    flt.d a0, ft1, ft0
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB12_2
 +; RV32IFD-NEXT:    bnez a0, .LBB12_2
  ; RV32IFD-NEXT:  # %bb.1:
--; RV32IFD-NEXT:    fsgnj.d ft1, ft0, ft0
-+; RV32IFD-NEXT:    fmv.d ft1, ft0
+-; RV32IFD-NEXT:    fsgnj.d ft0, ft1, ft1
++; RV32IFD-NEXT:    fmv.d ft0, ft1
  ; RV32IFD-NEXT:  .LBB12_2:
- ; RV32IFD-NEXT:    fsd ft1, 8(sp)
+ ; RV32IFD-NEXT:    fsd ft0, 8(sp)
  ; RV32IFD-NEXT:    lw a0, 8(sp)
  ; RV32IFD-NEXT:    lw a1, 12(sp)
  ; RV32IFD-NEXT:    addi sp, sp, 32
@@ -4100,20 +4425,17 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp ule double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -361,17 +361,17 @@ define double @select_fcmp_une(double %a, double %b) nounwind {
- ; RV32IFD-NEXT:    and a0, a1, a0
- ; RV32IFD-NEXT:    feq.d a1, ft1, ft0
- ; RV32IFD-NEXT:    xori a1, a1, 1
--; RV32IFD-NEXT:    sltiu a0, a0, 1
-+; RV32IFD-NEXT:    seqz a0, a0
- ; RV32IFD-NEXT:    or a0, a1, a0
+@@ -346,15 +346,15 @@ define double @select_fcmp_une(double %a, double %b) nounwind {
+ ; RV32IFD-NEXT:    fld ft0, 24(sp)
+ ; RV32IFD-NEXT:    feq.d a0, ft0, ft1
+ ; RV32IFD-NEXT:    xori a0, a0, 1
 -; RV32IFD-NEXT:    bne a0, zero, .LBB13_2
 +; RV32IFD-NEXT:    bnez a0, .LBB13_2
  ; RV32IFD-NEXT:  # %bb.1:
--; RV32IFD-NEXT:    fsgnj.d ft1, ft0, ft0
-+; RV32IFD-NEXT:    fmv.d ft1, ft0
+-; RV32IFD-NEXT:    fsgnj.d ft0, ft1, ft1
++; RV32IFD-NEXT:    fmv.d ft0, ft1
  ; RV32IFD-NEXT:  .LBB13_2:
- ; RV32IFD-NEXT:    fsd ft1, 8(sp)
+ ; RV32IFD-NEXT:    fsd ft0, 8(sp)
  ; RV32IFD-NEXT:    lw a0, 8(sp)
  ; RV32IFD-NEXT:    lw a1, 12(sp)
  ; RV32IFD-NEXT:    addi sp, sp, 32
@@ -4122,7 +4444,7 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp une double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -391,16 +391,16 @@ define double @select_fcmp_uno(double %a, double %b) nounwind {
+@@ -374,16 +374,16 @@ define double @select_fcmp_uno(double %a, double %b) nounwind {
  ; RV32IFD-NEXT:    fld ft1, 24(sp)
  ; RV32IFD-NEXT:    feq.d a1, ft1, ft1
  ; RV32IFD-NEXT:    and a0, a1, a0
@@ -4143,7 +4465,7 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp uno double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -409,7 +409,7 @@ define double @select_fcmp_uno(double %a, double %b) nounwind {
+@@ -392,7 +392,7 @@ define double @select_fcmp_uno(double %a, double %b) nounwind {
  define double @select_fcmp_true(double %a, double %b) nounwind {
  ; RV32IFD-LABEL: select_fcmp_true:
  ; RV32IFD:       # %bb.0:
@@ -4152,7 +4474,7 @@ index f407991fa3c..3bf33727b65 100644
    %1 = fcmp true double %a, %b
    %2 = select i1 %1, double %a, double %b
    ret double %2
-@@ -427,13 +427,13 @@ define i32 @i32_select_fcmp_oeq(double %a, double %b, i32 %c, i32 %d) nounwind {
+@@ -410,13 +410,13 @@ define i32 @i32_select_fcmp_oeq(double %a, double %b, i32 %c, i32 %d) nounwind {
  ; RV32IFD-NEXT:    fld ft0, 0(sp)
  ; RV32IFD-NEXT:    fld ft1, 8(sp)
  ; RV32IFD-NEXT:    feq.d a0, ft1, ft0
@@ -4351,7 +4673,7 @@ index c29c8115198..3be511ad1c0 100644
    %2 = zext i1 %1 to i32
    ret i32 %2
 diff --git a/test/CodeGen/RISCV/float-br-fcmp.ll b/test/CodeGen/RISCV/float-br-fcmp.ll
-index c52fccbf258..63622c6d914 100644
+index 17c3741e7a3..04069ebf094 100644
 --- a/test/CodeGen/RISCV/float-br-fcmp.ll
 +++ b/test/CodeGen/RISCV/float-br-fcmp.ll
 @@ -11,15 +11,15 @@ define void @br_fcmp_false(float %a, float %b) nounwind {
@@ -4392,13 +4714,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp oeq float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -70,17 +70,17 @@ define void @br_fcmp_oeq_alt(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    and a0, a1, a0
- ; RV32IF-NEXT:    feq.s a1, ft0, ft1
- ; RV32IF-NEXT:    xori a1, a1, 1
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -67,15 +67,15 @@ define void @br_fcmp_oeq_alt(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    feq.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    beq a0, zero, .LBB2_2
 +; RV32IF-NEXT:    beqz a0, .LBB2_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4414,7 +4733,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp oeq float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.then:
-@@ -98,15 +98,15 @@ define void @br_fcmp_ogt(float %a, float %b) nounwind {
+@@ -93,15 +93,15 @@ define void @br_fcmp_ogt(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    fmv.w.x ft1, a1
  ; RV32IF-NEXT:    flt.s a0, ft1, ft0
@@ -4433,7 +4752,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ogt float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -124,15 +124,15 @@ define void @br_fcmp_oge(float %a, float %b) nounwind {
+@@ -119,15 +119,15 @@ define void @br_fcmp_oge(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    fmv.w.x ft1, a1
  ; RV32IF-NEXT:    fle.s a0, ft1, ft0
@@ -4452,7 +4771,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp oge float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -150,15 +150,15 @@ define void @br_fcmp_olt(float %a, float %b) nounwind {
+@@ -145,15 +145,15 @@ define void @br_fcmp_olt(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a1
  ; RV32IF-NEXT:    fmv.w.x ft1, a0
  ; RV32IF-NEXT:    flt.s a0, ft1, ft0
@@ -4471,7 +4790,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp olt float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -176,15 +176,15 @@ define void @br_fcmp_ole(float %a, float %b) nounwind {
+@@ -171,15 +171,15 @@ define void @br_fcmp_ole(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a1
  ; RV32IF-NEXT:    fmv.w.x ft1, a0
  ; RV32IF-NEXT:    fle.s a0, ft1, ft0
@@ -4490,12 +4809,15 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ole float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -206,17 +206,17 @@ define void @br_fcmp_one(float %a, float %b) nounwind {
+@@ -201,19 +201,19 @@ define void @br_fcmp_one(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
  ; RV32IF-NEXT:    feq.s a1, ft0, ft1
 -; RV32IF-NEXT:    xori a1, a1, -1
+-; RV32IF-NEXT:    sltiu a0, a0, 1
 +; RV32IF-NEXT:    not a1, a1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
  ; RV32IF-NEXT:    and a0, a1, a0
 -; RV32IF-NEXT:    bne a0, zero, .LBB7_2
 +; RV32IF-NEXT:    bnez a0, .LBB7_2
@@ -4512,10 +4834,13 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp one float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -236,15 +236,15 @@ define void @br_fcmp_ord(float %a, float %b) nounwind {
+@@ -233,17 +233,17 @@ define void @br_fcmp_ord(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    feq.s a0, ft0, ft0
  ; RV32IF-NEXT:    and a0, a0, a1
+-; RV32IF-NEXT:    sltiu a0, a0, 1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB8_2
 +; RV32IF-NEXT:    bnez a0, .LBB8_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4531,7 +4856,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ord float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -265,17 +265,17 @@ define void @br_fcmp_ueq(float %a, float %b) nounwind {
+@@ -264,17 +264,17 @@ define void @br_fcmp_ueq(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    feq.s a2, ft1, ft1
  ; RV32IF-NEXT:    and a1, a2, a1
@@ -4553,13 +4878,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ueq float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -296,17 +296,17 @@ define void @br_fcmp_ugt(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft1, ft1
- ; RV32IF-NEXT:    feq.s a2, ft0, ft0
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -293,15 +293,15 @@ define void @br_fcmp_ugt(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    fle.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB10_2
 +; RV32IF-NEXT:    bnez a0, .LBB10_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4575,13 +4897,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ugt float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -327,17 +327,17 @@ define void @br_fcmp_uge(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft1, ft1
- ; RV32IF-NEXT:    feq.s a2, ft0, ft0
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -320,15 +320,15 @@ define void @br_fcmp_uge(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    flt.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB11_2
 +; RV32IF-NEXT:    bnez a0, .LBB11_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4597,13 +4916,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp uge float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -358,17 +358,17 @@ define void @br_fcmp_ult(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    feq.s a2, ft1, ft1
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -347,15 +347,15 @@ define void @br_fcmp_ult(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    fle.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB12_2
 +; RV32IF-NEXT:    bnez a0, .LBB12_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4619,13 +4935,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ult float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -389,17 +389,17 @@ define void @br_fcmp_ule(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    feq.s a2, ft1, ft1
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -374,15 +374,15 @@ define void @br_fcmp_ule(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    flt.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB13_2
 +; RV32IF-NEXT:    bnez a0, .LBB13_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4641,13 +4954,10 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp ule float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -421,17 +421,17 @@ define void @br_fcmp_une(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    and a0, a1, a0
- ; RV32IF-NEXT:    feq.s a1, ft0, ft1
- ; RV32IF-NEXT:    xori a1, a1, 1
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -401,15 +401,15 @@ define void @br_fcmp_une(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    feq.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB14_2
 +; RV32IF-NEXT:    bnez a0, .LBB14_2
  ; RV32IF-NEXT:  # %bb.1: # %if.else
@@ -4663,7 +4973,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp une float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -452,16 +452,16 @@ define void @br_fcmp_uno(float %a, float %b) nounwind {
+@@ -430,16 +430,16 @@ define void @br_fcmp_uno(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    feq.s a0, ft0, ft0
  ; RV32IF-NEXT:    and a0, a0, a1
@@ -4684,7 +4994,7 @@ index c52fccbf258..63622c6d914 100644
    %1 = fcmp uno float %a, %b
    br i1 %1, label %if.then, label %if.else
  if.else:
-@@ -477,15 +477,15 @@ define void @br_fcmp_true(float %a, float %b) nounwind {
+@@ -455,15 +455,15 @@ define void @br_fcmp_true(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    addi sp, sp, -16
  ; RV32IF-NEXT:    sw ra, 12(sp)
  ; RV32IF-NEXT:    addi a0, zero, 1
@@ -4762,7 +5072,7 @@ index af87024e5db..1fb05311c06 100644
    %2 = bitcast i32 %b to float
    %3 = fadd float %1, %2
 diff --git a/test/CodeGen/RISCV/float-fcmp.ll b/test/CodeGen/RISCV/float-fcmp.ll
-index b9137e020da..ab723c99313 100644
+index 9c8f1c2d313..c8942a90eb7 100644
 --- a/test/CodeGen/RISCV/float-fcmp.ll
 +++ b/test/CodeGen/RISCV/float-fcmp.ll
 @@ -5,8 +5,8 @@
@@ -4821,28 +5131,34 @@ index b9137e020da..ab723c99313 100644
    %1 = fcmp ole float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -81,9 +81,9 @@ define i32 @fcmp_one(float %a, float %b) nounwind {
+@@ -81,11 +81,11 @@ define i32 @fcmp_one(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
  ; RV32IF-NEXT:    feq.s a1, ft0, ft1
 -; RV32IF-NEXT:    xori a1, a1, -1
+-; RV32IF-NEXT:    sltiu a0, a0, 1
 +; RV32IF-NEXT:    not a1, a1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
  ; RV32IF-NEXT:    and a0, a1, a0
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp one float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -97,7 +97,7 @@ define i32 @fcmp_ord(float %a, float %b) nounwind {
+@@ -99,9 +99,9 @@ define i32 @fcmp_ord(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    feq.s a0, ft0, ft0
  ; RV32IF-NEXT:    and a0, a0, a1
+-; RV32IF-NEXT:    sltiu a0, a0, 1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp ord float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -112,9 +112,9 @@ define i32 @fcmp_ueq(float %a, float %b) nounwind {
+@@ -116,9 +116,9 @@ define i32 @fcmp_ueq(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    feq.s a2, ft1, ft1
  ; RV32IF-NEXT:    and a1, a2, a1
@@ -4854,67 +5170,52 @@ index b9137e020da..ab723c99313 100644
    %1 = fcmp ueq float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -129,9 +129,9 @@ define i32 @fcmp_ugt(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft1, ft1
- ; RV32IF-NEXT:    feq.s a2, ft0, ft0
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -131,7 +131,7 @@ define i32 @fcmp_ugt(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    fle.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp ugt float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -146,9 +146,9 @@ define i32 @fcmp_uge(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft1, ft1
- ; RV32IF-NEXT:    feq.s a2, ft0, ft0
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -144,7 +144,7 @@ define i32 @fcmp_uge(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    flt.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp uge float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -163,9 +163,9 @@ define i32 @fcmp_ult(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    feq.s a2, ft1, ft1
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -157,7 +157,7 @@ define i32 @fcmp_ult(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    fle.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp ult float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -180,9 +180,9 @@ define i32 @fcmp_ule(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    feq.s a2, ft1, ft1
- ; RV32IF-NEXT:    and a1, a2, a1
--; RV32IF-NEXT:    sltiu a1, a1, 1
-+; RV32IF-NEXT:    seqz a1, a1
- ; RV32IF-NEXT:    or a0, a0, a1
+@@ -170,7 +170,7 @@ define i32 @fcmp_ule(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    flt.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp ule float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -198,9 +198,9 @@ define i32 @fcmp_une(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    and a0, a1, a0
- ; RV32IF-NEXT:    feq.s a1, ft0, ft1
- ; RV32IF-NEXT:    xori a1, a1, 1
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -183,7 +183,7 @@ define i32 @fcmp_une(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a0
+ ; RV32IF-NEXT:    feq.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    jalr zero, ra, 0
 +; RV32IF-NEXT:    ret
    %1 = fcmp une float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -214,8 +214,8 @@ define i32 @fcmp_uno(float %a, float %b) nounwind {
+@@ -197,8 +197,8 @@ define i32 @fcmp_uno(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a0
  ; RV32IF-NEXT:    feq.s a0, ft0, ft0
  ; RV32IF-NEXT:    and a0, a0, a1
@@ -4925,7 +5226,7 @@ index b9137e020da..ab723c99313 100644
    %1 = fcmp uno float %a, %b
    %2 = zext i1 %1 to i32
    ret i32 %2
-@@ -225,7 +225,7 @@ define i32 @fcmp_true(float %a, float %b) nounwind {
+@@ -208,7 +208,7 @@ define i32 @fcmp_true(float %a, float %b) nounwind {
  ; RV32IF-LABEL: fcmp_true:
  ; RV32IF:       # %bb.0:
  ; RV32IF-NEXT:    addi a0, zero, 1
@@ -5072,7 +5373,7 @@ index 0f543ef083f..1e05389480b 100644
    %2 = alloca float, align 4
    store float %1, float* %2
 diff --git a/test/CodeGen/RISCV/float-select-fcmp.ll b/test/CodeGen/RISCV/float-select-fcmp.ll
-index 7e4557265ee..a24f989249e 100644
+index 6f979ea8337..59d4a3f078b 100644
 --- a/test/CodeGen/RISCV/float-select-fcmp.ll
 +++ b/test/CodeGen/RISCV/float-select-fcmp.ll
 @@ -5,8 +5,8 @@
@@ -5166,12 +5467,15 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ole float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -107,14 +107,14 @@ define float @select_fcmp_one(float %a, float %b) nounwind {
+@@ -107,16 +107,16 @@ define float @select_fcmp_one(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
  ; RV32IF-NEXT:    feq.s a1, ft0, ft1
 -; RV32IF-NEXT:    xori a1, a1, -1
+-; RV32IF-NEXT:    sltiu a0, a0, 1
 +; RV32IF-NEXT:    not a1, a1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
  ; RV32IF-NEXT:    and a0, a1, a0
 -; RV32IF-NEXT:    bne a0, zero, .LBB6_2
 +; RV32IF-NEXT:    bnez a0, .LBB6_2
@@ -5185,10 +5489,13 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp one float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -128,12 +128,12 @@ define float @select_fcmp_ord(float %a, float %b) nounwind {
+@@ -130,14 +130,14 @@ define float @select_fcmp_ord(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a0, ft1, ft1
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
+-; RV32IF-NEXT:    sltiu a0, a0, 1
++; RV32IF-NEXT:    seqz a0, a0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB7_2
 +; RV32IF-NEXT:    bnez a0, .LBB7_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5201,7 +5508,7 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ord float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -147,15 +147,15 @@ define float @select_fcmp_ueq(float %a, float %b) nounwind {
+@@ -151,15 +151,15 @@ define float @select_fcmp_ueq(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a0, ft1, ft1
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
@@ -5221,14 +5528,10 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ueq float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -169,15 +169,15 @@ define float @select_fcmp_ugt(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a0, ft1, ft1
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    and a0, a1, a0
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    flt.s a1, ft1, ft0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -172,12 +172,12 @@ define float @select_fcmp_ugt(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft0, a0
+ ; RV32IF-NEXT:    fle.s a0, ft0, ft1
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB9_2
 +; RV32IF-NEXT:    bnez a0, .LBB9_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5241,14 +5544,10 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ugt float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -191,15 +191,15 @@ define float @select_fcmp_uge(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a0, ft1, ft1
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    and a0, a1, a0
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    fle.s a1, ft1, ft0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -190,12 +190,12 @@ define float @select_fcmp_uge(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft0, a0
+ ; RV32IF-NEXT:    flt.s a0, ft0, ft1
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB10_2
 +; RV32IF-NEXT:    bnez a0, .LBB10_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5261,14 +5560,10 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp uge float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -213,15 +213,15 @@ define float @select_fcmp_ult(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a0, ft1, ft1
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    and a0, a1, a0
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    flt.s a1, ft0, ft1
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -208,12 +208,12 @@ define float @select_fcmp_ult(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    fle.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB11_2
 +; RV32IF-NEXT:    bnez a0, .LBB11_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5281,14 +5576,10 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ult float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -235,15 +235,15 @@ define float @select_fcmp_ule(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    feq.s a0, ft1, ft1
- ; RV32IF-NEXT:    feq.s a1, ft0, ft0
- ; RV32IF-NEXT:    and a0, a1, a0
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    fle.s a1, ft0, ft1
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -226,12 +226,12 @@ define float @select_fcmp_ule(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft1, a1
+ ; RV32IF-NEXT:    flt.s a0, ft1, ft0
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB12_2
 +; RV32IF-NEXT:    bnez a0, .LBB12_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5301,13 +5592,10 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp ule float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -259,14 +259,14 @@ define float @select_fcmp_une(float %a, float %b) nounwind {
- ; RV32IF-NEXT:    and a0, a1, a0
- ; RV32IF-NEXT:    feq.s a1, ft0, ft1
- ; RV32IF-NEXT:    xori a1, a1, 1
--; RV32IF-NEXT:    sltiu a0, a0, 1
-+; RV32IF-NEXT:    seqz a0, a0
- ; RV32IF-NEXT:    or a0, a1, a0
+@@ -244,12 +244,12 @@ define float @select_fcmp_une(float %a, float %b) nounwind {
+ ; RV32IF-NEXT:    fmv.w.x ft0, a0
+ ; RV32IF-NEXT:    feq.s a0, ft0, ft1
+ ; RV32IF-NEXT:    xori a0, a0, 1
 -; RV32IF-NEXT:    bne a0, zero, .LBB13_2
 +; RV32IF-NEXT:    bnez a0, .LBB13_2
  ; RV32IF-NEXT:  # %bb.1:
@@ -5320,7 +5608,7 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp une float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -281,13 +281,13 @@ define float @select_fcmp_uno(float %a, float %b) nounwind {
+@@ -264,13 +264,13 @@ define float @select_fcmp_uno(float %a, float %b) nounwind {
  ; RV32IF-NEXT:    feq.s a0, ft1, ft1
  ; RV32IF-NEXT:    feq.s a1, ft0, ft0
  ; RV32IF-NEXT:    and a0, a1, a0
@@ -5338,7 +5626,7 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp uno float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -296,7 +296,7 @@ define float @select_fcmp_uno(float %a, float %b) nounwind {
+@@ -279,7 +279,7 @@ define float @select_fcmp_uno(float %a, float %b) nounwind {
  define float @select_fcmp_true(float %a, float %b) nounwind {
  ; RV32IF-LABEL: select_fcmp_true:
  ; RV32IF:       # %bb.0:
@@ -5347,7 +5635,7 @@ index 7e4557265ee..a24f989249e 100644
    %1 = fcmp true float %a, %b
    %2 = select i1 %1, float %a, float %b
    ret float %2
-@@ -309,12 +309,12 @@ define i32 @i32_select_fcmp_oeq(float %a, float %b, i32 %c, i32 %d) nounwind {
+@@ -292,12 +292,12 @@ define i32 @i32_select_fcmp_oeq(float %a, float %b, i32 %c, i32 %d) nounwind {
  ; RV32IF-NEXT:    fmv.w.x ft0, a1
  ; RV32IF-NEXT:    fmv.w.x ft1, a0
  ; RV32IF-NEXT:    feq.s a0, ft1, ft0
@@ -5365,19 +5653,18 @@ index 7e4557265ee..a24f989249e 100644
    %2 = select i1 %1, i32 %c, i32 %d
    ret i32 %2
 diff --git a/test/CodeGen/RISCV/fp128.ll b/test/CodeGen/RISCV/fp128.ll
-index 6c9dd8ca457..3ca3f659300 100644
+index 8041efb1699..b2d07cdd084 100644
 --- a/test/CodeGen/RISCV/fp128.ll
 +++ b/test/CodeGen/RISCV/fp128.ll
-@@ -43,13 +43,13 @@ define i32 @test_load_and_cmp() nounwind {
+@@ -41,12 +41,12 @@ define i32 @test_load_and_cmp() nounwind {
  ; RV32I-NEXT:    addi a2, a0, %lo(__netf2)
- ; RV32I-NEXT:    addi a0, s0, -24
- ; RV32I-NEXT:    addi a1, s0, -40
+ ; RV32I-NEXT:    addi a0, sp, 24
+ ; RV32I-NEXT:    addi a1, sp, 8
 -; RV32I-NEXT:    jalr ra, a2, 0
 +; RV32I-NEXT:    jalr a2
  ; RV32I-NEXT:    xor a0, a0, zero
 -; RV32I-NEXT:    sltu a0, zero, a0
 +; RV32I-NEXT:    snez a0, a0
- ; RV32I-NEXT:    lw s0, 40(sp)
  ; RV32I-NEXT:    lw ra, 44(sp)
  ; RV32I-NEXT:    addi sp, sp, 48
 -; RV32I-NEXT:    jalr zero, ra, 0
@@ -5385,22 +5672,21 @@ index 6c9dd8ca457..3ca3f659300 100644
    %1 = load fp128, fp128* @x, align 16
    %2 = load fp128, fp128* @y, align 16
    %cmp = fcmp une fp128 %1, %2
-@@ -93,7 +93,7 @@ define i32 @test_add_and_fptosi() nounwind {
- ; RV32I-NEXT:    addi a0, s0, -24
- ; RV32I-NEXT:    addi a1, s0, -40
- ; RV32I-NEXT:    addi a2, s0, -56
+@@ -88,7 +88,7 @@ define i32 @test_add_and_fptosi() nounwind {
+ ; RV32I-NEXT:    addi a0, sp, 56
+ ; RV32I-NEXT:    addi a1, sp, 40
+ ; RV32I-NEXT:    addi a2, sp, 24
 -; RV32I-NEXT:    jalr ra, a3, 0
 +; RV32I-NEXT:    jalr a3
- ; RV32I-NEXT:    lw a0, -12(s0)
- ; RV32I-NEXT:    sw a0, -60(s0)
- ; RV32I-NEXT:    lw a0, -16(s0)
-@@ -105,11 +105,11 @@ define i32 @test_add_and_fptosi() nounwind {
+ ; RV32I-NEXT:    lw a0, 68(sp)
+ ; RV32I-NEXT:    sw a0, 20(sp)
+ ; RV32I-NEXT:    lw a0, 64(sp)
+@@ -100,10 +100,10 @@ define i32 @test_add_and_fptosi() nounwind {
  ; RV32I-NEXT:    lui a0, %hi(__fixtfsi)
  ; RV32I-NEXT:    addi a1, a0, %lo(__fixtfsi)
- ; RV32I-NEXT:    addi a0, s0, -72
+ ; RV32I-NEXT:    addi a0, sp, 8
 -; RV32I-NEXT:    jalr ra, a1, 0
 +; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw s0, 72(sp)
  ; RV32I-NEXT:    lw ra, 76(sp)
  ; RV32I-NEXT:    addi sp, sp, 80
 -; RV32I-NEXT:    jalr zero, ra, 0
@@ -5409,40 +5695,40 @@ index 6c9dd8ca457..3ca3f659300 100644
    %2 = load fp128, fp128* @y, align 16
    %3 = fadd fp128 %1, %2
 diff --git a/test/CodeGen/RISCV/frame.ll b/test/CodeGen/RISCV/frame.ll
-index 71ce0de683a..ab1c72fa36f 100644
+index 7969985749a..fc12d246526 100644
 --- a/test/CodeGen/RISCV/frame.ll
 +++ b/test/CodeGen/RISCV/frame.ll
 @@ -19,11 +19,11 @@ define i32 @test() nounwind {
- ; RV32I-NEXT:    lui a0, %hi(test1)
- ; RV32I-NEXT:    addi a1, a0, %lo(test1)
- ; RV32I-NEXT:    addi a0, sp, 12
--; RV32I-NEXT:    jalr ra, a1, 0
--; RV32I-NEXT:    addi a0, zero, 0
-+; RV32I-NEXT:    jalr a1
-+; RV32I-NEXT:    mv a0, zero
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 32
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(test1)
+ ; RV32I-FPELIM-NEXT:    addi a1, a0, %lo(test1)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 12
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
+-; RV32I-FPELIM-NEXT:    addi a0, zero, 0
++; RV32I-FPELIM-NEXT:    jalr a1
++; RV32I-FPELIM-NEXT:    mv a0, zero
+ ; RV32I-FPELIM-NEXT:    lw ra, 28(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
  ;
- ; RV32I-FPTR-LABEL: test:
- ; RV32I-FPTR:       # %bb.0:
+ ; RV32I-WITHFP-LABEL: test:
+ ; RV32I-WITHFP:       # %bb.0:
 @@ -39,12 +39,12 @@ define i32 @test() nounwind {
- ; RV32I-FPTR-NEXT:    lui a0, %hi(test1)
- ; RV32I-FPTR-NEXT:    addi a1, a0, %lo(test1)
- ; RV32I-FPTR-NEXT:    addi a0, s0, -28
--; RV32I-FPTR-NEXT:    jalr ra, a1, 0
--; RV32I-FPTR-NEXT:    addi a0, zero, 0
-+; RV32I-FPTR-NEXT:    jalr a1
-+; RV32I-FPTR-NEXT:    mv a0, zero
- ; RV32I-FPTR-NEXT:    lw s0, 24(sp)
- ; RV32I-FPTR-NEXT:    lw ra, 28(sp)
- ; RV32I-FPTR-NEXT:    addi sp, sp, 32
--; RV32I-FPTR-NEXT:    jalr zero, ra, 0
-+; RV32I-FPTR-NEXT:    ret
- 
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(test1)
+ ; RV32I-WITHFP-NEXT:    addi a1, a0, %lo(test1)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, -28
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
+-; RV32I-WITHFP-NEXT:    addi a0, zero, 0
++; RV32I-WITHFP-NEXT:    jalr a1
++; RV32I-WITHFP-NEXT:    mv a0, zero
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 32
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %key = alloca %struct.key_t, align 4
    %1 = bitcast %struct.key_t* %key to i8*
+   call void @llvm.memset.p0i8.i64(i8* %1, i8 0, i64 20, i32 4, i1 false)
 diff --git a/test/CodeGen/RISCV/frameaddr-returnaddr.ll b/test/CodeGen/RISCV/frameaddr-returnaddr.ll
 index 8ef7baf8d4c..ab9e4bf6891 100644
 --- a/test/CodeGen/RISCV/frameaddr-returnaddr.ll
@@ -5826,33 +6112,51 @@ index de4f31f6571..f54f51edada 100644
    switch i32 %in, label %exit [
      i32 1, label %bb1
 diff --git a/test/CodeGen/RISCV/large-stack.ll b/test/CodeGen/RISCV/large-stack.ll
-index c08bc18d740..c38485b9b17 100644
+index a88f2043a8e..51130fc2a94 100644
 --- a/test/CodeGen/RISCV/large-stack.ll
 +++ b/test/CodeGen/RISCV/large-stack.ll
-@@ -32,7 +32,7 @@ define void @test() nounwind {
- ; RV32I-NEXT:    lui a0, 74565
- ; RV32I-NEXT:    addi a0, a0, 1680
- ; RV32I-NEXT:    add sp, sp, a0
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -15,7 +15,7 @@ define void @test() nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a0, 74565
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, 1664
+ ; RV32I-FPELIM-NEXT:    add sp, sp, a0
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: test:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -44,7 +44,7 @@ define void @test() nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a0, 74565
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, 1680
+ ; RV32I-WITHFP-NEXT:    add sp, sp, a0
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %tmp = alloca [ 305419896 x i8 ] , align 4
    ret void
  }
-@@ -70,7 +70,7 @@ define void @test_emergency_spill_slot(i32 %a) nounwind {
- ; RV32I-NEXT:    lui a2, 1048478
- ; RV32I-NEXT:    addi a2, a2, 1388
- ; RV32I-NEXT:    add a2, s0, a2
--; RV32I-NEXT:    addi a2, a2, 0
-+; RV32I-NEXT:    mv a2, a2
- ; RV32I-NEXT:    add a1, a2, a1
- ; RV32I-NEXT:    #APP
- ; RV32I-NEXT:    nop
-@@ -98,7 +98,7 @@ define void @test_emergency_spill_slot(i32 %a) nounwind {
- ; RV32I-NEXT:    lui a0, 98
- ; RV32I-NEXT:    addi a0, a0, -1376
- ; RV32I-NEXT:    add sp, sp, a0
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -88,7 +88,7 @@ define void @test_emergency_spill_slot(i32 %a) nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a0, 98
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, -1392
+ ; RV32I-FPELIM-NEXT:    add sp, sp, a0
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: test_emergency_spill_slot:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -119,7 +119,7 @@ define void @test_emergency_spill_slot(i32 %a) nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a2, 1048478
+ ; RV32I-WITHFP-NEXT:    addi a2, a2, 1388
+ ; RV32I-WITHFP-NEXT:    add a2, s0, a2
+-; RV32I-WITHFP-NEXT:    addi a2, a2, 0
++; RV32I-WITHFP-NEXT:    mv a2, a2
+ ; RV32I-WITHFP-NEXT:    add a1, a2, a1
+ ; RV32I-WITHFP-NEXT:    #APP
+ ; RV32I-WITHFP-NEXT:    nop
+@@ -147,7 +147,7 @@ define void @test_emergency_spill_slot(i32 %a) nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a0, 98
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, -1376
+ ; RV32I-WITHFP-NEXT:    add sp, sp, a0
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %data = alloca [ 100000 x i32 ] , align 4
    %ptr = getelementptr inbounds [100000 x i32], [100000 x i32]* %data, i32 0, i32 80000
    %1 = tail call { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 } asm sideeffect "nop", "=r,=r,=r,=r,=r,=r,=r,=r,=r,=r,=r,=r,=r,=r,=r"()
@@ -6755,235 +7059,464 @@ index 5d00d69a1d2..0a3e07e11b5 100644
    ret i64 %1
  }
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index a996fce8805..d4b805daaa0 100644
+index e9b7b07ff0c..08e3f143548 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
-@@ -31,7 +31,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -28,7 +28,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va1:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -49,7 +49,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -64,7 +64,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -77,7 +77,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va1_va_arg:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -98,7 +98,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -96,17 +96,17 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
- ; RV32I-NEXT:    addi a0, s1, 15
- ; RV32I-NEXT:    andi a0, a0, -16
- ; RV32I-NEXT:    sub a0, sp, a0
--; RV32I-NEXT:    addi sp, a0, 0
-+; RV32I-NEXT:    mv sp, a0
- ; RV32I-NEXT:    lui a1, %hi(notdead)
- ; RV32I-NEXT:    addi a1, a1, %lo(notdead)
--; RV32I-NEXT:    jalr ra, a1, 0
--; RV32I-NEXT:    addi a0, s1, 0
-+; RV32I-NEXT:    jalr a1
-+; RV32I-NEXT:    mv a0, s1
- ; RV32I-NEXT:    addi sp, s0, -16
- ; RV32I-NEXT:    lw s1, 4(sp)
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -130,17 +130,17 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a0, s1, 15
+ ; RV32I-FPELIM-NEXT:    andi a0, a0, -16
+ ; RV32I-FPELIM-NEXT:    sub a0, sp, a0
+-; RV32I-FPELIM-NEXT:    addi sp, a0, 0
++; RV32I-FPELIM-NEXT:    mv sp, a0
+ ; RV32I-FPELIM-NEXT:    lui a1, %hi(notdead)
+ ; RV32I-FPELIM-NEXT:    addi a1, a1, %lo(notdead)
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
+-; RV32I-FPELIM-NEXT:    addi a0, s1, 0
++; RV32I-FPELIM-NEXT:    jalr a1
++; RV32I-FPELIM-NEXT:    mv a0, s1
+ ; RV32I-FPELIM-NEXT:    addi sp, s0, -16
+ ; RV32I-FPELIM-NEXT:    lw s1, 4(sp)
+ ; RV32I-FPELIM-NEXT:    lw s0, 8(sp)
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va1_va_arg_alloca:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -162,17 +162,17 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a0, s1, 15
+ ; RV32I-WITHFP-NEXT:    andi a0, a0, -16
+ ; RV32I-WITHFP-NEXT:    sub a0, sp, a0
+-; RV32I-WITHFP-NEXT:    addi sp, a0, 0
++; RV32I-WITHFP-NEXT:    mv sp, a0
+ ; RV32I-WITHFP-NEXT:    lui a1, %hi(notdead)
+ ; RV32I-WITHFP-NEXT:    addi a1, a1, %lo(notdead)
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
+-; RV32I-WITHFP-NEXT:    addi a0, s1, 0
++; RV32I-WITHFP-NEXT:    jalr a1
++; RV32I-WITHFP-NEXT:    mv a0, s1
+ ; RV32I-WITHFP-NEXT:    addi sp, s0, -16
+ ; RV32I-WITHFP-NEXT:    lw s1, 4(sp)
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -125,16 +125,16 @@ define void @va1_caller() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, 261888
--; RV32I-NEXT:    addi a3, a0, 0
-+; RV32I-NEXT:    mv a3, a0
- ; RV32I-NEXT:    lui a0, %hi(va1)
- ; RV32I-NEXT:    addi a0, a0, %lo(va1)
- ; RV32I-NEXT:    addi a4, zero, 2
--; RV32I-NEXT:    addi a2, zero, 0
--; RV32I-NEXT:    jalr ra, a0, 0
-+; RV32I-NEXT:    mv a2, zero
-+; RV32I-NEXT:    jalr a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
- ; Pass a double, as a float would be promoted by a C/C++ frontend
+@@ -184,21 +184,20 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ }
+ 
+ define void @va1_caller() nounwind {
+-; Pass a double, as a float would be promoted by a C/C++ frontend
+ ; RV32I-FPELIM-LABEL: va1_caller:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -16
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 261888
+-; RV32I-FPELIM-NEXT:    addi a3, a0, 0
++; RV32I-FPELIM-NEXT:    mv a3, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(va1)
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, %lo(va1)
+ ; RV32I-FPELIM-NEXT:    addi a4, zero, 2
+-; RV32I-FPELIM-NEXT:    addi a2, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a0, 0
++; RV32I-FPELIM-NEXT:    mv a2, zero
++; RV32I-FPELIM-NEXT:    jalr a0
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va1_caller:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -207,16 +206,16 @@ define void @va1_caller() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, 261888
+-; RV32I-WITHFP-NEXT:    addi a3, a0, 0
++; RV32I-WITHFP-NEXT:    mv a3, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(va1)
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, %lo(va1)
+ ; RV32I-WITHFP-NEXT:    addi a4, zero, 2
+-; RV32I-WITHFP-NEXT:    addi a2, zero, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a0, 0
++; RV32I-WITHFP-NEXT:    mv a2, zero
++; RV32I-WITHFP-NEXT:    jalr a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 (i8*, ...) @va1(i8* undef, double 1.0, i32 2)
    ret void
-@@ -167,7 +167,7 @@ define double @va2(i8 *%fmt, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+ }
+@@ -243,7 +242,7 @@ define double @va2(i8 *%fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    ori a1, a1, 4
+ ; RV32I-FPELIM-NEXT:    lw a1, 0(a1)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va2:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -268,7 +267,7 @@ define double @va2(i8 *%fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -209,7 +209,7 @@ define double @va2_va_arg(i8 *%fmt, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -305,7 +304,7 @@ define double @va2_va_arg(i8 *%fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a2, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lw a1, 0(a1)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va2_va_arg:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -331,7 +330,7 @@ define double @va2_va_arg(i8 *%fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -226,15 +226,15 @@ define void @va2_caller() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, 261888
--; RV32I-NEXT:    addi a3, a0, 0
-+; RV32I-NEXT:    mv a3, a0
- ; RV32I-NEXT:    lui a0, %hi(va2)
- ; RV32I-NEXT:    addi a0, a0, %lo(va2)
--; RV32I-NEXT:    addi a2, zero, 0
--; RV32I-NEXT:    jalr ra, a0, 0
-+; RV32I-NEXT:    mv a2, zero
-+; RV32I-NEXT:    jalr a0
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -346,14 +345,14 @@ define void @va2_caller() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -16
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 261888
+-; RV32I-FPELIM-NEXT:    addi a3, a0, 0
++; RV32I-FPELIM-NEXT:    mv a3, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(va2)
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, %lo(va2)
+-; RV32I-FPELIM-NEXT:    addi a2, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a0, 0
++; RV32I-FPELIM-NEXT:    mv a2, zero
++; RV32I-FPELIM-NEXT:    jalr a0
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va2_caller:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -362,15 +361,15 @@ define void @va2_caller() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, 261888
+-; RV32I-WITHFP-NEXT:    addi a3, a0, 0
++; RV32I-WITHFP-NEXT:    mv a3, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(va2)
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, %lo(va2)
+-; RV32I-WITHFP-NEXT:    addi a2, zero, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a0, 0
++; RV32I-WITHFP-NEXT:    mv a2, zero
++; RV32I-WITHFP-NEXT:    jalr a0
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
   %1 = call double (i8*, ...) @va2(i8* undef, double 1.000000e+00)
   ret void
  }
-@@ -249,8 +249,8 @@ define double @va3(i32 %a, double %b, ...) nounwind {
- ; RV32I-NEXT:    sw ra, 20(sp)
- ; RV32I-NEXT:    sw s0, 16(sp)
- ; RV32I-NEXT:    addi s0, sp, 24
--; RV32I-NEXT:    addi t0, a2, 0
--; RV32I-NEXT:    addi a0, a1, 0
-+; RV32I-NEXT:    mv t0, a2
-+; RV32I-NEXT:    mv a0, a1
- ; RV32I-NEXT:    sw a7, 20(s0)
- ; RV32I-NEXT:    sw a6, 16(s0)
- ; RV32I-NEXT:    sw a5, 12(s0)
-@@ -265,12 +265,12 @@ define double @va3(i32 %a, double %b, ...) nounwind {
- ; RV32I-NEXT:    lw a2, 0(a1)
- ; RV32I-NEXT:    ori a1, a1, 4
- ; RV32I-NEXT:    lw a3, 0(a1)
--; RV32I-NEXT:    addi a1, t0, 0
--; RV32I-NEXT:    jalr ra, a4, 0
-+; RV32I-NEXT:    mv a1, t0
-+; RV32I-NEXT:    jalr a4
- ; RV32I-NEXT:    lw s0, 16(sp)
- ; RV32I-NEXT:    lw ra, 20(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -383,8 +382,8 @@ define double @va3(i32 %a, double %b, ...) nounwind {
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -32
+ ; RV32I-FPELIM-NEXT:    sw ra, 4(sp)
+-; RV32I-FPELIM-NEXT:    addi t0, a2, 0
+-; RV32I-FPELIM-NEXT:    addi a0, a1, 0
++; RV32I-FPELIM-NEXT:    mv t0, a2
++; RV32I-FPELIM-NEXT:    mv a0, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 28(sp)
+ ; RV32I-FPELIM-NEXT:    sw a6, 24(sp)
+ ; RV32I-FPELIM-NEXT:    sw a5, 20(sp)
+@@ -399,11 +398,11 @@ define double @va3(i32 %a, double %b, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    lw a2, 0(a1)
+ ; RV32I-FPELIM-NEXT:    ori a1, a1, 4
+ ; RV32I-FPELIM-NEXT:    lw a3, 0(a1)
+-; RV32I-FPELIM-NEXT:    addi a1, t0, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a4, 0
++; RV32I-FPELIM-NEXT:    mv a1, t0
++; RV32I-FPELIM-NEXT:    jalr a4
+ ; RV32I-FPELIM-NEXT:    lw ra, 4(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va3:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -411,8 +410,8 @@ define double @va3(i32 %a, double %b, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw ra, 20(sp)
+ ; RV32I-WITHFP-NEXT:    sw s0, 16(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 24
+-; RV32I-WITHFP-NEXT:    addi t0, a2, 0
+-; RV32I-WITHFP-NEXT:    addi a0, a1, 0
++; RV32I-WITHFP-NEXT:    mv t0, a2
++; RV32I-WITHFP-NEXT:    mv a0, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 20(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 16(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 12(s0)
+@@ -427,12 +426,12 @@ define double @va3(i32 %a, double %b, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw a2, 0(a1)
+ ; RV32I-WITHFP-NEXT:    ori a1, a1, 4
+ ; RV32I-WITHFP-NEXT:    lw a3, 0(a1)
+-; RV32I-WITHFP-NEXT:    addi a1, t0, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a4, 0
++; RV32I-WITHFP-NEXT:    mv a1, t0
++; RV32I-WITHFP-NEXT:    jalr a4
+ ; RV32I-WITHFP-NEXT:    lw s0, 16(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 20(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -295,8 +295,8 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
- ; RV32I-NEXT:    sw ra, 20(sp)
- ; RV32I-NEXT:    sw s0, 16(sp)
- ; RV32I-NEXT:    addi s0, sp, 24
--; RV32I-NEXT:    addi t0, a2, 0
--; RV32I-NEXT:    addi a0, a1, 0
-+; RV32I-NEXT:    mv t0, a2
-+; RV32I-NEXT:    mv a0, a1
- ; RV32I-NEXT:    sw a7, 20(s0)
- ; RV32I-NEXT:    sw a6, 16(s0)
- ; RV32I-NEXT:    sw a5, 12(s0)
-@@ -312,12 +312,12 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
- ; RV32I-NEXT:    lui a1, %hi(__adddf3)
- ; RV32I-NEXT:    addi a4, a1, %lo(__adddf3)
- ; RV32I-NEXT:    lw a3, 0(a3)
--; RV32I-NEXT:    addi a1, t0, 0
--; RV32I-NEXT:    jalr ra, a4, 0
-+; RV32I-NEXT:    mv a1, t0
-+; RV32I-NEXT:    jalr a4
- ; RV32I-NEXT:    lw s0, 16(sp)
- ; RV32I-NEXT:    lw ra, 20(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -455,8 +454,8 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -32
+ ; RV32I-FPELIM-NEXT:    sw ra, 4(sp)
+-; RV32I-FPELIM-NEXT:    addi t0, a2, 0
+-; RV32I-FPELIM-NEXT:    addi a0, a1, 0
++; RV32I-FPELIM-NEXT:    mv t0, a2
++; RV32I-FPELIM-NEXT:    mv a0, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 28(sp)
+ ; RV32I-FPELIM-NEXT:    sw a6, 24(sp)
+ ; RV32I-FPELIM-NEXT:    sw a5, 20(sp)
+@@ -472,11 +471,11 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    lui a1, %hi(__adddf3)
+ ; RV32I-FPELIM-NEXT:    addi a4, a1, %lo(__adddf3)
+ ; RV32I-FPELIM-NEXT:    lw a3, 0(a3)
+-; RV32I-FPELIM-NEXT:    addi a1, t0, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a4, 0
++; RV32I-FPELIM-NEXT:    mv a1, t0
++; RV32I-FPELIM-NEXT:    jalr a4
+ ; RV32I-FPELIM-NEXT:    lw ra, 4(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va3_va_arg:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -484,8 +483,8 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw ra, 20(sp)
+ ; RV32I-WITHFP-NEXT:    sw s0, 16(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 24
+-; RV32I-WITHFP-NEXT:    addi t0, a2, 0
+-; RV32I-WITHFP-NEXT:    addi a0, a1, 0
++; RV32I-WITHFP-NEXT:    mv t0, a2
++; RV32I-WITHFP-NEXT:    mv a0, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 20(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 16(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 12(s0)
+@@ -501,12 +500,12 @@ define double @va3_va_arg(i32 %a, double %b, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lui a1, %hi(__adddf3)
+ ; RV32I-WITHFP-NEXT:    addi a4, a1, %lo(__adddf3)
+ ; RV32I-WITHFP-NEXT:    lw a3, 0(a3)
+-; RV32I-WITHFP-NEXT:    addi a1, t0, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a4, 0
++; RV32I-WITHFP-NEXT:    mv a1, t0
++; RV32I-WITHFP-NEXT:    jalr a4
+ ; RV32I-WITHFP-NEXT:    lw s0, 16(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 20(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
-@@ -335,19 +335,19 @@ define void @va3_caller() nounwind {
- ; RV32I-NEXT:    sw s0, 8(sp)
- ; RV32I-NEXT:    addi s0, sp, 16
- ; RV32I-NEXT:    lui a0, 261888
--; RV32I-NEXT:    addi a2, a0, 0
-+; RV32I-NEXT:    mv a2, a0
- ; RV32I-NEXT:    lui a0, 262144
--; RV32I-NEXT:    addi a5, a0, 0
-+; RV32I-NEXT:    mv a5, a0
- ; RV32I-NEXT:    lui a0, %hi(va3)
- ; RV32I-NEXT:    addi a3, a0, %lo(va3)
- ; RV32I-NEXT:    addi a0, zero, 2
--; RV32I-NEXT:    addi a1, zero, 0
--; RV32I-NEXT:    addi a4, zero, 0
--; RV32I-NEXT:    jalr ra, a3, 0
-+; RV32I-NEXT:    mv a1, zero
-+; RV32I-NEXT:    mv a4, zero
-+; RV32I-NEXT:    jalr a3
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 16
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -522,18 +521,18 @@ define void @va3_caller() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -16
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lui a0, 261888
+-; RV32I-FPELIM-NEXT:    addi a2, a0, 0
++; RV32I-FPELIM-NEXT:    mv a2, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, 262144
+-; RV32I-FPELIM-NEXT:    addi a5, a0, 0
++; RV32I-FPELIM-NEXT:    mv a5, a0
+ ; RV32I-FPELIM-NEXT:    lui a0, %hi(va3)
+ ; RV32I-FPELIM-NEXT:    addi a3, a0, %lo(va3)
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 2
+-; RV32I-FPELIM-NEXT:    addi a1, zero, 0
+-; RV32I-FPELIM-NEXT:    addi a4, zero, 0
+-; RV32I-FPELIM-NEXT:    jalr ra, a3, 0
++; RV32I-FPELIM-NEXT:    mv a1, zero
++; RV32I-FPELIM-NEXT:    mv a4, zero
++; RV32I-FPELIM-NEXT:    jalr a3
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 16
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va3_caller:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -542,19 +541,19 @@ define void @va3_caller() nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+ ; RV32I-WITHFP-NEXT:    lui a0, 261888
+-; RV32I-WITHFP-NEXT:    addi a2, a0, 0
++; RV32I-WITHFP-NEXT:    mv a2, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, 262144
+-; RV32I-WITHFP-NEXT:    addi a5, a0, 0
++; RV32I-WITHFP-NEXT:    mv a5, a0
+ ; RV32I-WITHFP-NEXT:    lui a0, %hi(va3)
+ ; RV32I-WITHFP-NEXT:    addi a3, a0, %lo(va3)
+ ; RV32I-WITHFP-NEXT:    addi a0, zero, 2
+-; RV32I-WITHFP-NEXT:    addi a1, zero, 0
+-; RV32I-WITHFP-NEXT:    addi a4, zero, 0
+-; RV32I-WITHFP-NEXT:    jalr ra, a3, 0
++; RV32I-WITHFP-NEXT:    mv a1, zero
++; RV32I-WITHFP-NEXT:    mv a4, zero
++; RV32I-WITHFP-NEXT:    jalr a3
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 16
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
   %1 = call double (i32, double, ...) @va3(i32 2, double 1.000000e+00, double 2.000000e+00)
   ret void
  }
-@@ -375,7 +375,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
- ; RV32I-NEXT:    lw s1, 4(s0)
- ; RV32I-NEXT:    lui a1, %hi(notdead)
- ; RV32I-NEXT:    addi a1, a1, %lo(notdead)
--; RV32I-NEXT:    jalr ra, a1, 0
-+; RV32I-NEXT:    jalr a1
- ; RV32I-NEXT:    lw a0, -16(s0)
- ; RV32I-NEXT:    addi a0, a0, 3
- ; RV32I-NEXT:    andi a0, a0, -4
-@@ -399,7 +399,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 24(sp)
- ; RV32I-NEXT:    lw ra, 28(sp)
- ; RV32I-NEXT:    addi sp, sp, 64
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -580,7 +579,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    lw s1, 20(sp)
+ ; RV32I-FPELIM-NEXT:    lui a1, %hi(notdead)
+ ; RV32I-FPELIM-NEXT:    addi a1, a1, %lo(notdead)
+-; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
++; RV32I-FPELIM-NEXT:    jalr a1
+ ; RV32I-FPELIM-NEXT:    lw a0, 4(sp)
+ ; RV32I-FPELIM-NEXT:    addi a0, a0, 3
+ ; RV32I-FPELIM-NEXT:    andi a0, a0, -4
+@@ -603,7 +602,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    lw s1, 8(sp)
+ ; RV32I-FPELIM-NEXT:    lw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va4_va_copy:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -625,7 +624,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s1, 4(s0)
+ ; RV32I-WITHFP-NEXT:    lui a1, %hi(notdead)
+ ; RV32I-WITHFP-NEXT:    addi a1, a1, %lo(notdead)
+-; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
++; RV32I-WITHFP-NEXT:    jalr a1
+ ; RV32I-WITHFP-NEXT:    lw a0, -16(s0)
+ ; RV32I-WITHFP-NEXT:    addi a0, a0, 3
+ ; RV32I-WITHFP-NEXT:    andi a0, a0, -4
+@@ -649,7 +648,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 28(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 64
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %vargs = alloca i8*, align 4
    %wargs = alloca i8*, align 4
    %1 = bitcast i8** %vargs to i8*
-@@ -440,7 +440,7 @@ define i32 @va5_aligned_stack_callee(i32 %a, ...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -685,7 +684,7 @@ define i32 @va5_aligned_stack_callee(i32 %a, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a1, 4(sp)
+ ; RV32I-FPELIM-NEXT:    addi a0, zero, 1
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 32
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va5_aligned_stack_callee:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -704,7 +703,7 @@ define i32 @va5_aligned_stack_callee(i32 %a, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    ret i32 1
  }
  
-@@ -489,11 +489,11 @@ define void @va5_aligned_stack_caller() nounwind {
- ; RV32I-NEXT:    addi a3, zero, 12
- ; RV32I-NEXT:    addi a4, zero, 13
- ; RV32I-NEXT:    addi a7, zero, 4
--; RV32I-NEXT:    jalr ra, a5, 0
-+; RV32I-NEXT:    jalr a5
- ; RV32I-NEXT:    lw s0, 56(sp)
- ; RV32I-NEXT:    lw ra, 60(sp)
- ; RV32I-NEXT:    addi sp, sp, 64
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -751,10 +750,10 @@ define void @va5_aligned_stack_caller() nounwind {
+ ; RV32I-FPELIM-NEXT:    addi a3, zero, 12
+ ; RV32I-FPELIM-NEXT:    addi a4, zero, 13
+ ; RV32I-FPELIM-NEXT:    addi a7, zero, 4
+-; RV32I-FPELIM-NEXT:    jalr ra, a5, 0
++; RV32I-FPELIM-NEXT:    jalr a5
+ ; RV32I-FPELIM-NEXT:    lw ra, 60(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 64
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va5_aligned_stack_caller:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -798,11 +797,11 @@ define void @va5_aligned_stack_caller() nounwind {
+ ; RV32I-WITHFP-NEXT:    addi a3, zero, 12
+ ; RV32I-WITHFP-NEXT:    addi a4, zero, 13
+ ; RV32I-WITHFP-NEXT:    addi a7, zero, 4
+-; RV32I-WITHFP-NEXT:    jalr ra, a5, 0
++; RV32I-WITHFP-NEXT:    jalr a5
+ ; RV32I-WITHFP-NEXT:    lw s0, 56(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 60(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 64
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %1 = call i32 (i32, ...) @va5_aligned_stack_callee(i32 1, i32 11,
      fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13, i64 20000000000,
      i32 14, double 2.720000e+00, i32 15, [2 x i32] [i32 16, i32 17])
-@@ -525,7 +525,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
- ; RV32I-NEXT:    lw s0, 8(sp)
- ; RV32I-NEXT:    lw ra, 12(sp)
- ; RV32I-NEXT:    addi sp, sp, 48
--; RV32I-NEXT:    jalr zero, ra, 0
-+; RV32I-NEXT:    ret
+@@ -829,7 +828,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
+ ; RV32I-FPELIM-NEXT:    lw a0, 16(sp)
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
+-; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
++; RV32I-FPELIM-NEXT:    ret
+ ;
+ ; RV32I-WITHFP-LABEL: va6_no_fixed_args:
+ ; RV32I-WITHFP:       # %bb.0:
+@@ -851,7 +850,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
+ ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
+-; RV32I-WITHFP-NEXT:    jalr zero, ra, 0
++; RV32I-WITHFP-NEXT:    ret
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
@@ -7081,7 +7614,7 @@ index cf94218a94e..fe53fab80ad 100644
  # CHECK-INST: lr.w t0, (t1)
  # CHECK: encoding: [0xaf,0x22,0x03,0x10]
 diff --git a/test/MC/RISCV/rv32c-only-valid.s b/test/MC/RISCV/rv32c-only-valid.s
-index 319ac8f1eb8..468cfcddcb6 100644
+index 45127f59591..f46c2a3ea93 100644
 --- a/test/MC/RISCV/rv32c-only-valid.s
 +++ b/test/MC/RISCV/rv32c-only-valid.s
 @@ -1,6 +1,6 @@
@@ -7091,10 +7624,10 @@ index 319ac8f1eb8..468cfcddcb6 100644
 -# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
 +# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c -riscv-no-aliases < %s \
  # RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
- 
- # CHECK-INST: c.jal    2046
+ # RUN: not llvm-mc -triple riscv32 \
+ # RUN:     -show-encoding < %s 2>&1 \
 diff --git a/test/MC/RISCV/rv32c-valid.s b/test/MC/RISCV/rv32c-valid.s
-index 22a2c90b889..a58959dd398 100644
+index d3ed7211e83..338c8e0ee75 100644
 --- a/test/MC/RISCV/rv32c-valid.s
 +++ b/test/MC/RISCV/rv32c-valid.s
 @@ -1,11 +1,13 @@
@@ -7223,20 +7756,29 @@ index 8fbe96295f7..0e54b797c36 100644
  # CHECK: encoding: [0xd3,0x77,0x1f,0xc2]
  fcvt.wu.d a5, ft10, dyn
 diff --git a/test/MC/RISCV/rv32dc-valid.s b/test/MC/RISCV/rv32dc-valid.s
-index b1ae265d6c9..b6c7bb37d26 100644
+index 88bd86f29ec..507b39170ec 100644
 --- a/test/MC/RISCV/rv32dc-valid.s
 +++ b/test/MC/RISCV/rv32dc-valid.s
-@@ -1,7 +1,8 @@
+@@ -1,13 +1,13 @@
 -# RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+d -show-encoding \
 +# RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+d -riscv-no-aliases -show-encoding \
  # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
  # RUN: llvm-mc -filetype=obj -triple=riscv32 -mattr=+c,+d < %s \
--# RUN:     | llvm-objdump -mattr=+c,+d -d - | FileCheck -check-prefix=CHECK-INST %s
+-# RUN:     | llvm-objdump -mattr=+c,+d -d - \
 +# RUN:     | llvm-objdump -mattr=+c,+d -riscv-no-aliases -d - \
-+# RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv32 -mattr=+c\
+-# RUN:     -show-encoding < %s 2>&1 \
+-# RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+-# RUN: not llvm-mc -triple riscv32 \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
++# RUN: | FileCheck -check-prefixes=CHECK-NO-EXT %s
++# RUN:     not llvm-mc -triple riscv32 \
++# RUN: -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
  
  # CHECK-INST: c.fldsp  fs0, 504(sp)
- # CHECK: encoding: [0x7e,0x34]
 diff --git a/test/MC/RISCV/rv32f-valid.s b/test/MC/RISCV/rv32f-valid.s
 index 398173836c5..f5da84ac2bd 100644
 --- a/test/MC/RISCV/rv32f-valid.s
@@ -7347,20 +7889,31 @@ index 398173836c5..f5da84ac2bd 100644
  # CHECK: encoding: [0xd3,0x00,0x08,0xf0]
  fmv.w.x ft1, a6
 diff --git a/test/MC/RISCV/rv32fc-valid.s b/test/MC/RISCV/rv32fc-valid.s
-index 7ab83aa392e..d5562062ddf 100644
+index e5b629f34cc..a66498c1468 100644
 --- a/test/MC/RISCV/rv32fc-valid.s
 +++ b/test/MC/RISCV/rv32fc-valid.s
-@@ -1,7 +1,8 @@
+@@ -1,16 +1,16 @@
 -# RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+f -show-encoding \
 +# RUN: llvm-mc %s -triple=riscv32 -mattr=+c,+f -riscv-no-aliases -show-encoding \
  # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
  # RUN: llvm-mc -filetype=obj -triple=riscv32 -mattr=+c,+f < %s \
--# RUN:     | llvm-objdump -mattr=+c,+f -d - | FileCheck -check-prefix=CHECK-INST %s
+-# RUN:     | llvm-objdump -mattr=+c,+f -d - \
 +# RUN:     | llvm-objdump -mattr=+c,+f -riscv-no-aliases -d - \
-+# RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv32 -mattr=+c \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+ # RUN: not llvm-mc -triple riscv32 \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+ # RUN: not llvm-mc -triple riscv64 -mattr=+c,+f \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
  
  # CHECK-INST: c.flwsp  fs0, 252(sp)
- # CHECK: encoding: [0x7e,0x74]
 diff --git a/test/MC/RISCV/rv32i-aliases-invalid.s b/test/MC/RISCV/rv32i-aliases-invalid.s
 index 053b7f8e789..e0473ca371d 100644
 --- a/test/MC/RISCV/rv32i-aliases-invalid.s
@@ -7452,20 +8005,27 @@ index 18299548ffa..3203d6e6d3f 100644
  # RUN:     | FileCheck -check-prefix=CHECK-RV32 %s
  
 diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
-index 2ee9a12cf39..605695dd924 100644
+index e71cf9d3fb5..5e7b901ad0e 100644
 --- a/test/MC/RISCV/rv64c-valid.s
 +++ b/test/MC/RISCV/rv64c-valid.s
-@@ -1,7 +1,8 @@
+@@ -1,13 +1,13 @@
 -# RUN: llvm-mc -triple=riscv64 -mattr=+c -show-encoding < %s \
 +# RUN: llvm-mc -triple=riscv64 -mattr=+c -riscv-no-aliases -show-encoding < %s \
  # RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
  # RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
--# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
+-# RUN:     | llvm-objdump -mattr=+c -d - \
 +# RUN:     | llvm-objdump -mattr=+c -riscv-no-aliases -d - \
-+# RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN:     | FileCheck -check-prefix=CHECK-INST %s
+ # RUN: not llvm-mc -triple riscv64 \
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
+ # RUN: not llvm-mc -triple riscv32 -mattr=+c\
+-# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     -riscv-no-aliases -show-encoding < %s 2>&1 \
+ # RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
  
  # TODO: more exhaustive testing of immediate encoding.
- 
 diff --git a/test/MC/RISCV/rv64d-aliases-valid.s b/test/MC/RISCV/rv64d-aliases-valid.s
 new file mode 100644
 index 00000000000..f6c5663eac7
@@ -7880,5 +8440,5 @@ index 08d0f8c6590..72ed72eab27 100644
  
  # TODO la
 -- 
-2.15.1
+2.16.2
 

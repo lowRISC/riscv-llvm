@@ -1,0 +1,219 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Encode RISCV specific ELF e_flags to RISCV Binary by
+ RISCVTargetStreamer
+
+Differential Revision: https://reviews.llvm.org/D41658
+Patch by Shiva Chen.
+---
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  2 ++
+ lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp | 39 ++++++++++++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h   | 24 +++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 12 +++++++
+ .../RISCV/MCTargetDesc/RISCVTargetStreamer.cpp     | 18 ++++++++++
+ .../RISCV/MCTargetDesc/RISCVTargetStreamer.h       | 22 ++++++++++++
+ test/MC/RISCV/elf-flags.s                          | 13 ++++++++
+ 7 files changed, 130 insertions(+)
+ create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp
+ create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h
+ create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.cpp
+ create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.h
+ create mode 100644 test/MC/RISCV/elf-flags.s
+
+diff --git a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
+index 60429647edd..d9f4188aa75 100644
+--- a/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
++++ b/lib/Target/RISCV/MCTargetDesc/CMakeLists.txt
+@@ -5,4 +5,6 @@ add_llvm_library(LLVMRISCVDesc
+   RISCVMCCodeEmitter.cpp
+   RISCVMCExpr.cpp
+   RISCVMCTargetDesc.cpp
++  RISCVTargetStreamer.cpp
++  RISCVELFStreamer.cpp
+ )
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp
+new file mode 100644
+index 00000000000..243f8ed7fb5
+--- /dev/null
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp
+@@ -0,0 +1,39 @@
++//===-- RISCVELFStreamer.cpp - RISCV ELF Target Streamer Methods ----------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file provides RISCV specific target streamer methods.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVELFStreamer.h"
++#include "RISCVMCTargetDesc.h"
++#include "llvm/BinaryFormat/ELF.h"
++#include "llvm/MC/MCSubtargetInfo.h"
++
++using namespace llvm;
++
++// This part is for ELF object output.
++RISCVTargetELFStreamer::RISCVTargetELFStreamer(MCStreamer &S,
++                                               const MCSubtargetInfo &STI)
++    : RISCVTargetStreamer(S) {
++  MCAssembler &MCA = getStreamer().getAssembler();
++
++  const FeatureBitset &Features = STI.getFeatureBits();
++
++  unsigned EFlags = MCA.getELFHeaderEFlags();
++
++  if (Features[RISCV::FeatureStdExtC])
++    EFlags |= ELF::EF_RISCV_RVC;
++
++  MCA.setELFHeaderEFlags(EFlags);
++}
++
++MCELFStreamer &RISCVTargetELFStreamer::getStreamer() {
++  return static_cast<MCELFStreamer &>(Streamer);
++}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h b/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h
+new file mode 100644
+index 00000000000..d3cfbe3e83c
+--- /dev/null
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h
+@@ -0,0 +1,24 @@
++//===-- RISCVELFStreamer.h - RISCV ELF Target Streamer ---------*- C++ -*--===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVELFSTREAMER_H
++#define LLVM_LIB_TARGET_RISCV_RISCVELFSTREAMER_H
++
++#include "RISCVTargetStreamer.h"
++#include "llvm/MC/MCELFStreamer.h"
++
++namespace llvm {
++
++class RISCVTargetELFStreamer : public RISCVTargetStreamer {
++public:
++  MCELFStreamer &getStreamer();
++  RISCVTargetELFStreamer(MCStreamer &S, const MCSubtargetInfo &STI);
++};
++}
++#endif
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
+index f9a69826e10..ad35f8c4d9e 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp
+@@ -13,7 +13,9 @@
+ 
+ #include "RISCVMCTargetDesc.h"
+ #include "InstPrinter/RISCVInstPrinter.h"
++#include "RISCVELFStreamer.h"
+ #include "RISCVMCAsmInfo.h"
++#include "RISCVTargetStreamer.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/MC/MCAsmInfo.h"
+ #include "llvm/MC/MCInstrInfo.h"
+@@ -71,6 +73,14 @@ static MCInstPrinter *createRISCVMCInstPrinter(const Triple &T,
+   return new RISCVInstPrinter(MAI, MII, MRI);
+ }
+ 
++static MCTargetStreamer *
++createRISCVObjectTargetStreamer(MCStreamer &S, const MCSubtargetInfo &STI) {
++  const Triple &TT = STI.getTargetTriple();
++  if (TT.isOSBinFormatELF())
++    return new RISCVTargetELFStreamer(S, STI);
++  return new RISCVTargetStreamer(S);
++}
++
+ extern "C" void LLVMInitializeRISCVTargetMC() {
+   for (Target *T : {&getTheRISCV32Target(), &getTheRISCV64Target()}) {
+     TargetRegistry::RegisterMCAsmInfo(*T, createRISCVMCAsmInfo);
+@@ -80,5 +90,7 @@ extern "C" void LLVMInitializeRISCVTargetMC() {
+     TargetRegistry::RegisterMCCodeEmitter(*T, createRISCVMCCodeEmitter);
+     TargetRegistry::RegisterMCInstPrinter(*T, createRISCVMCInstPrinter);
+     TargetRegistry::RegisterMCSubtargetInfo(*T, createRISCVMCSubtargetInfo);
++    TargetRegistry::RegisterObjectTargetStreamer(
++        *T, createRISCVObjectTargetStreamer);
+   }
+ }
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.cpp
+new file mode 100644
+index 00000000000..e72b0243b2e
+--- /dev/null
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.cpp
+@@ -0,0 +1,18 @@
++//===-- RISCVTargetStreamer.cpp - RISCV Target Streamer Methods -----------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file provides RISCV specific target streamer methods.
++//
++//===----------------------------------------------------------------------===//
++
++#include "RISCVTargetStreamer.h"
++
++using namespace llvm;
++
++RISCVTargetStreamer::RISCVTargetStreamer(MCStreamer &S) : MCTargetStreamer(S) {}
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.h b/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.h
+new file mode 100644
+index 00000000000..3f395405b59
+--- /dev/null
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVTargetStreamer.h
+@@ -0,0 +1,22 @@
++//===-- RISCVTargetStreamer.h - RISCV Target Streamer ----------*- C++ -*--===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_LIB_TARGET_RISCV_RISCVTARGETSTREAMER_H
++#define LLVM_LIB_TARGET_RISCV_RISCVTARGETSTREAMER_H
++
++#include "llvm/MC/MCStreamer.h"
++
++namespace llvm {
++
++class RISCVTargetStreamer : public MCTargetStreamer {
++public:
++  RISCVTargetStreamer(MCStreamer &S);
++};
++}
++#endif
+diff --git a/test/MC/RISCV/elf-flags.s b/test/MC/RISCV/elf-flags.s
+new file mode 100644
+index 00000000000..1d183aab339
+--- /dev/null
++++ b/test/MC/RISCV/elf-flags.s
+@@ -0,0 +1,13 @@
++# RUN: llvm-mc -triple=riscv32 -filetype=obj < %s | llvm-readobj -file-headers - | FileCheck -check-prefixes=CHECK-RVI %s
++# RUN: llvm-mc -triple=riscv64 -filetype=obj < %s | llvm-readobj -file-headers - | FileCheck -check-prefixes=CHECK-RVI %s
++# RUN: llvm-mc -triple=riscv32 -mattr=+c -filetype=obj < %s | llvm-readobj -file-headers - | FileCheck -check-prefixes=CHECK-RVIC %s
++# RUN: llvm-mc -triple=riscv64 -mattr=+c -filetype=obj < %s | llvm-readobj -file-headers - | FileCheck -check-prefixes=CHECK-RVIC %s
++
++# CHECK-RVI:       Flags [ (0x0)
++# CHECK-RVI-NEXT:  ]
++
++# CHECK-RVIC:       Flags [ (0x1)
++# CHECK-RVIC-NEXT:    EF_RISCV_RVC (0x1)
++# CHECK-RVIC-NEXT:  ]
++
++nop
+-- 
+2.16.2
+

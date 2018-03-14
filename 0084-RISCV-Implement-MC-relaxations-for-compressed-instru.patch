@@ -1,0 +1,335 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Implement MC relaxations for compressed instructions.
+
+This patch implements relaxation for RISCV in the MC layer.
+The following relaxations are currently handled:
+1) Relax C_BEQZ to BEQ and C_BNEZ to BNEZ in RISCV.
+2) Relax and C_J $imm  to JAL x0, $imm  and CJAL to JAL ra, $imm.
+
+Differential Revision: https://reviews.llvm.org/D43055
+Patch by Sameer AbuAsal.
+---
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp | 86 ++++++++++++++++++++---
+ test/MC/RISCV/fixups-compressed.s                 |  9 ++-
+ test/MC/RISCV/relocations.s                       |  6 +-
+ test/MC/RISCV/rv32-relaxation.s                   | 75 ++++++++++++++++++++
+ test/MC/RISCV/rv64-relaxation.s                   | 64 +++++++++++++++++
+ 5 files changed, 229 insertions(+), 11 deletions(-)
+ create mode 100644 test/MC/RISCV/rv32-relaxation.s
+ create mode 100644 test/MC/RISCV/rv64-relaxation.s
+
+diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+index c42177e0b4f..eaae0c13c82 100644
+--- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
++++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
+@@ -45,9 +45,7 @@ public:
+ 
+   bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
+                             const MCRelaxableFragment *DF,
+-                            const MCAsmLayout &Layout) const override {
+-    return false;
+-  }
++                            const MCAsmLayout &Layout) const override;
+ 
+   unsigned getNumFixupKinds() const override {
+     return RISCV::NumTargetFixupKinds;
+@@ -79,17 +77,89 @@ public:
+     return Infos[Kind - FirstTargetFixupKind];
+   }
+ 
+-  bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
++  bool mayNeedRelaxation(const MCInst &Inst) const override;
++  unsigned getRelaxedOpcode(unsigned Op) const;
+ 
+   void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
+-                        MCInst &Res) const override {
+-
+-    report_fatal_error("RISCVAsmBackend::relaxInstruction() unimplemented");
+-  }
++                        MCInst &Res) const override;
+ 
+   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
+ };
+ 
++bool RISCVAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
++                                           const MCRelaxableFragment *DF,
++                                           const MCAsmLayout &Layout) const {
++  int64_t Offset = int64_t(Value);
++  switch ((unsigned)Fixup.getKind()) {
++  default:
++    return false;
++  case RISCV::fixup_riscv_rvc_branch:
++    // For compressed branch instructions the immediate must be
++    // in the range [-256, 254].
++    return Offset > 254 || Offset < -256;
++  case RISCV::fixup_riscv_rvc_jump:
++    // For compressed jump instructions the immediate must be
++    // in the range [-2048, 2046].
++    return Offset > 2046 || Offset < -2048;
++  }
++}
++
++void RISCVAsmBackend::relaxInstruction(const MCInst &Inst,
++                                       const MCSubtargetInfo &STI,
++                                       MCInst &Res) const {
++  // TODO: replace this with call to auto generated uncompressinstr() function.
++  switch (Inst.getOpcode()) {
++  default:
++    llvm_unreachable("Opcode not expected!");
++  case RISCV::C_BEQZ:
++    // c.beqz $rs1, $imm -> beq $rs1, X0, $imm.
++    Res.setOpcode(RISCV::BEQ);
++    Res.addOperand(Inst.getOperand(0));
++    Res.addOperand(MCOperand::createReg(RISCV::X0));
++    Res.addOperand(Inst.getOperand(1));
++    break;
++  case RISCV::C_BNEZ:
++    // c.bnez $rs1, $imm -> bne $rs1, X0, $imm.
++    Res.setOpcode(RISCV::BNE);
++    Res.addOperand(Inst.getOperand(0));
++    Res.addOperand(MCOperand::createReg(RISCV::X0));
++    Res.addOperand(Inst.getOperand(1));
++    break;
++  case RISCV::C_J:
++    // c.j $imm -> jal X0, $imm.
++    Res.setOpcode(RISCV::JAL);
++    Res.addOperand(MCOperand::createReg(RISCV::X0));
++    Res.addOperand(Inst.getOperand(0));
++    break;
++  case RISCV::C_JAL:
++    // c.jal $imm -> jal X1, $imm.
++    Res.setOpcode(RISCV::JAL);
++    Res.addOperand(MCOperand::createReg(RISCV::X1));
++    Res.addOperand(Inst.getOperand(0));
++    break;
++  }
++}
++
++// Given a compressed control flow instruction this function returns
++// the expanded instruction.
++unsigned RISCVAsmBackend::getRelaxedOpcode(unsigned Op) const {
++  switch (Op) {
++  default:
++    return Op;
++  case RISCV::C_BEQZ:
++    return RISCV::BEQ;
++  case RISCV::C_BNEZ:
++    return RISCV::BNE;
++  case RISCV::C_J:
++  case RISCV::C_JAL: // fall through.
++    return RISCV::JAL;
++  }
++}
++
++bool RISCVAsmBackend::mayNeedRelaxation(const MCInst &Inst) const {
++  return getRelaxedOpcode(Inst.getOpcode()) != Inst.getOpcode();
++}
++
+ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+   bool HasStdExtC = STI.getFeatureBits()[RISCV::FeatureStdExtC];
+   unsigned MinNopLen = HasStdExtC ? 2 : 4;
+diff --git a/test/MC/RISCV/fixups-compressed.s b/test/MC/RISCV/fixups-compressed.s
+index 65e4c773eca..a97d290f216 100644
+--- a/test/MC/RISCV/fixups-compressed.s
++++ b/test/MC/RISCV/fixups-compressed.s
+@@ -2,13 +2,15 @@
+ # RUN:     | FileCheck -check-prefix=CHECK-FIXUP %s
+ # RUN: llvm-mc -triple riscv32 -filetype=obj -mattr=+c < %s \
+ # RUN:     | llvm-objdump -d - | FileCheck -check-prefix=CHECK-INSTR %s
++# RUN: llvm-mc -filetype=obj -mattr=+c -triple=riscv32 %s \
++# RUN:     | llvm-readobj -r | FileCheck %s -check-prefix=CHECK-REL
+ 
+ .LBB0_2:
+ # CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_jump
+ # CHECK-INSTR: c.j     0
+ c.j     .LBB0_2
+ # CHECK:   fixup A - offset: 0, value: func1, kind: fixup_riscv_rvc_jump
+-# CHECK-INSTR: c.jal   0
++# CHECK-INSTR: c.jal   6
+ c.jal   func1
+ # CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_branch
+ # CHECK-INSTR: c.beqz  a3, -4
+@@ -16,3 +18,8 @@ c.beqz  a3, .LBB0_2
+ # CHECK-FIXUP:   fixup A - offset: 0, value: .LBB0_2, kind: fixup_riscv_rvc_branch
+ # CHECK-INSTR: c.bnez  a5, -6
+ c.bnez  a5, .LBB0_2
++
++func1:
++  nop
++
++# CHECK-REL-NOT: R_RISCV
+diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
+index 13c6b512f26..77421620e68 100644
+--- a/test/MC/RISCV/relocations.s
++++ b/test/MC/RISCV/relocations.s
+@@ -85,11 +85,13 @@ bgeu a0, a1, foo
+ # FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_branch
+ 
+ c.jal foo
+-# RELOC: R_RISCV_RVC_JUMP
++# A compressed jump (c.j) to an unresolved symbol will be relaxed to a (jal).
++# RELOC: R_RISCV_JAL
+ # INSTR: c.jal foo
+ # FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_rvc_jump
+ 
+ c.bnez a0, foo
+-# RELOC: R_RISCV_RVC_BRANCH
++# A compressed branch (c.bnez) to an unresolved symbol will be relaxed to a (bnez).
++# RELOC: R_RISCV_BRANCH
+ # INSTR: c.bnez a0, foo
+ # FIXUP: fixup A - offset: 0, value: foo, kind: fixup_riscv_rvc_branch
+diff --git a/test/MC/RISCV/rv32-relaxation.s b/test/MC/RISCV/rv32-relaxation.s
+new file mode 100644
+index 00000000000..66109faf3eb
+--- /dev/null
++++ b/test/MC/RISCV/rv32-relaxation.s
+@@ -0,0 +1,75 @@
++# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=INSTR %s
++
++FAR_JUMP_NEGATIVE:
++  c.nop
++.space 2000
++
++FAR_BRANCH_NEGATIVE:
++  c.nop
++.space 256
++
++NEAR_NEGATIVE:
++  c.nop
++
++start:
++  c.bnez a0, NEAR
++#INSTR: c.bnez a0, 72
++  c.bnez a0, NEAR_NEGATIVE
++#INSTR: c.bnez a0, -4
++  c.bnez a0, FAR_BRANCH
++#INSTR-NEXT: bnez a0, 326
++  c.bnez a0, FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: bnez a0, -268
++  c.bnez a0, FAR_JUMP
++#INSTR-NEXT: bnez a0, 2320
++  c.bnez a0, FAR_JUMP_NEGATIVE
++#INSTR-NEXT: bnez a0, -2278
++
++  c.beqz a0, NEAR
++#INSTR-NEXT: c.beqz a0, 52
++  c.beqz a0, NEAR_NEGATIVE
++#INSTR-NEXT: c.beqz a0, -24
++  c.beqz a0, FAR_BRANCH
++#INSTR-NEXT: beqz a0, 306
++  c.beqz a0, FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: beqz a0, -288
++  c.beqz a0, FAR_JUMP
++#INSTR-NEXT: beqz a0, 2300
++  c.beqz a0, FAR_JUMP_NEGATIVE
++#INSTR-NEXT: beqz a0, -2298
++
++  c.j NEAR
++#INSTR-NEXT: c.j 32
++  c.j NEAR_NEGATIVE
++#INSTR-NEXT: c.j -44
++  c.j FAR_BRANCH
++#INSTR-NEXT: c.j 286
++  c.j FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: c.j -306
++  c.j FAR_JUMP
++#INSTR-NEXT: j 2284
++  c.j FAR_JUMP_NEGATIVE
++#INSTR-NEXT: j -2314
++
++  c.jal NEAR
++#INSTR: c.jal 16
++  c.jal NEAR_NEGATIVE
++#INSTR: c.jal -60
++  c.jal FAR_BRANCH
++#INSTR-NEXT: c.jal 270
++  c.jal FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: c.jal -322
++  c.jal FAR_JUMP
++#INSTR-NEXT: jal 2268
++  c.jal FAR_JUMP_NEGATIVE
++#INSTR-NEXT: jal -2330
++
++NEAR:
++  c.nop
++.space 256
++FAR_BRANCH:
++  c.nop
++.space 2000
++FAR_JUMP:
++  c.nop
+diff --git a/test/MC/RISCV/rv64-relaxation.s b/test/MC/RISCV/rv64-relaxation.s
+new file mode 100644
+index 00000000000..018408f575a
+--- /dev/null
++++ b/test/MC/RISCV/rv64-relaxation.s
+@@ -0,0 +1,64 @@
++# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
++# RUN:     | llvm-objdump -d - | FileCheck -check-prefix=INSTR %s
++
++FAR_JUMP_NEGATIVE:
++  c.nop
++.space 2000
++
++FAR_BRANCH_NEGATIVE:
++  c.nop
++.space 256
++
++NEAR_NEGATIVE:
++  c.nop
++
++start:
++  c.bnez a0, NEAR
++#INSTR: c.bnez a0, 56
++  c.bnez a0, NEAR_NEGATIVE
++#INSTR: c.bnez a0, -4
++  c.bnez a0, FAR_BRANCH
++#INSTR-NEXT: bnez a0, 310
++  c.bnez a0, FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: bnez a0, -268
++  c.bnez a0, FAR_JUMP
++#INSTR-NEXT: bnez a0, 2304
++  c.bnez a0, FAR_JUMP_NEGATIVE
++#INSTR-NEXT: bnez a0, -2278
++
++  c.beqz a0, NEAR
++#INSTR-NEXT: c.beqz a0, 36
++  c.beqz a0, NEAR_NEGATIVE
++#INSTR-NEXT: c.beqz a0, -24
++  c.beqz a0, FAR_BRANCH
++#INSTR-NEXT: beqz a0, 290
++  c.beqz a0, FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: beqz a0, -288
++  c.beqz a0, FAR_JUMP
++#INSTR-NEXT: beqz a0, 2284
++  c.beqz a0, FAR_JUMP_NEGATIVE
++#INSTR-NEXT: beqz a0, -2298
++
++  c.j NEAR
++#INSTR-NEXT: c.j 16
++  c.j NEAR_NEGATIVE
++#INSTR-NEXT: c.j -44
++  c.j FAR_BRANCH
++#INSTR-NEXT: c.j 270
++  c.j FAR_BRANCH_NEGATIVE
++#INSTR-NEXT: c.j -306
++  c.j FAR_JUMP
++#INSTR-NEXT: j 2268
++  c.j FAR_JUMP_NEGATIVE
++#INSTR-NEXT: j -2314
++
++NEAR:
++  c.nop
++
++.space 256
++FAR_BRANCH:
++  c.nop
++
++.space 2000
++FAR_JUMP:
++  c.nop
+-- 
+2.16.2
+

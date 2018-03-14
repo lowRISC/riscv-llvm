@@ -1086,11 +1086,11 @@ index cc43e257498..3fba88dc45d 100644
    %1 = call fastcc i32 @fastcc_function(i32 %a, i32 %b)
    ret i32 %a
 diff --git a/test/CodeGen/RISCV/div.ll b/test/CodeGen/RISCV/div.ll
-index 651d49e0181..422509d739f 100644
+index 84f2fcbc0d5..4dfe2f5a675 100644
 --- a/test/CodeGen/RISCV/div.ll
 +++ b/test/CodeGen/RISCV/div.ll
 @@ -5,11 +5,16 @@
- define i32 @udiv(i32 %a, i32 %b) {
+ define i32 @udiv(i32 %a, i32 %b) nounwind {
  ; RV32I-LABEL: udiv:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1106,8 +1106,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = udiv i32 %a, %b
    ret i32 %1
-@@ -18,12 +23,17 @@ define i32 @udiv(i32 %a, i32 %b) {
- define i32 @udiv_constant(i32 %a) {
+@@ -18,12 +23,17 @@ define i32 @udiv(i32 %a, i32 %b) nounwind {
+ define i32 @udiv_constant(i32 %a) nounwind {
  ; RV32I-LABEL: udiv_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1124,8 +1124,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = udiv i32 %a, 5
    ret i32 %1
-@@ -32,7 +42,14 @@ define i32 @udiv_constant(i32 %a) {
- define i32 @udiv_pow2(i32 %a) {
+@@ -32,7 +42,14 @@ define i32 @udiv_constant(i32 %a) nounwind {
+ define i32 @udiv_pow2(i32 %a) nounwind {
  ; RV32I-LABEL: udiv_pow2:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1139,8 +1139,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = udiv i32 %a, 8
    ret i32 %1
-@@ -41,11 +58,16 @@ define i32 @udiv_pow2(i32 %a) {
- define i64 @udiv64(i64 %a, i64 %b) {
+@@ -41,11 +58,16 @@ define i32 @udiv_pow2(i32 %a) nounwind {
+ define i64 @udiv64(i64 %a, i64 %b) nounwind {
  ; RV32I-LABEL: udiv64:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1156,8 +1156,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = udiv i64 %a, %b
    ret i64 %1
-@@ -54,13 +76,18 @@ define i64 @udiv64(i64 %a, i64 %b) {
- define i64 @udiv64_constant(i64 %a) {
+@@ -54,13 +76,18 @@ define i64 @udiv64(i64 %a, i64 %b) nounwind {
+ define i64 @udiv64_constant(i64 %a) nounwind {
  ; RV32I-LABEL: udiv64_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1175,8 +1175,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = udiv i64 %a, 5
    ret i64 %1
-@@ -69,11 +96,16 @@ define i64 @udiv64_constant(i64 %a) {
- define i32 @sdiv(i32 %a, i32 %b) {
+@@ -69,11 +96,16 @@ define i64 @udiv64_constant(i64 %a) nounwind {
+ define i32 @sdiv(i32 %a, i32 %b) nounwind {
  ; RV32I-LABEL: sdiv:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1192,8 +1192,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sdiv i32 %a, %b
    ret i32 %1
-@@ -82,12 +114,17 @@ define i32 @sdiv(i32 %a, i32 %b) {
- define i32 @sdiv_constant(i32 %a) {
+@@ -82,12 +114,17 @@ define i32 @sdiv(i32 %a, i32 %b) nounwind {
+ define i32 @sdiv_constant(i32 %a) nounwind {
  ; RV32I-LABEL: sdiv_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1210,8 +1210,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sdiv i32 %a, 5
    ret i32 %1
-@@ -96,10 +133,17 @@ define i32 @sdiv_constant(i32 %a) {
- define i32 @sdiv_pow2(i32 %a) {
+@@ -96,10 +133,17 @@ define i32 @sdiv_constant(i32 %a) nounwind {
+ define i32 @sdiv_pow2(i32 %a) nounwind {
  ; RV32I-LABEL: sdiv_pow2:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1228,8 +1228,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sdiv i32 %a, 8
    ret i32 %1
-@@ -108,11 +152,16 @@ define i32 @sdiv_pow2(i32 %a) {
- define i64 @sdiv64(i64 %a, i64 %b) {
+@@ -108,11 +152,16 @@ define i32 @sdiv_pow2(i32 %a) nounwind {
+ define i64 @sdiv64(i64 %a, i64 %b) nounwind {
  ; RV32I-LABEL: sdiv64:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1245,8 +1245,8 @@ index 651d49e0181..422509d739f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sdiv i64 %a, %b
    ret i64 %1
-@@ -121,13 +170,18 @@ define i64 @sdiv64(i64 %a, i64 %b) {
- define i64 @sdiv64_constant(i64 %a) {
+@@ -121,13 +170,18 @@ define i64 @sdiv64(i64 %a, i64 %b) nounwind {
+ define i64 @sdiv64_constant(i64 %a) nounwind {
  ; RV32I-LABEL: sdiv64_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1820,11 +1820,11 @@ index 6446034e542..fd842a2f56e 100644
    %1 = inttoptr i32 3735928559 to i32*
    %2 = load volatile i32, i32* %1
 diff --git a/test/CodeGen/RISCV/mul.ll b/test/CodeGen/RISCV/mul.ll
-index b8c46d251a1..c5a9dc9359f 100644
+index 8b697864461..ad7a5313b79 100644
 --- a/test/CodeGen/RISCV/mul.ll
 +++ b/test/CodeGen/RISCV/mul.ll
 @@ -5,12 +5,17 @@
- define i32 @square(i32 %a) {
+ define i32 @square(i32 %a) nounwind {
  ; RV32I-LABEL: square:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1841,8 +1841,8 @@ index b8c46d251a1..c5a9dc9359f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = mul i32 %a, %a
    ret i32 %1
-@@ -19,11 +24,16 @@ define i32 @square(i32 %a) {
- define i32 @mul(i32 %a, i32 %b) {
+@@ -19,11 +24,16 @@ define i32 @square(i32 %a) nounwind {
+ define i32 @mul(i32 %a, i32 %b) nounwind {
  ; RV32I-LABEL: mul:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1858,8 +1858,8 @@ index b8c46d251a1..c5a9dc9359f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = mul i32 %a, %b
    ret i32 %1
-@@ -32,12 +42,17 @@ define i32 @mul(i32 %a, i32 %b) {
- define i32 @mul_constant(i32 %a) {
+@@ -32,12 +42,17 @@ define i32 @mul(i32 %a, i32 %b) nounwind {
+ define i32 @mul_constant(i32 %a) nounwind {
  ; RV32I-LABEL: mul_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1876,8 +1876,8 @@ index b8c46d251a1..c5a9dc9359f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = mul i32 %a, 5
    ret i32 %1
-@@ -46,7 +61,14 @@ define i32 @mul_constant(i32 %a) {
- define i32 @mul_pow2(i32 %a) {
+@@ -46,7 +61,14 @@ define i32 @mul_constant(i32 %a) nounwind {
+ define i32 @mul_pow2(i32 %a) nounwind {
  ; RV32I-LABEL: mul_pow2:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1891,8 +1891,8 @@ index b8c46d251a1..c5a9dc9359f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = mul i32 %a, 8
    ret i32 %1
-@@ -55,11 +77,16 @@ define i32 @mul_pow2(i32 %a) {
- define i64 @mul64(i64 %a, i64 %b) {
+@@ -55,11 +77,16 @@ define i32 @mul_pow2(i32 %a) nounwind {
+ define i64 @mul64(i64 %a, i64 %b) nounwind {
  ; RV32I-LABEL: mul64:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -1908,8 +1908,8 @@ index b8c46d251a1..c5a9dc9359f 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = mul i64 %a, %b
    ret i64 %1
-@@ -68,13 +95,18 @@ define i64 @mul64(i64 %a, i64 %b) {
- define i64 @mul64_constant(i64 %a) {
+@@ -68,13 +95,18 @@ define i64 @mul64(i64 %a, i64 %b) nounwind {
+ define i64 @mul64_constant(i64 %a) nounwind {
  ; RV32I-LABEL: mul64_constant:
  ; RV32I:       # %bb.0:
 +; RV32I-NEXT:    addi sp, sp, -16
@@ -2592,5 +2592,5 @@ index cbb89f631a5..0e74fe277bb 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.15.1
+2.16.2
 

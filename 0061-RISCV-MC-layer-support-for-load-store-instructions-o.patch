@@ -8,6 +8,10 @@ Differential Revision: https://reviews.llvm.org/D40001
 Patch by Shiva Chen.
 
 This patch has been further modified since the upstreamed version.
+
+Also incorporates changes from:
+Differential Revision: https://reviews.llvm.org/D42132
+Patch by Ana Pazos.
 ---
  lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  48 ++++++++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |  62 ++++++++--
@@ -23,8 +27,8 @@ This patch has been further modified since the upstreamed version.
  test/MC/RISCV/rv32c-invalid.s                      |  18 +++
  test/MC/RISCV/rv32c-valid.s                        |  23 ++++
  test/MC/RISCV/rv64c-invalid.s                      |  18 +++
- test/MC/RISCV/rv64c-valid.s                        |  19 +++
- 15 files changed, 484 insertions(+), 22 deletions(-)
+ test/MC/RISCV/rv64c-valid.s                        |  30 +++++
+ 15 files changed, 495 insertions(+), 22 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrFormatsC.td
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoC.td
  create mode 100644 test/MC/RISCV/rv32c-invalid.s
@@ -207,7 +211,7 @@ index b38f2eaa81b..b278a2ed390 100644
  
  enum {
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f94c37aae8f..ca323d8941d 100644
+index ce766ddf2fe..81c7a4d9059 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -83,9 +83,25 @@ MCCodeEmitter *llvm::createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
@@ -411,7 +415,7 @@ index 6a3f596b663..fd78c6eaf0b 100644
 +include "RISCVInstrInfoC.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoC.td b/lib/Target/RISCV/RISCVInstrInfoC.td
 new file mode 100644
-index 00000000000..d0d9bb395c2
+index 00000000000..8c898875536
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoC.td
 @@ -0,0 +1,132 @@
@@ -503,8 +507,8 @@ index 00000000000..d0d9bb395c2
 +  let Inst{5} = imm{6};
 +}
 +
-+def C_LD : CLoad_ri<0b011, "c.ld", GPRC, uimm8_lsb000>,
-+           Requires<[IsRV64]> {
++let Predicates = [HasStdExtC, IsRV64] in
++def C_LD : CLoad_ri<0b011, "c.ld", GPRC, uimm8_lsb000> {
 +  bits<8> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6-5} = imm{7-6};
@@ -517,8 +521,8 @@ index 00000000000..d0d9bb395c2
 +  let Inst{5} = imm{6};
 +}
 +
-+def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000>,
-+           Requires<[IsRV64]> {
++let Predicates = [HasStdExtC, IsRV64] in
++def C_SD : CStore_rri<0b111, "c.sd", GPRC, uimm8_lsb000> {
 +  bits<8> imm;
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{6-5} = imm{7-6};
@@ -529,8 +533,8 @@ index 00000000000..d0d9bb395c2
 +  let Inst{3-2} = imm{7-6};
 +}
 +
-+def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000>,
-+             Requires<[IsRV64]> {
++let Predicates = [HasStdExtC, IsRV64] in
++def C_LDSP : CStackLoad<0b011, "c.ldsp", GPRNoX0, uimm9_lsb000> {
 +  let Inst{6-5} = imm{4-3};
 +  let Inst{4-2} = imm{8-6};
 +}
@@ -540,8 +544,8 @@ index 00000000000..d0d9bb395c2
 +  let Inst{8-7}  = imm{7-6};
 +}
 +
-+def C_SDSP : CStackStore<0b111, "c.sdsp", GPR, uimm9_lsb000>,
-+             Requires<[IsRV64]> {
++let Predicates = [HasStdExtC, IsRV64] in
++def C_SDSP : CStackStore<0b111, "c.sdsp", GPR, uimm9_lsb000> {
 +  let Inst{12-10} = imm{5-3};
 +  let Inst{9-7}   = imm{8-6};
 +}
@@ -687,29 +691,40 @@ index 00000000000..1dcf5e40a8a
 +c.sd  s0, 256(sp) # CHECK: :[[@LINE]]:11: error: immediate must be a multiple of 8 bytes in the range [0, 248]
 diff --git a/test/MC/RISCV/rv64c-valid.s b/test/MC/RISCV/rv64c-valid.s
 new file mode 100644
-index 00000000000..9521f9ebd08
+index 00000000000..5efc7a9036a
 --- /dev/null
 +++ b/test/MC/RISCV/rv64c-valid.s
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,30 @@
 +# RUN: llvm-mc -triple=riscv64 -mattr=+c -show-encoding < %s \
 +# RUN:     | FileCheck -check-prefixes=CHECK,CHECK-INST %s
 +# RUN: llvm-mc -filetype=obj -triple riscv64 -mattr=+c < %s \
-+# RUN:     | llvm-objdump -mattr=+c -d - | FileCheck -check-prefix=CHECK-INST %s
++# RUN:     | llvm-objdump -mattr=+c -d - \
++# RUN:     | FileCheck -check-prefix=CHECK-INST %s
++# RUN: not llvm-mc -triple riscv64 \
++# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
++# RUN: not llvm-mc -triple riscv32 -mattr=+c\
++# RUN:     -show-encoding < %s 2>&1 \
++# RUN:     | FileCheck -check-prefixes=CHECK-NO-EXT %s
 +
 +# TODO: more exhaustive testing of immediate encoding.
 +
 +# CHECK-INST: c.ldsp  ra, 0(sp)
 +# CHECK: encoding: [0x82,0x60]
++# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.ldsp  ra, 0(sp)
 +# CHECK-INST: c.sdsp  ra, 504(sp)
 +# CHECK: encoding: [0x86,0xff]
++# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.sdsp  ra, 504(sp)
 +# CHECK-INST: c.ld    a4, 0(a3)
 +# CHECK: encoding: [0x98,0x62]
++# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.ld    a4, 0(a3)
 +# CHECK-INST: c.sd    a5, 248(a3)
 +# CHECK: encoding: [0xfc,0xfe]
++# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.sd    a5, 248(a3)
 -- 
-2.15.1
+2.16.2
 

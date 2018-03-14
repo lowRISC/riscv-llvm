@@ -908,7 +908,7 @@ index 00000000000..6ccb5e00be5
 +}
 diff --git a/test/CodeGen/RISCV/div.ll b/test/CodeGen/RISCV/div.ll
 new file mode 100644
-index 00000000000..a53c51c94d8
+index 00000000000..0611bd1b9a3
 --- /dev/null
 +++ b/test/CodeGen/RISCV/div.ll
 @@ -0,0 +1,134 @@
@@ -916,7 +916,7 @@ index 00000000000..a53c51c94d8
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN:   | FileCheck %s -check-prefix=RV32I
 +
-+define i32 @udiv(i32 %a, i32 %b) {
++define i32 @udiv(i32 %a, i32 %b) nounwind {
 +; RV32I-LABEL: udiv:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -929,7 +929,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i32 @udiv_constant(i32 %a) {
++define i32 @udiv_constant(i32 %a) nounwind {
 +; RV32I-LABEL: udiv_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -943,7 +943,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i32 @udiv_pow2(i32 %a) {
++define i32 @udiv_pow2(i32 %a) nounwind {
 +; RV32I-LABEL: udiv_pow2:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    srli a0, a0, 3
@@ -952,7 +952,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i64 @udiv64(i64 %a, i64 %b) {
++define i64 @udiv64(i64 %a, i64 %b) nounwind {
 +; RV32I-LABEL: udiv64:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -965,7 +965,7 @@ index 00000000000..a53c51c94d8
 +  ret i64 %1
 +}
 +
-+define i64 @udiv64_constant(i64 %a) {
++define i64 @udiv64_constant(i64 %a) nounwind {
 +; RV32I-LABEL: udiv64_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -980,7 +980,7 @@ index 00000000000..a53c51c94d8
 +  ret i64 %1
 +}
 +
-+define i32 @sdiv(i32 %a, i32 %b) {
++define i32 @sdiv(i32 %a, i32 %b) nounwind {
 +; RV32I-LABEL: sdiv:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -993,7 +993,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i32 @sdiv_constant(i32 %a) {
++define i32 @sdiv_constant(i32 %a) nounwind {
 +; RV32I-LABEL: sdiv_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1007,7 +1007,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i32 @sdiv_pow2(i32 %a) {
++define i32 @sdiv_pow2(i32 %a) nounwind {
 +; RV32I-LABEL: sdiv_pow2:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    srai a1, a0, 31
@@ -1019,7 +1019,7 @@ index 00000000000..a53c51c94d8
 +  ret i32 %1
 +}
 +
-+define i64 @sdiv64(i64 %a, i64 %b) {
++define i64 @sdiv64(i64 %a, i64 %b) nounwind {
 +; RV32I-LABEL: sdiv64:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1032,7 +1032,7 @@ index 00000000000..a53c51c94d8
 +  ret i64 %1
 +}
 +
-+define i64 @sdiv64_constant(i64 %a) {
++define i64 @sdiv64_constant(i64 %a) nounwind {
 +; RV32I-LABEL: sdiv64_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1279,7 +1279,7 @@ index 00000000000..68f4f1cb721
 +}
 diff --git a/test/CodeGen/RISCV/mul.ll b/test/CodeGen/RISCV/mul.ll
 new file mode 100644
-index 00000000000..2eb5db79d1b
+index 00000000000..b3d04f796ac
 --- /dev/null
 +++ b/test/CodeGen/RISCV/mul.ll
 @@ -0,0 +1,81 @@
@@ -1287,7 +1287,7 @@ index 00000000000..2eb5db79d1b
 +; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s \
 +; RUN:   | FileCheck %s -check-prefix=RV32I
 +
-+define i32 @square(i32 %a) {
++define i32 @square(i32 %a) nounwind {
 +; RV32I-LABEL: square:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1301,7 +1301,7 @@ index 00000000000..2eb5db79d1b
 +  ret i32 %1
 +}
 +
-+define i32 @mul(i32 %a, i32 %b) {
++define i32 @mul(i32 %a, i32 %b) nounwind {
 +; RV32I-LABEL: mul:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1314,7 +1314,7 @@ index 00000000000..2eb5db79d1b
 +  ret i32 %1
 +}
 +
-+define i32 @mul_constant(i32 %a) {
++define i32 @mul_constant(i32 %a) nounwind {
 +; RV32I-LABEL: mul_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1328,7 +1328,7 @@ index 00000000000..2eb5db79d1b
 +  ret i32 %1
 +}
 +
-+define i32 @mul_pow2(i32 %a) {
++define i32 @mul_pow2(i32 %a) nounwind {
 +; RV32I-LABEL: mul_pow2:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    slli a0, a0, 3
@@ -1337,7 +1337,7 @@ index 00000000000..2eb5db79d1b
 +  ret i32 %1
 +}
 +
-+define i64 @mul64(i64 %a, i64 %b) {
++define i64 @mul64(i64 %a, i64 %b) nounwind {
 +; RV32I-LABEL: mul64:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1350,7 +1350,7 @@ index 00000000000..2eb5db79d1b
 +  ret i64 %1
 +}
 +
-+define i64 @mul64_constant(i64 %a) {
++define i64 @mul64_constant(i64 %a) nounwind {
 +; RV32I-LABEL: mul64_constant:
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 12(s0)
@@ -1797,5 +1797,5 @@ index 00000000000..c4033c574ef
 +  ret i64 %1
 +}
 -- 
-2.15.1
+2.16.2
 

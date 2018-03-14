@@ -25,7 +25,7 @@ index afb1cdf375..459b64bf34 100644
    ToolChains/TCE.cpp
    ToolChains/WebAssembly.cpp
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index a5aed299e3..6a466a6dda 100644
+index 4712daf0e1..c8e98f8959 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
 @@ -36,6 +36,7 @@
@@ -36,7 +36,7 @@ index a5aed299e3..6a466a6dda 100644
  #include "ToolChains/Solaris.h"
  #include "ToolChains/TCE.h"
  #include "ToolChains/WebAssembly.h"
-@@ -4200,6 +4201,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+@@ -4211,6 +4212,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
        case llvm::Triple::avr:
          TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
          break;
@@ -48,10 +48,10 @@ index a5aed299e3..6a466a6dda 100644
          if (Target.getVendor() == llvm::Triple::Myriad)
            TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index d7cc101a60..640abb5952 100644
+index fa5cfa0a0c..38c02d3b51 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
-@@ -1829,7 +1829,8 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
+@@ -1885,7 +1885,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
  
    static const char *const RISCV32LibDirs[] = {"/lib", "/lib32"};
    static const char *const RISCVTriples[] = {"riscv32-unknown-linux-gnu",
@@ -234,5 +234,5 @@ index 0000000000..c26180b6fb
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
 -- 
-2.15.1
+2.16.2
 

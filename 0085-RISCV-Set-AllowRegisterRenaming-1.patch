@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alex Bradbury <asb@lowrisc.org>
+Subject: [RISCV] Set AllowRegisterRenaming=1
+
+TODO: backport this so it is introduced at the same time as codegen.
+---
+ lib/Target/RISCV/RISCV.td                   | 1 +
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 4 ++--
+ test/CodeGen/RISCV/calls.ll                 | 4 ++--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index f431738c3d7..bb68ef9c8bc 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -92,4 +92,5 @@ def RISCV : Target {
+   let InstructionSet = RISCVInstrInfo;
+   let AssemblyParsers = [RISCVAsmParser];
+   let AssemblyWriters = [RISCVAsmWriter];
++  let AllowRegisterRenaming = 1;
+ }
+diff --git a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
+index 6ef034c48ee..1fbc429cae4 100644
+--- a/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
++++ b/test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll
+@@ -278,7 +278,7 @@ define i64 @test_cttz_i64(i64 %a) nounwind {
+ ; RV32I-NEXT:    sw s8, 12(sp)
+ ; RV32I-NEXT:    mv s2, a1
+ ; RV32I-NEXT:    mv s3, a0
+-; RV32I-NEXT:    addi a0, s3, -1
++; RV32I-NEXT:    addi a0, a0, -1
+ ; RV32I-NEXT:    not a1, s3
+ ; RV32I-NEXT:    and a0, a1, a0
+ ; RV32I-NEXT:    lui a1, 349525
+@@ -469,7 +469,7 @@ define i64 @test_cttz_i64_zero_undef(i64 %a) nounwind {
+ ; RV32I-NEXT:    sw s8, 12(sp)
+ ; RV32I-NEXT:    mv s2, a1
+ ; RV32I-NEXT:    mv s3, a0
+-; RV32I-NEXT:    addi a0, s3, -1
++; RV32I-NEXT:    addi a0, a0, -1
+ ; RV32I-NEXT:    not a1, s3
+ ; RV32I-NEXT:    and a0, a1, a0
+ ; RV32I-NEXT:    lui a1, 349525
+diff --git a/test/CodeGen/RISCV/calls.ll b/test/CodeGen/RISCV/calls.ll
+index 5f71bdad961..8875015e5b3 100644
+--- a/test/CodeGen/RISCV/calls.ll
++++ b/test/CodeGen/RISCV/calls.ll
+@@ -99,8 +99,8 @@ define i32 @test_call_external_many_args(i32 %a) nounwind {
+ ; RV32I-NEXT:    sw ra, 12(sp)
+ ; RV32I-NEXT:    sw s1, 8(sp)
+ ; RV32I-NEXT:    mv s1, a0
+-; RV32I-NEXT:    sw s1, 4(sp)
+-; RV32I-NEXT:    sw s1, 0(sp)
++; RV32I-NEXT:    sw a0, 4(sp)
++; RV32I-NEXT:    sw a0, 0(sp)
+ ; RV32I-NEXT:    lui a0, %hi(external_many_args)
+ ; RV32I-NEXT:    addi t0, a0, %lo(external_many_args)
+ ; RV32I-NEXT:    mv a0, s1
+-- 
+2.16.2
+
