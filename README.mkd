@@ -1,7 +1,7 @@
 # RISC-V LLVM
 ## About
 This repository hosts a series of patches implementing a RISC-V backend for 
-LLVM. For more information, see:
+LLVM as well as initial tutorial material. For more information, see:
 * [September RISC-V LLVM status
 update](http://www.lowrisc.org/blog/2017/09/moving-risc-v-llvm-forwards/)
 * The [most recent status update to the LLVM mailing 
@@ -18,33 +18,28 @@ with the intention that they provide a useful reference for anybody starting a
 new LLVM backend or who wants to better understand backend implementation.
 
 ## Status
-Patches are being submitted for review and eventual merging in to upstream
-LLVM. Our intent is to encourage potential contributors to engage directly 
-with upstream LLVM development, rather than creating a new 'downstream'.
-Unfortunately, collaboration in this way remains somewhat difficult while a 
-large portion of this patchset remains unreviewed and uncommitted upstream.
-Helping to review [patches submitted 
-upstream](https://reviews.llvm.org/differential/?authors=asb&order=updated) is 
-a fantastic way to help out.
+As of May 2018, the vast majority of these patches are now upstream and most 
+users wishing to experiment with support for RISC-V in LLVM projects will 
+likely be best served by building directly from the upstream repositories. You 
+may prefer to follow this repository if you want to study how the backend is 
+put together.
+
+Note that the patches in this repository could do with another rebase. This 
+will take place during the week of May 7th, and in the week of May 14th this 
+repository will be updated with documentation on adding custom instructions, 
+building upon a presentation at the Barcelona RISC-V Workshop.
 
 The current patchset allows the entirety of the GCC torture suite to compile
-and run for {RV32I, RV32IM, RV32IF} at all optimisation levels (1390/1390
-compile and run without error). There are currently 3 compilation failures
-across O0, O1, O2, O3 and Os for RV32IFD. Additionally, all torture suite
-tests compile and run for RV64I at O1, O2, O3, and Os (there is one
-compilation failure at O0). MC-layer support is present for
-RV32IMAFD+RV64IMAFD, and codegen support for RV32IMFD and RV64I. See the
-[lowRISC RISC-V LLVM status page](http://www.lowrisc.org/llvm/status) for more
-details.
+and run for {RV32I, RV32IM, RV32IFD}. Additionally, all torture suite
+tests compile and run for RV64I at O1, O2, O3, and Os. MC-layer support is 
+present for RV32IMAFDC+RV64IMAFDC, and codegen support for RV32IMFDC and 
+RV64I. See the [lowRISC RISC-V LLVM status 
+page](http://www.lowrisc.org/llvm/status) for more details.
 
 ## Future plans
 As well as the obvious implementation tasks, it is also our intent to augment 
 this patchset with copious documentation. The initial draft of this 
-documentation for the MC layer will be published by early September.
-
-A number of TODO items are described in this repo's [issues 
-page](https://github.com/lowrisc/riscv-llvm/issues). These issues should help 
-to co-ordinate efforts between different interested parties.
+documentation is available in this repository.
 
 Our aim is that RISC-V is the cleanest and most documented LLVM backend. As 
 well as benefiting the wider LLVM community, this will make it substantially 
@@ -138,10 +133,10 @@ mailing list.
 
 Thank you to everyone who has contributed review comments, suggestions, or
 code to this patchset and related support patches: Sameer Abu Asal, Chandler
-Carruth, Ahmed Charles, Shiva Chen, Chih-Mao Chen, Kito Cheng, David Chisnall, 
-Simon Cook, David Craven, Hal Finkel, Eli Friedman, Ondrej Glasnak, Mandeep 
-Singh Grang, David Kipping, James Y Knight, David Majnemer, Ed Maste, John 
-McCall, Dylan McKay, Azharuddin Mohammed, Tim Northover, Krzysztof Parzyszek, 
-Ana Pazos, Jordy Portman, Philip Reames, John Russo, Colin Schmidt, Ed 
-Schouten, Pavel Šnobl, Ulrich Weigand, Mario Werner, Eugene Zalenko, Florian 
-Zeitz, Leslie Zhai.
+Carruth, Ahmed Charles, Shiva Chen, Chih-Mao Chen, Kito Cheng, David Chisnall,
+Simon Cook, David Craven, Hal Finkel, Eli Friedman, Ondrej Glasnak, Mandeep
+Singh Grang, Ben Horgan, David Kipping, James Y Knight, David Majnemer, Ed
+Maste, John McCall, Dylan McKay, Azharuddin Mohammed, Tim Northover, Krzysztof
+Parzyszek, Ana Pazos, Jordy Portman, Philip Reames, John Russo, Colin Schmidt,
+Ed Schouten, Pavel Šnobl, Ulrich Weigand, Mario Werner, Eugene Zalenko,
+Florian Zeitz, Leslie Zhai.
