@@ -17,6 +17,88 @@ implementation as a set of clean patches. These will be continually rebased
 with the intention that they provide a useful reference for anybody starting a 
 new LLVM backend or who wants to better understand backend implementation.
 
+## Mini FAQ
+
+### Should I be compiling my code with Clang and the RISC-V LLVM backend?
+
+If you simply want to compile your C/C++ codebase for RISC-V then for the time 
+being, just using GCC is a simpler starting point. Once RISC-V LLVM support is 
+included in an official LLVM release in the future and is made slightly more 
+user friendly, the answer to this question should change.
+
+### When should I use this repository and when should I use upstream LLVM/Clang
+
+If you find the step-by-step patch history useful for educational purposes or 
+want to check if there are any patches that I'm preparing for upstream but 
+haven't submitted yet, then using this repository may be worthwhile. In all 
+other cases, and especially if you want to contribute to the effort you are 
+strongly advised to use the [upstream LLVM 
+repositories](https://llvm.org/docs/GettingStarted.html#git-mirror).
+
+### How can I build upstream LLVM+Clang and use it to cross-compile for a riscv32 target?
+
+First you will need a built RISC-V gcc toolchain. The linker, compiled 
+libraries, and libc header files will be used. You can build your own by 
+following the instructions at the [riscv-gnu-toolchain 
+repo](https://github.com/riscv/riscv-gnu-toolchain). It is sufficient to do 
+the following:
+
+    git clone --recursive https://github.com/riscv/riscv-gnu-toolchain
+    cd riscv-gnu-toolchain
+    ./configure --prefix=/your/gccinstallpath --with-arch=rv32imc --with-abi=ilp32
+    make -j9
+
+You can then check out upstream LLVM and Clang and build it. llvm.org has 
+useful documentation on [building LLVM with 
+CMake](https://llvm.org/docs/CMake.html), but you should find enough to get 
+started below. Note that you will need to apply a single out-of-tree patch for 
+riscv32-unknown-elf target support in Clang until 
+[it](https://reviews.llvm.org/D46822) is reviewed and committed.
+
+    git clone https://git.llvm.org/git/llvm.git
+    cd llvm/tools
+    git clone https://git.llvm.org/git/clang.git/
+    cd clang
+    wget https://reviews.llvm.org/D46822?download=true -O baremetal.patch
+    patch -p0 < baremetal.patch
+    cd ../../
+    mkdir build && cd build
+    cmake -G Ninja -DCMAKE_BUILD_TYPE="Debug" \
+      -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+      -DLLVM_OPTIMIZED_TABLEGEN=True \
+      -DLLVM_BUILD_TESTS=True \
+      -DDEFAULT_SYSROOT="/path/to/riscv-gcc-install-path/riscv32-unknown-elf" \
+      -DGCC_INSTALL_PREFIX="/path/to/riscv-gcc-install-path" \
+      -DLLVM_DEFAULT_TARGET_TRIPLE="riscv32-unknown-elf" \
+      -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../
+    cmake --build .
+    ./bin/clang /path/to/testfile.c
+
+A few notes on the above CMake invocation and issues you might encounter:
+
+* It's possible to build LLVM with RISC-V support with a much simpler CMake 
+invocation. Ultimately you need to ensure you set 
+`-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV"`
+* This produces a debug build of LLVM and Clang which is significantly more 
+useful for bug reporting if you encounter any issues. The downsides are that 
+it will execute more slowly and compilation requires a large amount of disk 
+space (~12G).
+* Building LLVM puts a heavy load on your linker. If you have lld installed, 
+you may find significantly less memory is required to link if you set 
+`-DLLVM_ENABLE_LLD=True`. Alternatively, ensure that /bin/ld is symlinked to 
+ld.gold rather than ld.bfd.
+* It isn't necessary to set the default sysroot, gcc install prefix and 
+default target triple when building clang, but doing so means you don't need 
+to pass these arguments explicitly when invoking it. If you prefer, you can 
+explicitly pass these flags when cross-compiling: `-target riscv32-unknown-elf 
+--sysroot=/path/to/riscv-gcc-install-path/riscv32-unknown-elf 
+--gcc-toolchain=/path/to/riscv-gcc-install-path`
+* You can also compile for `riscv32-unknown-linux-elf` in conjunction with a 
+multilib toolchain as produced by the scripts in the [riscv-gnu-toolchain 
+repository](https://github.com/riscv/riscv-gnu-toolchain). Note that only the 
+ilp32 ABI is supported for the moment.
+
+
 ## Status
 As of May 2018, the vast majority of these patches are now upstream and most 
 users wishing to experiment with support for RISC-V in LLVM projects will 
@@ -25,9 +107,9 @@ may prefer to follow this repository if you want to study how the backend is
 put together.
 
 Note that the patches in this repository could do with another rebase. This 
-will take place during the week of May 7th, and in the week of May 14th this 
-repository will be updated with documentation on adding custom instructions, 
-building upon a presentation at the Barcelona RISC-V Workshop.
+will take place during the week of May 7/14th, and in the week of May 14th 
+this repository will be updated with documentation on adding custom 
+instructions, building upon a presentation at the Barcelona RISC-V Workshop.
 
 The current patchset allows the entirety of the GCC torture suite to compile
 and run for {RV32I, RV32IM, RV32IFD}. Additionally, all torture suite
@@ -77,7 +159,7 @@ license](http://llvm.org/docs/DeveloperPolicy.html#license).
 The docs/ directory is under the Creative Commons CC-BY-SA 4.0 license
 <https://creativecommons.org/licenses/by-sa/4.0/>.
 
-## How to build
+## How to build the patchset in this repository
 There are two things to note:
 
 1. This repository currently serves a dual purpose - providing a clean and 
@@ -85,9 +167,9 @@ constantly rebased "perfect" history of the full RISC-V patchset, as well as
 being a way to grab all patches in one go, including those that haven't yet 
 been committed upstream. As more and more patches are committed upstream, this 
 repository will become mainly interesting as a reference on how to implement 
-an LLVM backend, and aid in understanding the RISC-V backend. In the near 
-future, the answer to "how can I test out the latest RISC-V LLVM support?" 
-will be "check out the latest upstream LLVM repository and build it".
+an LLVM backend, and aid in understanding the RISC-V backend. If you just want 
+to test out the latest RISC-V LLVM support, chekcing out and building upstream 
+LLVM is probably your best choice.
 2. This LLVM and Clang work is not quite at a stage where end-users are likely 
 to find it useful. However, building and trying it out is a great first step 
 towards contributing to the development effort.
