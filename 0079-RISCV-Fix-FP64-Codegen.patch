@@ -1,0 +1,315 @@
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index bac74ee62c5..e9faa2d9bbe 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -739,7 +739,7 @@ void RISCVTargetLowering::analyzeInputArgs(
+       ArgTy = FType->getParamType(Ins[i].getOrigArgIndex());
+ 
+     if (CC_RISCV(MF.getDataLayout(), i, ArgVT, ArgVT, CCValAssign::Full,
+-                 ArgFlags, CCInfo, /*IsRet=*/true, IsRet, ArgTy)) {
++                 ArgFlags, CCInfo, /*IsFixed=*/true, IsRet, ArgTy)) {
+       DEBUG(dbgs() << "InputArg #" << i << " has unhandled type "
+                    << EVT(ArgVT).getEVTString() << '\n');
+       llvm_unreachable(nullptr);
+@@ -823,6 +823,91 @@ static SDValue unpackFromMemLoc(SelectionDAG &DAG, SDValue Chain,
+   return Val;
+ }
+ 
++bool RISCVTargetLowering::needToBreakF64() const {
++  return !Subtarget.is64Bit() && Subtarget.hasStdExtD();
++}
++
++static SmallVector<ISD::InputArg, 16>
++breakF64InputArgs(const SmallVectorImpl<ISD::InputArg> &Ins, SelectionDAG &DAG,
++                  SmallVectorImpl<int> *Idxs = nullptr) {
++  SmallVector<ISD::InputArg, 16> InsBrk;
++
++  EVT I32 = EVT::getIntegerVT(*DAG.getContext(), 32);
++  int I = 0;
++  for (auto &In : Ins) {
++    if (In.VT == MVT::f64) {
++      ISD::InputArg Lo = In;
++      Lo.VT = MVT::i32;
++      Lo.ArgVT = I32;
++      Lo.PartOffset = 0;
++      Lo.Flags.setSplit();
++
++      ISD::InputArg Hi = Lo;
++      Hi.PartOffset = 4;
++      Hi.Flags.setSplitEnd();
++
++      InsBrk.emplace_back(std::move(Lo));
++      InsBrk.emplace_back(std::move(Hi));
++      if (Idxs)
++        Idxs->push_back(I);
++    } else {
++      InsBrk.push_back(In);
++    }
++    ++I;
++  }
++
++  return InsBrk;
++}
++
++static SDValue getF64FromPair(SDValue Lo, SDValue Hi, SelectionDAG &DAG,
++                              const SDLoc &DL) {
++  EVT I64 = EVT::getIntegerVT(*DAG.getContext(), 64);
++  SDValue Pair = DAG.getNode(ISD::BUILD_PAIR, DL, I64, Lo, Hi);
++  return DAG.getBitcast(EVT::getFloatingPointVT(64), Pair);
++}
++
++static void breakF64OutputArgs(SmallVectorImpl<ISD::OutputArg> &Outs,
++                               SmallVectorImpl<SDValue> &OutVals,
++                               SelectionDAG &DAG) {
++  EVT I32 = EVT::getIntegerVT(*DAG.getContext(), 32);
++  EVT I64 = EVT::getIntegerVT(*DAG.getContext(), 64);
++  auto OVI = OutVals.begin();
++  for (auto OI = Outs.begin(); OI != Outs.end();) {
++    ISD::OutputArg &O = *OI;
++    if (O.VT == MVT::f64) {
++      SDValue &OV = *OVI;
++      SDLoc DL(OV);
++
++      SDValue V = DAG.getBitcast(I64, OV);
++
++      SDValue Lo = DAG.getNode(ISD::EXTRACT_ELEMENT, DL, I32, V,
++                               DAG.getIntPtrConstant(0, DL));
++      SDValue Hi = DAG.getNode(ISD::EXTRACT_ELEMENT, DL, I32, V,
++                               DAG.getIntPtrConstant(1, DL));
++
++      OVI = OutVals.erase(OVI);
++      OVI = OutVals.insert(OVI, std::move(Lo));
++      OVI = OutVals.insert(++OVI, std::move(Hi));
++
++      ISD::OutputArg OL = O;
++      OL.VT = MVT::i32;
++      OL.ArgVT = I32;
++      OL.PartOffset = 0;
++      OL.Flags.setSplit();
++
++      ISD::OutputArg OH = OL;
++      OH.PartOffset = 4;
++      OH.Flags.setSplitEnd();
++
++      OI = Outs.erase(OI);
++      OI = Outs.insert(OI, std::move(OL));
++      OI = Outs.insert(++OI, std::move(OH));
++    }
++    ++OI;
++    ++OVI;
++  }
++}
++
+ // Transform physical registers into virtual registers.
+ SDValue RISCVTargetLowering::LowerFormalArguments(
+     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
+@@ -847,16 +932,38 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
+   // Assign locations to all of the incoming arguments.
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+-  analyzeInputArgs(MF, CCInfo, Ins, /*IsRet=*/false);
+ 
++  if (needToBreakF64()) {
++    auto InsBrk = breakF64InputArgs(Ins, DAG);
++    analyzeInputArgs(MF, CCInfo, InsBrk, /*IsRet=*/false);
++  } else
++    analyzeInputArgs(MF, CCInfo, Ins, /*IsRet=*/false);
++
++  auto II = Ins.begin();
+   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+     CCValAssign &VA = ArgLocs[i];
++    const ISD::InputArg &IA = *II;
++    ++II;
+     assert(VA.getLocVT() == XLenVT && "Unhandled argument type");
+     SDValue ArgValue;
+-    if (VA.isRegLoc())
+-      ArgValue = unpackFromRegLoc(DAG, Chain, VA, DL);
+-    else
+-      ArgValue = unpackFromMemLoc(DAG, Chain, VA, DL);
++
++    auto unpackArgValue = [&](CCValAssign &VA) {
++      if (VA.isRegLoc())
++        return unpackFromRegLoc(DAG, Chain, VA, DL);
++      else
++        return unpackFromMemLoc(DAG, Chain, VA, DL);
++    };
++
++    if (needToBreakF64() && IA.VT == MVT::f64) {
++      assert(VA.getLocInfo() != CCValAssign::Indirect && "TODO");
++      CCValAssign &VA2 = ArgLocs[++i];
++
++      SDValue Lo = unpackArgValue(VA);
++      SDValue Hi = unpackArgValue(VA2);
++      ArgValue = getF64FromPair(Lo, Hi, DAG, DL);
++    } else {
++      ArgValue = unpackArgValue(VA);
++    }
+ 
+     if (VA.getLocInfo() == CCValAssign::Indirect) {
+       // If the original argument was split and passed by reference (e.g. i128
+@@ -965,6 +1072,9 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+ 
+   MachineFunction &MF = DAG.getMachineFunction();
+ 
++  if (needToBreakF64())
++    breakF64OutputArgs(Outs, OutVals, DAG);
++
+   // Analyze the operands of the call, assigning locations to each operand.
+   SmallVector<CCValAssign, 16> ArgLocs;
+   CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+@@ -1119,10 +1229,18 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+   // Assign locations to each value returned by this call.
+   SmallVector<CCValAssign, 16> RVLocs;
+   CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
+-  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet=*/true);
++
++  SmallVector<int, 16> F64Args;
++  if (needToBreakF64()) {
++    SmallVector<ISD::InputArg, 16> InsBrk =
++        breakF64InputArgs(Ins, DAG, &F64Args);
++    analyzeInputArgs(MF, RetCCInfo, InsBrk, /*IsRet=*/true);
++  } else
++    analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet=*/true);
+ 
+   // Copy all of the result registers out of their specified physreg.
+-  for (auto &VA : RVLocs) {
++
++  auto GetRetValue = [&](CCValAssign &VA) {
+     // Copy the value out, gluing the copy to the end of the call sequence.
+     SDValue RetValue = DAG.getCopyFromReg(Chain, DL, VA.getLocReg(),
+                                           VA.getLocVT(), Glue);
+@@ -1139,7 +1257,28 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
+       break;
+     }
+ 
++    return RetValue;
++  };
++
++  int I = 0;
++  auto F64Arg = F64Args.begin();
++  for (auto VAI = RVLocs.begin(); VAI != RVLocs.end(); ++VAI) {
++    CCValAssign &VA = *VAI;
++    SDValue RetValue;
++
++    if (F64Arg != F64Args.end() && I == *F64Arg) {
++      ++F64Arg;
++      ++VAI;
++      CCValAssign &VA2 = *VAI;
++      SDValue Lo = GetRetValue(VA);
++      SDValue Hi = GetRetValue(VA2);
++      RetValue = getF64FromPair(Lo, Hi, DAG, DL);
++    } else {
++      RetValue = GetRetValue(VA);
++    }
++
+     InVals.push_back(RetValue);
++    ++I;
+   }
+ 
+   return Chain;
+@@ -1153,6 +1292,10 @@ bool RISCVTargetLowering::CanLowerReturn(
+   for (unsigned i = 0, e = Outs.size(); i != e; ++i) {
+     MVT VT = Outs[i].VT;
+     ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
++
++    if (VT == MVT::f64)
++      continue;
++
+     if (CC_RISCV(MF.getDataLayout(), i, VT, VT, CCValAssign::Full, ArgFlags,
+                  CCInfo, /*IsFixed=*/true, /*IsRet=*/true, nullptr))
+       return false;
+@@ -1176,12 +1319,11 @@ static SDValue packIntoRegLoc(SelectionDAG &DAG, SDValue Val,
+   return Val;
+ }
+ 
+-SDValue
+-RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+-                                 bool IsVarArg,
+-                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
+-                                 const SmallVectorImpl<SDValue> &OutVals,
+-                                 const SDLoc &DL, SelectionDAG &DAG) const {
++SDValue RISCVTargetLowering::LowerReturn(
++    SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
++    const SmallVectorImpl<ISD::OutputArg> &OutsParam,
++    const SmallVectorImpl<SDValue> &OutValsParam, const SDLoc &DL,
++    SelectionDAG &DAG) const {
+   // Stores the assignment of the return value to a location.
+   SmallVector<CCValAssign, 16> RVLocs;
+ 
+@@ -1189,15 +1331,28 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
+   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
+                  *DAG.getContext());
+ 
+-  analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet=*/true,
+-                    nullptr);
++  const SmallVectorImpl<SDValue> *OutVals;
++  if (needToBreakF64()) {
++    SmallVector<ISD::OutputArg, 16> Outs;
++    Outs.append(OutsParam.begin(), OutsParam.end());
++    SmallVector<SDValue, 16> OutValsCopy;
++    OutValsCopy.append(OutValsParam.begin(), OutValsParam.end());
++    breakF64OutputArgs(Outs, OutValsCopy, DAG);
++    analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs,
++                      /*IsRet=*/true, nullptr);
++    OutVals = &OutValsCopy;
++  } else {
++    analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, OutsParam,
++                      /*IsRet=*/true, nullptr);
++    OutVals = &OutValsParam;
++  }
+ 
+   SDValue Flag;
+   SmallVector<SDValue, 4> RetOps(1, Chain);
+ 
+   // Copy the result values into the output registers.
+   for (unsigned i = 0, e = RVLocs.size(); i < e; ++i) {
+-    SDValue Val = OutVals[i];
++    SDValue Val = (*OutVals)[i];
+     CCValAssign &VA = RVLocs[i];
+     assert(VA.isRegLoc() && "Can only return in registers!");
+     Val = packIntoRegLoc(DAG, Val, VA, DL);
+@@ -1252,32 +1407,17 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+ }
+ 
+ MVT RISCVTargetLowering::getRegisterTypeForCallingConv(MVT VT) const {
+-  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
+-  // the value is split into i32 parts despite f64 being legal.
+-  // TODO: adjust when hard-float ABI is implemented.
+-  if (!Subtarget.is64Bit() && VT == MVT::f64)
+-    return MVT::i32;
+   return getRegisterType(VT);
+ }
+ 
+ MVT RISCVTargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
+                                                        EVT VT) const {
+-  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
+-  // the value is split into i32 parts despite f64 being legal.
+-  // TODO: adjust when hard-float ABI is implemented.
+-  if (!Subtarget.is64Bit() && VT.getSimpleVT() == MVT::f64)
+-    return MVT::i32;
+   return getRegisterType(Context, VT);
+ }
+ 
+ unsigned
+ RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
+                                                    EVT VT) const {
+-  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
+-  // the value is split into i32 parts despite f64 being legal.
+-  // TODO: adjust when hard-float ABI is implemented.
+-  if (!Subtarget.is64Bit() && VT.getSimpleVT() == MVT::f64)
+-    return 2;
+   return getNumRegisters(Context, VT);
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
+index 807cb9c0b8d..a1c20e10e86 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.h
++++ b/lib/Target/RISCV/RISCVISelLowering.h
+@@ -114,6 +114,7 @@ private:
+   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
+   SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
++  bool needToBreakF64() const;
+ };
+ }
+ 
