@@ -106,10 +106,8 @@ likely be best served by building directly from the upstream repositories. You
 may prefer to follow this repository if you want to study how the backend is 
 put together.
 
-Note that the patches in this repository could do with another rebase. This 
-will take place during the week of May 7/14th, and in the week of May 14th 
-this repository will be updated with documentation on adding custom 
-instructions, building upon a presentation at the Barcelona RISC-V Workshop.
+Note that the patches in this repository are over-due for another rebase. I
+hope to address this soon.
 
 The current patchset allows the entirety of the GCC torture suite to compile
 and run for {RV32I, RV32IM, RV32IFD}. Additionally, all torture suite
