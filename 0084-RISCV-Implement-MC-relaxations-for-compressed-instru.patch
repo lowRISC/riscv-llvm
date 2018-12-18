@@ -10,20 +10,20 @@ The following relaxations are currently handled:
 Differential Revision: https://reviews.llvm.org/D43055
 Patch by Sameer AbuAsal.
 ---
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp | 86 ++++++++++++++++++++---
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp | 87 ++++++++++++++++++++---
  test/MC/RISCV/fixups-compressed.s                 |  9 ++-
  test/MC/RISCV/relocations.s                       |  6 +-
- test/MC/RISCV/rv32-relaxation.s                   | 75 ++++++++++++++++++++
+ test/MC/RISCV/rv32-relaxation.s                   | 75 +++++++++++++++++++
  test/MC/RISCV/rv64-relaxation.s                   | 64 +++++++++++++++++
- 5 files changed, 229 insertions(+), 11 deletions(-)
+ 5 files changed, 230 insertions(+), 11 deletions(-)
  create mode 100644 test/MC/RISCV/rv32-relaxation.s
  create mode 100644 test/MC/RISCV/rv64-relaxation.s
 
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index c42177e0b4f..eaae0c13c82 100644
+index e8763fa0203..ff9f3eb3f0b 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -45,9 +45,7 @@ public:
+@@ -46,9 +46,7 @@ public:
  
    bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
                              const MCRelaxableFragment *DF,
@@ -34,12 +34,12 @@ index c42177e0b4f..eaae0c13c82 100644
  
    unsigned getNumFixupKinds() const override {
      return RISCV::NumTargetFixupKinds;
-@@ -79,17 +77,89 @@ public:
-     return Infos[Kind - FirstTargetFixupKind];
+@@ -81,17 +79,90 @@ public:
    }
  
--  bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
-+  bool mayNeedRelaxation(const MCInst &Inst) const override;
+   bool mayNeedRelaxation(const MCInst &Inst,
+-                         const MCSubtargetInfo &STI) const override { return false; }
++                         const MCSubtargetInfo &STI) const override;
 +  unsigned getRelaxedOpcode(unsigned Op) const;
  
    void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
@@ -49,7 +49,7 @@ index c42177e0b4f..eaae0c13c82 100644
 -  }
 +                        MCInst &Res) const override;
  
-   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
+   bool writeNopData(raw_ostream &OS, uint64_t Count) const override;
  };
  
 +bool RISCVAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
@@ -122,11 +122,12 @@ index c42177e0b4f..eaae0c13c82 100644
 +  }
 +}
 +
-+bool RISCVAsmBackend::mayNeedRelaxation(const MCInst &Inst) const {
++bool RISCVAsmBackend::mayNeedRelaxation(const MCInst &Inst,
++                                        const MCSubtargetInfo &STI) const {
 +  return getRelaxedOpcode(Inst.getOpcode()) != Inst.getOpcode();
 +}
 +
- bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+ bool RISCVAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
    bool HasStdExtC = STI.getFeatureBits()[RISCV::FeatureStdExtC];
    unsigned MinNopLen = HasStdExtC ? 2 : 4;
 diff --git a/test/MC/RISCV/fixups-compressed.s b/test/MC/RISCV/fixups-compressed.s

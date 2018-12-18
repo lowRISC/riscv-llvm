@@ -10,7 +10,7 @@ suite.
  2 files changed, 5 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index e9c003aeba9..9ab1270f2f8 100644
+index 09c93fe778e..4bb4fbb5a5a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -173,6 +173,10 @@ bool RISCVTargetLowering::isLegalAddressingMode(const DataLayout &DL,
@@ -25,7 +25,7 @@ index e9c003aeba9..9ab1270f2f8 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index e7dd46fc835..eae01bae883 100644
+index 827699878f0..3e8af4dd746 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -40,6 +40,7 @@ public:

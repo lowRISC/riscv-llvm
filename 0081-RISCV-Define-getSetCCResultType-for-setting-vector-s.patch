@@ -14,7 +14,7 @@ Patch by Shiva Chen.
  create mode 100644 test/CodeGen/RISCV/get-setcc-result-type.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index bac74ee62c5..c48e76cf32b 100644
+index 047e9f91e43..65201532fe3 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -229,6 +229,13 @@ void RISCVTargetLowering::computeKnownBitsForTargetNode(
@@ -32,7 +32,7 @@ index bac74ee62c5..c48e76cf32b 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 807cb9c0b8d..f15853c76eb 100644
+index c17bdbf4d03..5929ea7b7c4 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -79,6 +79,9 @@ public:

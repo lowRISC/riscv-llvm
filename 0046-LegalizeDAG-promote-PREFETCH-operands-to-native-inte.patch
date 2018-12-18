@@ -8,29 +8,29 @@ Subject: [LegalizeDAG] promote PREFETCH operands to native integer width
  2 files changed, 15 insertions(+)
 
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 0aa1b58cbf8..c90842db604 100644
+index ed2833032dd..96d1c3d75e4 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -958,6 +958,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
- 
+@@ -1066,6 +1066,8 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
    case ISD::FRAMEADDR:
-   case ISD::RETURNADDR: Res = PromoteIntOp_RETURNADDR(N, OpNo); break;
-+  case ISD::PREFETCH:
-+    Res = PromoteIntOp_PREFETCH(N, OpNo);
-+    break;
+   case ISD::RETURNADDR: Res = PromoteIntOp_FRAMERETURNADDR(N); break;
+ 
++  case ISD::PREFETCH: Res = PromoteIntOp_PREFETCH(N, OpNo); break;
++
+   case ISD::SMULFIX: Res = PromoteIntOp_SMULFIX(N); break;
    }
  
-   // If the result is null, the sub-method took care of registering results etc.
-@@ -1346,6 +1349,17 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
+@@ -1438,6 +1440,18 @@ SDValue DAGTypeLegalizer::PromoteIntOp_FRAMERETURNADDR(SDNode *N) {
    return SDValue(DAG.UpdateNodeOperands(N, Op), 0);
  }
  
 +SDValue DAGTypeLegalizer::PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo) {
++  assert(OpNo > 1 && "Don't know how to promote this operand!");
 +  // Promote the rw, locality, and cache type arguments to a supported integer
 +  // width.
-+  SDValue Op2 = GetPromotedInteger(N->getOperand(2));
-+  SDValue Op3 = GetPromotedInteger(N->getOperand(3));
-+  SDValue Op4 = GetPromotedInteger(N->getOperand(4));
++  SDValue Op2 = ZExtPromotedInteger(N->getOperand(2));
++  SDValue Op3 = ZExtPromotedInteger(N->getOperand(3));
++  SDValue Op4 = ZExtPromotedInteger(N->getOperand(4));
 +  return SDValue(DAG.UpdateNodeOperands(N, N->getOperand(0), N->getOperand(1),
 +                                        Op2, Op3, Op4),
 +                 0);
@@ -40,17 +40,17 @@ index 0aa1b58cbf8..c90842db604 100644
  //  Integer Result Expansion
  //===----------------------------------------------------------------------===//
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeTypes.h b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-index fca50dc6f53..5c2a5c4dddb 100644
+index 500b38d7d21..032000f6cb7 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeTypes.h
 +++ b/lib/CodeGen/SelectionDAG/LegalizeTypes.h
-@@ -311,6 +311,7 @@ private:
+@@ -378,6 +378,7 @@ private:
    SDValue PromoteIntOp_MGATHER(MaskedGatherSDNode *N, unsigned OpNo);
    SDValue PromoteIntOp_ADDSUBCARRY(SDNode *N, unsigned OpNo);
-   SDValue PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo);
+   SDValue PromoteIntOp_FRAMERETURNADDR(SDNode *N);
 +  SDValue PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo);
+   SDValue PromoteIntOp_SMULFIX(SDNode *N);
  
    void PromoteSetCCOperands(SDValue &LHS,SDValue &RHS, ISD::CondCode Code);
- 
 -- 
 2.16.2
 

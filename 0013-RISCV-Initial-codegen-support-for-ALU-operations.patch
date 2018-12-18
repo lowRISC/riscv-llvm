@@ -356,7 +356,7 @@ index 00000000000..71f85864a39
 +#endif
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 new file mode 100644
-index 00000000000..6ce7a163f2f
+index 00000000000..75d90c247ff
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -0,0 +1,60 @@
@@ -406,7 +406,7 @@ index 00000000000..6ce7a163f2f
 +void RISCVDAGToDAGISel::Select(SDNode *Node) {
 +  // If we have a custom node, we have already selected
 +  if (Node->isMachineOpcode()) {
-+    DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
++    LLVM_DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
 +    Node->setNodeId(-1);
 +    return;
 +  }
@@ -422,7 +422,7 @@ index 00000000000..6ce7a163f2f
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..d76170b7b78
+index 00000000000..f30965a94ba
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -0,0 +1,170 @@
@@ -529,8 +529,8 @@ index 00000000000..d76170b7b78
 +    // Arguments passed in registers.
 +    EVT RegVT = VA.getLocVT();
 +    if (RegVT != XLenVT) {
-+      DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
-+          << RegVT.getEVTString() << "\n");
++      LLVM_DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
++                        << RegVT.getEVTString() << "\n");
 +      report_fatal_error("unhandled argument type");
 +    }
 +    const unsigned VReg =
@@ -743,20 +743,20 @@ diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInf
 index 7b33603db2b..616e6042070 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -13,6 +13,13 @@
- 
+@@ -14,6 +14,13 @@
  include "RISCVInstrFormats.td"
  
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 +// RISC-V specific DAG Nodes.
 +//===----------------------------------------------------------------------===//
 +
 +def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
 +                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 +
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
  // Operand and SDNode transformation definitions.
  //===----------------------------------------------------------------------===//
+ 
 @@ -43,12 +50,12 @@ def fencearg : Operand<XLenVT> {
    let DecoderMethod = "decodeUImmOperand<4>";
  }
@@ -1154,7 +1154,7 @@ index 00000000000..cf8956414aa
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index ea8bb43c53e..e12168b7399 100644
+index 9e1a58d8621..d1374227772 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
 @@ -11,6 +11,7 @@
@@ -1165,10 +1165,10 @@ index ea8bb43c53e..e12168b7399 100644
  #include "RISCVTargetMachine.h"
  #include "llvm/ADT/STLExtras.h"
  #include "llvm/CodeGen/Passes.h"
-@@ -58,10 +59,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
+@@ -52,10 +53,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
      : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
                          getEffectiveRelocModel(TT, RM),
-                         getEffectiveCodeModel(CM), OL),
+                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
 -      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
 +      TLOF(make_unique<TargetLoweringObjectFileELF>()),
 +      Subtarget(TT, CPU, FS, *this) {

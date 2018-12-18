@@ -14,9 +14,9 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/CMakeLists.txt       |   7 ++
  lib/Target/RISCV/RISCV.td             |  45 +++++++++
  lib/Target/RISCV/RISCVInstrFormats.td | 185 ++++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.td    |  57 +++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td    |  56 ++++++++++
  lib/Target/RISCV/RISCVRegisterInfo.td |  69 +++++++++++++
- 5 files changed, 363 insertions(+)
+ 5 files changed, 362 insertions(+)
  create mode 100644 lib/Target/RISCV/RISCV.td
  create mode 100644 lib/Target/RISCV/RISCVInstrFormats.td
  create mode 100644 lib/Target/RISCV/RISCVInstrInfo.td
@@ -281,10 +281,10 @@ index 00000000000..59ddc703c1d
 +}
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
 new file mode 100644
-index 00000000000..9ef2b7460ca
+index 00000000000..32cbcc58284
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,56 @@
 +//===-- RISCVInstrInfo.td - Target Description for RISCV ---*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -341,7 +341,6 @@ index 00000000000..9ef2b7460ca
 +def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
 +def OR   : ALU_rr<0b0000000, 0b110, "or">;
 +def AND  : ALU_rr<0b0000000, 0b111, "and">;
-+
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.td b/lib/Target/RISCV/RISCVRegisterInfo.td
 new file mode 100644
 index 00000000000..a5484130dfc

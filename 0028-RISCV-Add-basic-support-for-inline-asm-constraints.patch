@@ -85,7 +85,7 @@ index 4808e6c73c5..bbaa8ec454f 100644
  extern "C" void LLVMInitializeRISCVAsmPrinter() {
    RegisterAsmPrinter<RISCVAsmPrinter> X(getTheRISCV32Target());
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 7daae302194..d07301df718 100644
+index bbb8ab877b6..1ac56e3ebd2 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -44,6 +44,9 @@ public:
@@ -122,7 +122,7 @@ index 7daae302194..d07301df718 100644
    if (auto FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
      Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), Subtarget->getXLenVT());
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index bd44ab9a138..0dec008a3e9 100644
+index 9b4845018db..3bbdd3a20f1 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -994,3 +994,21 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {

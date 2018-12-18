@@ -10,7 +10,7 @@ a number of unnecessary zexts across the torture suite.
  2 files changed, 15 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index c60b4abc2c8..adf0d0c70ab 100644
+index a8e2b6ba765..84f21e8b64a 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -201,6 +201,20 @@ bool RISCVTargetLowering::isTruncateFree(EVT SrcVT, EVT DstVT) const {
@@ -35,7 +35,7 @@ index c60b4abc2c8..adf0d0c70ab 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index d6dfbf6625e..ccce434f69f 100644
+index ab12cae6519..5a764a2106c 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -44,6 +44,7 @@ public:

@@ -12,7 +12,7 @@ Subject: [RISCV] Codegen support for the standard RV32M instruction set
  5 files changed, 229 insertions(+), 11 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d5d23129ff9..40a9683e963 100644
+index 41eee722eb9..3615418ac57 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -77,18 +77,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

@@ -67,7 +67,7 @@ index 1c213b6c7e9..4808e6c73c5 100644
  }
  
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 70e33a25941..49bc6a29e45 100644
+index 3f159e11071..7c903b22ced 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -53,6 +53,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

@@ -200,7 +200,7 @@ index cde00f5d515..ae2a83f577b 100644
      return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
                                        (1 << 11) - 1);
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-index eeada77dae3..b4070b5a4e7 100644
+index 3cb7e78f236..c16bd19ea4d 100644
 --- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 @@ -69,15 +69,15 @@ static const unsigned GPRDecoderTable[] = {
@@ -334,7 +334,7 @@ index eeada77dae3..b4070b5a4e7 100644
      Insn = support::endian::read16le(Bytes.data());
 +
 +    if (!STI.getFeatureBits()[RISCV::Feature64Bit]) {
-+      DEBUG(dbgs() << "Trying RISCV32Only_16 table (16-bit Instruction):\n");
++      LLVM_DEBUG(dbgs() << "Trying RISCV32Only_16 table (16-bit Instruction):\n");
 +      // Calling the auto-generated decoder function.
 +      Result = decodeInstruction(DecoderTableRISCV32Only_16, MI, Insn, Address,
 +                                 this, STI);
@@ -344,7 +344,7 @@ index eeada77dae3..b4070b5a4e7 100644
 +      }
 +    }
 +
-     DEBUG(dbgs() << "Trying RISCV_C table (16-bit Instruction):\n");
+     LLVM_DEBUG(dbgs() << "Trying RISCV_C table (16-bit Instruction):\n");
      // Calling the auto-generated decoder function.
      Result = decodeInstruction(DecoderTable16, MI, Insn, Address, this, STI);
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td

@@ -17,7 +17,7 @@ physical register being used where a virtual register is expected.
  4 files changed, 38 insertions(+), 29 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index 6ce7a163f2f..daac114b557 100644
+index 75d90c247ff..b964f19a7ce 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -26,6 +26,8 @@ using namespace llvm;
@@ -50,7 +50,7 @@ index 6ce7a163f2f..daac114b557 100644
 +
    // If we have a custom node, we have already selected
    if (Node->isMachineOpcode()) {
-     DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
+     LLVM_DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
 @@ -49,6 +59,21 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
      return;
    }

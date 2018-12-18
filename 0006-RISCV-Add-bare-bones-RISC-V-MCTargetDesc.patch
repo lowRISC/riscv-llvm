@@ -15,14 +15,14 @@ NOTE: This patch has been updated since being committed upstream.
  lib/Target/RISCV/CMakeLists.txt                    |  2 +
  lib/Target/RISCV/LLVMBuild.txt                     |  2 +-
  lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  7 ++
- lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        | 23 ++++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 95 ++++++++++++++++++++++
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 50 ++++++++++++
+ lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        | 23 +++++
+ lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 97 ++++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    | 47 +++++++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   | 25 ++++++
  lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     | 31 +++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 +++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      | 91 ++++++++++++++++++++
  .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 58 +++++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 59 ++++++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  | 60 +++++++++++++
  lib/Target/RISCV/RISCVTargetMachine.h              |  3 +-
  lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |  5 --
  13 files changed, 443 insertions(+), 8 deletions(-)
@@ -110,10 +110,10 @@ index 00000000000..e48f04963ff
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 new file mode 100644
-index 00000000000..cb794c5a4e3
+index 00000000000..52973bfca9b
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,97 @@
 +//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -145,15 +145,16 @@ index 00000000000..cb794c5a4e3
 +
 +public:
 +  RISCVAsmBackend(uint8_t OSABI, bool Is64Bit)
-+      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
++      : MCAsmBackend(support::little), OSABI(OSABI), Is64Bit(Is64Bit) {}
 +  ~RISCVAsmBackend() override {}
 +
 +  void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
 +                  const MCValue &Target, MutableArrayRef<char> Data,
-+                  uint64_t Value, bool IsResolved) const override;
++                  uint64_t Value, bool IsResolved,
++                  const MCSubtargetInfo *STI) const override;
 +
-+  std::unique_ptr<MCObjectWriter>
-+  createObjectWriter(raw_pwrite_stream &OS) const override;
++  std::unique_ptr<MCObjectTargetWriter>
++  createObjectTargetWriter() const override;
 +
 +  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
 +                            const MCRelaxableFragment *DF,
@@ -163,7 +164,8 @@ index 00000000000..cb794c5a4e3
 +
 +  unsigned getNumFixupKinds() const override { return 1; }
 +
-+  bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
++  bool mayNeedRelaxation(const MCInst &Inst,
++                         const MCSubtargetInfo &STI) const override { return false; }
 +
 +  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
 +                        MCInst &Res) const override {
@@ -171,10 +173,10 @@ index 00000000000..cb794c5a4e3
 +    report_fatal_error("RISCVAsmBackend::relaxInstruction() unimplemented");
 +  }
 +
-+  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
++  bool writeNopData(raw_ostream &OS, uint64_t Count) const override;
 +};
 +
-+bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
++bool RISCVAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
 +  // Once support for the compressed instruction set is added, we will be able
 +  // to conditionally support 16-bit NOPs
 +  if ((Count % 4) != 0)
@@ -182,21 +184,21 @@ index 00000000000..cb794c5a4e3
 +
 +  // The canonical nop on RISC-V is addi x0, x0, 0
 +  for (uint64_t i = 0; i < Count; i += 4)
-+    OW->write32(0x13);
++    OS.write("\x13\0\0\0", 4);
 +
 +  return true;
 +}
 +
 +void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-+                                 const MCValue &Target,
-+                                 MutableArrayRef<char> Data, uint64_t Value,
-+                                 bool IsResolved) const {
++                                 const MCValue &Target, MutableArrayRef<char> Data,
++                                 uint64_t Value, bool IsResolved,
++                                 const MCSubtargetInfo *STI) const {
 +  return;
 +}
 +
-+std::unique_ptr<MCObjectWriter>
-+RISCVAsmBackend::createObjectWriter(raw_pwrite_stream &OS) const {
-+  return createRISCVELFObjectWriter(OS, OSABI, Is64Bit);
++std::unique_ptr<MCObjectTargetWriter>
++RISCVAsmBackend::createObjectTargetWriter() const {
++  return createRISCVELFObjectWriter(OSABI, Is64Bit);
 +}
 +
 +} // end anonymous namespace
@@ -211,10 +213,10 @@ index 00000000000..cb794c5a4e3
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 new file mode 100644
-index 00000000000..445cdfd0d20
+index 00000000000..d3d07a4574f
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,47 @@
 +//===-- RISCVELFObjectWriter.cpp - RISCV ELF Writer -----------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -258,12 +260,9 @@ index 00000000000..445cdfd0d20
 +  report_fatal_error("invalid fixup kind!");
 +}
 +
-+std::unique_ptr<MCObjectWriter>
-+llvm::createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
-+                                 bool Is64Bit) {
-+  return createELFObjectWriter(
-+      llvm::make_unique<RISCVELFObjectWriter>(OSABI, Is64Bit), OS,
-+      /*IsLittleEndian=*/true);
++std::unique_ptr<MCObjectTargetWriter>
++llvm::createRISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit) {
++  return llvm::make_unique<RISCVELFObjectWriter>(OSABI, Is64Bit);
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp
 new file mode 100644
@@ -335,7 +334,7 @@ index 00000000000..901a1eba8af
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 new file mode 100644
-index 00000000000..9309d493cef
+index 00000000000..4a18d9aaa8b
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -0,0 +1,91 @@
@@ -410,7 +409,7 @@ index 00000000000..9309d493cef
 +                                           const MCSubtargetInfo &STI) const {
 +  // For now, we only support RISC-V instructions with 32-bit length
 +  uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
-+  support::endian::Writer<support::little>(OS).write(Bits);
++  support::endian::write(OS, Bits, support::little);
 +  ++MCNumEmitted; // Keep track of the # of mi's emitted.
 +}
 +
@@ -496,10 +495,10 @@ index 00000000000..bad5f440061
 +}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
 new file mode 100644
-index 00000000000..be9970eb796
+index 00000000000..9763179ddea
 --- /dev/null
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,60 @@
 +//===-- RISCVMCTargetDesc.h - RISCV Target Descriptions ---------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -526,6 +525,7 @@ index 00000000000..be9970eb796
 +class MCCodeEmitter;
 +class MCContext;
 +class MCInstrInfo;
++class MCObjectTargetWriter;
 +class MCObjectWriter;
 +class MCRegisterInfo;
 +class MCSubtargetInfo;
@@ -546,8 +546,8 @@ index 00000000000..be9970eb796
 +                                    const MCRegisterInfo &MRI,
 +                                    const MCTargetOptions &Options);
 +
-+std::unique_ptr<MCObjectWriter>
-+createRISCVELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI, bool Is64Bit);
++std::unique_ptr<MCObjectTargetWriter>
++createRISCVELFObjectWriter(uint8_t OSABI, bool Is64Bit);
 +}
 +
 +// Defines symbolic names for RISC-V registers.

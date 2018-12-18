@@ -4,17 +4,17 @@ Subject: [RISCV] Add minimum necessary for RV32D codegen for fadd.d and
  load/store from stack locations
 
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp | 32 +++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 24 +++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  6 ++++
  lib/Target/RISCV/RISCVInstrInfoD.td    | 15 ++++++++
  test/CodeGen/RISCV/double-arith.ll     | 23 +++++++++++++
  test/CodeGen/RISCV/double-mem.ll       | 63 ++++++++++++++++++++++++++++++++++
- 5 files changed, 139 insertions(+)
+ 5 files changed, 131 insertions(+)
  create mode 100644 test/CodeGen/RISCV/double-arith.ll
  create mode 100644 test/CodeGen/RISCV/double-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 572dafaf66d..44a2538a665 100644
+index 3110b9ae74c..aa1da4e04e9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -47,6 +47,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -26,22 +26,13 @@ index 572dafaf66d..44a2538a665 100644
  
    // Compute derived properties from the register classes.
    computeRegisterProperties(STI.getRegisterInfo());
-@@ -1153,3 +1155,33 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+@@ -1153,3 +1155,25 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
  
    return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
  }
 +
-+MVT RISCVTargetLowering::getRegisterTypeForCallingConv(MVT VT) const {
-+  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
-+  // the value is split into i32 parts despite f64 being legal.
-+  // TODO: adjust when hard-float ABI is implemented.
-+  if (!Subtarget.is64Bit() && VT == MVT::f64)
-+    return MVT::i32;
-+  return getRegisterType(VT);
-+}
-+
 +MVT RISCVTargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
-+                                                       EVT VT) const {
++                                                       CallingConv::ID CC, EVT VT) const {
 +  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
 +  // the value is split into i32 parts despite f64 being legal.
 +  // TODO: adjust when hard-float ABI is implemented.
@@ -52,6 +43,7 @@ index 572dafaf66d..44a2538a665 100644
 +
 +unsigned
 +RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
++                                                   CallingConv::ID CC,
 +                                                   EVT VT) const {
 +  // If passing f64 for the soft-float ABI on an RV32IFD target, ensure that
 +  // the value is split into i32 parts despite f64 being legal.
@@ -61,17 +53,17 @@ index 572dafaf66d..44a2538a665 100644
 +  return getNumRegisters(Context, VT);
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index a54b5c1532f..3e49c2db7f3 100644
+index a54b5c1532f..6a5e60572ae 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -51,6 +51,12 @@ public:
    EmitInstrWithCustomInserter(MachineInstr &MI,
                                MachineBasicBlock *BB) const override;
  
-+  MVT getRegisterTypeForCallingConv(MVT VT) const override;
 +  MVT getRegisterTypeForCallingConv(LLVMContext &Context,
-+                                    EVT VT) const override;
++                                    CallingConv::ID CC, EVT VT) const override;
 +  unsigned getNumRegistersForCallingConv(LLVMContext &Context,
++                                         CallingConv::ID CC,
 +                                         EVT VT) const override;
 +
  private:

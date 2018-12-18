@@ -83,11 +83,10 @@ diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInf
 index 447100682e4..cdeef08640c 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -392,6 +392,93 @@ def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
-   let rd = 0;
+@@ -393,6 +393,93 @@ def SFENCE_VMA : RVInstR<0b0001001, 0b000, OPC_SYSTEM, (outs),
  }
  
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 +// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
 +//===----------------------------------------------------------------------===//
 +
@@ -174,18 +173,18 @@ index 447100682e4..cdeef08640c 100644
 +def : InstAlias<"sfence.vma",     (SFENCE_VMA      X0, X0)>;
 +def : InstAlias<"sfence.vma $rs", (SFENCE_VMA GPR:$rs, X0)>;
 +
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //
+ // Naming convention: For 'generic' pattern classes, we use the naming
 diff --git a/lib/Target/RISCV/RISCVInstrInfoD.td b/lib/Target/RISCV/RISCVInstrInfoD.td
 index 7d9ef7f3521..14bc3f20067 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoD.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoD.td
-@@ -160,6 +160,19 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
- }
+@@ -161,6 +161,19 @@ def FMV_D_X : FPUnaryOp_r<0b1111001, 0b000, FPR64, GPR, "fmv.d.x"> {
  } // Predicates = [HasStdExtD, IsRV64]
  
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 +// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
 +//===----------------------------------------------------------------------===//
 +
@@ -198,18 +197,18 @@ index 7d9ef7f3521..14bc3f20067 100644
 +def : InstAlias<"fneg.d $rd, $rs", (FSGNJN_D FPR64:$rd, FPR64:$rs, FPR64:$rs)>;
 +} // Predicates = [HasStdExtD]
 +
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //===----------------------------------------------------------------------===//
+ 
 diff --git a/lib/Target/RISCV/RISCVInstrInfoF.td b/lib/Target/RISCV/RISCVInstrInfoF.td
 index 8c2a8ace895..71d316c6d4e 100644
 --- a/lib/Target/RISCV/RISCVInstrInfoF.td
 +++ b/lib/Target/RISCV/RISCVInstrInfoF.td
-@@ -188,6 +188,39 @@ def FCVT_S_LU : FPUnaryOp_r_frm<0b1101000, FPR32, GPR, "fcvt.s.lu"> {
- def           : FPUnaryOpDynFrmAlias<FCVT_S_LU, "fcvt.s.lu", FPR32, GPR>;
+@@ -189,6 +189,39 @@ def           : FPUnaryOpDynFrmAlias<FCVT_S_LU, "fcvt.s.lu", FPR32, GPR>;
  } // Predicates = [HasStdExtF, IsRV64]
  
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 +// Assembler Pseudo Instructions (User-Level ISA, Version 2.2, Chapter 20)
 +//===----------------------------------------------------------------------===//
 +
@@ -242,9 +241,10 @@ index 8c2a8ace895..71d316c6d4e 100644
 +def : InstAlias<"fsflagsi $imm",      (CSRRWI      X0, 0x001, uimm5:$imm), 2>;
 +} // Predicates = [HasStdExtF]
 +
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //===----------------------------------------------------------------------===//
+ 
 diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
 index 96ce291bf6d..8f421e471f9 100644
 --- a/test/MC/RISCV/priv-invalid.s

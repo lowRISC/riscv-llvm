@@ -20,7 +20,7 @@ ISD::SELECT allows more flexibility for handling these cases.
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 98f7aa16e2e..606365ea59b 100644
+index fc05bbec8f1..608d66dcbe5 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -56,6 +56,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

@@ -10,7 +10,7 @@ benchmark set.
  2 files changed, 5 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 9ab1270f2f8..a9f9f5c7d56 100644
+index 4bb4fbb5a5a..e83bd7ae29b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -173,6 +173,10 @@ bool RISCVTargetLowering::isLegalAddressingMode(const DataLayout &DL,
@@ -25,7 +25,7 @@ index 9ab1270f2f8..a9f9f5c7d56 100644
    return isInt<12>(Imm);
  }
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index eae01bae883..17183004df6 100644
+index 3e8af4dd746..3fe5700141b 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -40,6 +40,7 @@ public:

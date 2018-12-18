@@ -20,7 +20,7 @@ required setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
  create mode 100644 test/CodeGen/RISCV/double-stack-spill-restore.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index ab16f2e4f8d..e024744c88c 100644
+index 02f77001edf..acb519065a9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -131,6 +131,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,

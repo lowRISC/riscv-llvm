@@ -4,10 +4,11 @@ Subject: [RISCV] Set AllowRegisterRenaming=1
 
 TODO: backport this so it is introduced at the same time as codegen.
 ---
- lib/Target/RISCV/RISCV.td                   | 1 +
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 4 ++--
- test/CodeGen/RISCV/calls.ll                 | 4 ++--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+ lib/Target/RISCV/RISCV.td                   |  1 +
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  4 ++--
+ test/CodeGen/RISCV/calls.ll                 |  4 ++--
+ test/CodeGen/RISCV/vararg.ll                | 12 ++++++------
+ 4 files changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
 index f431738c3d7..bb68ef9c8bc 100644
@@ -56,6 +57,50 @@ index 5f71bdad961..8875015e5b3 100644
  ; RV32I-NEXT:    lui a0, %hi(external_many_args)
  ; RV32I-NEXT:    addi t0, a0, %lo(external_many_args)
  ; RV32I-NEXT:    mv a0, s1
+diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
+index 483c0773780..4d18bedd21f 100644
+--- a/test/CodeGen/RISCV/vararg.ll
++++ b/test/CodeGen/RISCV/vararg.ll
+@@ -126,8 +126,8 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a2, 8(s0)
+ ; RV32I-FPELIM-NEXT:    addi a0, s0, 8
+ ; RV32I-FPELIM-NEXT:    sw a0, -16(s0)
+-; RV32I-FPELIM-NEXT:    sw s1, 4(s0)
+-; RV32I-FPELIM-NEXT:    addi a0, s1, 15
++; RV32I-FPELIM-NEXT:    sw a1, 4(s0)
++; RV32I-FPELIM-NEXT:    addi a0, a1, 15
+ ; RV32I-FPELIM-NEXT:    andi a0, a0, -16
+ ; RV32I-FPELIM-NEXT:    sub a0, sp, a0
+ ; RV32I-FPELIM-NEXT:    mv sp, a0
+@@ -158,8 +158,8 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, 8
+ ; RV32I-WITHFP-NEXT:    sw a0, -16(s0)
+-; RV32I-WITHFP-NEXT:    sw s1, 4(s0)
+-; RV32I-WITHFP-NEXT:    addi a0, s1, 15
++; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
++; RV32I-WITHFP-NEXT:    addi a0, a1, 15
+ ; RV32I-WITHFP-NEXT:    andi a0, a0, -16
+ ; RV32I-WITHFP-NEXT:    sub a0, sp, a0
+ ; RV32I-WITHFP-NEXT:    mv sp, a0
+@@ -573,7 +573,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a4, 32(sp)
+ ; RV32I-FPELIM-NEXT:    sw a3, 28(sp)
+ ; RV32I-FPELIM-NEXT:    sw a2, 24(sp)
+-; RV32I-FPELIM-NEXT:    sw s1, 20(sp)
++; RV32I-FPELIM-NEXT:    sw a1, 20(sp)
+ ; RV32I-FPELIM-NEXT:    addi a0, sp, 24
+ ; RV32I-FPELIM-NEXT:    sw a0, 4(sp)
+ ; RV32I-FPELIM-NEXT:    sw a0, 0(sp)
+@@ -618,7 +618,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw a4, 16(s0)
+ ; RV32I-WITHFP-NEXT:    sw a3, 12(s0)
+ ; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
+-; RV32I-WITHFP-NEXT:    sw s1, 4(s0)
++; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
+ ; RV32I-WITHFP-NEXT:    addi a0, s0, 8
+ ; RV32I-WITHFP-NEXT:    sw a0, -16(s0)
+ ; RV32I-WITHFP-NEXT:    sw a0, -20(s0)
 -- 
 2.16.2
 
