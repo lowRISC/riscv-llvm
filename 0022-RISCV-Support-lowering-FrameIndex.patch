@@ -9,20 +9,20 @@ Ensure callee-saved registers are accessed relative to the stackpointer. This
 is necessary as callee-saved register spills are performed before the frame
 pointer is set.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     | 29 +++++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp     | 29 +++++++
  lib/Target/RISCV/RISCVFrameLowering.h       |  3 +
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 20 ++++++
- lib/Target/RISCV/RISCVInstrInfo.td          | 27 ++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp      | 14 ++---
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 20 +++++
+ lib/Target/RISCV/RISCVInstrInfo.td          | 27 ++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp      | 14 ++-
  test/CodeGen/RISCV/blockaddress.ll          |  4 +-
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 96 ++++++++++++++---------------
- test/CodeGen/RISCV/calls.ll                 | 20 +++---
- test/CodeGen/RISCV/div.ll                   | 32 +++++-----
- test/CodeGen/RISCV/frame.ll                 | 36 +++++++++++
- test/CodeGen/RISCV/indirectbr.ll            |  8 +--
- test/CodeGen/RISCV/mul.ll                   | 20 +++---
- test/CodeGen/RISCV/rem.ll                   |  8 +--
- test/CodeGen/RISCV/shifts.ll                | 12 ++--
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 96 ++++++++++-----------
+ test/CodeGen/RISCV/calls.ll                 | 20 ++---
+ test/CodeGen/RISCV/div.ll                   | 32 +++----
+ test/CodeGen/RISCV/frame.ll                 | 36 ++++++++
+ test/CodeGen/RISCV/indirectbr.ll            |  8 +-
+ test/CodeGen/RISCV/mul.ll                   | 20 ++---
+ test/CodeGen/RISCV/rem.ll                   |  8 +-
+ test/CodeGen/RISCV/shifts.ll                | 12 +--
  14 files changed, 221 insertions(+), 108 deletions(-)
  create mode 100644 test/CodeGen/RISCV/frame.ll
 
@@ -912,5 +912,5 @@ index c4033c574ef..b76b7248b9d 100644
    %1 = shl i64 %a, %b
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

@@ -5,296 +5,299 @@ Subject: Revert upstreamed RISC-V changes
 This allows the patch series to be maintained and modified on an ongoing
 basis.
 ---
- cmake/config-ix.cmake                              |     4 -
- docs/CompilerWriterInfo.rst                        |     4 -
- include/llvm/ADT/Triple.h                          |     2 -
- include/llvm/BinaryFormat/COFF.h                   |     3 -
- include/llvm/BinaryFormat/ELF.h                    |    17 -
- include/llvm/BinaryFormat/ELFRelocs/RISCV.def      |    59 -
- include/llvm/IR/Intrinsics.td                      |     1 -
- include/llvm/IR/IntrinsicsRISCV.td                 |    44 -
- include/llvm/Object/ELFObjectFile.h                |    15 -
- include/llvm/module.modulemap                      |     1 -
- lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp  |    23 -
- lib/CodeGen/SelectionDAG/LegalizeTypes.h           |     2 -
- lib/Object/ELF.cpp                                 |     9 -
- lib/Object/ELFObjectFile.cpp                       |    13 -
- lib/ObjectYAML/ELFYAML.cpp                         |    12 -
- lib/Support/Triple.cpp                             |    21 -
- lib/Target/LLVMBuild.txt                           |     1 -
- lib/Target/RISCV/AsmParser/CMakeLists.txt          |     3 -
- lib/Target/RISCV/AsmParser/LLVMBuild.txt           |    23 -
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  1473 ---
- lib/Target/RISCV/CMakeLists.txt                    |    37 -
- lib/Target/RISCV/Disassembler/CMakeLists.txt       |     3 -
- lib/Target/RISCV/Disassembler/LLVMBuild.txt        |    24 -
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |   324 -
- lib/Target/RISCV/InstPrinter/CMakeLists.txt        |     3 -
- lib/Target/RISCV/InstPrinter/LLVMBuild.txt         |    23 -
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |   115 -
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |    55 -
- lib/Target/RISCV/LLVMBuild.txt                     |    35 -
- lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |    10 -
- lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |    23 -
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  |   263 -
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.h    |   118 -
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |   105 -
- lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp |    46 -
- lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h   |    31 -
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |    64 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |    27 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.h     |    31 -
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |   273 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |   120 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |    78 -
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |   102 -
- lib/Target/RISCV/MCTargetDesc/RISCVMCTargetDesc.h  |    62 -
- .../RISCV/MCTargetDesc/RISCVTargetStreamer.cpp     |    48 -
- .../RISCV/MCTargetDesc/RISCVTargetStreamer.h       |    45 -
- lib/Target/RISCV/RISCV.h                           |    45 -
- lib/Target/RISCV/RISCV.td                          |   106 -
- lib/Target/RISCV/RISCVAsmPrinter.cpp               |   138 -
- lib/Target/RISCV/RISCVCallingConv.td               |    57 -
- lib/Target/RISCV/RISCVExpandPseudoInsts.cpp        |   556 -
- lib/Target/RISCV/RISCVFrameLowering.cpp            |   298 -
- lib/Target/RISCV/RISCVFrameLowering.h              |    59 -
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp             |   282 -
- lib/Target/RISCV/RISCVISelLowering.cpp             |  1733 ---
- lib/Target/RISCV/RISCVISelLowering.h               |   140 -
- lib/Target/RISCV/RISCVInstrFormats.td              |   286 -
- lib/Target/RISCV/RISCVInstrFormatsC.td             |   160 -
- lib/Target/RISCV/RISCVInstrInfo.cpp                |   450 -
- lib/Target/RISCV/RISCVInstrInfo.h                  |    84 -
- lib/Target/RISCV/RISCVInstrInfo.td                 |   935 --
- lib/Target/RISCV/RISCVInstrInfoA.td                |   278 -
- lib/Target/RISCV/RISCVInstrInfoC.td                |   714 --
- lib/Target/RISCV/RISCVInstrInfoD.td                |   310 -
- lib/Target/RISCV/RISCVInstrInfoF.td                |   336 -
- lib/Target/RISCV/RISCVInstrInfoM.td                |    51 -
- lib/Target/RISCV/RISCVMCInstLower.cpp              |   108 -
- lib/Target/RISCV/RISCVMachineFunctionInfo.h        |    55 -
- lib/Target/RISCV/RISCVMergeBaseOffset.cpp          |   286 -
- lib/Target/RISCV/RISCVRegisterInfo.cpp             |   128 -
- lib/Target/RISCV/RISCVRegisterInfo.h               |    59 -
- lib/Target/RISCV/RISCVRegisterInfo.td              |   230 -
- lib/Target/RISCV/RISCVSubtarget.cpp                |    48 -
- lib/Target/RISCV/RISCVSubtarget.h                  |    87 -
- lib/Target/RISCV/RISCVSystemOperands.td            |   352 -
- lib/Target/RISCV/RISCVTargetMachine.cpp            |   108 -
- lib/Target/RISCV/RISCVTargetMachine.h              |    46 -
- lib/Target/RISCV/RISCVTargetObjectFile.cpp         |    19 -
- lib/Target/RISCV/RISCVTargetObjectFile.h           |    25 -
- lib/Target/RISCV/TargetInfo/CMakeLists.txt         |     3 -
- lib/Target/RISCV/TargetInfo/LLVMBuild.txt          |    23 -
- lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp    |    30 -
- lib/Target/RISCV/Utils/CMakeLists.txt              |     4 -
- lib/Target/RISCV/Utils/LLVMBuild.txt               |    24 -
- lib/Target/RISCV/Utils/RISCVBaseInfo.cpp           |     9 -
- lib/Target/RISCV/Utils/RISCVBaseInfo.h             |   158 -
- lib/Target/RISCV/Utils/RISCVMatInt.cpp             |    79 -
- lib/Target/RISCV/Utils/RISCVMatInt.h               |    36 -
- test/Assembler/empty-string.s                      |     3 -
- test/CodeGen/RISCV/addc-adde-sube-subc.ll          |    30 -
- test/CodeGen/RISCV/align.ll                        |    13 -
- test/CodeGen/RISCV/alloca.ll                       |   105 -
- test/CodeGen/RISCV/alu16.ll                        |   324 -
- test/CodeGen/RISCV/alu32.ll                        |   299 -
- test/CodeGen/RISCV/alu64.ll                        |   499 -
- test/CodeGen/RISCV/alu8.ll                         |   308 -
- test/CodeGen/RISCV/analyze-branch.ll               |    79 -
- test/CodeGen/RISCV/arith-with-overflow.ll          |    84 -
- test/CodeGen/RISCV/atomic-cmpxchg.ll               |  1489 ---
- test/CodeGen/RISCV/atomic-fence.ll                 |    41 -
- test/CodeGen/RISCV/atomic-load-store.ll            |   668 --
- test/CodeGen/RISCV/atomic-rmw.ll                   | 10415 -------------------
- test/CodeGen/RISCV/bare-select.ll                  |    31 -
- test/CodeGen/RISCV/blockaddress.ll                 |    29 -
- test/CodeGen/RISCV/branch-relaxation.ll            |    65 -
- test/CodeGen/RISCV/branch.ll                       |   109 -
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll        |   542 -
- test/CodeGen/RISCV/byval.ll                        |    43 -
- test/CodeGen/RISCV/calling-conv-rv32f-ilp32.ll     |    81 -
- test/CodeGen/RISCV/calling-conv-sext-zext.ll       |   344 -
- test/CodeGen/RISCV/calling-conv.ll                 |  1068 --
- test/CodeGen/RISCV/calls.ll                        |   146 -
- test/CodeGen/RISCV/compress-inline-asm.ll          |    15 -
- test/CodeGen/RISCV/compress.ll                     |   165 -
- test/CodeGen/RISCV/disable-tail-calls.ll           |    56 -
- test/CodeGen/RISCV/div.ll                          |   217 -
- test/CodeGen/RISCV/double-arith.ll                 |   398 -
- test/CodeGen/RISCV/double-br-fcmp.ll               |   500 -
- test/CodeGen/RISCV/double-calling-conv.ll          |   154 -
- test/CodeGen/RISCV/double-convert.ll               |    89 -
- test/CodeGen/RISCV/double-fcmp.ll                  |   299 -
- test/CodeGen/RISCV/double-frem.ll                  |    16 -
- test/CodeGen/RISCV/double-imm.ll                   |    38 -
- test/CodeGen/RISCV/double-intrinsics.ll            |   442 -
- test/CodeGen/RISCV/double-mem.ll                   |   185 -
- test/CodeGen/RISCV/double-previous-failure.ll      |    65 -
- test/CodeGen/RISCV/double-select-fcmp.ll           |   423 -
- test/CodeGen/RISCV/double-stack-spill-restore.ll   |    45 -
- test/CodeGen/RISCV/fixups-diff.ll                  |    46 -
- test/CodeGen/RISCV/fixups-relax-diff.ll            |    20 -
- test/CodeGen/RISCV/float-arith.ll                  |   267 -
- test/CodeGen/RISCV/float-br-fcmp.ll                |   494 -
- test/CodeGen/RISCV/float-convert.ll                |    72 -
- test/CodeGen/RISCV/float-fcmp.ll                   |   215 -
- test/CodeGen/RISCV/float-frem.ll                   |    16 -
- test/CodeGen/RISCV/float-imm.ll                    |    27 -
- test/CodeGen/RISCV/float-intrinsics.ll             |   375 -
- test/CodeGen/RISCV/float-mem.ll                    |   133 -
- test/CodeGen/RISCV/float-select-fcmp.ll            |   304 -
- test/CodeGen/RISCV/flt-rounds.ll                   |    21 -
- test/CodeGen/RISCV/fp128.ll                        |    97 -
- test/CodeGen/RISCV/frame.ll                        |    54 -
- test/CodeGen/RISCV/frameaddr-returnaddr.ll         |   152 -
- test/CodeGen/RISCV/get-setcc-result-type.ll        |    31 -
- test/CodeGen/RISCV/hoist-global-addr-base.ll       |   169 -
- test/CodeGen/RISCV/i32-icmp.ll                     |   134 -
- test/CodeGen/RISCV/imm-cse.ll                      |    39 -
- test/CodeGen/RISCV/imm.ll                          |   260 -
- test/CodeGen/RISCV/indirectbr.ll                   |    40 -
- test/CodeGen/RISCV/init-array.ll                   |    30 -
- test/CodeGen/RISCV/inline-asm.ll                   |    54 -
- test/CodeGen/RISCV/interrupt-attr-args-error.ll    |    11 -
- test/CodeGen/RISCV/interrupt-attr-invalid.ll       |    11 -
- test/CodeGen/RISCV/interrupt-attr-nocall.ll        |   217 -
- test/CodeGen/RISCV/interrupt-attr-ret-error.ll     |    12 -
- test/CodeGen/RISCV/interrupt-attr.ll               |  1066 --
- test/CodeGen/RISCV/jumptable.ll                    |    58 -
- test/CodeGen/RISCV/large-stack.ll                  |   172 -
- test/CodeGen/RISCV/lit.local.cfg                   |     2 -
- test/CodeGen/RISCV/lsr-legaladdimm.ll              |    48 -
- test/CodeGen/RISCV/mem.ll                          |   197 -
- test/CodeGen/RISCV/mem64.ll                        |   226 -
- test/CodeGen/RISCV/mul.ll                          |   175 -
- test/CodeGen/RISCV/musttail-call.ll                |    20 -
- test/CodeGen/RISCV/option-norelax.ll               |    16 -
- test/CodeGen/RISCV/option-norvc.ll                 |    15 -
- test/CodeGen/RISCV/option-relax.ll                 |    16 -
- test/CodeGen/RISCV/option-rvc.ll                   |    15 -
- test/CodeGen/RISCV/prefetch.ll                     |    19 -
- test/CodeGen/RISCV/rem.ll                          |    41 -
- test/CodeGen/RISCV/remat.ll                        |   200 -
- test/CodeGen/RISCV/rotl-rotr.ll                    |    38 -
- test/CodeGen/RISCV/rv64i-exhaustive-w-insts.ll     |  1769 ----
- test/CodeGen/RISCV/rv64i-tricky-shifts.ll          |    44 -
- test/CodeGen/RISCV/select-cc.ll                    |   100 -
- test/CodeGen/RISCV/sext-zext-trunc.ll              |   438 -
- test/CodeGen/RISCV/shift-masked-shamt.ll           |    70 -
- test/CodeGen/RISCV/shifts.ll                       |    45 -
- test/CodeGen/RISCV/tail-calls.ll                   |   148 -
- .../RISCV/umulo-128-legalisation-lowering.ll       |   138 -
- test/CodeGen/RISCV/vararg.ll                       |   819 --
- test/CodeGen/RISCV/wide-mem.ll                     |    30 -
- test/CodeGen/RISCV/zext-with-load-is-free.ll       |    76 -
- test/DebugInfo/RISCV/lit.local.cfg                 |     2 -
- test/DebugInfo/RISCV/relax-debug-line.ll           |    75 -
- test/MC/Disassembler/RISCV/fuzzer-invalid.txt      |     8 -
- .../RISCV/invalid-fp-rounding-mode.txt             |     9 -
- test/MC/Disassembler/RISCV/invalid-instruction.txt |     9 -
- test/MC/Disassembler/RISCV/lit.local.cfg           |     3 -
- test/MC/Disassembler/RISCV/unknown-fence-field.txt |     9 -
- test/MC/RISCV/cnop.s                               |    27 -
- test/MC/RISCV/compress-cjal.s                      |    17 -
- test/MC/RISCV/compress-rv32d.s                     |    44 -
- test/MC/RISCV/compress-rv32f.s                     |    32 -
- test/MC/RISCV/compress-rv32i.s                     |   219 -
- test/MC/RISCV/compress-rv64i.s                     |    60 -
- test/MC/RISCV/compressed-relocations.s             |    22 -
- test/MC/RISCV/csr-aliases.s                        |   117 -
- test/MC/RISCV/data-directives-invalid.s            |    23 -
- test/MC/RISCV/data-directives-valid.s              |    32 -
- test/MC/RISCV/elf-flags.s                          |    13 -
- test/MC/RISCV/elf-header.s                         |    42 -
- test/MC/RISCV/fixups-compressed.s                  |    25 -
- test/MC/RISCV/fixups-diagnostics.s                 |    18 -
- test/MC/RISCV/fixups-expr.s                        |    47 -
- test/MC/RISCV/fixups.s                             |    72 -
- test/MC/RISCV/function-call-invalid.s              |    11 -
- test/MC/RISCV/function-call.s                      |    45 -
- test/MC/RISCV/hilo-constaddr-expr.s                |    31 -
- test/MC/RISCV/hilo-constaddr.s                     |    17 -
- test/MC/RISCV/linker-relaxation.s                  |    26 -
- test/MC/RISCV/lit.local.cfg                        |     3 -
- test/MC/RISCV/lla-invalid.s                        |     6 -
- test/MC/RISCV/machine-csr-names-invalid.s          |    40 -
- test/MC/RISCV/machine-csr-names.s                  |  1229 ---
- test/MC/RISCV/option-invalid.s                     |    26 -
- test/MC/RISCV/option-pushpop.s                     |    74 -
- test/MC/RISCV/option-relax.s                       |    66 -
- test/MC/RISCV/option-rvc.s                         |    90 -
- test/MC/RISCV/priv-invalid.s                       |     7 -
- test/MC/RISCV/priv-valid.s                         |    34 -
- test/MC/RISCV/relocations.s                        |    85 -
- test/MC/RISCV/rv32-machine-csr-names.s             |   474 -
- test/MC/RISCV/rv32-relaxation.s                    |   127 -
- test/MC/RISCV/rv32-user-csr-names.s                |   457 -
- test/MC/RISCV/rv32a-invalid.s                      |    17 -
- test/MC/RISCV/rv32a-valid.s                        |   148 -
- test/MC/RISCV/rv32c-aliases-valid.s                |    65 -
- test/MC/RISCV/rv32c-fuzzed-invalid.s               |    17 -
- test/MC/RISCV/rv32c-invalid.s                      |    92 -
- test/MC/RISCV/rv32c-only-valid.s                   |    19 -
- test/MC/RISCV/rv32c-valid.s                        |   108 -
- test/MC/RISCV/rv32d-invalid.s                      |    21 -
- test/MC/RISCV/rv32d-valid.s                        |   161 -
- test/MC/RISCV/rv32dc-invalid.s                     |    12 -
- test/MC/RISCV/rv32dc-valid.s                       |    29 -
- test/MC/RISCV/rv32f-invalid.s                      |    34 -
- test/MC/RISCV/rv32f-valid.s                        |   166 -
- test/MC/RISCV/rv32fc-invalid.s                     |    12 -
- test/MC/RISCV/rv32fc-valid.s                       |    35 -
- test/MC/RISCV/rv32i-aliases-invalid.s              |    23 -
- test/MC/RISCV/rv32i-aliases-valid.s                |    80 -
- test/MC/RISCV/rv32i-invalid.s                      |   176 -
- test/MC/RISCV/rv32i-valid.s                        |   275 -
- test/MC/RISCV/rv32m-invalid.s                      |     9 -
- test/MC/RISCV/rv32m-valid.s                        |    35 -
- test/MC/RISCV/rv64-machine-csr-names.s             |   246 -
- test/MC/RISCV/rv64-relaxation.s                    |   104 -
- test/MC/RISCV/rv64-user-csr-names.s                |   236 -
- test/MC/RISCV/rv64a-invalid.s                      |    14 -
- test/MC/RISCV/rv64a-valid.s                        |   193 -
- test/MC/RISCV/rv64c-aliases-valid.s                |    96 -
- test/MC/RISCV/rv64c-invalid.s                      |    32 -
- test/MC/RISCV/rv64c-valid.s                        |    62 -
- test/MC/RISCV/rv64d-aliases-valid.s                |    27 -
- test/MC/RISCV/rv64d-invalid.s                      |    11 -
- test/MC/RISCV/rv64d-valid.s                        |    53 -
- test/MC/RISCV/rv64dc-valid.s                       |    29 -
- test/MC/RISCV/rv64f-aliases-valid.s                |    27 -
- test/MC/RISCV/rv64f-invalid.s                      |     9 -
- test/MC/RISCV/rv64f-valid.s                        |    41 -
- test/MC/RISCV/rv64i-aliases-invalid.s              |    28 -
- test/MC/RISCV/rv64i-aliases-valid.s                |   131 -
- test/MC/RISCV/rv64i-invalid.s                      |    20 -
- test/MC/RISCV/rv64i-valid.s                        |    99 -
- test/MC/RISCV/rv64m-valid.s                        |    21 -
- test/MC/RISCV/rvd-aliases-valid.s                  |    85 -
- test/MC/RISCV/rvf-aliases-valid.s                  |   139 -
- test/MC/RISCV/rvf-user-csr-names.s                 |    71 -
- test/MC/RISCV/rvi-aliases-valid.s                  |   247 -
- test/MC/RISCV/rvi-pseudos.s                        |    28 -
- test/MC/RISCV/supervisor-csr-names.s               |   193 -
- test/MC/RISCV/tail-call-invalid.s                  |    12 -
- test/MC/RISCV/tail-call.s                          |    47 -
- test/MC/RISCV/user-csr-names-invalid.s             |    47 -
- test/MC/RISCV/user-csr-names.s                     |   587 --
- test/Object/RISCV/elf-flags.yaml                   |    24 -
- test/Object/RISCV/lit.local.cfg                    |     2 -
- test/Transforms/SimplifyCFG/RISCV/lit.local.cfg    |     5 -
- .../SimplifyCFG/RISCV/select-trunc-i64.ll          |    28 -
- tools/llvm-readobj/ELFDumper.cpp                   |    13 -
- unittests/ADT/TripleTest.cpp                       |    36 -
- utils/TableGen/CMakeLists.txt                      |     1 -
- utils/TableGen/RISCVCompressInstEmitter.cpp        |   810 --
- utils/TableGen/TableGen.cpp                        |     6 -
- utils/TableGen/TableGenBackends.h                  |     1 -
- utils/UpdateTestChecks/asm.py                      |    18 -
- utils/gn/secondary/lld/ELF/BUILD.gn                |     1 -
- utils/gn/secondary/llvm/utils/TableGen/BUILD.gn    |     1 -
- 289 files changed, 51142 deletions(-)
+ cmake/config-ix.cmake                         |     4 -
+ docs/CompilerWriterInfo.rst                   |     4 -
+ include/llvm/ADT/Triple.h                     |     2 -
+ include/llvm/BinaryFormat/COFF.h              |     3 -
+ include/llvm/BinaryFormat/ELF.h               |    17 -
+ include/llvm/BinaryFormat/ELFRelocs/RISCV.def |    59 -
+ include/llvm/IR/Intrinsics.td                 |     1 -
+ include/llvm/IR/IntrinsicsRISCV.td            |    44 -
+ include/llvm/Object/ELFObjectFile.h           |    15 -
+ include/llvm/module.modulemap                 |     1 -
+ .../SelectionDAG/LegalizeIntegerTypes.cpp     |    23 -
+ lib/CodeGen/SelectionDAG/LegalizeTypes.h      |     2 -
+ lib/Object/ELF.cpp                            |     9 -
+ lib/Object/ELFObjectFile.cpp                  |    13 -
+ lib/ObjectYAML/ELFYAML.cpp                    |    12 -
+ lib/Support/Triple.cpp                        |    21 -
+ lib/Target/LLVMBuild.txt                      |     1 -
+ lib/Target/RISCV/AsmParser/CMakeLists.txt     |     3 -
+ lib/Target/RISCV/AsmParser/LLVMBuild.txt      |    23 -
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  1473 ---
+ lib/Target/RISCV/CMakeLists.txt               |    37 -
+ lib/Target/RISCV/Disassembler/CMakeLists.txt  |     3 -
+ lib/Target/RISCV/Disassembler/LLVMBuild.txt   |    24 -
+ .../RISCV/Disassembler/RISCVDisassembler.cpp  |   324 -
+ lib/Target/RISCV/InstPrinter/CMakeLists.txt   |     3 -
+ lib/Target/RISCV/InstPrinter/LLVMBuild.txt    |    23 -
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |   115 -
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      |    55 -
+ lib/Target/RISCV/LLVMBuild.txt                |    35 -
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt  |    10 -
+ lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt   |    23 -
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    |   302 -
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.h      |   113 -
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |   105 -
+ .../RISCV/MCTargetDesc/RISCVELFStreamer.cpp   |    46 -
+ .../RISCV/MCTargetDesc/RISCVELFStreamer.h     |    31 -
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |    64 -
+ .../RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp     |    27 -
+ .../RISCV/MCTargetDesc/RISCVMCAsmInfo.h       |    31 -
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |   273 -
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp |   202 -
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h   |    88 -
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp  |   102 -
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.h    |    62 -
+ .../MCTargetDesc/RISCVTargetStreamer.cpp      |    48 -
+ .../RISCV/MCTargetDesc/RISCVTargetStreamer.h  |    45 -
+ lib/Target/RISCV/RISCV.h                      |    45 -
+ lib/Target/RISCV/RISCV.td                     |   106 -
+ lib/Target/RISCV/RISCVAsmPrinter.cpp          |   138 -
+ lib/Target/RISCV/RISCVCallingConv.td          |    57 -
+ lib/Target/RISCV/RISCVExpandPseudoInsts.cpp   |   556 -
+ lib/Target/RISCV/RISCVFrameLowering.cpp       |   298 -
+ lib/Target/RISCV/RISCVFrameLowering.h         |    59 -
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp        |   282 -
+ lib/Target/RISCV/RISCVISelLowering.cpp        |  1733 ---
+ lib/Target/RISCV/RISCVISelLowering.h          |   140 -
+ lib/Target/RISCV/RISCVInstrFormats.td         |   286 -
+ lib/Target/RISCV/RISCVInstrFormatsC.td        |   160 -
+ lib/Target/RISCV/RISCVInstrInfo.cpp           |   450 -
+ lib/Target/RISCV/RISCVInstrInfo.h             |    84 -
+ lib/Target/RISCV/RISCVInstrInfo.td            |   935 --
+ lib/Target/RISCV/RISCVInstrInfoA.td           |   278 -
+ lib/Target/RISCV/RISCVInstrInfoC.td           |   714 --
+ lib/Target/RISCV/RISCVInstrInfoD.td           |   310 -
+ lib/Target/RISCV/RISCVInstrInfoF.td           |   336 -
+ lib/Target/RISCV/RISCVInstrInfoM.td           |    51 -
+ lib/Target/RISCV/RISCVMCInstLower.cpp         |   108 -
+ lib/Target/RISCV/RISCVMachineFunctionInfo.h   |    55 -
+ lib/Target/RISCV/RISCVMergeBaseOffset.cpp     |   286 -
+ lib/Target/RISCV/RISCVRegisterInfo.cpp        |   128 -
+ lib/Target/RISCV/RISCVRegisterInfo.h          |    59 -
+ lib/Target/RISCV/RISCVRegisterInfo.td         |   230 -
+ lib/Target/RISCV/RISCVSubtarget.cpp           |    48 -
+ lib/Target/RISCV/RISCVSubtarget.h             |    87 -
+ lib/Target/RISCV/RISCVSystemOperands.td       |   352 -
+ lib/Target/RISCV/RISCVTargetMachine.cpp       |   108 -
+ lib/Target/RISCV/RISCVTargetMachine.h         |    46 -
+ lib/Target/RISCV/RISCVTargetObjectFile.cpp    |    19 -
+ lib/Target/RISCV/RISCVTargetObjectFile.h      |    25 -
+ lib/Target/RISCV/TargetInfo/CMakeLists.txt    |     3 -
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt     |    23 -
+ .../RISCV/TargetInfo/RISCVTargetInfo.cpp      |    30 -
+ lib/Target/RISCV/Utils/CMakeLists.txt         |     4 -
+ lib/Target/RISCV/Utils/LLVMBuild.txt          |    24 -
+ lib/Target/RISCV/Utils/RISCVBaseInfo.cpp      |     9 -
+ lib/Target/RISCV/Utils/RISCVBaseInfo.h        |   158 -
+ lib/Target/RISCV/Utils/RISCVMatInt.cpp        |    79 -
+ lib/Target/RISCV/Utils/RISCVMatInt.h          |    36 -
+ test/Assembler/empty-string.s                 |     3 -
+ test/CodeGen/RISCV/addc-adde-sube-subc.ll     |    30 -
+ test/CodeGen/RISCV/align.ll                   |    13 -
+ test/CodeGen/RISCV/alloca.ll                  |   105 -
+ test/CodeGen/RISCV/alu16.ll                   |   324 -
+ test/CodeGen/RISCV/alu32.ll                   |   299 -
+ test/CodeGen/RISCV/alu64.ll                   |   499 -
+ test/CodeGen/RISCV/alu8.ll                    |   308 -
+ test/CodeGen/RISCV/analyze-branch.ll          |    79 -
+ test/CodeGen/RISCV/arith-with-overflow.ll     |    84 -
+ test/CodeGen/RISCV/atomic-cmpxchg.ll          |  1489 ---
+ test/CodeGen/RISCV/atomic-fence.ll            |    41 -
+ test/CodeGen/RISCV/atomic-load-store.ll       |   668 -
+ test/CodeGen/RISCV/atomic-rmw.ll              | 10415 ----------------
+ test/CodeGen/RISCV/bare-select.ll             |    31 -
+ test/CodeGen/RISCV/blockaddress.ll            |    29 -
+ test/CodeGen/RISCV/branch-relaxation.ll       |    65 -
+ test/CodeGen/RISCV/branch.ll                  |   109 -
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll   |   542 -
+ test/CodeGen/RISCV/byval.ll                   |    43 -
+ .../CodeGen/RISCV/calling-conv-rv32f-ilp32.ll |    81 -
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll  |   344 -
+ test/CodeGen/RISCV/calling-conv.ll            |  1068 --
+ test/CodeGen/RISCV/calls.ll                   |   146 -
+ test/CodeGen/RISCV/compress-inline-asm.ll     |    15 -
+ test/CodeGen/RISCV/compress.ll                |   165 -
+ test/CodeGen/RISCV/disable-tail-calls.ll      |    56 -
+ test/CodeGen/RISCV/div.ll                     |   217 -
+ test/CodeGen/RISCV/double-arith.ll            |   398 -
+ test/CodeGen/RISCV/double-br-fcmp.ll          |   500 -
+ test/CodeGen/RISCV/double-calling-conv.ll     |   154 -
+ test/CodeGen/RISCV/double-convert.ll          |    89 -
+ test/CodeGen/RISCV/double-fcmp.ll             |   299 -
+ test/CodeGen/RISCV/double-frem.ll             |    16 -
+ test/CodeGen/RISCV/double-imm.ll              |    38 -
+ test/CodeGen/RISCV/double-intrinsics.ll       |   442 -
+ test/CodeGen/RISCV/double-mem.ll              |   185 -
+ test/CodeGen/RISCV/double-previous-failure.ll |    65 -
+ test/CodeGen/RISCV/double-select-fcmp.ll      |   423 -
+ .../RISCV/double-stack-spill-restore.ll       |    45 -
+ test/CodeGen/RISCV/fixups-diff.ll             |    46 -
+ test/CodeGen/RISCV/fixups-relax-diff.ll       |    20 -
+ test/CodeGen/RISCV/float-arith.ll             |   267 -
+ test/CodeGen/RISCV/float-br-fcmp.ll           |   494 -
+ test/CodeGen/RISCV/float-convert.ll           |    72 -
+ test/CodeGen/RISCV/float-fcmp.ll              |   215 -
+ test/CodeGen/RISCV/float-frem.ll              |    16 -
+ test/CodeGen/RISCV/float-imm.ll               |    27 -
+ test/CodeGen/RISCV/float-intrinsics.ll        |   375 -
+ test/CodeGen/RISCV/float-mem.ll               |   133 -
+ test/CodeGen/RISCV/float-select-fcmp.ll       |   304 -
+ test/CodeGen/RISCV/flt-rounds.ll              |    21 -
+ test/CodeGen/RISCV/fp128.ll                   |    97 -
+ test/CodeGen/RISCV/frame.ll                   |    54 -
+ test/CodeGen/RISCV/frameaddr-returnaddr.ll    |   152 -
+ test/CodeGen/RISCV/get-setcc-result-type.ll   |    31 -
+ test/CodeGen/RISCV/hoist-global-addr-base.ll  |   169 -
+ test/CodeGen/RISCV/i32-icmp.ll                |   134 -
+ test/CodeGen/RISCV/imm-cse.ll                 |    39 -
+ test/CodeGen/RISCV/imm.ll                     |   260 -
+ test/CodeGen/RISCV/indirectbr.ll              |    40 -
+ test/CodeGen/RISCV/init-array.ll              |    30 -
+ test/CodeGen/RISCV/inline-asm.ll              |    54 -
+ .../RISCV/interrupt-attr-args-error.ll        |    11 -
+ test/CodeGen/RISCV/interrupt-attr-invalid.ll  |    11 -
+ test/CodeGen/RISCV/interrupt-attr-nocall.ll   |   217 -
+ .../CodeGen/RISCV/interrupt-attr-ret-error.ll |    12 -
+ test/CodeGen/RISCV/interrupt-attr.ll          |  1066 --
+ test/CodeGen/RISCV/jumptable.ll               |    58 -
+ test/CodeGen/RISCV/large-stack.ll             |   172 -
+ test/CodeGen/RISCV/lit.local.cfg              |     2 -
+ test/CodeGen/RISCV/lsr-legaladdimm.ll         |    48 -
+ test/CodeGen/RISCV/mem.ll                     |   197 -
+ test/CodeGen/RISCV/mem64.ll                   |   226 -
+ test/CodeGen/RISCV/mul.ll                     |   175 -
+ test/CodeGen/RISCV/musttail-call.ll           |    20 -
+ test/CodeGen/RISCV/option-norelax.ll          |    16 -
+ test/CodeGen/RISCV/option-norvc.ll            |    15 -
+ test/CodeGen/RISCV/option-relax.ll            |    16 -
+ test/CodeGen/RISCV/option-rvc.ll              |    15 -
+ test/CodeGen/RISCV/prefetch.ll                |    19 -
+ test/CodeGen/RISCV/rem.ll                     |    41 -
+ test/CodeGen/RISCV/remat.ll                   |   200 -
+ test/CodeGen/RISCV/rotl-rotr.ll               |    38 -
+ .../CodeGen/RISCV/rv64i-exhaustive-w-insts.ll |  1769 ---
+ test/CodeGen/RISCV/rv64i-tricky-shifts.ll     |    44 -
+ test/CodeGen/RISCV/select-cc.ll               |   100 -
+ test/CodeGen/RISCV/sext-zext-trunc.ll         |   438 -
+ test/CodeGen/RISCV/shift-masked-shamt.ll      |    70 -
+ test/CodeGen/RISCV/shifts.ll                  |    45 -
+ test/CodeGen/RISCV/tail-calls.ll              |   148 -
+ .../RISCV/umulo-128-legalisation-lowering.ll  |   138 -
+ test/CodeGen/RISCV/vararg.ll                  |   819 --
+ test/CodeGen/RISCV/wide-mem.ll                |    30 -
+ test/CodeGen/RISCV/zext-with-load-is-free.ll  |    76 -
+ test/DebugInfo/RISCV/lit.local.cfg            |     2 -
+ test/DebugInfo/RISCV/relax-debug-line.ll      |    75 -
+ test/MC/Disassembler/RISCV/fuzzer-invalid.txt |     8 -
+ .../RISCV/invalid-fp-rounding-mode.txt        |     9 -
+ .../RISCV/invalid-instruction.txt             |     9 -
+ test/MC/Disassembler/RISCV/lit.local.cfg      |     3 -
+ .../RISCV/unknown-fence-field.txt             |     9 -
+ test/MC/RISCV/cnop.s                          |    27 -
+ test/MC/RISCV/compress-cjal.s                 |    17 -
+ test/MC/RISCV/compress-rv32d.s                |    44 -
+ test/MC/RISCV/compress-rv32f.s                |    32 -
+ test/MC/RISCV/compress-rv32i.s                |   219 -
+ test/MC/RISCV/compress-rv64i.s                |    60 -
+ test/MC/RISCV/compressed-relocations.s        |    22 -
+ test/MC/RISCV/csr-aliases.s                   |   117 -
+ test/MC/RISCV/data-directives-invalid.s       |    23 -
+ test/MC/RISCV/data-directives-valid.s         |    32 -
+ test/MC/RISCV/elf-flags.s                     |    13 -
+ test/MC/RISCV/elf-header.s                    |    42 -
+ test/MC/RISCV/fixups-compressed.s             |    25 -
+ test/MC/RISCV/fixups-diagnostics.s            |    18 -
+ test/MC/RISCV/fixups-expr.s                   |    47 -
+ test/MC/RISCV/fixups.s                        |    83 -
+ test/MC/RISCV/function-call-invalid.s         |    11 -
+ test/MC/RISCV/function-call.s                 |    45 -
+ test/MC/RISCV/hilo-constaddr-expr.s           |    31 -
+ test/MC/RISCV/hilo-constaddr.s                |    17 -
+ test/MC/RISCV/linker-relaxation.s             |    26 -
+ test/MC/RISCV/lit.local.cfg                   |     3 -
+ test/MC/RISCV/lla-invalid.s                   |     6 -
+ test/MC/RISCV/machine-csr-names-invalid.s     |    40 -
+ test/MC/RISCV/machine-csr-names.s             |  1229 --
+ test/MC/RISCV/option-invalid.s                |    26 -
+ test/MC/RISCV/option-pushpop.s                |    74 -
+ test/MC/RISCV/option-relax.s                  |    66 -
+ test/MC/RISCV/option-rvc.s                    |    90 -
+ test/MC/RISCV/pcrel-lo12-invalid.s            |     5 -
+ test/MC/RISCV/priv-invalid.s                  |     7 -
+ test/MC/RISCV/priv-valid.s                    |    34 -
+ test/MC/RISCV/relocations.s                   |    76 -
+ test/MC/RISCV/rv32-machine-csr-names.s        |   474 -
+ test/MC/RISCV/rv32-relaxation.s               |   127 -
+ test/MC/RISCV/rv32-user-csr-names.s           |   457 -
+ test/MC/RISCV/rv32a-invalid.s                 |    17 -
+ test/MC/RISCV/rv32a-valid.s                   |   148 -
+ test/MC/RISCV/rv32c-aliases-valid.s           |    65 -
+ test/MC/RISCV/rv32c-fuzzed-invalid.s          |    17 -
+ test/MC/RISCV/rv32c-invalid.s                 |    92 -
+ test/MC/RISCV/rv32c-only-valid.s              |    19 -
+ test/MC/RISCV/rv32c-valid.s                   |   108 -
+ test/MC/RISCV/rv32d-invalid.s                 |    21 -
+ test/MC/RISCV/rv32d-valid.s                   |   161 -
+ test/MC/RISCV/rv32dc-invalid.s                |    12 -
+ test/MC/RISCV/rv32dc-valid.s                  |    29 -
+ test/MC/RISCV/rv32f-invalid.s                 |    34 -
+ test/MC/RISCV/rv32f-valid.s                   |   166 -
+ test/MC/RISCV/rv32fc-invalid.s                |    12 -
+ test/MC/RISCV/rv32fc-valid.s                  |    35 -
+ test/MC/RISCV/rv32i-aliases-invalid.s         |    23 -
+ test/MC/RISCV/rv32i-aliases-valid.s           |    80 -
+ test/MC/RISCV/rv32i-invalid.s                 |   176 -
+ test/MC/RISCV/rv32i-valid.s                   |   275 -
+ test/MC/RISCV/rv32m-invalid.s                 |     9 -
+ test/MC/RISCV/rv32m-valid.s                   |    35 -
+ test/MC/RISCV/rv64-machine-csr-names.s        |   246 -
+ test/MC/RISCV/rv64-relaxation.s               |   104 -
+ test/MC/RISCV/rv64-user-csr-names.s           |   236 -
+ test/MC/RISCV/rv64a-invalid.s                 |    14 -
+ test/MC/RISCV/rv64a-valid.s                   |   193 -
+ test/MC/RISCV/rv64c-aliases-valid.s           |    96 -
+ test/MC/RISCV/rv64c-invalid.s                 |    32 -
+ test/MC/RISCV/rv64c-valid.s                   |    62 -
+ test/MC/RISCV/rv64d-aliases-valid.s           |    27 -
+ test/MC/RISCV/rv64d-invalid.s                 |    11 -
+ test/MC/RISCV/rv64d-valid.s                   |    53 -
+ test/MC/RISCV/rv64dc-valid.s                  |    29 -
+ test/MC/RISCV/rv64f-aliases-valid.s           |    27 -
+ test/MC/RISCV/rv64f-invalid.s                 |     9 -
+ test/MC/RISCV/rv64f-valid.s                   |    41 -
+ test/MC/RISCV/rv64i-aliases-invalid.s         |    28 -
+ test/MC/RISCV/rv64i-aliases-valid.s           |   131 -
+ test/MC/RISCV/rv64i-invalid.s                 |    20 -
+ test/MC/RISCV/rv64i-valid.s                   |    99 -
+ test/MC/RISCV/rv64m-valid.s                   |    21 -
+ test/MC/RISCV/rvd-aliases-valid.s             |    85 -
+ test/MC/RISCV/rvf-aliases-valid.s             |   139 -
+ test/MC/RISCV/rvf-user-csr-names.s            |    71 -
+ test/MC/RISCV/rvi-aliases-valid.s             |   247 -
+ test/MC/RISCV/rvi-pseudos.s                   |    28 -
+ test/MC/RISCV/supervisor-csr-names.s          |   193 -
+ test/MC/RISCV/tail-call-invalid.s             |    12 -
+ test/MC/RISCV/tail-call.s                     |    47 -
+ test/MC/RISCV/user-csr-names-invalid.s        |    47 -
+ test/MC/RISCV/user-csr-names.s                |   587 -
+ test/Object/RISCV/elf-flags.yaml              |    24 -
+ test/Object/RISCV/lit.local.cfg               |     2 -
+ .../SimplifyCFG/RISCV/lit.local.cfg           |     5 -
+ .../SimplifyCFG/RISCV/select-trunc-i64.ll     |    28 -
+ tools/llvm-readobj/ELFDumper.cpp              |    13 -
+ unittests/ADT/TripleTest.cpp                  |    36 -
+ utils/TableGen/CMakeLists.txt                 |     1 -
+ utils/TableGen/RISCVCompressInstEmitter.cpp   |   810 --
+ utils/TableGen/TableGen.cpp                   |     6 -
+ utils/TableGen/TableGenBackends.h             |     1 -
+ utils/UpdateTestChecks/asm.py                 |    18 -
+ utils/gn/secondary/clang/lib/Basic/BUILD.gn   |     1 -
+ utils/gn/secondary/clang/lib/Driver/BUILD.gn  |     2 -
+ utils/gn/secondary/lld/ELF/BUILD.gn           |     1 -
+ .../gn/secondary/llvm/utils/TableGen/BUILD.gn |     1 -
+ 292 files changed, 51278 deletions(-)
  delete mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  delete mode 100644 include/llvm/IR/IntrinsicsRISCV.td
  delete mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
@@ -499,6 +502,7 @@ basis.
  delete mode 100644 test/MC/RISCV/option-pushpop.s
  delete mode 100644 test/MC/RISCV/option-relax.s
  delete mode 100644 test/MC/RISCV/option-rvc.s
+ delete mode 100644 test/MC/RISCV/pcrel-lo12-invalid.s
  delete mode 100644 test/MC/RISCV/priv-invalid.s
  delete mode 100644 test/MC/RISCV/priv-valid.s
  delete mode 100644 test/MC/RISCV/relocations.s
@@ -838,7 +842,7 @@ index 3b6e2a8a0ba..5c3f4594f55 100644
      textual header "BinaryFormat/ELFRelocs/SystemZ.def"
      textual header "BinaryFormat/ELFRelocs/x86_64.def"
 diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 96d1c3d75e4..6a6dd7a023c 100644
+index 096d2ab5d82..a8bb3f897ac 100644
 --- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 +++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
 @@ -1063,11 +1063,6 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
@@ -949,7 +953,7 @@ index 9fb3a55ac7b..791914b62e8 100644
      return SubtargetFeatures();
    }
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index b9f52432fc8..26ab8d72b01 100644
+index 215d6bdd091..c37a2e07232 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -214,7 +214,6 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -3350,10 +3354,10 @@ index 92daae30e3f..00000000000
 -add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 deleted file mode 100644
-index 49239ac9099..00000000000
+index 7672fea5d95..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ /dev/null
-@@ -1,263 +0,0 @@
+@@ -1,302 +0,0 @@
 -//===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3364,6 +3368,7 @@ index 49239ac9099..00000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "RISCVAsmBackend.h"
+-#include "RISCVMCExpr.h"
 -#include "llvm/ADT/APInt.h"
 -#include "llvm/MC/MCAssembler.h"
 -#include "llvm/MC/MCContext.h"
@@ -3376,6 +3381,44 @@ index 49239ac9099..00000000000
 -#include "llvm/Support/raw_ostream.h"
 -
 -using namespace llvm;
+-
+-// If linker relaxation is enabled, or the relax option had previously been
+-// enabled, always emit relocations even if the fixup can be resolved. This is
+-// necessary for correctness as offsets may change during relaxation.
+-bool RISCVAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
+-                                            const MCFixup &Fixup,
+-                                            const MCValue &Target) {
+-  bool ShouldForce = false;
+-
+-  switch ((unsigned)Fixup.getKind()) {
+-  default:
+-    break;
+-  case RISCV::fixup_riscv_pcrel_lo12_i:
+-  case RISCV::fixup_riscv_pcrel_lo12_s:
+-    // For pcrel_lo12, force a relocation if the target of the corresponding
+-    // pcrel_hi20 is not in the same fragment.
+-    const MCFixup *T = cast<RISCVMCExpr>(Fixup.getValue())->getPCRelHiFixup();
+-    if (!T) {
+-      Asm.getContext().reportError(Fixup.getLoc(),
+-                                   "could not find corresponding %pcrel_hi");
+-      return false;
+-    }
+-
+-    switch ((unsigned)T->getKind()) {
+-    default:
+-      llvm_unreachable("Unexpected fixup kind for pcrel_lo12");
+-      break;
+-    case RISCV::fixup_riscv_pcrel_hi20:
+-      ShouldForce = T->getValue()->findAssociatedFragment() !=
+-                    Fixup.getValue()->findAssociatedFragment();
+-      break;
+-    }
+-    break;
+-  }
+-
+-  return ShouldForce || STI.getFeatureBits()[RISCV::FeatureRelax] ||
+-         ForceRelocs;
+-}
 -
 -bool RISCVAsmBackend::fixupNeedsRelaxationAdvanced(const MCFixup &Fixup,
 -                                                   bool Resolved,
@@ -3619,10 +3662,10 @@ index 49239ac9099..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.h b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.h
 deleted file mode 100644
-index 5601f07f926..00000000000
+index b98e45f4053..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.h
 +++ /dev/null
-@@ -1,118 +0,0 @@
+@@ -1,113 +0,0 @@
 -//===-- RISCVAsmBackend.h - RISCV Assembler Backend -----------------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -3674,13 +3717,8 @@ index 5601f07f926..00000000000
 -  std::unique_ptr<MCObjectTargetWriter>
 -  createObjectTargetWriter() const override;
 -
--  // If linker relaxation is enabled, or the relax option had previously been
--  // enabled, always emit relocations even if the fixup can be resolved. This is
--  // necessary for correctness as offsets may change during relaxation.
 -  bool shouldForceRelocation(const MCAssembler &Asm, const MCFixup &Fixup,
--                             const MCValue &Target) override {
--    return STI.getFeatureBits()[RISCV::FeatureRelax] || ForceRelocs;
--  }
+-                             const MCValue &Target) override;
 -
 -  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
 -                            const MCRelaxableFragment *DF,
@@ -4362,10 +4400,10 @@ index c5a4ffc0e36..00000000000
 -#include "RISCVGenMCCodeEmitter.inc"
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
 deleted file mode 100644
-index ad8357f9cfc..00000000000
+index 53648a5922c..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
 +++ /dev/null
-@@ -1,120 +0,0 @@
+@@ -1,202 +0,0 @@
 -//===-- RISCVMCExpr.cpp - RISCV specific MC expression classes ------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -4382,6 +4420,7 @@ index ad8357f9cfc..00000000000
 -
 -#include "RISCV.h"
 -#include "RISCVMCExpr.h"
+-#include "RISCVFixupKinds.h"
 -#include "llvm/MC/MCAssembler.h"
 -#include "llvm/MC/MCContext.h"
 -#include "llvm/MC/MCStreamer.h"
@@ -4408,9 +4447,90 @@ index ad8357f9cfc..00000000000
 -    OS << ')';
 -}
 -
+-const MCFixup *RISCVMCExpr::getPCRelHiFixup() const {
+-  MCValue AUIPCLoc;
+-  if (!getSubExpr()->evaluateAsRelocatable(AUIPCLoc, nullptr, nullptr))
+-    return nullptr;
+-
+-  const MCSymbolRefExpr *AUIPCSRE = AUIPCLoc.getSymA();
+-  if (!AUIPCSRE)
+-    return nullptr;
+-
+-  const auto *DF =
+-      dyn_cast_or_null<MCDataFragment>(AUIPCSRE->findAssociatedFragment());
+-  if (!DF)
+-    return nullptr;
+-
+-  const MCSymbol *AUIPCSymbol = &AUIPCSRE->getSymbol();
+-  for (const MCFixup &F : DF->getFixups()) {
+-    if (F.getOffset() != AUIPCSymbol->getOffset())
+-      continue;
+-
+-    switch ((unsigned)F.getKind()) {
+-    default:
+-      continue;
+-    case RISCV::fixup_riscv_pcrel_hi20:
+-      return &F;
+-    }
+-  }
+-
+-  return nullptr;
+-}
+-
+-bool RISCVMCExpr::evaluatePCRelLo(MCValue &Res, const MCAsmLayout *Layout,
+-                                  const MCFixup *Fixup) const {
+-  // VK_RISCV_PCREL_LO has to be handled specially.  The MCExpr inside is
+-  // actually the location of a auipc instruction with a VK_RISCV_PCREL_HI fixup
+-  // pointing to the real target.  We need to generate an MCValue in the form of
+-  // (<real target> + <offset from this fixup to the auipc fixup>).  The Fixup
+-  // is pcrel relative to the VK_RISCV_PCREL_LO fixup, so we need to add the
+-  // offset to the VK_RISCV_PCREL_HI Fixup from VK_RISCV_PCREL_LO to correct.
+-  MCValue AUIPCLoc;
+-  if (!getSubExpr()->evaluateAsValue(AUIPCLoc, *Layout))
+-    return false;
+-
+-  const MCSymbolRefExpr *AUIPCSRE = AUIPCLoc.getSymA();
+-  // Don't try to evaluate %pcrel_hi/%pcrel_lo pairs that cross fragment
+-  // boundries.
+-  if (!AUIPCSRE ||
+-      findAssociatedFragment() != AUIPCSRE->findAssociatedFragment())
+-    return false;
+-
+-  const MCSymbol *AUIPCSymbol = &AUIPCSRE->getSymbol();
+-  if (!AUIPCSymbol)
+-    return false;
+-
+-  const MCFixup *TargetFixup = getPCRelHiFixup();
+-  if (!TargetFixup)
+-    return false;
+-
+-  if ((unsigned)TargetFixup->getKind() != RISCV::fixup_riscv_pcrel_hi20)
+-    return false;
+-
+-  MCValue Target;
+-  if (!TargetFixup->getValue()->evaluateAsValue(Target, *Layout))
+-    return false;
+-
+-  if (!Target.getSymA() || !Target.getSymA()->getSymbol().isInSection())
+-    return false;
+-
+-  if (&Target.getSymA()->getSymbol().getSection() !=
+-      findAssociatedFragment()->getParent())
+-    return false;
+-
+-  uint64_t AUIPCOffset = AUIPCSymbol->getOffset();
+-
+-  Res = MCValue::get(Target.getSymA(), nullptr,
+-                     Target.getConstant() + (Fixup->getOffset() - AUIPCOffset));
+-  return true;
+-}
+-
 -bool RISCVMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
 -                                            const MCAsmLayout *Layout,
 -                                            const MCFixup *Fixup) const {
+-  if (Kind == VK_RISCV_PCREL_LO && evaluatePCRelLo(Res, Layout, Fixup))
+-    return true;
+-
 -  if (!getSubExpr()->evaluateAsRelocatable(Res, Layout, Fixup))
 -    return false;
 -
@@ -4488,10 +4608,10 @@ index ad8357f9cfc..00000000000
 -}
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h b/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
 deleted file mode 100644
-index d2e0f6b6cda..00000000000
+index 4eafcc08b51..00000000000
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h
 +++ /dev/null
-@@ -1,78 +0,0 @@
+@@ -1,88 +0,0 @@
 -//===-- RISCVMCExpr.h - RISCV specific MC expression classes ----*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -4533,6 +4653,9 @@ index d2e0f6b6cda..00000000000
 -
 -  int64_t evaluateAsInt64(int64_t Value) const;
 -
+-  bool evaluatePCRelLo(MCValue &Res, const MCAsmLayout *Layout,
+-                       const MCFixup *Fixup) const;
+-
 -  explicit RISCVMCExpr(const MCExpr *Expr, VariantKind Kind)
 -      : Expr(Expr), Kind(Kind) {}
 -
@@ -4543,6 +4666,13 @@ index d2e0f6b6cda..00000000000
 -  VariantKind getKind() const { return Kind; }
 -
 -  const MCExpr *getSubExpr() const { return Expr; }
+-
+-  /// Get the MCExpr of the VK_RISCV_PCREL_HI Fixup that the
+-  /// VK_RISCV_PCREL_LO points to.
+-  ///
+-  /// \returns nullptr if this isn't a VK_RISCV_PCREL_LO pointing to a
+-  /// VK_RISCV_PCREL_HI.
+-  const MCFixup *getPCRelHiFixup() const;
 -
 -  void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
 -  bool evaluateAsRelocatableImpl(MCValue &Res, const MCAsmLayout *Layout,
@@ -44819,10 +44949,10 @@ index 303b25c4832..00000000000
 -# NORELAX-NOT: R_RISCV
 diff --git a/test/MC/RISCV/fixups.s b/test/MC/RISCV/fixups.s
 deleted file mode 100644
-index 0f5432dd117..00000000000
+index f0377debabb..00000000000
 --- a/test/MC/RISCV/fixups.s
 +++ /dev/null
-@@ -1,72 +0,0 @@
+@@ -1,83 +0,0 @@
 -# RUN: llvm-mc -triple riscv32 -riscv-no-aliases < %s -show-encoding \
 -# RUN:     | FileCheck -check-prefix=CHECK-FIXUP %s
 -# RUN: llvm-mc -filetype=obj -triple riscv32 < %s \
@@ -44849,15 +44979,26 @@ index 0f5432dd117..00000000000
 -# CHECK-FIXUP: fixup A - offset: 0, value: %lo(val), kind: fixup_riscv_lo12_s
 -# CHECK-INSTR: sw a0, 1656(t1)
 -
+-1:
+-auipc t1, %pcrel_hi(.LBB0)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %pcrel_hi(.LBB0), kind: fixup_riscv_pcrel_hi20
+-# CHECK-INSTR: auipc t1, 0
+-addi t1, t1, %pcrel_lo(1b)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %pcrel_lo(.Ltmp0), kind: fixup_riscv_pcrel_lo12_i
+-# CHECK-INSTR: addi t1, t1, -16
+-sw t1, %pcrel_lo(1b)(t1)
+-# CHECK-FIXUP: fixup A - offset: 0, value: %pcrel_lo(.Ltmp0), kind: fixup_riscv_pcrel_lo12_s
+-# CHECK-INSTR: sw t1, -16(t1)
+-
 -jal zero, .LBB0
 -# CHECK-FIXUP: fixup A - offset: 0, value: .LBB0, kind: fixup_riscv_jal
--# CHECK-INSTR: jal zero, -16
+-# CHECK-INSTR: jal zero, -28
 -jal zero, .LBB2
 -# CHECK-FIXUP: fixup A - offset: 0, value: .LBB2, kind: fixup_riscv_jal
 -# CHECK-INSTR: jal zero, 330996
 -beq a0, a1, .LBB0
 -# CHECK-FIXUP: fixup A - offset: 0, value: .LBB0, kind: fixup_riscv_branch
--# CHECK-INSTR: beq a0, a1, -24
+-# CHECK-INSTR: beq a0, a1, -36
 -blt a0, a1, .LBB1
 -# CHECK-FIXUP: fixup A - offset: 0, value: .LBB1, kind: fixup_riscv_branch
 -# CHECK-INSTR: blt a0, a1, 1108
@@ -46638,6 +46779,17 @@ index 129eae5bf79..00000000000
 -# CHECK-INST: addi s0, sp, 1020
 -# CHECK: # encoding:  [0x13,0x04,0xc1,0x3f]
 -addi s0, sp, 1020
+diff --git a/test/MC/RISCV/pcrel-lo12-invalid.s b/test/MC/RISCV/pcrel-lo12-invalid.s
+deleted file mode 100644
+index 7cf2494ad8e..00000000000
+--- a/test/MC/RISCV/pcrel-lo12-invalid.s
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# RUN: not llvm-mc -triple riscv32 -mattr=-relax -filetype obj < %s -o /dev/null 2>&1 | FileCheck %s
+-# RUN: not llvm-mc -triple riscv32 -mattr=+relax -filetype obj < %s -o /dev/null 2>&1 | FileCheck %s
+-
+-1:
+-  addi a0, a0, %pcrel_lo(1b) # CHECK: :[[@LINE]]:3: error: could not find corresponding %pcrel_hi
 diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
 deleted file mode 100644
 index 8f421e471f9..00000000000
@@ -46693,10 +46845,10 @@ index 88d35f2f9ff..00000000000
 -sfence.vma a0, a1
 diff --git a/test/MC/RISCV/relocations.s b/test/MC/RISCV/relocations.s
 deleted file mode 100644
-index b68b11bf195..00000000000
+index a879c9a54ad..00000000000
 --- a/test/MC/RISCV/relocations.s
 +++ /dev/null
-@@ -1,85 +0,0 @@
+@@ -1,76 +0,0 @@
 -# RUN: llvm-mc -triple riscv32 -riscv-no-aliases < %s -show-encoding \
 -# RUN:     | FileCheck -check-prefix=INSTR -check-prefix=FIXUP %s
 -# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+c < %s \
@@ -46743,6 +46895,7 @@ index b68b11bf195..00000000000
 -# INSTR: sb t1, %lo(foo+4)(a2)
 -# FIXUP: fixup A - offset: 0, value: %lo(foo+4), kind: fixup_riscv_lo12_s
 -
+-.L0:
 -auipc t1, %pcrel_hi(foo)
 -# RELOC: R_RISCV_PCREL_HI20 foo 0x0
 -# INSTR: auipc t1, %pcrel_hi(foo)
@@ -46753,25 +46906,15 @@ index b68b11bf195..00000000000
 -# INSTR: auipc t1, %pcrel_hi(foo+4)
 -# FIXUP: fixup A - offset: 0, value: %pcrel_hi(foo+4), kind: fixup_riscv_pcrel_hi20
 -
--addi t1, t1, %pcrel_lo(foo)
--# RELOC: R_RISCV_PCREL_LO12_I foo 0x0
--# INSTR: addi t1, t1, %pcrel_lo(foo)
--# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo), kind: fixup_riscv_pcrel_lo12_i
+-addi t1, t1, %pcrel_lo(.L0)
+-# RELOC: R_RISCV_PCREL_LO12_I .L0 0x0
+-# INSTR: addi t1, t1, %pcrel_lo(.L0)
+-# FIXUP: fixup A - offset: 0, value: %pcrel_lo(.L0), kind: fixup_riscv_pcrel_lo12_i
 -
--addi t1, t1, %pcrel_lo(foo+4)
--# RELOC: R_RISCV_PCREL_LO12_I foo 0x4
--# INSTR: addi t1, t1, %pcrel_lo(foo+4)
--# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo+4), kind: fixup_riscv_pcrel_lo12_i
--
--sb t1, %pcrel_lo(foo)(a2)
--# RELOC: R_RISCV_PCREL_LO12_S foo 0x0
--# INSTR: sb t1, %pcrel_lo(foo)(a2)
--# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo), kind: fixup_riscv_pcrel_lo12_s
--
--sb t1, %pcrel_lo(foo+4)(a2)
--# RELOC: R_RISCV_PCREL_LO12_S foo 0x4
--# INSTR: sb t1, %pcrel_lo(foo+4)(a2)
--# FIXUP: fixup A - offset: 0, value: %pcrel_lo(foo+4), kind: fixup_riscv_pcrel_lo12_s
+-sb t1, %pcrel_lo(.L0)(a2)
+-# RELOC: R_RISCV_PCREL_LO12_S .L0 0x0
+-# INSTR: sb t1, %pcrel_lo(.L0)(a2)
+-# FIXUP: fixup A - offset: 0, value: %pcrel_lo(.L0), kind: fixup_riscv_pcrel_lo12_s
 -
 -jal zero, foo
 -# RELOC: R_RISCV_JAL
@@ -52717,7 +52860,7 @@ index e5272b2af86..00000000000
 -  ret i32 %cond8.off0
 -}
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index b1b0b6f3a35..b4043b23821 100644
+index 6b69f7e844e..54e82c01ca3 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -1084,7 +1084,6 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -53736,6 +53879,38 @@ index 923efd5bbef..76ae67566da 100644
        'sparc': (scrub_asm_sparc, ASM_FUNCTION_SPARC_RE),
        'sparcv9': (scrub_asm_sparc, ASM_FUNCTION_SPARC_RE),
        's390x': (scrub_asm_systemz, ASM_FUNCTION_SYSTEMZ_RE),
+diff --git a/utils/gn/secondary/clang/lib/Basic/BUILD.gn b/utils/gn/secondary/clang/lib/Basic/BUILD.gn
+index 60323db120a..a4f561fde77 100644
+--- a/utils/gn/secondary/clang/lib/Basic/BUILD.gn
++++ b/utils/gn/secondary/clang/lib/Basic/BUILD.gn
+@@ -62,7 +62,6 @@ static_library("Basic") {
+     "Targets/OSTargets.cpp",
+     "Targets/PNaCl.cpp",
+     "Targets/PPC.cpp",
+-    "Targets/RISCV.cpp",
+     "Targets/SPIR.cpp",
+     "Targets/Sparc.cpp",
+     "Targets/SystemZ.cpp",
+diff --git a/utils/gn/secondary/clang/lib/Driver/BUILD.gn b/utils/gn/secondary/clang/lib/Driver/BUILD.gn
+index ce80af8e179..bb11844d8a8 100644
+--- a/utils/gn/secondary/clang/lib/Driver/BUILD.gn
++++ b/utils/gn/secondary/clang/lib/Driver/BUILD.gn
+@@ -47,7 +47,6 @@ static_library("Driver") {
+     "ToolChains/Arch/ARM.cpp",
+     "ToolChains/Arch/Mips.cpp",
+     "ToolChains/Arch/PPC.cpp",
+-    "ToolChains/Arch/RISCV.cpp",
+     "ToolChains/Arch/Sparc.cpp",
+     "ToolChains/Arch/SystemZ.cpp",
+     "ToolChains/Arch/X86.cpp",
+@@ -77,7 +76,6 @@ static_library("Driver") {
+     "ToolChains/NetBSD.cpp",
+     "ToolChains/OpenBSD.cpp",
+     "ToolChains/PS4CPU.cpp",
+-    "ToolChains/RISCVToolchain.cpp",
+     "ToolChains/Solaris.cpp",
+     "ToolChains/TCE.cpp",
+     "ToolChains/WebAssembly.cpp",
 diff --git a/utils/gn/secondary/lld/ELF/BUILD.gn b/utils/gn/secondary/lld/ELF/BUILD.gn
 index d5f8a899995..0829d82e582 100644
 --- a/utils/gn/secondary/lld/ELF/BUILD.gn
@@ -53761,5 +53936,5 @@ index 01219543d2d..232e6e47a94 100644
      "RegisterInfoEmitter.cpp",
      "SDNodeProperties.cpp",
 -- 
-2.16.2
+2.17.2
 

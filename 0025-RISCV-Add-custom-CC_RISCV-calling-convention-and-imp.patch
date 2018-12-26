@@ -19,13 +19,13 @@ but this will require further discussion within the LLVM community.
 ---
  lib/Target/RISCV/CMakeLists.txt              |   1 -
  lib/Target/RISCV/RISCVCallingConv.td         |  16 +-
- lib/Target/RISCV/RISCVISelLowering.cpp       | 395 +++++++++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp       | 395 +++++++++-
  lib/Target/RISCV/RISCVISelLowering.h         |  10 +
- test/CodeGen/RISCV/byval.ll                  |  61 +++
- test/CodeGen/RISCV/calling-conv-sext-zext.ll | 496 ++++++++++++++++++
- test/CodeGen/RISCV/calling-conv.ll           | 719 +++++++++++++++++++++++++++
+ test/CodeGen/RISCV/byval.ll                  |  61 ++
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll | 496 +++++++++++++
+ test/CodeGen/RISCV/calling-conv.ll           | 719 +++++++++++++++++++
  test/CodeGen/RISCV/calls.ll                  |  82 ++-
- test/CodeGen/RISCV/fp128.ll                  | 134 +++++
+ test/CodeGen/RISCV/fp128.ll                  | 134 ++++
  9 files changed, 1864 insertions(+), 50 deletions(-)
  create mode 100644 test/CodeGen/RISCV/byval.ll
  create mode 100644 test/CodeGen/RISCV/calling-conv-sext-zext.ll
@@ -2129,5 +2129,5 @@ index 00000000000..32e559b75b5
 +  ret i32 %4
 +}
 -- 
-2.16.2
+2.17.2
 

@@ -5,12 +5,12 @@ Subject: [RISCV] Implement branch analysis
 This is a prerequisite for the branch relaxation pass, and allows a number of
 optimisation passes (e.g. BranchFolding and MachineBlockPlacement) to work.
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp         | 166 ++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp         | 166 ++++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.h           |  16 ++
- test/CodeGen/RISCV/analyze-branch.ll        |  91 +++++++++++
- test/CodeGen/RISCV/branch.ll                |  33 ++--
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 228 ++++++++++++++--------------
- test/CodeGen/RISCV/jumptable.ll             |  45 +++---
+ test/CodeGen/RISCV/analyze-branch.ll        |  91 ++++++++
+ test/CodeGen/RISCV/branch.ll                |  33 +--
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 228 ++++++++++----------
+ test/CodeGen/RISCV/jumptable.ll             |  45 ++--
  test/CodeGen/RISCV/select-cc.ll             |   2 +-
  7 files changed, 422 insertions(+), 159 deletions(-)
  create mode 100644 test/CodeGen/RISCV/analyze-branch.ll
@@ -791,5 +791,5 @@ index 2a9a0080e4c..580372a6783 100644
  
  define i32 @foo(i32 %a, i32 *%b) {
 -- 
-2.16.2
+2.17.2
 

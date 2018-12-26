@@ -3,13 +3,13 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen support for memory operations on global addresses
 
 ---
- lib/Target/RISCV/RISCV.h               | 12 ++++--
- lib/Target/RISCV/RISCVAsmPrinter.cpp   |  7 +++-
- lib/Target/RISCV/RISCVISelLowering.cpp | 25 +++++++++++
+ lib/Target/RISCV/RISCV.h               | 12 +++-
+ lib/Target/RISCV/RISCVAsmPrinter.cpp   |  7 ++-
+ lib/Target/RISCV/RISCVISelLowering.cpp | 25 +++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  1 +
- lib/Target/RISCV/RISCVMCInstLower.cpp  | 76 ++++++++++++++++++++++++++--------
- test/CodeGen/RISCV/mem.ll              | 25 +++++++++++
- test/CodeGen/RISCV/wide-mem.ll         | 18 ++++++++
+ lib/Target/RISCV/RISCVMCInstLower.cpp  | 76 ++++++++++++++++++++------
+ test/CodeGen/RISCV/mem.ll              | 25 +++++++++
+ test/CodeGen/RISCV/wide-mem.ll         | 18 ++++++
  7 files changed, 142 insertions(+), 22 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCV.h b/lib/Target/RISCV/RISCV.h
@@ -281,5 +281,5 @@ index 93239315261..cbb89f631a5 100644
 +  ret i64 %1
 +}
 -- 
-2.16.2
+2.17.2
 

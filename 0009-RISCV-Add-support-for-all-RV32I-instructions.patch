@@ -8,14 +8,14 @@ expansions (e.g. 0-arg fence -> fence iorw, iorw).
 
 Differential Revision: https://reviews.llvm.org/D23566
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 156 +++++++++++++++++--
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  14 ++
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   1 +
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 +++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  19 +++
- lib/Target/RISCV/RISCVInstrInfo.td                 | 165 ++++++++++++++++++++-
- test/MC/RISCV/rv32i-invalid.s                      |  50 ++++++-
- test/MC/RISCV/rv32i-valid.s                        | 150 +++++++++++++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 156 +++++++++++++++--
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |  14 ++
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      |   1 +
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |  54 ++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  19 ++
+ lib/Target/RISCV/RISCVInstrInfo.td            | 165 +++++++++++++++++-
+ test/MC/RISCV/rv32i-invalid.s                 |  50 +++++-
+ test/MC/RISCV/rv32i-valid.s                   | 150 ++++++++++++++++
  8 files changed, 592 insertions(+), 17 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
@@ -478,7 +478,7 @@ index 1abee900937..c7efb73d1ab 100644
  // Instruction Class Templates
  //===----------------------------------------------------------------------===//
  
- let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class BranchCC_rri<bits<3> funct3, string opcodestr>
 +    : RVInstB<funct3, OPC_BRANCH, (outs),
 +              (ins GPR:$rs1, GPR:$rs2, simm13_lsb0:$imm12),
@@ -501,18 +501,18 @@ index 1abee900937..c7efb73d1ab 100644
 +              (ins GPR:$rs2, GPR:$rs1, simm12:$imm12),
 +              opcodestr, "$rs2, ${imm12}(${rs1})">;
 +
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
  class ALU_ri<bits<3> funct3, string opcodestr>
      : RVInstI<funct3, OPC_OP_IMM, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
                opcodestr, "$rd, $rs1, $imm12">;
  
- let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
++let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 +class Shift_ri<bit arithshift, bits<3> funct3, string opcodestr>
 +    : RVInstIShift<arithshift, funct3, OPC_OP_IMM, (outs GPR:$rd),
 +                   (ins GPR:$rs1, uimm5:$shamt), opcodestr,
 +                   "$rd, $rs1, $shamt">;
 +
-+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
+ let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
  class ALU_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
      : RVInstR<funct7, funct3, OPC_OP, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                opcodestr, "$rd, $rs1, $rs2">;
@@ -865,5 +865,5 @@ index fc89cd42016..4c883e9a0ae 100644
 +# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 +csrrci t1, 0x140, 5
 -- 
-2.16.2
+2.17.2
 

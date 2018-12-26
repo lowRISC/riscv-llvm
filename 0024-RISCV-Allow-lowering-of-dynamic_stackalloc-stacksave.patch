@@ -3,8 +3,8 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Allow lowering of dynamic_stackalloc, stacksave, stackrestore
 
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp |  5 +++
- test/CodeGen/RISCV/alloca.ll           | 65 ++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp |  5 ++
+ test/CodeGen/RISCV/alloca.ll           | 65 ++++++++++++++++++++++++++
  2 files changed, 70 insertions(+)
  create mode 100644 test/CodeGen/RISCV/alloca.ll
 
@@ -101,5 +101,5 @@ index 00000000000..7815866f5c4
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

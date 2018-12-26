@@ -13,21 +13,21 @@ Also incorporates changes from:
 Differential Revision: https://reviews.llvm.org/D42132
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  48 ++++++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  62 ++++++++--
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  12 +-
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  22 +++-
- lib/Target/RISCV/RISCV.td                          |   7 ++
- lib/Target/RISCV/RISCVInstrFormats.td              |  16 ++-
- lib/Target/RISCV/RISCVInstrFormatsC.td             |  96 +++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- lib/Target/RISCV/RISCVInstrInfoC.td                | 132 +++++++++++++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td              |  30 +++++
- lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
- test/MC/RISCV/rv32c-invalid.s                      |  18 +++
- test/MC/RISCV/rv32c-valid.s                        |  23 ++++
- test/MC/RISCV/rv64c-invalid.s                      |  18 +++
- test/MC/RISCV/rv64c-valid.s                        |  30 +++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  48 +++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp  |  62 ++++++--
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |  12 +-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  22 ++-
+ lib/Target/RISCV/RISCV.td                     |   7 +
+ lib/Target/RISCV/RISCVInstrFormats.td         |  16 ++-
+ lib/Target/RISCV/RISCVInstrFormatsC.td        |  96 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 132 ++++++++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td         |  30 ++++
+ lib/Target/RISCV/RISCVSubtarget.h             |   2 +
+ test/MC/RISCV/rv32c-invalid.s                 |  18 +++
+ test/MC/RISCV/rv32c-valid.s                   |  23 +++
+ test/MC/RISCV/rv64c-invalid.s                 |  18 +++
+ test/MC/RISCV/rv64c-valid.s                   |  30 ++++
  15 files changed, 495 insertions(+), 22 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrFormatsC.td
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoC.td
@@ -726,5 +726,5 @@ index 00000000000..5efc7a9036a
 +# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.sd    a5, 248(a3)
 -- 
-2.16.2
+2.17.2
 

@@ -9,10 +9,10 @@ targeting a RISC-V variant with floating point enabled.
 Differential Revision: https://reviews.llvm.org/D41503
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |   8 +-
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h   |  19 ++--
- lib/Target/RISCV/RISCV.td                         |   5 +
- test/MC/RISCV/csr-aliases.s                       | 116 ++++++++++++++++++++++
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |   8 +-
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      |  19 +--
+ lib/Target/RISCV/RISCV.td                     |   5 +
+ test/MC/RISCV/csr-aliases.s                   | 116 ++++++++++++++++++
  4 files changed, 139 insertions(+), 9 deletions(-)
  create mode 100644 test/MC/RISCV/csr-aliases.s
 
@@ -236,5 +236,5 @@ index 00000000000..b07415744da
 +# CHECK-EXT-F-OFF: csrwi 1, 31
 +csrrwi zero, 1, 31
 -- 
-2.16.2
+2.17.2
 

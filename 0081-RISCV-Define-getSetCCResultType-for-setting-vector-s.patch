@@ -7,14 +7,14 @@ To avoid trigger "No default SetCC type for vectors!" Assertion
 Differential Revision: https://reviews.llvm.org/D42675
 Patch by Shiva Chen.
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      |  7 ++++++
- lib/Target/RISCV/RISCVISelLowering.h        |  3 +++
- test/CodeGen/RISCV/get-setcc-result-type.ll | 35 +++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp      |  7 +++++
+ lib/Target/RISCV/RISCVISelLowering.h        |  3 ++
+ test/CodeGen/RISCV/get-setcc-result-type.ll | 35 +++++++++++++++++++++
  3 files changed, 45 insertions(+)
  create mode 100644 test/CodeGen/RISCV/get-setcc-result-type.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 047e9f91e43..65201532fe3 100644
+index 87820d8fe43..012b5545f2d 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -229,6 +229,13 @@ void RISCVTargetLowering::computeKnownBitsForTargetNode(
@@ -87,5 +87,5 @@ index 00000000000..003f3b367cf
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

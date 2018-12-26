@@ -5,15 +5,15 @@ Subject: [RISCV] Add support for %pcrel_lo.
 Differential Revision: https://reviews.llvm.org/D42515
 Patch by Ahmed Charles.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  5 +++--
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 22 +++++++++++++---------
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++++
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 ++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  9 +++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  5 ++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  1 +
- test/MC/RISCV/relocations.s                        | 20 ++++++++++++++++++++
- test/MC/RISCV/rv32i-invalid.s                      |  9 +++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  5 +++--
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 22 +++++++++++--------
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  4 ++++
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  6 +++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  9 ++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp |  5 ++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h   |  1 +
+ test/MC/RISCV/relocations.s                   | 20 +++++++++++++++++
+ test/MC/RISCV/rv32i-invalid.s                 |  9 ++++++++
  9 files changed, 69 insertions(+), 12 deletions(-)
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
@@ -248,5 +248,5 @@ index 938298e4347..61c8dfc1826 100644
  # Unrecognized operand modifier
  addi t0, sp, %modifer(255) # CHECK: :[[@LINE]]:15: error: unrecognized operand modifier
 -- 
-2.16.2
+2.17.2
 

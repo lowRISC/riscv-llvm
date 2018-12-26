@@ -8,11 +8,11 @@ inputs.
  lib/Target/RISCV/RISCVISelLowering.cpp  |  17 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp     |  19 +-
  lib/Target/RISCV/RISCVInstrInfo.td      |  13 +-
- lib/Target/RISCV/RISCVInstrInfoF.td     |  16 ++
+ lib/Target/RISCV/RISCVInstrInfoF.td     |  16 +
  test/CodeGen/RISCV/bare-select.ll       |  14 +
- test/CodeGen/RISCV/float-br-fcmp.ll     | 474 ++++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/float-fcmp.ll        | 215 +++++++++++++++
- test/CodeGen/RISCV/float-select-fcmp.ll | 304 ++++++++++++++++++++
+ test/CodeGen/RISCV/float-br-fcmp.ll     | 474 ++++++++++++++++++++++++
+ test/CodeGen/RISCV/float-fcmp.ll        | 215 +++++++++++
+ test/CodeGen/RISCV/float-select-fcmp.ll | 304 +++++++++++++++
  8 files changed, 1060 insertions(+), 12 deletions(-)
  create mode 100644 test/CodeGen/RISCV/float-br-fcmp.ll
  create mode 100644 test/CodeGen/RISCV/float-fcmp.ll
@@ -1173,5 +1173,5 @@ index 00000000000..6f979ea8337
 +  ret i32 %2
 +}
 -- 
-2.16.2
+2.17.2
 

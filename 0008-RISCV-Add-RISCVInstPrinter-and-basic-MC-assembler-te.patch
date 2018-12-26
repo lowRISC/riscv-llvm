@@ -4,18 +4,18 @@ Subject: [RISCV] Add RISCVInstPrinter and basic MC assembler tests
 
 Differential Revision: https://reviews.llvm.org/D23564
 ---
- lib/Target/RISCV/CMakeLists.txt                    |  4 +-
- lib/Target/RISCV/InstPrinter/CMakeLists.txt        |  3 ++
- lib/Target/RISCV/InstPrinter/LLVMBuild.txt         | 23 ++++++++
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  | 55 +++++++++++++++++++
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    | 43 +++++++++++++++
- lib/Target/RISCV/LLVMBuild.txt                     |  5 +-
- lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt        |  2 +-
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 10 ++++
- test/MC/RISCV/elf-header.s                         | 42 +++++++++++++++
- test/MC/RISCV/lit.local.cfg                        |  2 +
- test/MC/RISCV/rv32i-invalid.s                      | 30 +++++++++++
- test/MC/RISCV/rv32i-valid.s                        | 63 ++++++++++++++++++++++
+ lib/Target/RISCV/CMakeLists.txt               |  4 +-
+ lib/Target/RISCV/InstPrinter/CMakeLists.txt   |  3 +
+ lib/Target/RISCV/InstPrinter/LLVMBuild.txt    | 23 +++++++
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    | 55 ++++++++++++++++
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      | 43 +++++++++++++
+ lib/Target/RISCV/LLVMBuild.txt                |  5 +-
+ lib/Target/RISCV/MCTargetDesc/LLVMBuild.txt   |  2 +-
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp  | 10 +++
+ test/MC/RISCV/elf-header.s                    | 42 +++++++++++++
+ test/MC/RISCV/lit.local.cfg                   |  2 +
+ test/MC/RISCV/rv32i-invalid.s                 | 30 +++++++++
+ test/MC/RISCV/rv32i-valid.s                   | 63 +++++++++++++++++++
  12 files changed, 278 insertions(+), 4 deletions(-)
  create mode 100644 lib/Target/RISCV/InstPrinter/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/InstPrinter/LLVMBuild.txt
@@ -426,5 +426,5 @@ index 00000000000..fc89cd42016
 +# CHECK: encoding: [0x33,0x75,0x39,0x01]
 +and a0, s2, s3
 -- 
-2.16.2
+2.17.2
 

@@ -5,13 +5,13 @@ Subject: [RISCV] Codegen for conditional branches
 ---
  lib/Target/RISCV/RISCVCallingConv.td   |   3 +
  lib/Target/RISCV/RISCVISelLowering.cpp |   1 +
- lib/Target/RISCV/RISCVInstrInfo.cpp    |  33 +++++++++
- lib/Target/RISCV/RISCVInstrInfo.h      |  12 +++-
- lib/Target/RISCV/RISCVInstrInfo.td     |  36 +++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp  |   4 ++
- lib/Target/RISCV/RISCVRegisterInfo.cpp |  30 +++++++-
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |  33 +++++++
+ lib/Target/RISCV/RISCVInstrInfo.h      |  12 ++-
+ lib/Target/RISCV/RISCVInstrInfo.td     |  36 +++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |   4 +
+ lib/Target/RISCV/RISCVRegisterInfo.cpp |  30 +++++-
  lib/Target/RISCV/RISCVRegisterInfo.h   |   2 +
- test/CodeGen/RISCV/branch.ll           | 121 +++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/branch.ll           | 121 +++++++++++++++++++++++++
  9 files changed, 238 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch.ll
 
@@ -363,5 +363,5 @@ index 00000000000..e2593d3309b
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

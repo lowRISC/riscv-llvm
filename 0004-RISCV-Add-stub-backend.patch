@@ -12,15 +12,15 @@ Upstream commit: https://reviews.llvm.org/rL285712
 
 NOTE: This patch has been updated since being committed upstream.
 ---
- docs/CompilerWriterInfo.rst                     |  4 ++
- lib/Target/LLVMBuild.txt                        |  1 +
- lib/Target/RISCV/CMakeLists.txt                 |  5 ++
- lib/Target/RISCV/LLVMBuild.txt                  | 31 +++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp         | 61 +++++++++++++++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++++
- lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
- lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 ++++++++++
- lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 ++++++++++++++
+ docs/CompilerWriterInfo.rst                   |  4 ++
+ lib/Target/LLVMBuild.txt                      |  1 +
+ lib/Target/RISCV/CMakeLists.txt               |  5 ++
+ lib/Target/RISCV/LLVMBuild.txt                | 31 ++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp       | 61 +++++++++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.h         | 41 +++++++++++++
+ lib/Target/RISCV/TargetInfo/CMakeLists.txt    |  3 +
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt     | 23 +++++++
+ .../RISCV/TargetInfo/RISCVTargetInfo.cpp      | 35 +++++++++++
  9 files changed, 204 insertions(+)
  create mode 100644 lib/Target/RISCV/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/LLVMBuild.txt
@@ -299,5 +299,5 @@ index 00000000000..e1b605c285e
 +// Remove once this function is properly implemented.
 +extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.16.2
+2.17.2
 

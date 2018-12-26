@@ -3,11 +3,11 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add basic support for inline asm constraints
 
 ---
- lib/Target/RISCV/RISCVAsmPrinter.cpp   | 55 ++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 19 ++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp | 18 ++++++++
+ lib/Target/RISCV/RISCVAsmPrinter.cpp   | 55 +++++++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 19 ++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 18 ++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  4 ++
- test/CodeGen/RISCV/inline-asm.ll       | 83 ++++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/inline-asm.ll       | 83 ++++++++++++++++++++++++++
  5 files changed, 179 insertions(+)
  create mode 100644 test/CodeGen/RISCV/inline-asm.ll
 
@@ -252,5 +252,5 @@ index 00000000000..9273a0b4c55
 +
 +; TODO: expend tests for more complex constraints, out of range immediates etc
 -- 
-2.16.2
+2.17.2
 

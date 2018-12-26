@@ -10,11 +10,11 @@ an ISD::SETCC node, which operates on XLen types. Other datatypes such as
 floating point don't have conditional branch instructions, and lowering
 ISD::SELECT allows more flexibility for handling these cases.
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp | 152 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 152 +++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   8 +-
- lib/Target/RISCV/RISCVInstrInfo.td     |  15 ++++
- test/CodeGen/RISCV/bare-select.ll      |  18 ++++
- test/CodeGen/RISCV/select-cc.ll        | 100 ++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  15 +++
+ test/CodeGen/RISCV/bare-select.ll      |  18 +++
+ test/CodeGen/RISCV/select-cc.ll        | 100 ++++++++++++++++
  5 files changed, 292 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/bare-select.ll
  create mode 100644 test/CodeGen/RISCV/select-cc.ll
@@ -421,5 +421,5 @@ index 00000000000..ddc5983525e
 +  ret i32 %val20
 +}
 -- 
-2.16.2
+2.17.2
 

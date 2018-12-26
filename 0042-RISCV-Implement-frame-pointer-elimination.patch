@@ -6,35 +6,35 @@ Subject: [RISCV] Implement frame pointer elimination
  lib/Target/RISCV/RISCVFrameLowering.cpp      |   41 +-
  lib/Target/RISCV/RISCVRegisterInfo.cpp       |    6 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll    |   14 -
- test/CodeGen/RISCV/alu32.ll                  |  133 ---
+ test/CodeGen/RISCV/alu32.ll                  |  133 --
  test/CodeGen/RISCV/analyze-branch.ll         |    6 -
  test/CodeGen/RISCV/bare-select.ll            |    7 -
  test/CodeGen/RISCV/blockaddress.ll           |    3 -
  test/CodeGen/RISCV/branch-relaxation.ll      |   20 +-
  test/CodeGen/RISCV/branch.ll                 |    7 -
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll  |  115 +--
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll  |  115 +-
  test/CodeGen/RISCV/byval.ll                  |   20 +-
- test/CodeGen/RISCV/calling-conv-sext-zext.ll |  117 ---
- test/CodeGen/RISCV/calling-conv.ll           | 1409 +++++++++++++++++---------
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll |  117 --
+ test/CodeGen/RISCV/calling-conv.ll           | 1409 +++++++++++-------
  test/CodeGen/RISCV/calls.ll                  |   65 +-
  test/CodeGen/RISCV/div.ll                    |   38 -
  test/CodeGen/RISCV/fp128.ll                  |   66 +-
  test/CodeGen/RISCV/frame.ll                  |   62 +-
  test/CodeGen/RISCV/frameaddr-returnaddr.ll   |    7 -
- test/CodeGen/RISCV/i32-icmp.ll               |   70 --
+ test/CodeGen/RISCV/i32-icmp.ll               |   70 -
  test/CodeGen/RISCV/imm.ll                    |   35 -
  test/CodeGen/RISCV/indirectbr.ll             |    6 -
  test/CodeGen/RISCV/inline-asm.ll             |   28 -
  test/CodeGen/RISCV/jumptable.ll              |   13 +-
- test/CodeGen/RISCV/large-stack.ll            |  223 ++--
+ test/CodeGen/RISCV/large-stack.ll            |  223 +--
  test/CodeGen/RISCV/mem.ll                    |   84 --
  test/CodeGen/RISCV/mul.ll                    |   22 -
  test/CodeGen/RISCV/rem.ll                    |    6 -
  test/CodeGen/RISCV/rotl-rotr.ll              |   14 -
  test/CodeGen/RISCV/select-cc.ll              |    7 -
- test/CodeGen/RISCV/sext-zext-trunc.ll        |  210 ----
+ test/CodeGen/RISCV/sext-zext-trunc.ll        |  210 ---
  test/CodeGen/RISCV/shifts.ll                 |    9 -
- test/CodeGen/RISCV/vararg.ll                 | 1047 ++++++++++++-------
+ test/CodeGen/RISCV/vararg.ll                 | 1047 ++++++++-----
  test/CodeGen/RISCV/wide-mem.ll               |   14 -
  33 files changed, 1884 insertions(+), 2040 deletions(-)
 
@@ -6237,5 +6237,5 @@ index 0e74fe277bb..cbb89f631a5 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

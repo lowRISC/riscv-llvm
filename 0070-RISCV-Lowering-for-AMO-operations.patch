@@ -10,7 +10,7 @@ aren't supported natively.
  lib/Target/RISCV/RISCVISelLowering.cpp |   7 +-
  lib/Target/RISCV/RISCVInstrInfo.td     |   2 +-
  lib/Target/RISCV/RISCVInstrInfoA.td    |  20 +-
- test/CodeGen/RISCV/atomics.ll          | 461 ++++++++++++++++++++++++++++++++-
+ test/CodeGen/RISCV/atomics.ll          | 461 ++++++++++++++++++++++++-
  4 files changed, 485 insertions(+), 5 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
@@ -554,5 +554,5 @@ index bb81aa9d0eb..5bc59955b32 100644
 +  ret i32 %1
 +}
 -- 
-2.16.2
+2.17.2
 

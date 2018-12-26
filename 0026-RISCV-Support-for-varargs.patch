@@ -9,10 +9,10 @@ that the saved return address and stack pointer are always available at fixed
 known offsets of the frame pointer.
 ---
  lib/Target/RISCV/RISCVFrameLowering.cpp     |  15 +-
- lib/Target/RISCV/RISCVISelLowering.cpp      | 145 ++++++--
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 145 +++++-
  lib/Target/RISCV/RISCVISelLowering.h        |   3 +-
- lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 +++
- test/CodeGen/RISCV/vararg.ll                | 534 ++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVMachineFunctionInfo.h |  44 ++
+ test/CodeGen/RISCV/vararg.ll                | 534 ++++++++++++++++++++
  5 files changed, 717 insertions(+), 24 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVMachineFunctionInfo.h
  create mode 100644 test/CodeGen/RISCV/vararg.ll
@@ -976,5 +976,5 @@ index 00000000000..093d204772a
 +  ret i32 %2
 +}
 -- 
-2.16.2
+2.17.2
 

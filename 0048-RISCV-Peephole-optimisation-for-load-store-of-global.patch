@@ -6,14 +6,14 @@ Subject: [RISCV] Peephole optimisation for load/store of global value or
 (load (add base, off), 0) -> (load base, off)
 (store val, (add base, off)) -> (store val, base, off)
 ---
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 91 ++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 91 ++++++++++++++++++++++++++
  test/CodeGen/RISCV/blockaddress.ll     | 11 ++--
- test/CodeGen/RISCV/byval.ll            | 12 ++---
- test/CodeGen/RISCV/fp128.ll            | 48 ++++++------------
+ test/CodeGen/RISCV/byval.ll            | 12 ++--
+ test/CodeGen/RISCV/fp128.ll            | 48 +++++---------
  test/CodeGen/RISCV/inline-asm.ll       |  3 +-
- test/CodeGen/RISCV/mem.ll              | 21 +++-----
- test/CodeGen/RISCV/mem64.ll            | 12 ++---
- test/CodeGen/RISCV/wide-mem.ll         |  6 +--
+ test/CodeGen/RISCV/mem.ll              | 21 +++---
+ test/CodeGen/RISCV/mem64.ll            | 12 ++--
+ test/CodeGen/RISCV/wide-mem.ll         |  6 +-
  8 files changed, 132 insertions(+), 72 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
@@ -381,5 +381,5 @@ index cbb89f631a5..33a51efe818 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

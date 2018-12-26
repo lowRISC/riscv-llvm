@@ -13,17 +13,17 @@ Also incorporates changes from:
 Differential Revision: https://reviews.llvm.org/D42132
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 12 +++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 42 +++++++++++++++-
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 +++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  4 ++
- lib/Target/RISCV/RISCVInstrFormatsC.td             | 40 +++++++++++++++
- lib/Target/RISCV/RISCVInstrInfoC.td                | 58 ++++++++++++++++++++++
- test/MC/RISCV/fixups-compressed.s                  | 18 +++++++
- test/MC/RISCV/relocations.s                        | 14 +++++-
- test/MC/RISCV/rv32c-invalid.s                      | 13 +++++
- test/MC/RISCV/rv32c-valid.s                        | 19 +++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 12 ++++
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 42 +++++++++++++-
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  4 ++
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  6 ++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  4 ++
+ lib/Target/RISCV/RISCVInstrFormatsC.td        | 40 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 58 +++++++++++++++++++
+ test/MC/RISCV/fixups-compressed.s             | 18 ++++++
+ test/MC/RISCV/relocations.s                   | 14 ++++-
+ test/MC/RISCV/rv32c-invalid.s                 | 13 +++++
+ test/MC/RISCV/rv32c-valid.s                   | 19 ++++++
  11 files changed, 226 insertions(+), 4 deletions(-)
  create mode 100644 test/MC/RISCV/fixups-compressed.s
 
@@ -461,5 +461,5 @@ index 86c2dff5698..ce4273d3802 100644
 +# CHECK: encoding: [0xfd,0xef]
 +c.bnez  a5,  254
 -- 
-2.16.2
+2.17.2
 

@@ -3,13 +3,13 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] MC layer support for the standard RV64I instructions
 
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 46 ++++++++++---
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 46 ++++++---
  lib/Target/RISCV/RISCV.td                     |  2 +
- lib/Target/RISCV/RISCVInstrFormats.td         | 17 +++++
- lib/Target/RISCV/RISCVInstrInfo.td            | 64 +++++++++++++++--
+ lib/Target/RISCV/RISCVInstrFormats.td         | 17 ++++
+ lib/Target/RISCV/RISCVInstrInfo.td            | 64 ++++++++++--
  test/MC/RISCV/rv32i-invalid.s                 |  4 +-
- test/MC/RISCV/rv64i-invalid.s                 | 20 ++++++
- test/MC/RISCV/rv64i-valid.s                   | 98 +++++++++++++++++++++++++++
+ test/MC/RISCV/rv64i-invalid.s                 | 20 ++++
+ test/MC/RISCV/rv64i-valid.s                   | 98 +++++++++++++++++++
  7 files changed, 231 insertions(+), 20 deletions(-)
  create mode 100644 test/MC/RISCV/rv64i-invalid.s
  create mode 100644 test/MC/RISCV/rv64i-valid.s
@@ -481,5 +481,5 @@ index 00000000000..d33b1d1ef43
 +# CHECK: encoding: [0x3b,0xdf,0x0f,0x40]
 +sraw t5, t6, zero
 -- 
-2.16.2
+2.17.2
 

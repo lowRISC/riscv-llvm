@@ -25,5 +25,5 @@ index abb9ee5c8be..3a5ec81b44e 100644
    %1 = fcmp false double %a, %b
    %2 = select i1 %1, double %a, double %b
 -- 
-2.16.2
+2.17.2
 

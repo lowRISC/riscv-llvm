@@ -11,11 +11,11 @@ Upstream commit: https://reviews.llvm.org/rL285769
 
 NOTE: This patch has been updated since being committed upstream.
 ---
- lib/Target/RISCV/CMakeLists.txt       |   7 ++
- lib/Target/RISCV/RISCV.td             |  45 +++++++++
- lib/Target/RISCV/RISCVInstrFormats.td | 185 ++++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.td    |  56 ++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td |  69 +++++++++++++
+ lib/Target/RISCV/CMakeLists.txt       |   7 +
+ lib/Target/RISCV/RISCV.td             |  45 +++++++
+ lib/Target/RISCV/RISCVInstrFormats.td | 185 ++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td    |  56 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td |  69 ++++++++++
  5 files changed, 362 insertions(+)
  create mode 100644 lib/Target/RISCV/RISCV.td
  create mode 100644 lib/Target/RISCV/RISCVInstrFormats.td
@@ -417,5 +417,5 @@ index 00000000000..a5484130dfc
 +      [RegInfo<32,32,32>, RegInfo<64,64,64>, RegInfo<32,32,32>]>;
 +}
 -- 
-2.16.2
+2.17.2
 

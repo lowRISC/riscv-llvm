@@ -17,23 +17,23 @@ Upstream commit: https://reviews.llvm.org/rL314389
 
 Contains cleanups from https://reviews.llvm.org/rL317908
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 186 +++++++++++++++++++--
- lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 110 +++++++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   4 +-
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  62 ++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 +++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++
- lib/Target/RISCV/RISCVInstrFormats.td              |  35 +++-
- lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- test/MC/RISCV/fixups-diagnostics.s                 |  18 ++
- test/MC/RISCV/fixups.s                             |  49 ++++++
- test/MC/RISCV/hilo-constaddr.s                     |  39 +++++
- test/MC/RISCV/relocations.s                        |  65 +++++++
- test/MC/RISCV/rv32i-invalid.s                      |  64 ++++++-
- test/MC/RISCV/rv32i-valid.s                        |  21 +++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 186 ++++++++++++++++--
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt  |   3 +-
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 110 ++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |   4 +-
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  23 ++-
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  46 +++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  62 +++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp |  99 ++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h   |  75 +++++++
+ lib/Target/RISCV/RISCVInstrFormats.td         |  35 +++-
+ lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
+ test/MC/RISCV/fixups-diagnostics.s            |  18 ++
+ test/MC/RISCV/fixups.s                        |  49 +++++
+ test/MC/RISCV/hilo-constaddr.s                |  39 ++++
+ test/MC/RISCV/relocations.s                   |  65 ++++++
+ test/MC/RISCV/rv32i-invalid.s                 |  64 +++++-
+ test/MC/RISCV/rv32i-valid.s                   |  21 ++
  17 files changed, 859 insertions(+), 41 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
@@ -202,7 +202,7 @@ index da2d7aa52f2..486784859bd 100644
      else
        Inst.addOperand(MCOperand::createExpr(Expr));
    }
-@@ -411,6 +476,8 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+@@ -411,12 +476,54 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
      Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
      break;
    }
@@ -211,10 +211,10 @@ index da2d7aa52f2..486784859bd 100644
    }
  
    Operands.push_back(RISCVOperand::createImm(Res, S, E));
-@@ -418,6 +485,46 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
+   return MatchOperand_Success;
  }
  
- OperandMatchResultTy
++OperandMatchResultTy
 +RISCVAsmParser::parseOperandWithModifier(OperandVector &Operands) {
 +  SMLoc S = getLoc();
 +  SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
@@ -254,10 +254,9 @@ index da2d7aa52f2..486784859bd 100644
 +  return MatchOperand_Success;
 +}
 +
-+OperandMatchResultTy
+ OperandMatchResultTy
  RISCVAsmParser::parseMemOpBaseReg(OperandVector &Operands) {
    if (getLexer().isNot(AsmToken::LParen)) {
-     Error(getLoc(), "expected '('");
 @@ -498,6 +605,51 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
    return false;
  }
@@ -1368,5 +1367,5 @@ index 95d9da4bb51..be6560062bb 100644
  # CHECK: encoding: [0x93,0x70,0xf1,0x7f]
  andi ra, sp, 2047
 -- 
-2.16.2
+2.17.2
 

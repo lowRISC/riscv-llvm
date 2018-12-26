@@ -13,9 +13,9 @@ Differential Revision: https://reviews.llvm.org/D40383
 
 Patch by David Craven.
 ---
- lib/Target/RISCV/RISCVInstrInfo.td | 42 ++++++++++++++++++++++++++++++++++++++
- test/MC/RISCV/priv-invalid.s       |  7 +++++++
- test/MC/RISCV/priv-valid.s         | 32 +++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td | 42 ++++++++++++++++++++++++++++++
+ test/MC/RISCV/priv-invalid.s       |  7 +++++
+ test/MC/RISCV/priv-valid.s         | 32 +++++++++++++++++++++++
  3 files changed, 81 insertions(+)
  create mode 100644 test/MC/RISCV/priv-invalid.s
  create mode 100644 test/MC/RISCV/priv-valid.s
@@ -36,10 +36,11 @@ index fd78c6eaf0b..447100682e4 100644
  //===----------------------------------------------------------------------===//
  // Instructions
  //===----------------------------------------------------------------------===//
-@@ -351,6 +356,43 @@ def SRAW  : ALUW_rr<0b0100000, 0b101, "sraw">;
+@@ -350,6 +355,43 @@ def SRLW  : ALUW_rr<0b0000000, 0b101, "srlw">;
+ def SRAW  : ALUW_rr<0b0100000, 0b101, "sraw">;
  } // Predicates = [IsRV64]
  
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
 +// Privileged instructions
 +//===----------------------------------------------------------------------===//
 +
@@ -76,10 +77,9 @@ index fd78c6eaf0b..447100682e4 100644
 +  let rd = 0;
 +}
 +
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
  // Pseudo-instructions and codegen patterns
  //
- // Naming convention: For 'generic' pattern classes, we use the naming
 diff --git a/test/MC/RISCV/priv-invalid.s b/test/MC/RISCV/priv-invalid.s
 new file mode 100644
 index 00000000000..96ce291bf6d
@@ -132,5 +132,5 @@ index 00000000000..e431bf3b088
 +# CHECK: encoding: [0x73,0x00,0xb5,0x12]
 +sfence.vma a0, a1
 -- 
-2.16.2
+2.17.2
 

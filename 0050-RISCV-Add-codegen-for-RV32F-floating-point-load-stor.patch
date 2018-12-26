@@ -5,13 +5,13 @@ Subject: [RISCV] Add codegen for RV32F floating point load/store
 As part of this, offer support for load/store from the constant pool. This is
 used to materialise f32 constants.
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp | 26 +++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 26 ++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |  1 +
- lib/Target/RISCV/RISCVInstrInfoF.td    | 11 +++++
- lib/Target/RISCV/RISCVMCInstLower.cpp  |  3 ++
+ lib/Target/RISCV/RISCVInstrInfoF.td    | 11 ++++
+ lib/Target/RISCV/RISCVMCInstLower.cpp  |  3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |  1 -
- test/CodeGen/RISCV/float-imm.ll        | 27 +++++++++++
- test/CodeGen/RISCV/float-mem.ll        | 84 ++++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/float-imm.ll        | 27 +++++++++
+ test/CodeGen/RISCV/float-mem.ll        | 84 ++++++++++++++++++++++++++
  7 files changed, 152 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/float-imm.ll
  create mode 100644 test/CodeGen/RISCV/float-mem.ll
@@ -249,5 +249,5 @@ index 00000000000..f1cbb4330f3
 +  ret float %3
 +}
 -- 
-2.16.2
+2.17.2
 

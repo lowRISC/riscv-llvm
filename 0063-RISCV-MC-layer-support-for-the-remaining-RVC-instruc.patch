@@ -15,22 +15,22 @@ This patch also incorporates changes from:
 Differential Revision: https://reviews.llvm.org/D42132
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 103 +++++++-
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  90 ++++++-
- lib/Target/RISCV/RISCV.td                          |   3 +-
- lib/Target/RISCV/RISCVInstrFormatsC.td             |  11 +
- lib/Target/RISCV/RISCVInstrInfoC.td                | 263 ++++++++++++++++++++-
- lib/Target/RISCV/RISCVRegisterInfo.td              |  23 ++
- test/MC/RISCV/rv32c-invalid.s                      |  52 ++++
- test/MC/RISCV/rv32c-only-valid.s                   |  15 ++
- test/MC/RISCV/rv32c-valid.s                        |  67 +++++-
- test/MC/RISCV/rv32dc-invalid.s                     |  12 +
- test/MC/RISCV/rv32dc-valid.s                       |  29 +++
- test/MC/RISCV/rv32fc-invalid.s                     |  12 +
- test/MC/RISCV/rv32fc-valid.s                       |  32 +++
- test/MC/RISCV/rv64c-invalid.s                      |  11 +
- test/MC/RISCV/rv64c-valid.s                        |  28 +++
- test/MC/RISCV/rv64dc-valid.s                       |  29 +++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 103 ++++++-
+ .../RISCV/Disassembler/RISCVDisassembler.cpp  |  90 +++++-
+ lib/Target/RISCV/RISCV.td                     |   3 +-
+ lib/Target/RISCV/RISCVInstrFormatsC.td        |  11 +
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 263 +++++++++++++++++-
+ lib/Target/RISCV/RISCVRegisterInfo.td         |  23 ++
+ test/MC/RISCV/rv32c-invalid.s                 |  52 ++++
+ test/MC/RISCV/rv32c-only-valid.s              |  15 +
+ test/MC/RISCV/rv32c-valid.s                   |  67 ++++-
+ test/MC/RISCV/rv32dc-invalid.s                |  12 +
+ test/MC/RISCV/rv32dc-valid.s                  |  29 ++
+ test/MC/RISCV/rv32fc-invalid.s                |  12 +
+ test/MC/RISCV/rv32fc-valid.s                  |  32 +++
+ test/MC/RISCV/rv64c-invalid.s                 |  11 +
+ test/MC/RISCV/rv64c-valid.s                   |  28 ++
+ test/MC/RISCV/rv64dc-valid.s                  |  29 ++
  16 files changed, 756 insertions(+), 24 deletions(-)
  create mode 100644 test/MC/RISCV/rv32c-only-valid.s
  create mode 100644 test/MC/RISCV/rv32dc-invalid.s
@@ -1187,5 +1187,5 @@ index 00000000000..0d7ea62e9b0
 +# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.fsd  fa2, 248(a1)
 -- 
-2.16.2
+2.17.2
 

@@ -4,14 +4,14 @@ Subject: [RISCV] MC layer support for the standard RV32A instruction set
  extension
 
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  37 +++++--
- lib/Target/RISCV/RISCV.td                     |   6 ++
- lib/Target/RISCV/RISCVInstrFormats.td         |  18 ++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  37 ++++-
+ lib/Target/RISCV/RISCV.td                     |   6 +
+ lib/Target/RISCV/RISCVInstrFormats.td         |  18 +++
  lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
- lib/Target/RISCV/RISCVInstrInfoA.td           |  63 +++++++++++
+ lib/Target/RISCV/RISCVInstrInfoA.td           |  63 ++++++++
  lib/Target/RISCV/RISCVSubtarget.h             |   4 +-
- test/MC/RISCV/rv32a-invalid.s                 |  14 +++
- test/MC/RISCV/rv32a-valid.s                   | 146 ++++++++++++++++++++++++++
+ test/MC/RISCV/rv32a-invalid.s                 |  14 ++
+ test/MC/RISCV/rv32a-valid.s                   | 146 ++++++++++++++++++
  test/MC/RISCV/rv32i-invalid.s                 |   2 +
  9 files changed, 284 insertions(+), 7 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoA.td
@@ -428,5 +428,5 @@ index 763d4c547a2..c321d0481ca 100644
  mul a4, ra, s0 # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 +amomaxu.w s5, s4, (s3) # CHECK: :[[@LINE]]:1: error: instruction use requires an option to be enabled
 -- 
-2.16.2
+2.17.2
 

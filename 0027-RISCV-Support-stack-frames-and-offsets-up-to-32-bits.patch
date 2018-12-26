@@ -5,12 +5,12 @@ Subject: [RISCV] Support stack frames and offsets up to 32-bits
 Also, factor out stack pointer manipulation to use the new 'adjustReg' helper
 function.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp | 30 ++++++++++++++++++++------
- lib/Target/RISCV/RISCVInstrInfo.cpp     | 20 +++++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.h       |  5 +++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  | 27 +++++++++++++++++++----
- lib/Target/RISCV/RISCVRegisterInfo.h    |  8 +++++++
- test/CodeGen/RISCV/large-stack.ll       | 38 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp | 30 ++++++++++++++-----
+ lib/Target/RISCV/RISCVInstrInfo.cpp     | 20 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.h       |  5 ++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  | 27 +++++++++++++++---
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  8 ++++++
+ test/CodeGen/RISCV/large-stack.ll       | 38 +++++++++++++++++++++++++
  6 files changed, 117 insertions(+), 11 deletions(-)
  create mode 100644 test/CodeGen/RISCV/large-stack.ll
 
@@ -216,5 +216,5 @@ index 00000000000..cecca220e19
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

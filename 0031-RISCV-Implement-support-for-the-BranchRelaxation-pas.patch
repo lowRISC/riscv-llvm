@@ -5,15 +5,15 @@ Subject: [RISCV] Implement support for the BranchRelaxation pass
 Branch relaxation is needed to support branch displacements that overflow the
 instruction's immediate field.
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp         | 115 ++++++++++++++++++++++++++--
- lib/Target/RISCV/RISCVInstrInfo.h           |  12 +++
+ lib/Target/RISCV/RISCVInstrInfo.cpp         | 115 +++++++++++++++++++-
+ lib/Target/RISCV/RISCVInstrInfo.h           |  12 ++
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +-
  lib/Target/RISCV/RISCVRegisterInfo.h        |   4 +
  lib/Target/RISCV/RISCVTargetMachine.cpp     |   3 +
  test/CodeGen/RISCV/analyze-branch.ll        |   6 +-
- test/CodeGen/RISCV/branch-relaxation.ll     |  79 +++++++++++++++++++
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  36 ++++-----
- test/CodeGen/RISCV/jumptable.ll             |  20 ++---
+ test/CodeGen/RISCV/branch-relaxation.ll     |  79 ++++++++++++++
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll |  36 +++---
+ test/CodeGen/RISCV/jumptable.ll             |  20 ++--
  9 files changed, 243 insertions(+), 40 deletions(-)
  create mode 100644 test/CodeGen/RISCV/branch-relaxation.ll
 
@@ -563,5 +563,5 @@ index ef9643d7799..fb8bd2d85c3 100644
  ; RV32I-NEXT:    lw ra, 12(sp)
  ; RV32I-NEXT:    addi sp, sp, 16
 -- 
-2.16.2
+2.17.2
 

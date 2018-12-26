@@ -3,9 +3,9 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen support for materializing constants
 
 ---
- lib/Target/RISCV/RISCVInstrInfo.td | 24 +++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td | 24 +++++++++++++++
  test/CodeGen/RISCV/alu32.ll        |  1 -
- test/CodeGen/RISCV/imm.ll          | 47 ++++++++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/imm.ll          | 47 ++++++++++++++++++++++++++++++
  3 files changed, 71 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/imm.ll
 
@@ -117,5 +117,5 @@ index 00000000000..ddefa22835a
 +  ret i32 -559038737
 +}
 -- 
-2.16.2
+2.17.2
 

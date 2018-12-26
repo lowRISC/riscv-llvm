@@ -10,10 +10,10 @@ As was noted when Lanai made this change (https://reviews.llvm.org/rL288215),
 attempting to handle the constant 0 in tablegen leads to assertions due to a
 physical register being used where a virtual register is expected.
 ---
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 25 +++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 25 +++++++++++++++++++++
  test/CodeGen/RISCV/bare-select.ll           |  3 +--
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 20 ++++++++------------
- test/CodeGen/RISCV/sext-zext-trunc.ll       | 19 ++++---------------
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 20 +++++++----------
+ test/CodeGen/RISCV/sext-zext-trunc.ll       | 19 ++++------------
  4 files changed, 38 insertions(+), 29 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
@@ -225,5 +225,5 @@ index 2a13685fcd5..80bd2d2b204 100644
  ; RV32I-NEXT:    jalr zero, ra, 0
    %1 = sext i1 %a to i64
 -- 
-2.16.2
+2.17.2
 

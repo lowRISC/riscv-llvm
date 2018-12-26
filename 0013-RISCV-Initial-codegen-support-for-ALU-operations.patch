@@ -22,27 +22,27 @@ Differential Revision: https://reviews.llvm.org/D29933
 ---
  lib/Target/RISCV/CMakeLists.txt         |  11 ++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
- lib/Target/RISCV/RISCV.h                |  31 ++++++
+ lib/Target/RISCV/RISCV.h                |  31 ++++
  lib/Target/RISCV/RISCV.td               |   7 +-
- lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 ++++++++++++
- lib/Target/RISCV/RISCVCallingConv.td    |  29 +++++
- lib/Target/RISCV/RISCVFrameLowering.cpp |  29 +++++
- lib/Target/RISCV/RISCVFrameLowering.h   |  35 ++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  60 +++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 170 +++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelLowering.h    |  62 +++++++++++
- lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
- lib/Target/RISCV/RISCVInstrInfo.h       |  32 ++++++
- lib/Target/RISCV/RISCVInstrInfo.td      |  60 ++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp   |  50 +++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 +++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.h    |  40 +++++++
- lib/Target/RISCV/RISCVRegisterInfo.td   |  13 ++-
- lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++++
- lib/Target/RISCV/RISCVSubtarget.h       |  75 +++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
- lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
- test/CodeGen/RISCV/alu32.ll             | 183 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 +++++++++
+ lib/Target/RISCV/RISCVCallingConv.td    |  29 ++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++
+ lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  60 ++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 170 ++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h    |  62 ++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++
+ lib/Target/RISCV/RISCVInstrInfo.h       |  32 +++++
+ lib/Target/RISCV/RISCVInstrInfo.td      |  60 +++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp   |  50 +++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td   |  13 +-
+ lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++
+ lib/Target/RISCV/RISCVSubtarget.h       |  75 ++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp |  26 +++-
+ lib/Target/RISCV/RISCVTargetMachine.h   |   6 +
+ test/CodeGen/RISCV/alu32.ll             | 183 ++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
  24 files changed, 1120 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
@@ -743,20 +743,20 @@ diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInf
 index 7b33603db2b..616e6042070 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -14,6 +14,13 @@
+@@ -13,6 +13,13 @@
+ 
  include "RISCVInstrFormats.td"
  
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
 +// RISC-V specific DAG Nodes.
 +//===----------------------------------------------------------------------===//
 +
 +def RetFlag : SDNode<"RISCVISD::RET_FLAG", SDTNone,
 +                     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 +
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
  // Operand and SDNode transformation definitions.
  //===----------------------------------------------------------------------===//
- 
 @@ -43,12 +50,12 @@ def fencearg : Operand<XLenVT> {
    let DecoderMethod = "decodeUImmOperand<4>";
  }
@@ -1428,5 +1428,5 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 -- 
-2.16.2
+2.17.2
 

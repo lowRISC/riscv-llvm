@@ -16,15 +16,15 @@ submitted by Chih-Mao Chen,
 https://reviews.llvm.org/D36455 https://reviews.llvm.org/rL310914
 https://reviews.llvm.org/D38311
 ---
- include/llvm/BinaryFormat/ELF.h               | 17 ++++++++
- include/llvm/BinaryFormat/ELFRelocs/RISCV.def | 59 +++++++++++++++++++++++++++
- include/llvm/Object/ELFObjectFile.h           | 13 ++++++
+ include/llvm/BinaryFormat/ELF.h               | 17 ++++++
+ include/llvm/BinaryFormat/ELFRelocs/RISCV.def | 59 +++++++++++++++++++
+ include/llvm/Object/ELFObjectFile.h           | 13 ++++
  include/llvm/module.modulemap                 |  1 +
- lib/Object/ELF.cpp                            |  7 ++++
- lib/ObjectYAML/ELFYAML.cpp                    | 12 ++++++
- test/Object/RISCV/elf-flags.yaml              | 24 +++++++++++
+ lib/Object/ELF.cpp                            |  7 +++
+ lib/ObjectYAML/ELFYAML.cpp                    | 12 ++++
+ test/Object/RISCV/elf-flags.yaml              | 24 ++++++++
  test/Object/RISCV/lit.local.cfg               |  2 +
- tools/llvm-readobj/ELFDumper.cpp              | 11 +++++
+ tools/llvm-readobj/ELFDumper.cpp              | 11 ++++
  9 files changed, 146 insertions(+)
  create mode 100644 include/llvm/BinaryFormat/ELFRelocs/RISCV.def
  create mode 100644 test/Object/RISCV/elf-flags.yaml
@@ -199,7 +199,7 @@ index 69f155d20a4..99d3500b7aa 100644
      switch (Type) {
  #include "llvm/BinaryFormat/ELFRelocs/SystemZ.def"
 diff --git a/lib/ObjectYAML/ELFYAML.cpp b/lib/ObjectYAML/ELFYAML.cpp
-index 26ab8d72b01..b9f52432fc8 100644
+index c37a2e07232..215d6bdd091 100644
 --- a/lib/ObjectYAML/ELFYAML.cpp
 +++ b/lib/ObjectYAML/ELFYAML.cpp
 @@ -214,6 +214,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
@@ -274,7 +274,7 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 diff --git a/tools/llvm-readobj/ELFDumper.cpp b/tools/llvm-readobj/ELFDumper.cpp
-index b4043b23821..eb6e9fb16ba 100644
+index 54e82c01ca3..7ea851833fc 100644
 --- a/tools/llvm-readobj/ELFDumper.cpp
 +++ b/tools/llvm-readobj/ELFDumper.cpp
 @@ -1084,6 +1084,7 @@ static const EnumEntry<unsigned> ElfMachineType[] = {
@@ -310,5 +310,5 @@ index b4043b23821..eb6e9fb16ba 100644
        W.printFlags("Flags", e->e_flags);
      W.printNumber("HeaderSize", e->e_ehsize);
 -- 
-2.16.2
+2.17.2
 

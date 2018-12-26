@@ -19,23 +19,23 @@ for a number of these cases:
 * rotl, rotr
 * BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      | 106 +++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 106 +++-
  lib/Target/RISCV/RISCVISelLowering.h        |   2 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  30 ++
  test/CodeGen/RISCV/alu32.ll                 |   4 +
- test/CodeGen/RISCV/blockaddress.ll          |  28 ++
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 547 ++++++++++++++++++++++++++++
- test/CodeGen/RISCV/div.ll                   | 134 +++++++
- test/CodeGen/RISCV/i32-icmp.ll              | 114 ++++++
+ test/CodeGen/RISCV/blockaddress.ll          |  28 +
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 547 ++++++++++++++++++++
+ test/CodeGen/RISCV/div.ll                   | 134 +++++
+ test/CodeGen/RISCV/i32-icmp.ll              | 114 ++++
  test/CodeGen/RISCV/indirectbr.ll            |  36 ++
- test/CodeGen/RISCV/jumptable.ll             |  63 ++++
- test/CodeGen/RISCV/mul.ll                   |  81 ++++
+ test/CodeGen/RISCV/jumptable.ll             |  63 +++
+ test/CodeGen/RISCV/mul.ll                   |  81 +++
  test/CodeGen/RISCV/rem.ll                   |  29 ++
  test/CodeGen/RISCV/rotl-rotr.ll             |  38 ++
- test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++++++
- test/CodeGen/RISCV/shifts.ll                |  45 +++
+ test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++
+ test/CodeGen/RISCV/shifts.ll                |  45 ++
  17 files changed, 1566 insertions(+), 15 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
@@ -1797,5 +1797,5 @@ index 00000000000..c4033c574ef
 +  ret i64 %1
 +}
 -- 
-2.16.2
+2.17.2
 
