@@ -7,16 +7,16 @@ Subject: [RISCV] Codegen support for RV32D floating point comparison
  lib/Target/RISCV/RISCVISelLowering.cpp   |  16 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp      |  18 +-
  lib/Target/RISCV/RISCVInstrInfoD.td      |  14 +
- test/CodeGen/RISCV/double-br-fcmp.ll     | 556 +++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/double-fcmp.ll        | 316 ++++++++++++++++++
- test/CodeGen/RISCV/double-select-fcmp.ll | 440 ++++++++++++++++++++++++
+ test/CodeGen/RISCV/double-br-fcmp.ll     | 556 +++++++++++++++++++++++
+ test/CodeGen/RISCV/double-fcmp.ll        | 316 +++++++++++++
+ test/CodeGen/RISCV/double-select-fcmp.ll | 440 ++++++++++++++++++
  6 files changed, 1349 insertions(+), 11 deletions(-)
  create mode 100644 test/CodeGen/RISCV/double-br-fcmp.ll
  create mode 100644 test/CodeGen/RISCV/double-fcmp.ll
  create mode 100644 test/CodeGen/RISCV/double-select-fcmp.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 4d93f1f723e..ab16f2e4f8d 100644
+index 7102dc84f9c..02f77001edf 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -108,13 +108,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -1447,5 +1447,5 @@ index 00000000000..8a7bc03269f
 +  ret i32 %2
 +}
 -- 
-2.16.2
+2.17.2
 

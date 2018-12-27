@@ -27,18 +27,18 @@ Patch by Mario Werner.
 Patch has been modified since the upstream version (combining multiple
 commits).
 ---
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |  11 +-
- lib/Target/RISCV/RISCVInstrInfo.td                |  87 +++++++++++++
- lib/Target/RISCV/RISCVInstrInfoD.td               |  13 ++
- lib/Target/RISCV/RISCVInstrInfoF.td               |  33 +++++
- test/MC/RISCV/priv-invalid.s                      |   2 +-
- test/MC/RISCV/rv32i-aliases-invalid.s             |   8 ++
- test/MC/RISCV/rv32i-aliases-valid.s               |  20 +++
- test/MC/RISCV/rv64i-aliases-invalid.s             |   6 +
- test/MC/RISCV/rv64i-aliases-valid.s               |  20 +++
- test/MC/RISCV/rvd-aliases-valid.s                 |  33 +++++
- test/MC/RISCV/rvf-aliases-valid.s                 |  77 ++++++++++++
- test/MC/RISCV/rvi-aliases-valid.s                 | 145 ++++++++++++++++++++++
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |  11 +-
+ lib/Target/RISCV/RISCVInstrInfo.td            |  87 +++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td           |  13 ++
+ lib/Target/RISCV/RISCVInstrInfoF.td           |  33 ++++
+ test/MC/RISCV/priv-invalid.s                  |   2 +-
+ test/MC/RISCV/rv32i-aliases-invalid.s         |   8 +
+ test/MC/RISCV/rv32i-aliases-valid.s           |  20 +++
+ test/MC/RISCV/rv64i-aliases-invalid.s         |   6 +
+ test/MC/RISCV/rv64i-aliases-valid.s           |  20 +++
+ test/MC/RISCV/rvd-aliases-valid.s             |  33 ++++
+ test/MC/RISCV/rvf-aliases-valid.s             |  77 ++++++++++
+ test/MC/RISCV/rvi-aliases-valid.s             | 145 ++++++++++++++++++
  12 files changed, 453 insertions(+), 2 deletions(-)
  create mode 100644 test/MC/RISCV/rv32i-aliases-invalid.s
  create mode 100644 test/MC/RISCV/rv32i-aliases-valid.s
@@ -609,5 +609,5 @@ index 00000000000..08d0f8c6590
 +# CHECK-ALIAS: sfence.vma a0
 +sfence.vma a0
 -- 
-2.16.2
+2.17.2
 

@@ -3,7 +3,7 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: Add xfailed RV32D test case, failing with multiple vreg definitions
 
 ---
- .../RISCV/double-fail-multiple-vreg-defs.ll        | 30 ++++++++++++++++++++++
+ .../RISCV/double-fail-multiple-vreg-defs.ll   | 30 +++++++++++++++++++
  1 file changed, 30 insertions(+)
  create mode 100644 test/CodeGen/RISCV/double-fail-multiple-vreg-defs.ll
 
@@ -44,5 +44,5 @@ index 00000000000..3ab034ccfc5
 +
 +declare void @exit(i32)
 -- 
-2.16.2
+2.17.2
 

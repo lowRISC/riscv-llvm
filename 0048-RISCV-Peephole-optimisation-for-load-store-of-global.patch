@@ -6,18 +6,18 @@ Subject: [RISCV] Peephole optimisation for load/store of global value or
 (load (add base, off), 0) -> (load base, off)
 (store val, (add base, off)) -> (store val, base, off)
 ---
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 91 ++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp | 91 ++++++++++++++++++++++++++
  test/CodeGen/RISCV/blockaddress.ll     | 11 ++--
- test/CodeGen/RISCV/byval.ll            | 12 ++---
- test/CodeGen/RISCV/fp128.ll            | 48 ++++++------------
+ test/CodeGen/RISCV/byval.ll            | 12 ++--
+ test/CodeGen/RISCV/fp128.ll            | 48 +++++---------
  test/CodeGen/RISCV/inline-asm.ll       |  3 +-
- test/CodeGen/RISCV/mem.ll              | 21 +++-----
- test/CodeGen/RISCV/mem64.ll            | 12 ++---
- test/CodeGen/RISCV/wide-mem.ll         |  6 +--
+ test/CodeGen/RISCV/mem.ll              | 21 +++---
+ test/CodeGen/RISCV/mem64.ll            | 12 ++--
+ test/CodeGen/RISCV/wide-mem.ll         |  6 +-
  8 files changed, 132 insertions(+), 72 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index d07301df718..2dbbd704f26 100644
+index 1ac56e3ebd2..2850958df0c 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -42,6 +42,8 @@ public:
@@ -112,11 +112,11 @@ index d07301df718..2dbbd704f26 100644
 +      continue;
 +    }
 +
-+    DEBUG(dbgs() << "Folding add-immediate into mem-op:\nBase:    ");
-+    DEBUG(Base->dump(CurDAG));
-+    DEBUG(dbgs() << "\nN: ");
-+    DEBUG(N->dump(CurDAG));
-+    DEBUG(dbgs() << "\n");
++    LLVM_DEBUG(dbgs() << "Folding add-immediate into mem-op:\nBase:    ");
++    LLVM_DEBUG(Base->dump(CurDAG));
++    LLVM_DEBUG(dbgs() << "\nN: ");
++    LLVM_DEBUG(N->dump(CurDAG));
++    LLVM_DEBUG(dbgs() << "\n");
 +
 +    // Modify the offset operand of the load/store.
 +    if (BaseOpIdx == 0) // Load
@@ -381,5 +381,5 @@ index cbb89f631a5..33a51efe818 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

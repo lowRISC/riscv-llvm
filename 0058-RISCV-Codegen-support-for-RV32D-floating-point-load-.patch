@@ -6,21 +6,21 @@ Also includes support for spilling and restoring an FPR64 to the stack, and
 tests for loading f64 immediates from the constant pool. double-imm.ll
 required setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp           |   2 +
- lib/Target/RISCV/RISCVInstrInfo.cpp              |   4 +
- lib/Target/RISCV/RISCVInstrInfoD.td              |  10 ++
- test/CodeGen/RISCV/double-br-fcmp.ll             |  86 ++++++----------
- test/CodeGen/RISCV/double-fcmp.ll                |  77 ++++++--------
- test/CodeGen/RISCV/double-imm.ll                 |  34 +++++++
- test/CodeGen/RISCV/double-mem.ll                 | 122 ++++++++++++++++++++++
- test/CodeGen/RISCV/double-select-fcmp.ll         | 123 ++++++++++-------------
- test/CodeGen/RISCV/double-stack-spill-restore.ll |  52 ++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp        |   2 +
+ lib/Target/RISCV/RISCVInstrInfo.cpp           |   4 +
+ lib/Target/RISCV/RISCVInstrInfoD.td           |  10 ++
+ test/CodeGen/RISCV/double-br-fcmp.ll          |  86 +++++-------
+ test/CodeGen/RISCV/double-fcmp.ll             |  77 +++++------
+ test/CodeGen/RISCV/double-imm.ll              |  34 +++++
+ test/CodeGen/RISCV/double-mem.ll              | 122 +++++++++++++++++
+ test/CodeGen/RISCV/double-select-fcmp.ll      | 123 ++++++++----------
+ .../RISCV/double-stack-spill-restore.ll       |  52 ++++++++
  9 files changed, 339 insertions(+), 171 deletions(-)
  create mode 100644 test/CodeGen/RISCV/double-imm.ll
  create mode 100644 test/CodeGen/RISCV/double-stack-spill-restore.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index ab16f2e4f8d..e024744c88c 100644
+index 02f77001edf..acb519065a9 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -131,6 +131,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -853,5 +853,5 @@ index 00000000000..6aae2b56a21
 +  ret double %d
 +}
 -- 
-2.16.2
+2.17.2
 

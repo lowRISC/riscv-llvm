@@ -3,8 +3,8 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Codegen support for FPR32<->stack loads/stores
 
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp | 34 ++++++++++++++---------
- test/CodeGen/RISCV/float-mem.ll     | 55 +++++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp | 34 +++++++++++-------
+ test/CodeGen/RISCV/float-mem.ll     | 55 +++++++++++++++++++++++++++++
  2 files changed, 76 insertions(+), 13 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
@@ -125,5 +125,5 @@ index f1cbb4330f3..0f543ef083f 100644
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

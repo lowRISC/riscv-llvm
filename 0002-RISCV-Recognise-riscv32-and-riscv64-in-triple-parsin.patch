@@ -11,7 +11,7 @@ Upstream commit: https://reviews.llvm.org/rL285708
  3 files changed, 59 insertions(+)
 
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index 965bd246b83..00fa9c08299 100644
+index e6c4a8866a3..04b64e2fa60 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -66,6 +66,8 @@ public:
@@ -24,7 +24,7 @@ index 965bd246b83..00fa9c08299 100644
      sparcv9,        // Sparcv9: Sparcv9
      sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 9b1a739c911..5062fc43266 100644
+index 21eed315069..4471fd05181 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -41,6 +41,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
@@ -46,7 +46,7 @@ index 9b1a739c911..5062fc43266 100644
    }
  }
  
-@@ -273,6 +278,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+@@ -275,6 +280,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
      .Case("ppc64le", ppc64le)
      .Case("r600", r600)
      .Case("amdgcn", amdgcn)
@@ -55,7 +55,7 @@ index 9b1a739c911..5062fc43266 100644
      .Case("hexagon", hexagon)
      .Case("sparc", sparc)
      .Case("sparcel", sparcel)
-@@ -398,6 +405,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+@@ -404,6 +411,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
      .Case("nios2", Triple::nios2)
      .Case("r600", Triple::r600)
      .Case("amdgcn", Triple::amdgcn)
@@ -64,7 +64,7 @@ index 9b1a739c911..5062fc43266 100644
      .Case("hexagon", Triple::hexagon)
      .Cases("s390x", "systemz", Triple::systemz)
      .Case("sparc", Triple::sparc)
-@@ -647,6 +656,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
+@@ -663,6 +672,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
    case Triple::r600:
    case Triple::renderscript32:
    case Triple::renderscript64:
@@ -73,7 +73,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::shave:
    case Triple::sparc:
    case Triple::sparcel:
-@@ -1185,6 +1196,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1216,6 +1227,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx:
    case llvm::Triple::ppc:
    case llvm::Triple::r600:
@@ -81,7 +81,7 @@ index 9b1a739c911..5062fc43266 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::tce:
-@@ -1214,6 +1226,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+@@ -1245,6 +1257,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
    case llvm::Triple::nvptx64:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -89,7 +89,7 @@ index 9b1a739c911..5062fc43266 100644
    case llvm::Triple::sparcv9:
    case llvm::Triple::systemz:
    case llvm::Triple::x86_64:
-@@ -1268,6 +1281,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1299,6 +1312,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx:
    case Triple::ppc:
    case Triple::r600:
@@ -97,7 +97,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::sparc:
    case Triple::sparcel:
    case Triple::tce:
-@@ -1291,6 +1305,7 @@ Triple Triple::get32BitArchVariant() const {
+@@ -1322,6 +1336,7 @@ Triple Triple::get32BitArchVariant() const {
    case Triple::nvptx64:        T.setArch(Triple::nvptx);   break;
    case Triple::ppc64:          T.setArch(Triple::ppc);     break;
    case Triple::sparcv9:        T.setArch(Triple::sparc);   break;
@@ -105,7 +105,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::x86_64:         T.setArch(Triple::x86);     break;
    case Triple::amdil64:        T.setArch(Triple::amdil);   break;
    case Triple::hsail64:        T.setArch(Triple::hsail);   break;
-@@ -1335,6 +1350,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1366,6 +1381,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx64:
    case Triple::ppc64:
    case Triple::ppc64le:
@@ -113,7 +113,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::sparcv9:
    case Triple::systemz:
    case Triple::x86_64:
-@@ -1351,6 +1367,7 @@ Triple Triple::get64BitArchVariant() const {
+@@ -1382,6 +1398,7 @@ Triple Triple::get64BitArchVariant() const {
    case Triple::nvptx:           T.setArch(Triple::nvptx64);    break;
    case Triple::ppc:             T.setArch(Triple::ppc64);      break;
    case Triple::sparc:           T.setArch(Triple::sparcv9);    break;
@@ -121,7 +121,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::x86:             T.setArch(Triple::x86_64);     break;
    case Triple::amdil:           T.setArch(Triple::amdil64);    break;
    case Triple::hsail:           T.setArch(Triple::hsail64);    break;
-@@ -1385,6 +1402,8 @@ Triple Triple::getBigEndianArchVariant() const {
+@@ -1416,6 +1433,8 @@ Triple Triple::getBigEndianArchVariant() const {
    case Triple::nvptx64:
    case Triple::nvptx:
    case Triple::r600:
@@ -130,7 +130,7 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::shave:
    case Triple::spir64:
    case Triple::spir:
-@@ -1471,6 +1490,8 @@ bool Triple::isLittleEndian() const {
+@@ -1502,6 +1521,8 @@ bool Triple::isLittleEndian() const {
    case Triple::nvptx:
    case Triple::ppc64le:
    case Triple::r600:
@@ -140,10 +140,10 @@ index 9b1a739c911..5062fc43266 100644
    case Triple::sparcel:
    case Triple::spir64:
 diff --git a/unittests/ADT/TripleTest.cpp b/unittests/ADT/TripleTest.cpp
-index 93606a98076..c19ad43c723 100644
+index 978f94a5493..efe859f158f 100644
 --- a/unittests/ADT/TripleTest.cpp
 +++ b/unittests/ADT/TripleTest.cpp
-@@ -295,6 +295,24 @@ TEST(TripleTest, ParsedIDs) {
+@@ -301,6 +301,24 @@ TEST(TripleTest, ParsedIDs) {
    EXPECT_EQ(Triple::AMDPAL, T.getOS());
    EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
  
@@ -168,7 +168,7 @@ index 93606a98076..c19ad43c723 100644
    T = Triple("armv7hl-suse-linux-gnueabi");
    EXPECT_EQ(Triple::arm, T.getArch());
    EXPECT_EQ(Triple::SUSE, T.getVendor());
-@@ -639,6 +657,16 @@ TEST(TripleTest, BitWidthPredicates) {
+@@ -831,6 +849,16 @@ TEST(TripleTest, BitWidthPredicates) {
    EXPECT_FALSE(T.isArch16Bit());
    EXPECT_TRUE(T.isArch32Bit());
    EXPECT_FALSE(T.isArch64Bit());
@@ -185,7 +185,7 @@ index 93606a98076..c19ad43c723 100644
  }
  
  TEST(TripleTest, BitWidthArchVariants) {
-@@ -730,6 +758,14 @@ TEST(TripleTest, BitWidthArchVariants) {
+@@ -922,6 +950,14 @@ TEST(TripleTest, BitWidthArchVariants) {
    EXPECT_EQ(Triple::wasm32, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::wasm64, T.get64BitArchVariant().getArch());
  
@@ -201,5 +201,5 @@ index 93606a98076..c19ad43c723 100644
    EXPECT_EQ(Triple::thumbeb, T.get32BitArchVariant().getArch());
    EXPECT_EQ(Triple::aarch64_be, T.get64BitArchVariant().getArch());
 -- 
-2.16.2
+2.17.2
 

@@ -19,86 +19,86 @@ Patch by Mario Werner.
 (Note: the changes to test/CodeGen/* were regenerated when merging this patch
 in to github.com/lowrisc/riscv-llvm).
 ---
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |   4 +-
- test/CodeGen/RISCV/addc-adde-sube-subc.ll         |  22 +-
- test/CodeGen/RISCV/alloca.ll                      |  16 +-
- test/CodeGen/RISCV/alu32.ll                       |  96 ++++-----
- test/CodeGen/RISCV/alu64.ll                       | 162 +++++++--------
- test/CodeGen/RISCV/analyze-branch.ll              |  12 +-
- test/CodeGen/RISCV/bare-select.ll                 |  16 +-
- test/CodeGen/RISCV/blockaddress.ll                |   4 +-
- test/CodeGen/RISCV/branch-relaxation.ll           |  12 +-
- test/CodeGen/RISCV/branch.ll                      |   4 +-
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll       | 128 ++++++------
- test/CodeGen/RISCV/byval.ll                       |   6 +-
- test/CodeGen/RISCV/calling-conv-sext-zext.ll      |  90 ++++-----
- test/CodeGen/RISCV/calling-conv.ll                | 233 +++++++++++-----------
- test/CodeGen/RISCV/calls.ll                       |  74 +++----
- test/CodeGen/RISCV/cfi-info.ll                    |  46 +++--
- test/CodeGen/RISCV/div.ll                         |  72 +++----
- test/CodeGen/RISCV/double-arith.ll                | 170 +++++++++++++++-
- test/CodeGen/RISCV/double-br-fcmp.ll              | 112 +++++------
- test/CodeGen/RISCV/double-convert.ll              |  12 +-
- test/CodeGen/RISCV/double-fcmp.ll                 |  44 ++--
- test/CodeGen/RISCV/double-imm.ll                  |   4 +-
- test/CodeGen/RISCV/double-mem.ll                  |  18 +-
- test/CodeGen/RISCV/double-select-fcmp.ll          | 110 +++++-----
- test/CodeGen/RISCV/double-stack-spill-restore.ll  |   8 +-
- test/CodeGen/RISCV/float-arith.ll                 |  32 +--
- test/CodeGen/RISCV/float-br-fcmp.ll               | 112 +++++------
- test/CodeGen/RISCV/float-convert.ll               |  12 +-
- test/CodeGen/RISCV/float-fcmp.ll                  |  44 ++--
- test/CodeGen/RISCV/float-fma.ll                   |   8 +-
- test/CodeGen/RISCV/float-imm.ll                   |   4 +-
- test/CodeGen/RISCV/float-mem.ll                   |  18 +-
- test/CodeGen/RISCV/float-select-fcmp.ll           | 108 +++++-----
- test/CodeGen/RISCV/fp128.ll                       |  12 +-
- test/CodeGen/RISCV/frame.ll                       |  12 +-
- test/CodeGen/RISCV/frameaddr-returnaddr.ll        |  16 +-
- test/CodeGen/RISCV/i32-icmp.ll                    |  24 +--
- test/CodeGen/RISCV/imm.ll                         |  32 +--
- test/CodeGen/RISCV/indirectbr.ll                  |  10 +-
- test/CodeGen/RISCV/inline-asm.ll                  |   8 +-
- test/CodeGen/RISCV/jumptable.ll                   |   8 +-
- test/CodeGen/RISCV/large-stack.ll                 |  10 +-
- test/CodeGen/RISCV/mem.ll                         |  28 +--
- test/CodeGen/RISCV/mem64.ll                       |  30 +--
- test/CodeGen/RISCV/mul.ll                         |  62 +++---
- test/CodeGen/RISCV/rem.ll                         |  12 +-
- test/CodeGen/RISCV/rotl-rotr.ll                   |   4 +-
- test/CodeGen/RISCV/select-cc.ll                   |  22 +-
- test/CodeGen/RISCV/sext-zext-trunc.ll             |  78 ++++----
- test/CodeGen/RISCV/shifts.ll                      |  12 +-
- test/CodeGen/RISCV/vararg.ll                      | 153 +++++++-------
- test/CodeGen/RISCV/wide-mem.ll                    |   6 +-
- test/MC/RISCV/fixups.s                            |   5 +-
- test/MC/RISCV/priv-valid.s                        |  10 +-
- test/MC/RISCV/relocations.s                       |   2 +-
- test/MC/RISCV/rv32a-valid.s                       |  10 +-
- test/MC/RISCV/rv32c-only-valid.s                  |   4 +-
- test/MC/RISCV/rv32c-valid.s                       |  10 +-
- test/MC/RISCV/rv32d-valid.s                       |  56 +++---
- test/MC/RISCV/rv32dc-valid.s                      |  12 +-
- test/MC/RISCV/rv32f-valid.s                       |  62 +++---
- test/MC/RISCV/rv32fc-valid.s                      |  10 +-
- test/MC/RISCV/rv32i-aliases-invalid.s             |   2 +-
- test/MC/RISCV/rv32i-aliases-valid.s               |   6 +-
- test/MC/RISCV/rv32i-valid.s                       |  10 +-
- test/MC/RISCV/rv32m-valid.s                       |  10 +-
- test/MC/RISCV/rv64a-valid.s                       |   5 +-
- test/MC/RISCV/rv64c-valid.s                       |   8 +-
- test/MC/RISCV/rv64d-aliases-valid.s               |  27 +++
- test/MC/RISCV/rv64d-valid.s                       |  21 +-
- test/MC/RISCV/rv64f-aliases-valid.s               |  27 +++
- test/MC/RISCV/rv64f-valid.s                       |  21 +-
- test/MC/RISCV/rv64i-aliases-invalid.s             |   2 +-
- test/MC/RISCV/rv64i-aliases-valid.s               |   6 +-
- test/MC/RISCV/rv64i-valid.s                       |   5 +-
- test/MC/RISCV/rv64m-valid.s                       |   5 +-
- test/MC/RISCV/rvd-aliases-valid.s                 |  53 ++++-
- test/MC/RISCV/rvf-aliases-valid.s                 |  56 +++++-
- test/MC/RISCV/rvi-aliases-valid.s                 |   8 +-
- 79 files changed, 1580 insertions(+), 1225 deletions(-)
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |   4 +-
+ test/CodeGen/RISCV/addc-adde-sube-subc.ll     |  22 +-
+ test/CodeGen/RISCV/alloca.ll                  |  16 +-
+ test/CodeGen/RISCV/alu32.ll                   |  96 ++++----
+ test/CodeGen/RISCV/alu64.ll                   | 162 ++++++------
+ test/CodeGen/RISCV/analyze-branch.ll          |  12 +-
+ test/CodeGen/RISCV/bare-select.ll             |  16 +-
+ test/CodeGen/RISCV/blockaddress.ll            |   4 +-
+ test/CodeGen/RISCV/branch-relaxation.ll       |  12 +-
+ test/CodeGen/RISCV/branch.ll                  |   4 +-
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll   | 128 +++++-----
+ test/CodeGen/RISCV/byval.ll                   |   6 +-
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll  |  90 +++----
+ test/CodeGen/RISCV/calling-conv.ll            | 233 +++++++++---------
+ test/CodeGen/RISCV/calls.ll                   |  74 +++---
+ test/CodeGen/RISCV/cfi-info.ll                |  46 +++-
+ test/CodeGen/RISCV/div.ll                     |  72 +++---
+ test/CodeGen/RISCV/double-arith.ll            | 170 ++++++++++++-
+ test/CodeGen/RISCV/double-br-fcmp.ll          | 112 ++++-----
+ test/CodeGen/RISCV/double-convert.ll          |  12 +-
+ test/CodeGen/RISCV/double-fcmp.ll             |  44 ++--
+ test/CodeGen/RISCV/double-imm.ll              |   4 +-
+ test/CodeGen/RISCV/double-mem.ll              |  18 +-
+ test/CodeGen/RISCV/double-select-fcmp.ll      | 110 ++++-----
+ .../RISCV/double-stack-spill-restore.ll       |   8 +-
+ test/CodeGen/RISCV/float-arith.ll             |  32 +--
+ test/CodeGen/RISCV/float-br-fcmp.ll           | 112 ++++-----
+ test/CodeGen/RISCV/float-convert.ll           |  12 +-
+ test/CodeGen/RISCV/float-fcmp.ll              |  44 ++--
+ test/CodeGen/RISCV/float-fma.ll               |   8 +-
+ test/CodeGen/RISCV/float-imm.ll               |   4 +-
+ test/CodeGen/RISCV/float-mem.ll               |  18 +-
+ test/CodeGen/RISCV/float-select-fcmp.ll       | 108 ++++----
+ test/CodeGen/RISCV/fp128.ll                   |  12 +-
+ test/CodeGen/RISCV/frame.ll                   |  12 +-
+ test/CodeGen/RISCV/frameaddr-returnaddr.ll    |  16 +-
+ test/CodeGen/RISCV/i32-icmp.ll                |  24 +-
+ test/CodeGen/RISCV/imm.ll                     |  32 +--
+ test/CodeGen/RISCV/indirectbr.ll              |  10 +-
+ test/CodeGen/RISCV/inline-asm.ll              |   8 +-
+ test/CodeGen/RISCV/jumptable.ll               |   8 +-
+ test/CodeGen/RISCV/large-stack.ll             |  10 +-
+ test/CodeGen/RISCV/mem.ll                     |  28 +--
+ test/CodeGen/RISCV/mem64.ll                   |  30 +--
+ test/CodeGen/RISCV/mul.ll                     |  62 ++---
+ test/CodeGen/RISCV/rem.ll                     |  12 +-
+ test/CodeGen/RISCV/rotl-rotr.ll               |   4 +-
+ test/CodeGen/RISCV/select-cc.ll               |  22 +-
+ test/CodeGen/RISCV/sext-zext-trunc.ll         |  78 +++---
+ test/CodeGen/RISCV/shifts.ll                  |  12 +-
+ test/CodeGen/RISCV/vararg.ll                  | 169 +++++++------
+ test/CodeGen/RISCV/wide-mem.ll                |   6 +-
+ test/MC/RISCV/fixups.s                        |   5 +-
+ test/MC/RISCV/priv-valid.s                    |  10 +-
+ test/MC/RISCV/relocations.s                   |   2 +-
+ test/MC/RISCV/rv32a-valid.s                   |  10 +-
+ test/MC/RISCV/rv32c-only-valid.s              |   4 +-
+ test/MC/RISCV/rv32c-valid.s                   |  10 +-
+ test/MC/RISCV/rv32d-valid.s                   |  56 +++--
+ test/MC/RISCV/rv32dc-valid.s                  |  12 +-
+ test/MC/RISCV/rv32f-valid.s                   |  62 ++---
+ test/MC/RISCV/rv32fc-valid.s                  |  10 +-
+ test/MC/RISCV/rv32i-aliases-invalid.s         |   2 +-
+ test/MC/RISCV/rv32i-aliases-valid.s           |   6 +-
+ test/MC/RISCV/rv32i-valid.s                   |  10 +-
+ test/MC/RISCV/rv32m-valid.s                   |  10 +-
+ test/MC/RISCV/rv64a-valid.s                   |   5 +-
+ test/MC/RISCV/rv64c-valid.s                   |   8 +-
+ test/MC/RISCV/rv64d-aliases-valid.s           |  27 ++
+ test/MC/RISCV/rv64d-valid.s                   |  21 +-
+ test/MC/RISCV/rv64f-aliases-valid.s           |  27 ++
+ test/MC/RISCV/rv64f-valid.s                   |  21 +-
+ test/MC/RISCV/rv64i-aliases-invalid.s         |   2 +-
+ test/MC/RISCV/rv64i-aliases-valid.s           |   6 +-
+ test/MC/RISCV/rv64i-valid.s                   |   5 +-
+ test/MC/RISCV/rv64m-valid.s                   |   5 +-
+ test/MC/RISCV/rvd-aliases-valid.s             |  53 +++-
+ test/MC/RISCV/rvf-aliases-valid.s             |  56 ++++-
+ test/MC/RISCV/rvi-aliases-valid.s             |   8 +-
+ 79 files changed, 1588 insertions(+), 1233 deletions(-)
  create mode 100644 test/MC/RISCV/rv64d-aliases-valid.s
  create mode 100644 test/MC/RISCV/rv64f-aliases-valid.s
 
@@ -1718,7 +1718,7 @@ index 5e2783b6ce3..943983aa819 100644
    %call = call i32 @callee(%struct.Foo* byval @foo)
    ret void
 diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
-index 5cc7f1a0b99..8f921b630f0 100644
+index b319e782458..7844b57c428 100644
 --- a/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 +++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 @@ -5,7 +5,7 @@
@@ -2043,7 +2043,7 @@ index 5cc7f1a0b99..8f921b630f0 100644
    ret i32 %1
  }
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
-index c1d8be833f7..d068df62422 100644
+index d5081040d68..36e71177727 100644
 --- a/test/CodeGen/RISCV/calling-conv.ll
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -19,15 +19,15 @@ define i32 @callee_scalars(i32 %a, i64 %b, i32 %c, i32 %d, double %e) nounwind {
@@ -2736,9 +2736,9 @@ index c1d8be833f7..d068df62422 100644
    ret void
  }
 @@ -1057,7 +1058,7 @@ define void @callee_large_struct_ret(%struct.large* noalias sret %agg.result) no
- ; RV32I-FPELIM-NEXT:    sw a1, 8(a0)
- ; RV32I-FPELIM-NEXT:    addi a1, zero, 4
- ; RV32I-FPELIM-NEXT:    sw a1, 12(a0)
+ ; RV32I-FPELIM-NEXT:    sw a1, 4(a0)
+ ; RV32I-FPELIM-NEXT:    addi a1, zero, 1
+ ; RV32I-FPELIM-NEXT:    sw a1, 0(a0)
 -; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +; RV32I-FPELIM-NEXT:    ret
  ;
@@ -6007,7 +6007,7 @@ index 9487d965f70..d08f6ff00d4 100644
    ret i64 123456757922083603
  }
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
-index 24fc963e72b..7ba63dfe9dc 100644
+index 1602df5f9d6..fc593864872 100644
 --- a/test/CodeGen/RISCV/indirectbr.ll
 +++ b/test/CodeGen/RISCV/indirectbr.ll
 @@ -7,12 +7,12 @@ define i32 @indirectbr(i8* %target) nounwind {
@@ -6016,7 +6016,7 @@ index 24fc963e72b..7ba63dfe9dc 100644
  ; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    jalr zero, a0, 0
 +; RV32I-NEXT:    jr a0
- ; RV32I-NEXT:  .LBB0_1: # %ret
+ ; RV32I-NEXT:  .LBB0_1: # %test_label
 -; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    mv a0, zero
  ; RV32I-NEXT:    lw ra, 12(sp)
@@ -6029,7 +6029,7 @@ index 24fc963e72b..7ba63dfe9dc 100644
 @@ -27,10 +27,10 @@ define i32 @indirectbr_with_offset(i8* %a) nounwind {
  ; RV32I-NEXT:    sw ra, 12(sp)
  ; RV32I-NEXT:    jalr zero, a0, 1380
- ; RV32I-NEXT:  .LBB1_1: # %ret
+ ; RV32I-NEXT:  .LBB1_1: # %test_label
 -; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    mv a0, zero
  ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7059,18 +7059,36 @@ index 5d00d69a1d2..0a3e07e11b5 100644
    ret i64 %1
  }
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index e9b7b07ff0c..08e3f143548 100644
+index 726d8b05fa7..483c0773780 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
+@@ -17,7 +17,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-LABEL: va1:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -48
+-; RV32I-FPELIM-NEXT:    addi a0, a1, 0
++; RV32I-FPELIM-NEXT:    mv a0, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
+ ; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
+ ; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 @@ -28,7 +28,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
- ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
- ; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
+ ; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
+ ; RV32I-FPELIM-NEXT:    sw a0, 20(sp)
  ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 -; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +; RV32I-FPELIM-NEXT:    ret
  ;
  ; RV32I-WITHFP-LABEL: va1:
  ; RV32I-WITHFP:       # %bb.0:
+@@ -36,7 +36,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+-; RV32I-WITHFP-NEXT:    addi a0, a1, 0
++; RV32I-WITHFP-NEXT:    mv a0, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 @@ -49,7 +49,7 @@ define i32 @va1(i8* %fmt, ...) nounwind {
  ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
  ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
@@ -7080,15 +7098,33 @@ index e9b7b07ff0c..08e3f143548 100644
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
+@@ -66,7 +66,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-LABEL: va1_va_arg:
+ ; RV32I-FPELIM:       # %bb.0:
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -48
+-; RV32I-FPELIM-NEXT:    addi a0, a1, 0
++; RV32I-FPELIM-NEXT:    mv a0, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
+ ; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
+ ; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 @@ -77,7 +77,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
- ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
- ; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
+ ; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
+ ; RV32I-FPELIM-NEXT:    sw a0, 20(sp)
  ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 -; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +; RV32I-FPELIM-NEXT:    ret
  ;
  ; RV32I-WITHFP-LABEL: va1_va_arg:
  ; RV32I-WITHFP:       # %bb.0:
+@@ -85,7 +85,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+-; RV32I-WITHFP-NEXT:    addi a0, a1, 0
++; RV32I-WITHFP-NEXT:    mv a0, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 @@ -98,7 +98,7 @@ define i32 @va1_va_arg(i8* %fmt, ...) nounwind {
  ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
  ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
@@ -7098,6 +7134,15 @@ index e9b7b07ff0c..08e3f143548 100644
    %va = alloca i8*, align 4
    %1 = bitcast i8** %va to i8*
    call void @llvm.va_start(i8* %1)
+@@ -117,7 +117,7 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw s0, 8(sp)
+ ; RV32I-FPELIM-NEXT:    sw s1, 4(sp)
+ ; RV32I-FPELIM-NEXT:    addi s0, sp, 16
+-; RV32I-FPELIM-NEXT:    addi s1, a1, 0
++; RV32I-FPELIM-NEXT:    mv s1, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 28(s0)
+ ; RV32I-FPELIM-NEXT:    sw a6, 24(s0)
+ ; RV32I-FPELIM-NEXT:    sw a5, 20(s0)
 @@ -130,17 +130,17 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
  ; RV32I-FPELIM-NEXT:    addi a0, s1, 15
  ; RV32I-FPELIM-NEXT:    andi a0, a0, -16
@@ -7120,6 +7165,15 @@ index e9b7b07ff0c..08e3f143548 100644
  ;
  ; RV32I-WITHFP-LABEL: va1_va_arg_alloca:
  ; RV32I-WITHFP:       # %bb.0:
+@@ -149,7 +149,7 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
+ ; RV32I-WITHFP-NEXT:    sw s1, 4(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 16
+-; RV32I-WITHFP-NEXT:    addi s1, a1, 0
++; RV32I-WITHFP-NEXT:    mv s1, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 @@ -162,17 +162,17 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) nounwind {
  ; RV32I-WITHFP-NEXT:    addi a0, s1, 15
  ; RV32I-WITHFP-NEXT:    andi a0, a0, -16
@@ -7421,8 +7475,17 @@ index e9b7b07ff0c..08e3f143548 100644
   %1 = call double (i32, double, ...) @va3(i32 2, double 1.000000e+00, double 2.000000e+00)
   ret void
  }
+@@ -567,7 +566,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-FPELIM-NEXT:    addi sp, sp, -48
+ ; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
+ ; RV32I-FPELIM-NEXT:    sw s1, 8(sp)
+-; RV32I-FPELIM-NEXT:    addi s1, a1, 0
++; RV32I-FPELIM-NEXT:    mv s1, a1
+ ; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
+ ; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
+ ; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 @@ -580,7 +579,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
- ; RV32I-FPELIM-NEXT:    lw s1, 20(sp)
+ ; RV32I-FPELIM-NEXT:    sw a0, 0(sp)
  ; RV32I-FPELIM-NEXT:    lui a1, %hi(notdead)
  ; RV32I-FPELIM-NEXT:    addi a1, a1, %lo(notdead)
 -; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
@@ -7439,8 +7502,17 @@ index e9b7b07ff0c..08e3f143548 100644
  ;
  ; RV32I-WITHFP-LABEL: va4_va_copy:
  ; RV32I-WITHFP:       # %bb.0:
+@@ -612,7 +611,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
+ ; RV32I-WITHFP-NEXT:    sw s0, 24(sp)
+ ; RV32I-WITHFP-NEXT:    sw s1, 20(sp)
+ ; RV32I-WITHFP-NEXT:    addi s0, sp, 32
+-; RV32I-WITHFP-NEXT:    addi s1, a1, 0
++; RV32I-WITHFP-NEXT:    mv s1, a1
+ ; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
+ ; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
+ ; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 @@ -625,7 +624,7 @@ define i32 @va4_va_copy(i32 %argno, ...) nounwind {
- ; RV32I-WITHFP-NEXT:    lw s1, 4(s0)
+ ; RV32I-WITHFP-NEXT:    sw a0, -20(s0)
  ; RV32I-WITHFP-NEXT:    lui a1, %hi(notdead)
  ; RV32I-WITHFP-NEXT:    addi a1, a1, %lo(notdead)
 -; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
@@ -7502,16 +7574,16 @@ index e9b7b07ff0c..08e3f143548 100644
    %1 = call i32 (i32, ...) @va5_aligned_stack_callee(i32 1, i32 11,
      fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13, i64 20000000000,
      i32 14, double 2.720000e+00, i32 15, [2 x i32] [i32 16, i32 17])
-@@ -829,7 +828,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
- ; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
- ; RV32I-FPELIM-NEXT:    lw a0, 16(sp)
+@@ -828,7 +827,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
+ ; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
+ ; RV32I-FPELIM-NEXT:    sw a0, 16(sp)
  ; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 -; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +; RV32I-FPELIM-NEXT:    ret
  ;
  ; RV32I-WITHFP-LABEL: va6_no_fixed_args:
  ; RV32I-WITHFP:       # %bb.0:
-@@ -851,7 +850,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
+@@ -849,7 +848,7 @@ define i32 @va6_no_fixed_args(...) nounwind {
  ; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
  ; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
  ; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -8440,5 +8512,5 @@ index 08d0f8c6590..72ed72eab27 100644
  
  # TODO la
 -- 
-2.16.2
+2.17.2
 

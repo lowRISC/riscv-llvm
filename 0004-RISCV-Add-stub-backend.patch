@@ -12,16 +12,16 @@ Upstream commit: https://reviews.llvm.org/rL285712
 
 NOTE: This patch has been updated since being committed upstream.
 ---
- docs/CompilerWriterInfo.rst                     |  4 ++
- lib/Target/LLVMBuild.txt                        |  1 +
- lib/Target/RISCV/CMakeLists.txt                 |  5 ++
- lib/Target/RISCV/LLVMBuild.txt                  | 31 ++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp         | 67 +++++++++++++++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.h           | 41 +++++++++++++++
- lib/Target/RISCV/TargetInfo/CMakeLists.txt      |  3 ++
- lib/Target/RISCV/TargetInfo/LLVMBuild.txt       | 23 +++++++++
- lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp | 35 +++++++++++++
- 9 files changed, 210 insertions(+)
+ docs/CompilerWriterInfo.rst                   |  4 ++
+ lib/Target/LLVMBuild.txt                      |  1 +
+ lib/Target/RISCV/CMakeLists.txt               |  5 ++
+ lib/Target/RISCV/LLVMBuild.txt                | 31 ++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp       | 61 +++++++++++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.h         | 41 +++++++++++++
+ lib/Target/RISCV/TargetInfo/CMakeLists.txt    |  3 +
+ lib/Target/RISCV/TargetInfo/LLVMBuild.txt     | 23 +++++++
+ .../RISCV/TargetInfo/RISCVTargetInfo.cpp      | 35 +++++++++++
+ 9 files changed, 204 insertions(+)
  create mode 100644 lib/Target/RISCV/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/RISCVTargetMachine.cpp
@@ -31,7 +31,7 @@ NOTE: This patch has been updated since being committed upstream.
  create mode 100644 lib/Target/RISCV/TargetInfo/RISCVTargetInfo.cpp
 
 diff --git a/docs/CompilerWriterInfo.rst b/docs/CompilerWriterInfo.rst
-index 4e5d8dc2026..60f102472c6 100644
+index a1cbd40cdf2..838c36a4099 100644
 --- a/docs/CompilerWriterInfo.rst
 +++ b/docs/CompilerWriterInfo.rst
 @@ -74,6 +74,10 @@ AMDGPU
@@ -107,10 +107,10 @@ index 00000000000..e5e5692490c
 +add_to_library_groups = RISCV
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
 new file mode 100644
-index 00000000000..ea8bb43c53e
+index 00000000000..9e1a58d8621
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,61 @@
 +//===-- RISCVTargetMachine.cpp - Define TargetMachine for RISCV -----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -156,12 +156,6 @@ index 00000000000..ea8bb43c53e
 +  return *RM;
 +}
 +
-+static CodeModel::Model getEffectiveCodeModel(Optional<CodeModel::Model> CM) {
-+  if (CM)
-+    return *CM;
-+  return CodeModel::Small;
-+}
-+
 +RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
 +                                       StringRef CPU, StringRef FS,
 +                                       const TargetOptions &Options,
@@ -170,7 +164,7 @@ index 00000000000..ea8bb43c53e
 +                                       CodeGenOpt::Level OL, bool JIT)
 +    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
 +                        getEffectiveRelocModel(TT, RM),
-+                        getEffectiveCodeModel(CM), OL),
++                        getEffectiveCodeModel(CM, CodeModel::Small), OL),
 +      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
 +  initAsmInfo();
 +}
@@ -305,5 +299,5 @@ index 00000000000..e1b605c285e
 +// Remove once this function is properly implemented.
 +extern "C" void LLVMInitializeRISCVTargetMC() {}
 -- 
-2.16.2
+2.17.2
 

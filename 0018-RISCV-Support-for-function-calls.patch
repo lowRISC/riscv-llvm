@@ -4,14 +4,14 @@ Subject: [RISCV] Support for function calls
 
 ---
  lib/Target/RISCV/RISCVFrameLowering.h  |   6 ++
- lib/Target/RISCV/RISCVISelLowering.cpp | 132 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp | 132 +++++++++++++++++++++++++
  lib/Target/RISCV/RISCVISelLowering.h   |   5 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp    |   3 +-
- lib/Target/RISCV/RISCVInstrInfo.td     |  32 +++++++-
+ lib/Target/RISCV/RISCVInstrInfo.td     |  32 +++++-
  lib/Target/RISCV/RISCVMCInstLower.cpp  |   3 +
  lib/Target/RISCV/RISCVRegisterInfo.cpp |   6 ++
  lib/Target/RISCV/RISCVRegisterInfo.h   |   3 +
- test/CodeGen/RISCV/calls.ll            |  83 +++++++++++++++++++++
+ test/CodeGen/RISCV/calls.ll            |  83 ++++++++++++++++
  9 files changed, 269 insertions(+), 4 deletions(-)
  create mode 100644 test/CodeGen/RISCV/calls.ll
 
@@ -33,7 +33,7 @@ index 71f85864a39..0b2c7a40298 100644
  }
  #endif
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 9f19cda8910..98f7aa16e2e 100644
+index 17abbf468a9..fc05bbec8f1 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -108,6 +108,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
@@ -412,5 +412,5 @@ index 00000000000..77f61290705
 +  ret i32 %a
 +}
 -- 
-2.16.2
+2.17.2
 

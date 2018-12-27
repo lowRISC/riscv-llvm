@@ -10,14 +10,14 @@ aren't supported natively.
  lib/Target/RISCV/RISCVISelLowering.cpp |   7 +-
  lib/Target/RISCV/RISCVInstrInfo.td     |   2 +-
  lib/Target/RISCV/RISCVInstrInfoA.td    |  20 +-
- test/CodeGen/RISCV/atomics.ll          | 461 ++++++++++++++++++++++++++++++++-
+ test/CodeGen/RISCV/atomics.ll          | 461 ++++++++++++++++++++++++-
  4 files changed, 485 insertions(+), 5 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index a3349ef49fc..bc388ea3be6 100644
+index 12f12bfcacb..943e293836e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -1204,8 +1204,7 @@ RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
+@@ -1196,8 +1196,7 @@ RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
  Instruction *RISCVTargetLowering::emitLeadingFence(IRBuilder<> &Builder,
                                                     Instruction *Inst,
                                                     AtomicOrdering Ord) const {
@@ -27,7 +27,7 @@ index a3349ef49fc..bc388ea3be6 100644
      return Builder.CreateFence(Ord);
    return nullptr;
  }
-@@ -1213,6 +1212,10 @@ Instruction *RISCVTargetLowering::emitLeadingFence(IRBuilder<> &Builder,
+@@ -1205,6 +1204,10 @@ Instruction *RISCVTargetLowering::emitLeadingFence(IRBuilder<> &Builder,
  Instruction *RISCVTargetLowering::emitTrailingFence(IRBuilder<> &Builder,
                                                      Instruction *Inst,
                                                      AtomicOrdering Ord) const {
@@ -554,5 +554,5 @@ index bb81aa9d0eb..5bc59955b32 100644
 +  ret i32 %1
 +}
 -- 
-2.16.2
+2.17.2
 

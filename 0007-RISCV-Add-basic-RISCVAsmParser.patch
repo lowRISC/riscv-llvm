@@ -9,12 +9,12 @@ Differential Revision: https://reviews.llvm.org/D23563
 ---
  lib/Target/RISCV/AsmParser/CMakeLists.txt     |   3 +
  lib/Target/RISCV/AsmParser/LLVMBuild.txt      |  23 ++
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 372 ++++++++++++++++++++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 372 ++++++++++++++++++
  lib/Target/RISCV/CMakeLists.txt               |   2 +
  lib/Target/RISCV/LLVMBuild.txt                |   3 +-
  lib/Target/RISCV/RISCV.td                     |   9 +-
- lib/Target/RISCV/RISCVInstrInfo.td            |  12 +-
- 7 files changed, 419 insertions(+), 5 deletions(-)
+ lib/Target/RISCV/RISCVInstrInfo.td            |  11 +-
+ 7 files changed, 419 insertions(+), 4 deletions(-)
  create mode 100644 lib/Target/RISCV/AsmParser/CMakeLists.txt
  create mode 100644 lib/Target/RISCV/AsmParser/LLVMBuild.txt
  create mode 100644 lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
@@ -501,7 +501,7 @@ index 2d9a52f18bc..7b61901915f 100644
 +  let AssemblyParsers = [RISCVAsmParser];
  }
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 9ef2b7460ca..1abee900937 100644
+index 32cbcc58284..1abee900937 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -17,7 +17,16 @@ include "RISCVInstrFormats.td"
@@ -522,11 +522,6 @@ index 9ef2b7460ca..1abee900937 100644
  
  //===----------------------------------------------------------------------===//
  // Instruction Class Templates
-@@ -54,4 +63,3 @@ def SRL  : ALU_rr<0b0000000, 0b101, "srl">;
- def SRA  : ALU_rr<0b0100000, 0b101, "sra">;
- def OR   : ALU_rr<0b0000000, 0b110, "or">;
- def AND  : ALU_rr<0b0000000, 0b111, "and">;
--
 -- 
-2.16.2
+2.17.2
 

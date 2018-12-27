@@ -8,14 +8,14 @@ expansions (e.g. 0-arg fence -> fence iorw, iorw).
 
 Differential Revision: https://reviews.llvm.org/D23566
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 156 +++++++++++++++++--
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp  |  14 ++
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h    |   1 +
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  54 +++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  19 +++
- lib/Target/RISCV/RISCVInstrInfo.td                 | 165 ++++++++++++++++++++-
- test/MC/RISCV/rv32i-invalid.s                      |  50 ++++++-
- test/MC/RISCV/rv32i-valid.s                        | 150 +++++++++++++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 156 +++++++++++++++--
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |  14 ++
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      |   1 +
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |  54 ++++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  19 ++
+ lib/Target/RISCV/RISCVInstrInfo.td            | 165 +++++++++++++++++-
+ test/MC/RISCV/rv32i-invalid.s                 |  50 +++++-
+ test/MC/RISCV/rv32i-valid.s                   | 150 ++++++++++++++++
  8 files changed, 592 insertions(+), 17 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 
@@ -376,7 +376,7 @@ index 00000000000..4fe604316de
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index 9309d493cef..eb0beb028ad 100644
+index 4a18d9aaa8b..355fc4c074a 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -55,6 +55,10 @@ public:
@@ -865,5 +865,5 @@ index fc89cd42016..4c883e9a0ae 100644
 +# CHECK: encoding: [0x73,0xf3,0x02,0x14]
 +csrrci t1, 0x140, 5
 -- 
-2.16.2
+2.17.2
 

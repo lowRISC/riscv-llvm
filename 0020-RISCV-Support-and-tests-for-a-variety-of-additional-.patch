@@ -19,23 +19,23 @@ for a number of these cases:
 * rotl, rotr
 * BlockAddress operands
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp      | 106 +++++-
+ lib/Target/RISCV/RISCVISelLowering.cpp      | 106 +++-
  lib/Target/RISCV/RISCVISelLowering.h        |   2 +
  lib/Target/RISCV/RISCVInstrInfo.td          |  20 +
  lib/Target/RISCV/RISCVMCInstLower.cpp       |   8 +
  test/CodeGen/RISCV/addc-adde-sube-subc.ll   |  30 ++
  test/CodeGen/RISCV/alu32.ll                 |   4 +
- test/CodeGen/RISCV/blockaddress.ll          |  28 ++
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 547 ++++++++++++++++++++++++++++
- test/CodeGen/RISCV/div.ll                   | 134 +++++++
- test/CodeGen/RISCV/i32-icmp.ll              | 114 ++++++
+ test/CodeGen/RISCV/blockaddress.ll          |  28 +
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 547 ++++++++++++++++++++
+ test/CodeGen/RISCV/div.ll                   | 134 +++++
+ test/CodeGen/RISCV/i32-icmp.ll              | 114 ++++
  test/CodeGen/RISCV/indirectbr.ll            |  36 ++
- test/CodeGen/RISCV/jumptable.ll             |  63 ++++
- test/CodeGen/RISCV/mul.ll                   |  81 ++++
+ test/CodeGen/RISCV/jumptable.ll             |  63 +++
+ test/CodeGen/RISCV/mul.ll                   |  81 +++
  test/CodeGen/RISCV/rem.ll                   |  29 ++
  test/CodeGen/RISCV/rotl-rotr.ll             |  38 ++
- test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++++++
- test/CodeGen/RISCV/shifts.ll                |  45 +++
+ test/CodeGen/RISCV/sext-zext-trunc.ll       | 296 +++++++++++
+ test/CodeGen/RISCV/shifts.ll                |  45 ++
  17 files changed, 1566 insertions(+), 15 deletions(-)
  create mode 100644 test/CodeGen/RISCV/addc-adde-sube-subc.ll
  create mode 100644 test/CodeGen/RISCV/blockaddress.ll
@@ -51,7 +51,7 @@ for a number of these cases:
  create mode 100644 test/CodeGen/RISCV/shifts.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 606365ea59b..4801884e242 100644
+index 608d66dcbe5..94bc2462189 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -53,17 +53,54 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -1168,7 +1168,7 @@ index 00000000000..bc06ec805e9
 +; TODO: check variants with an immediate?
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
 new file mode 100644
-index 00000000000..40641da6d6f
+index 00000000000..286989312e2
 --- /dev/null
 +++ b/test/CodeGen/RISCV/indirectbr.ll
 @@ -0,0 +1,36 @@
@@ -1181,7 +1181,7 @@ index 00000000000..40641da6d6f
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 0(s0)
 +; RV32I-NEXT:    jalr zero, a0, 0
-+; RV32I-NEXT:  .LBB0_1: # %ret
++; RV32I-NEXT:  .LBB0_1: # %test_label
 +; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    lw ra, 0(s0)
 +; RV32I-NEXT:    jalr zero, ra, 0
@@ -1197,7 +1197,7 @@ index 00000000000..40641da6d6f
 +; RV32I:       # %bb.0:
 +; RV32I-NEXT:    sw ra, 0(s0)
 +; RV32I-NEXT:    jalr zero, a0, 1380
-+; RV32I-NEXT:  .LBB1_1: # %ret
++; RV32I-NEXT:  .LBB1_1: # %test_label
 +; RV32I-NEXT:    addi a0, zero, 0
 +; RV32I-NEXT:    lw ra, 0(s0)
 +; RV32I-NEXT:    jalr zero, ra, 0
@@ -1797,5 +1797,5 @@ index 00000000000..c4033c574ef
 +  ret i64 %1
 +}
 -- 
-2.16.2
+2.17.2
 

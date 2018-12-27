@@ -6,17 +6,17 @@ Subject: [RISCV] Implement clang driver for the baremetal RISCV 32-bit target
  lib/Driver/CMakeLists.txt       |   1 +
  lib/Driver/Driver.cpp           |   5 ++
  lib/Driver/ToolChains/Gnu.cpp   |   3 +-
- lib/Driver/ToolChains/RISCV.cpp | 102 ++++++++++++++++++++++++++++++++++++++++
- lib/Driver/ToolChains/RISCV.h   |  58 +++++++++++++++++++++++
+ lib/Driver/ToolChains/RISCV.cpp | 102 ++++++++++++++++++++++++++++++++
+ lib/Driver/ToolChains/RISCV.h   |  58 ++++++++++++++++++
  5 files changed, 168 insertions(+), 1 deletion(-)
  create mode 100644 lib/Driver/ToolChains/RISCV.cpp
  create mode 100644 lib/Driver/ToolChains/RISCV.h
 
 diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
-index afb1cdf375..459b64bf34 100644
+index 422f81487b..c454e009dd 100644
 --- a/lib/Driver/CMakeLists.txt
 +++ b/lib/Driver/CMakeLists.txt
-@@ -56,6 +56,7 @@ add_clang_library(clangDriver
+@@ -59,6 +59,7 @@ add_clang_library(clangDriver
    ToolChains/NetBSD.cpp
    ToolChains/OpenBSD.cpp
    ToolChains/PS4CPU.cpp
@@ -25,10 +25,10 @@ index afb1cdf375..459b64bf34 100644
    ToolChains/TCE.cpp
    ToolChains/WebAssembly.cpp
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index 4712daf0e1..c8e98f8959 100644
+index dd3890b6f3..79e598949e 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
-@@ -36,6 +36,7 @@
+@@ -38,6 +38,7 @@
  #include "ToolChains/NetBSD.h"
  #include "ToolChains/OpenBSD.h"
  #include "ToolChains/PS4CPU.h"
@@ -36,7 +36,7 @@ index 4712daf0e1..c8e98f8959 100644
  #include "ToolChains/Solaris.h"
  #include "ToolChains/TCE.h"
  #include "ToolChains/WebAssembly.h"
-@@ -4211,6 +4212,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+@@ -4610,6 +4611,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
        case llvm::Triple::avr:
          TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
          break;
@@ -48,10 +48,10 @@ index 4712daf0e1..c8e98f8959 100644
          if (Target.getVendor() == llvm::Triple::Myriad)
            TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index fa5cfa0a0c..38c02d3b51 100644
+index 3cc1575ef7..bcf5f71c74 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
-@@ -1885,7 +1885,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+@@ -1914,7 +1914,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
  
    static const char *const RISCV32LibDirs[] = {"/lib", "/lib32"};
    static const char *const RISCVTriples[] = {"riscv32-unknown-linux-gnu",
@@ -234,5 +234,5 @@ index 0000000000..c26180b6fb
 +
 +#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCV_H
 -- 
-2.16.2
+2.17.2
 

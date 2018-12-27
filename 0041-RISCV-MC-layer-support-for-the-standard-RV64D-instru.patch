@@ -4,9 +4,9 @@ Subject: [RISCV] MC layer support for the standard RV64D instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCVInstrInfoD.td | 30 +++++++++++++++++++++++
- test/MC/RISCV/rv64d-invalid.s       | 11 +++++++++
- test/MC/RISCV/rv64d-valid.s         | 49 +++++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td | 30 ++++++++++++++++++
+ test/MC/RISCV/rv64d-invalid.s       | 11 +++++++
+ test/MC/RISCV/rv64d-valid.s         | 49 +++++++++++++++++++++++++++++
  3 files changed, 90 insertions(+)
  create mode 100644 test/MC/RISCV/rv64d-invalid.s
  create mode 100644 test/MC/RISCV/rv64d-valid.s
@@ -122,5 +122,5 @@ index 00000000000..e24fd250d43
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +fcvt.lu.d a1, ft1, rup
 -- 
-2.16.2
+2.17.2
 

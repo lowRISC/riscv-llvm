@@ -5,49 +5,69 @@ Subject: Revert upstreamed RISC-V changes
 This allows the patch series to be maintained and modified on an ongoing
 basis.
 ---
- lib/Basic/CMakeLists.txt                           |   1 -
- lib/Basic/Targets.cpp                              |  12 -
- lib/Basic/Targets/RISCV.cpp                        |  52 ---
- lib/Basic/Targets/RISCV.h                          | 103 -----
- lib/CodeGen/TargetInfo.cpp                         | 176 ---------
- lib/Driver/CMakeLists.txt                          |   1 -
- lib/Driver/ToolChains/Arch/RISCV.cpp               |  61 ---
- lib/Driver/ToolChains/Arch/RISCV.h                 |  32 --
- lib/Driver/ToolChains/Clang.cpp                    |  39 --
- lib/Driver/ToolChains/Clang.h                      |   2 -
- lib/Driver/ToolChains/Gnu.cpp                      |  72 +---
- lib/Driver/ToolChains/Linux.cpp                    |  23 --
- test/CodeGen/riscv32-abi.c                         | 430 ---------------------
- test/CodeGen/riscv64-abi.c                         | 422 --------------------
- .../Inputs/multilib_riscv_linux_sdk/bin/.keep      |   0
- .../Inputs/multilib_riscv_linux_sdk/include/.keep  |   0
- .../gcc/riscv64-unknown-linux-gnu/7.2.0/crtbegin.o |   0
- .../7.2.0/lib32/ilp32/crtbegin.o                   |   0
- .../7.2.0/lib32/ilp32d/crtbegin.o                  |   0
- .../7.2.0/lib64/lp64/crtbegin.o                    |   0
- .../7.2.0/lib64/lp64d/crtbegin.o                   |   0
- .../riscv64-unknown-linux-gnu/bin/ld               |   1 -
- .../multilib_riscv_linux_sdk/sysroot/lib/.keep     |   0
- .../sysroot/lib32/ilp32/.keep                      |   0
- .../sysroot/lib32/ilp32d/.keep                     |   0
- .../sysroot/lib64/lp64/.keep                       |   0
- .../sysroot/lib64/lp64d/.keep                      |   0
- .../sysroot/usr/lib32/ilp32/.keep                  |   0
- .../sysroot/usr/lib32/ilp32d/.keep                 |   0
- .../sysroot/usr/lib64/lp64/.keep                   |   0
- .../sysroot/usr/lib64/lp64d/.keep                  |   0
- test/Driver/frame-pointer.c                        |  12 -
- test/Driver/riscv-abi.c                            |  47 ---
- test/Driver/riscv-features.c                       |   4 -
- test/Driver/riscv-gnutools.c                       |  19 -
- test/Driver/riscv32-toolchain.c                    | 122 ------
- test/Driver/riscv64-toolchain.c                    |  91 -----
- test/Preprocessor/init.c                           | 417 --------------------
- 38 files changed, 1 insertion(+), 2138 deletions(-)
+ docs/ClangCommandLineReference.rst            |   7 -
+ include/clang/Basic/Attr.td                   |  12 -
+ include/clang/Basic/AttrDocs.td               |  23 -
+ include/clang/Basic/DiagnosticDriverKinds.td  |   4 -
+ include/clang/Basic/DiagnosticSemaKinds.td    |   8 -
+ include/clang/Driver/Options.td               |   7 -
+ lib/Basic/CMakeLists.txt                      |   1 -
+ lib/Basic/Targets.cpp                         |  12 -
+ lib/Basic/Targets/RISCV.cpp                   | 104 -----
+ lib/Basic/Targets/RISCV.h                     | 114 -----
+ lib/CodeGen/TargetInfo.cpp                    | 203 ---------
+ lib/Driver/CMakeLists.txt                     |   2 -
+ lib/Driver/Driver.cpp                         |   5 -
+ lib/Driver/ToolChains/Arch/RISCV.cpp          | 378 ---------------
+ lib/Driver/ToolChains/Arch/RISCV.h            |  32 --
+ lib/Driver/ToolChains/Clang.cpp               |  34 --
+ lib/Driver/ToolChains/Clang.h                 |   2 -
+ lib/Driver/ToolChains/Gnu.cpp                 |  77 +---
+ lib/Driver/ToolChains/Linux.cpp               |  23 -
+ lib/Driver/ToolChains/RISCVToolchain.cpp      | 141 ------
+ lib/Driver/ToolChains/RISCVToolchain.h        |  63 ---
+ lib/Sema/SemaDeclAttr.cpp                     |  62 ---
+ test/CodeGen/c11atomics.c                     |   2 +-
+ test/CodeGen/riscv32-abi.c                    | 430 ------------------
+ test/CodeGen/riscv64-abi.c                    | 422 -----------------
+ .../Inputs/multilib_riscv_linux_sdk/bin/.keep |   0
+ .../multilib_riscv_linux_sdk/include/.keep    |   0
+ .../7.2.0/crtbegin.o                          |   0
+ .../7.2.0/lib32/ilp32/crtbegin.o              |   0
+ .../7.2.0/lib32/ilp32d/crtbegin.o             |   0
+ .../7.2.0/lib64/lp64/crtbegin.o               |   0
+ .../7.2.0/lib64/lp64d/crtbegin.o              |   0
+ .../riscv64-unknown-linux-gnu/bin/ld          |   1 -
+ .../sysroot/lib/.keep                         |   0
+ .../sysroot/lib32/ilp32/.keep                 |   0
+ .../sysroot/lib32/ilp32d/.keep                |   0
+ .../sysroot/lib64/lp64/.keep                  |   0
+ .../sysroot/lib64/lp64d/.keep                 |   0
+ .../sysroot/usr/lib32/ilp32/.keep             |   0
+ .../sysroot/usr/lib32/ilp32d/.keep            |   0
+ .../sysroot/usr/lib64/lp64/.keep              |   0
+ .../sysroot/usr/lib64/lp64d/.keep             |   0
+ test/Driver/frame-pointer.c                   |  24 -
+ test/Driver/riscv-abi.c                       |  47 --
+ test/Driver/riscv-arch.c                      | 317 -------------
+ test/Driver/riscv-features.c                  |  13 -
+ test/Driver/riscv-gnutools.c                  |  19 -
+ test/Driver/riscv32-toolchain.c               | 187 --------
+ test/Driver/riscv64-toolchain.c               |  91 ----
+ test/Driver/types.c                           |  18 -
+ test/Modules/Inputs/module.map                |   5 -
+ test/Modules/target-features.m                |  40 --
+ test/Preprocessor/init.c                      | 417 -----------------
+ test/Preprocessor/riscv-target-features.c     |  49 --
+ test/Sema/riscv-interrupt-attr.c              |  62 ---
+ test/Sema/riscv-interrupt-attr.cpp            |  16 -
+ 56 files changed, 3 insertions(+), 3471 deletions(-)
  delete mode 100644 lib/Basic/Targets/RISCV.cpp
  delete mode 100644 lib/Basic/Targets/RISCV.h
  delete mode 100644 lib/Driver/ToolChains/Arch/RISCV.cpp
  delete mode 100644 lib/Driver/ToolChains/Arch/RISCV.h
+ delete mode 100644 lib/Driver/ToolChains/RISCVToolchain.cpp
+ delete mode 100644 lib/Driver/ToolChains/RISCVToolchain.h
  delete mode 100644 test/CodeGen/riscv32-abi.c
  delete mode 100644 test/CodeGen/riscv64-abi.c
  delete mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/bin/.keep
@@ -68,16 +88,166 @@ basis.
  delete mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64/.keep
  delete mode 100644 test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d/.keep
  delete mode 100644 test/Driver/riscv-abi.c
+ delete mode 100644 test/Driver/riscv-arch.c
  delete mode 100644 test/Driver/riscv-features.c
  delete mode 100644 test/Driver/riscv-gnutools.c
  delete mode 100644 test/Driver/riscv32-toolchain.c
  delete mode 100644 test/Driver/riscv64-toolchain.c
+ delete mode 100644 test/Driver/types.c
+ delete mode 100644 test/Preprocessor/riscv-target-features.c
+ delete mode 100644 test/Sema/riscv-interrupt-attr.c
+ delete mode 100644 test/Sema/riscv-interrupt-attr.cpp
 
+diff --git a/docs/ClangCommandLineReference.rst b/docs/ClangCommandLineReference.rst
+index 61abd05e0c..d6b9fc31d7 100644
+--- a/docs/ClangCommandLineReference.rst
++++ b/docs/ClangCommandLineReference.rst
+@@ -2748,12 +2748,6 @@ X86
+ 
+ .. option:: -mxsaves, -mno-xsaves
+ 
+-RISCV
+------
+-.. option:: -mrelax, -mno-relax
+-
+-Enable linker relaxation
+-
+ Optimization level
+ ~~~~~~~~~~~~~~~~~~
+ 
+@@ -3083,4 +3077,3 @@ undef all system defines
+ .. option:: -z <arg>
+ 
+ Pass -z <arg> to the linker
+-
+diff --git a/include/clang/Basic/Attr.td b/include/clang/Basic/Attr.td
+index b3c7a4f4b8..ca5ff6dc12 100644
+--- a/include/clang/Basic/Attr.td
++++ b/include/clang/Basic/Attr.td
+@@ -325,7 +325,6 @@ def TargetAVR : TargetArch<["avr"]>;
+ def TargetMips32 : TargetArch<["mips", "mipsel"]>;
+ def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
+ def TargetMSP430 : TargetArch<["msp430"]>;
+-def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
+ def TargetX86 : TargetArch<["x86"]>;
+ def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
+ def TargetWindows : TargetArch<["x86", "x86_64", "arm", "thumb", "aarch64"]> {
+@@ -1431,17 +1430,6 @@ def NoMicroMips : InheritableAttr, TargetSpecificAttr<TargetMips32> {
+   let Documentation = [MicroMipsDocs];
+ }
+ 
+-def RISCVInterrupt : InheritableAttr, TargetSpecificAttr<TargetRISCV> {
+-  let Spellings = [GCC<"interrupt">];
+-  let Subjects = SubjectList<[Function]>;
+-  let Args = [EnumArgument<"Interrupt", "InterruptType",
+-                           ["user", "supervisor", "machine"],
+-                           ["user", "supervisor", "machine"],
+-                           1>];
+-  let ParseKind = "Interrupt";
+-  let Documentation = [RISCVInterruptDocs];
+-}
+-
+ // This is not a TargetSpecificAttr so that is silently accepted and
+ // ignored on other targets as encouraged by the OpenCL spec.
+ //
+diff --git a/include/clang/Basic/AttrDocs.td b/include/clang/Basic/AttrDocs.td
+index 9017a631f7..deb5d40334 100644
+--- a/include/clang/Basic/AttrDocs.td
++++ b/include/clang/Basic/AttrDocs.td
+@@ -1557,29 +1557,6 @@ as ``-mlong-calls`` and ``-mno-long-calls``.
+   }];
+ }
+ 
+-def RISCVInterruptDocs : Documentation {
+-  let Category = DocCatFunction;
+-  let Heading = "interrupt (RISCV)";
+-  let Content = [{
+-Clang supports the GNU style ``__attribute__((interrupt))`` attribute on RISCV
+-targets. This attribute may be attached to a function definition and instructs
+-the backend to generate appropriate function entry/exit code so that it can be
+-used directly as an interrupt service routine.
+-
+-Permissible values for this parameter are ``user``, ``supervisor``,
+-and ``machine``. If there is no parameter, then it defaults to machine.
+-
+-Repeated interrupt attribute on the same declaration will cause a warning
+-to be emitted. In case of repeated declarations, the last one prevails.
+-
+-Refer to:
+-https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Function-Attributes.html
+-https://riscv.org/specifications/privileged-isa/
+-The RISC-V Instruction Set Manual Volume II: Privileged Architecture
+-Version 1.10.
+-  }];
+-}
+-
+ def AVRInterruptDocs : Documentation {
+   let Category = DocCatFunction;
+   let Heading = "interrupt (AVR)";
+diff --git a/include/clang/Basic/DiagnosticDriverKinds.td b/include/clang/Basic/DiagnosticDriverKinds.td
+index 2d6db287cd..cea7b12598 100644
+--- a/include/clang/Basic/DiagnosticDriverKinds.td
++++ b/include/clang/Basic/DiagnosticDriverKinds.td
+@@ -24,10 +24,6 @@ def err_drv_unknown_stdin_type_clang_cl : Error<
+ def err_drv_unknown_language : Error<"language not recognized: '%0'">;
+ def err_drv_invalid_arch_name : Error<
+   "invalid arch name '%0'">;
+-def err_drv_invalid_riscv_arch_name : Error<
+-  "invalid arch name '%0', %1">;
+-def err_drv_invalid_riscv_ext_arch_name : Error<
+-  "invalid arch name '%0', %1 '%2'">;
+ def err_drv_cuda_bad_gpu_arch : Error<"Unsupported CUDA gpu architecture: %0">;
+ def err_drv_no_cuda_installation : Error<
+   "cannot find CUDA installation.  Provide its path via --cuda-path, or pass "
+diff --git a/include/clang/Basic/DiagnosticSemaKinds.td b/include/clang/Basic/DiagnosticSemaKinds.td
+index 46cf0a423e..f492ae0d03 100644
+--- a/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -266,14 +266,6 @@ def warn_mips_interrupt_attribute : Warning<
+    "MIPS 'interrupt' attribute only applies to functions that have "
+    "%select{no parameters|a 'void' return type}0">,
+    InGroup<IgnoredAttributes>;
+-def warn_riscv_repeated_interrupt_attribute : Warning<
+-  "repeated RISC-V 'interrupt' attribute">, InGroup<IgnoredAttributes>;
+-def note_riscv_repeated_interrupt_attribute : Note<
+-  "repeated RISC-V 'interrupt' attribute is here">;
+-def warn_riscv_interrupt_attribute : Warning<
+-   "RISC-V 'interrupt' attribute only applies to functions that have "
+-   "%select{no parameters|a 'void' return type}0">,
+-   InGroup<IgnoredAttributes>;
+ def warn_unused_parameter : Warning<"unused parameter %0">,
+   InGroup<UnusedParameter>, DefaultIgnore;
+ def warn_unused_variable : Warning<"unused variable %0">,
+diff --git a/include/clang/Driver/Options.td b/include/clang/Driver/Options.td
+index 809b28b9dd..5764659ec3 100644
+--- a/include/clang/Driver/Options.td
++++ b/include/clang/Driver/Options.td
+@@ -151,8 +151,6 @@ def m_wasm_Features_Group : OptionGroup<"<wasm features group>">,
+                             Group<m_Group>, DocName<"WebAssembly">;
+ def m_x86_Features_Group : OptionGroup<"<x86 features group>">,
+                            Group<m_Group>, Flags<[CoreOption]>, DocName<"X86">;
+-def m_riscv_Features_Group : OptionGroup<"<riscv features group>">,
+-                             Group<m_Group>, DocName<"RISCV">;
+ 
+ def m_libc_Group : OptionGroup<"<m libc group>">, Group<m_mips_Features_Group>,
+                    Flags<[HelpHidden]>;
+@@ -2082,11 +2080,6 @@ def mspeculative_load_hardening : Flag<["-"], "mspeculative-load-hardening">,
+ def mno_speculative_load_hardening : Flag<["-"], "mno-speculative-load-hardening">,
+   Group<m_Group>, Flags<[CoreOption]>;
+ 
+-def mrelax : Flag<["-"], "mrelax">, Group<m_riscv_Features_Group>,
+-  HelpText<"Enable linker relaxation">;
+-def mno_relax : Flag<["-"], "mno-relax">, Group<m_riscv_Features_Group>,
+-  HelpText<"Disable linker relaxation">;
+-
+ def munaligned_access : Flag<["-"], "munaligned-access">, Group<m_arm_Features_Group>,
+   HelpText<"Allow memory accesses to be unaligned (AArch32/AArch64 only)">;
+ def mno_unaligned_access : Flag<["-"], "mno-unaligned-access">, Group<m_arm_Features_Group>,
 diff --git a/lib/Basic/CMakeLists.txt b/lib/Basic/CMakeLists.txt
-index 823b908184..d0c9b902f6 100644
+index 0015ede742..9c2b7d6a51 100644
 --- a/lib/Basic/CMakeLists.txt
 +++ b/lib/Basic/CMakeLists.txt
-@@ -83,7 +83,6 @@ add_clang_library(clangBasic
+@@ -86,7 +86,6 @@ add_clang_library(clangBasic
    Targets/OSTargets.cpp
    Targets/PNaCl.cpp
    Targets/PPC.cpp
@@ -86,10 +256,10 @@ index 823b908184..d0c9b902f6 100644
    Targets/Sparc.cpp
    Targets/SystemZ.cpp
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index e325403a1f..ae56f8bed2 100644
+index f79da4e576..e926fda274 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
-@@ -29,7 +29,6 @@
+@@ -30,7 +30,6 @@
  #include "Targets/OSTargets.h"
  #include "Targets/PNaCl.h"
  #include "Targets/PPC.h"
@@ -97,7 +267,7 @@ index e325403a1f..ae56f8bed2 100644
  #include "Targets/SPIR.h"
  #include "Targets/Sparc.h"
  #include "Targets/SystemZ.h"
-@@ -372,17 +371,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -376,17 +375,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
    case llvm::Triple::r600:
      return new AMDGPUTargetInfo(Triple, Opts);
  
@@ -117,10 +287,10 @@ index e325403a1f..ae56f8bed2 100644
      case llvm::Triple::Linux:
 diff --git a/lib/Basic/Targets/RISCV.cpp b/lib/Basic/Targets/RISCV.cpp
 deleted file mode 100644
-index 8b2338bb85..0000000000
+index 7eb5e6a686..0000000000
 --- a/lib/Basic/Targets/RISCV.cpp
 +++ /dev/null
-@@ -1,52 +0,0 @@
+@@ -1,104 +0,0 @@
 -//===--- RISCV.cpp - Implement RISCV target feature support ---------------===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -172,13 +342,65 @@ index 8b2338bb85..0000000000
 -  // TODO: modify when more code models and ABIs are supported.
 -  Builder.defineMacro("__riscv_cmodel_medlow");
 -  Builder.defineMacro("__riscv_float_abi_soft");
+-
+-  if (HasM) {
+-    Builder.defineMacro("__riscv_mul");
+-    Builder.defineMacro("__riscv_div");
+-    Builder.defineMacro("__riscv_muldiv");
+-  }
+-
+-  if (HasA)
+-    Builder.defineMacro("__riscv_atomic");
+-
+-  if (HasF || HasD) {
+-    Builder.defineMacro("__riscv_flen", HasD ? "64" : "32");
+-    Builder.defineMacro("__riscv_fdiv");
+-    Builder.defineMacro("__riscv_fsqrt");
+-  }
+-
+-  if (HasC)
+-    Builder.defineMacro("__riscv_compressed");
+-}
+-
+-/// Return true if has this feature, need to sync with handleTargetFeatures.
+-bool RISCVTargetInfo::hasFeature(StringRef Feature) const {
+-  bool Is64Bit = getTriple().getArch() == llvm::Triple::riscv64;
+-  return llvm::StringSwitch<bool>(Feature)
+-      .Case("riscv", true)
+-      .Case("riscv32", !Is64Bit)
+-      .Case("riscv64", Is64Bit)
+-      .Case("m", HasM)
+-      .Case("a", HasA)
+-      .Case("f", HasF)
+-      .Case("d", HasD)
+-      .Case("c", HasC)
+-      .Default(false);
+-}
+-
+-/// Perform initialization based on the user configured set of features.
+-bool RISCVTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
+-                                           DiagnosticsEngine &Diags) {
+-  for (const auto &Feature : Features) {
+-    if (Feature == "+m")
+-      HasM = true;
+-    else if (Feature == "+a")
+-      HasA = true;
+-    else if (Feature == "+f")
+-      HasF = true;
+-    else if (Feature == "+d")
+-      HasD = true;
+-    else if (Feature == "+c")
+-      HasC = true;
+-  }
+-
+-  return true;
 -}
 diff --git a/lib/Basic/Targets/RISCV.h b/lib/Basic/Targets/RISCV.h
 deleted file mode 100644
-index b35afd736d..0000000000
+index f83aae5393..0000000000
 --- a/lib/Basic/Targets/RISCV.h
 +++ /dev/null
-@@ -1,103 +0,0 @@
+@@ -1,114 +0,0 @@
 -//===--- RISCV.h - Declare RISCV target feature support ---------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -207,10 +429,16 @@ index b35afd736d..0000000000
 -class RISCVTargetInfo : public TargetInfo {
 -protected:
 -  std::string ABI;
+-  bool HasM;
+-  bool HasA;
+-  bool HasF;
+-  bool HasD;
+-  bool HasC;
 -
 -public:
 -  RISCVTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
--      : TargetInfo(Triple) {
+-      : TargetInfo(Triple), HasM(false), HasA(false), HasF(false),
+-        HasD(false), HasC(false) {
 -    TLSSupported = false;
 -    LongDoubleWidth = 128;
 -    LongDoubleAlign = 128;
@@ -240,6 +468,11 @@ index b35afd736d..0000000000
 -                             TargetInfo::ConstraintInfo &Info) const override {
 -    return false;
 -  }
+-
+-  bool hasFeature(StringRef Feature) const override;
+-
+-  bool handleTargetFeatures(std::vector<std::string> &Features,
+-                            DiagnosticsEngine &Diags) override;
 -};
 -class LLVM_LIBRARY_VISIBILITY RISCV32TargetInfo : public RISCVTargetInfo {
 -public:
@@ -283,10 +516,10 @@ index b35afd736d..0000000000
 -
 -#endif // LLVM_CLANG_LIB_BASIC_TARGETS_RISCV_H
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index aadbd3016b..98b72c7a73 100644
+index ae080f5bbd..df5788871f 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
-@@ -8762,182 +8762,6 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
+@@ -9028,204 +9028,6 @@ static bool getTypeString(SmallStringEnc &Enc, const Decl *D,
    return false;
  }
  
@@ -464,16 +697,50 @@ index aadbd3016b..98b72c7a73 100644
 -public:
 -  RISCVTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, unsigned XLen)
 -      : TargetCodeGenInfo(new RISCVABIInfo(CGT, XLen)) {}
+-
+-  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+-                           CodeGen::CodeGenModule &CGM) const override {
+-    const auto *FD = dyn_cast_or_null<FunctionDecl>(D);
+-    if (!FD) return;
+-
+-    const auto *Attr = FD->getAttr<RISCVInterruptAttr>();
+-    if (!Attr)
+-      return;
+-
+-    const char *Kind;
+-    switch (Attr->getInterrupt()) {
+-    case RISCVInterruptAttr::user: Kind = "user"; break;
+-    case RISCVInterruptAttr::supervisor: Kind = "supervisor"; break;
+-    case RISCVInterruptAttr::machine: Kind = "machine"; break;
+-    }
+-
+-    auto *Fn = cast<llvm::Function>(GV);
+-
+-    Fn->addFnAttr("interrupt", Kind);
+-  }
 -};
 -} // namespace
- 
+-
  //===----------------------------------------------------------------------===//
  // Driver code
+ //===----------------------------------------------------------------------===//
+@@ -9339,11 +9141,6 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+   case llvm::Triple::msp430:
+     return SetCGInfo(new MSP430TargetCodeGenInfo(Types));
+ 
+-  case llvm::Triple::riscv32:
+-    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 32));
+-  case llvm::Triple::riscv64:
+-    return SetCGInfo(new RISCVTargetCodeGenInfo(Types, 64));
+-
+   case llvm::Triple::systemz: {
+     bool HasVector = getTarget().getABI() == "vector";
+     return SetCGInfo(new SystemZTargetCodeGenInfo(Types, HasVector));
 diff --git a/lib/Driver/CMakeLists.txt b/lib/Driver/CMakeLists.txt
-index afb1cdf375..5bf91f2be9 100644
+index 084176b524..bcf891a4c5 100644
 --- a/lib/Driver/CMakeLists.txt
 +++ b/lib/Driver/CMakeLists.txt
-@@ -25,7 +25,6 @@ add_clang_library(clangDriver
+@@ -26,7 +26,6 @@ add_clang_library(clangDriver
    ToolChains/Arch/ARM.cpp
    ToolChains/Arch/Mips.cpp
    ToolChains/Arch/PPC.cpp
@@ -481,12 +748,43 @@ index afb1cdf375..5bf91f2be9 100644
    ToolChains/Arch/Sparc.cpp
    ToolChains/Arch/SystemZ.cpp
    ToolChains/Arch/X86.cpp
+@@ -59,7 +58,6 @@ add_clang_library(clangDriver
+   ToolChains/NetBSD.cpp
+   ToolChains/OpenBSD.cpp
+   ToolChains/PS4CPU.cpp
+-  ToolChains/RISCVToolchain.cpp
+   ToolChains/Solaris.cpp
+   ToolChains/TCE.cpp
+   ToolChains/WebAssembly.cpp
+diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
+index dfc0faac7b..dd3890b6f3 100644
+--- a/lib/Driver/Driver.cpp
++++ b/lib/Driver/Driver.cpp
+@@ -38,7 +38,6 @@
+ #include "ToolChains/NetBSD.h"
+ #include "ToolChains/OpenBSD.h"
+ #include "ToolChains/PS4CPU.h"
+-#include "ToolChains/RISCVToolchain.h"
+ #include "ToolChains/Solaris.h"
+ #include "ToolChains/TCE.h"
+ #include "ToolChains/WebAssembly.h"
+@@ -4611,10 +4610,6 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
+       case llvm::Triple::avr:
+         TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
+         break;
+-      case llvm::Triple::riscv32:
+-      case llvm::Triple::riscv64:
+-        TC = llvm::make_unique<toolchains::RISCVToolChain>(*this, Target, Args);
+-        break;
+       default:
+         if (Target.getVendor() == llvm::Triple::Myriad)
+           TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
 diff --git a/lib/Driver/ToolChains/Arch/RISCV.cpp b/lib/Driver/ToolChains/Arch/RISCV.cpp
 deleted file mode 100644
-index 2b4ae88365..0000000000
+index 1321fedcec..0000000000
 --- a/lib/Driver/ToolChains/Arch/RISCV.cpp
 +++ /dev/null
-@@ -1,61 +0,0 @@
+@@ -1,378 +0,0 @@
 -//===--- RISCV.cpp - RISCV Helpers for Tools --------------------*- C++ -*-===//
 -//
 -//                     The LLVM Compiler Infrastructure
@@ -497,31 +795,327 @@ index 2b4ae88365..0000000000
 -//===----------------------------------------------------------------------===//
 -
 -#include "RISCV.h"
+-#include "clang/Basic/CharInfo.h"
 -#include "clang/Driver/Driver.h"
 -#include "clang/Driver/DriverDiagnostic.h"
 -#include "clang/Driver/Options.h"
 -#include "llvm/Option/ArgList.h"
 -#include "llvm/Support/TargetParser.h"
 -#include "llvm/Support/raw_ostream.h"
+-#include "ToolChains/CommonArgs.h"
 -
 -using namespace clang::driver;
 -using namespace clang::driver::tools;
 -using namespace clang;
 -using namespace llvm::opt;
 -
+-static StringRef getExtensionTypeDesc(StringRef Ext) {
+-  if (Ext.startswith("sx"))
+-    return "non-standard supervisor-level extension";
+-  if (Ext.startswith("s"))
+-    return "standard supervisor-level extension";
+-  if (Ext.startswith("x"))
+-    return "non-standard user-level extension";
+-  return StringRef();
+-}
+-
+-static StringRef getExtensionType(StringRef Ext) {
+-  if (Ext.startswith("sx"))
+-    return "sx";
+-  if (Ext.startswith("s"))
+-    return "s";
+-  if (Ext.startswith("x"))
+-    return "x";
+-  return StringRef();
+-}
+-
+-static bool isSupportedExtension(StringRef Ext) {
+-  // LLVM does not support "sx", "s" nor "x" extensions.
+-  return false;
+-}
+-
+-// Extensions may have a version number, and may be separated by
+-// an underscore '_' e.g.: rv32i2_m2.
+-// Version number is divided into major and minor version numbers,
+-// separated by a 'p'. If the minor version is 0 then 'p0' can be
+-// omitted from the version string. E.g., rv32i2p0, rv32i2, rv32i2p1.
+-static bool getExtensionVersion(const Driver &D, StringRef MArch,
+-                                StringRef Ext, StringRef In,
+-                                std::string &Major, std::string &Minor) {
+-  auto I = In.begin();
+-  auto E = In.end();
+-
+-  while (I != E && isDigit(*I))
+-    Major.append(1, *I++);
+-
+-  if (Major.empty())
+-    return true;
+-
+-  if (I != E && *I == 'p') {
+-    ++I;
+-
+-    while (I != E && isDigit(*I))
+-      Minor.append(1, *I++);
+-
+-    // Expected 'p' to be followed by minor version number.
+-    if (Minor.empty()) {
+-      std::string Error =
+-        "minor version number missing after 'p' for extension";
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch << Error << Ext;
+-      return false;
+-    }
+-  }
+-
+-  // TODO: Handle extensions with version number.
+-  std::string Error = "unsupported version number " + Major;
+-  if (!Minor.empty())
+-    Error += "." + Minor;
+-  Error += " for extension";
+-  D.Diag(diag::err_drv_invalid_riscv_ext_arch_name) << MArch << Error << Ext;
+-
+-  return false;
+-}
+-
+-// Handle other types of extensions other than the standard
+-// general purpose and standard user-level extensions.
+-// Parse the ISA string containing non-standard user-level
+-// extensions, standard supervisor-level extensions and
+-// non-standard supervisor-level extensions.
+-// These extensions start with 'x', 's', 'sx' prefixes, follow a
+-// canonical order, might have a version number (major, minor)
+-// and are separated by a single underscore '_'.
+-// Set the hardware features for the extensions that are supported.
+-static void getExtensionFeatures(const Driver &D,
+-                                 const ArgList &Args,
+-                                 std::vector<StringRef> &Features,
+-                                 StringRef &MArch, StringRef &Exts) {
+-  if (Exts.empty())
+-    return;
+-
+-  // Multi-letter extensions are seperated by a single underscore
+-  // as described in RISC-V User-Level ISA V2.2.
+-  SmallVector<StringRef, 8> Split;
+-  Exts.split(Split, StringRef("_"));
+-
+-  SmallVector<StringRef, 3> Prefix;
+-  Prefix.push_back("x");
+-  Prefix.push_back("s");
+-  Prefix.push_back("sx");
+-  auto I = Prefix.begin();
+-  auto E = Prefix.end();
+-
+-  SmallVector<StringRef, 8> AllExts;
+-
+-  for (StringRef Ext : Split) {
+-
+-    if (Ext.empty()) {
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name) << MArch
+-        << "extension name missing after separator '_'";
+-      return;
+-    }
+-
+-    StringRef Type = getExtensionType(Ext);
+-    StringRef Name(Ext.substr(Type.size()));
+-    StringRef Desc = getExtensionTypeDesc(Ext);
+-
+-    if (Type.empty()) {
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch << "invalid extension prefix" << Ext;
+-      return;
+-    }
+-
+-    // Check ISA extensions are specified in the canonical order.
+-    while (I != E && *I != Type)
+-      ++I;
+-
+-    if (I == E) {
+-      std::string Error = Desc;
+-      Error += " not given in canonical order";
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch <<  Error << Ext;
+-      return;
+-    }
+-
+-    // The order is OK, do not advance I to the next prefix
+-    // to allow repeated extension type, e.g.: rv32ixabc_xdef.
+-
+-    if (Name.empty()) {
+-      std::string Error = Desc;
+-      Error += " name missing after";
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch << Error << Ext;
+-      return;
+-    }
+-
+-    std::string Major, Minor;
+-    auto Pos = Name.find_if(isDigit);
+-    if (Pos != StringRef::npos) {
+-      auto Next =  Name.substr(Pos);
+-      Name = Name.substr(0, Pos);
+-      if (!getExtensionVersion(D, MArch, Ext, Next, Major, Minor))
+-        return;
+-    }
+-
+-    // Check if duplicated extension.
+-    if (std::find(AllExts.begin(), AllExts.end(), Ext) != AllExts.end()) {
+-      std::string Error = "duplicated ";
+-      Error += Desc;
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch << Error << Ext;
+-      return;
+-    }
+-
+-    // Extension format is correct, keep parsing the extensions.
+-    // TODO: Save Type, Name, Major, Minor to avoid parsing them later.
+-    AllExts.push_back(Ext);
+-  }
+-
+-  // Set target features.
+-  // TODO: Hardware features to be handled in Support/TargetParser.cpp.
+-  // TODO: Use version number when setting target features.
+-  for (auto Ext : AllExts) {
+-    if (!isSupportedExtension(Ext)) {
+-      StringRef Desc = getExtensionTypeDesc(getExtensionType(Ext));
+-      std::string Error = "unsupported ";
+-      Error += Desc;
+-      D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-        << MArch << Error << Ext;
+-      return;
+-    }
+-    Features.push_back(Args.MakeArgString("+" + Ext));
+-  }
+-}
+-
 -void riscv::getRISCVTargetFeatures(const Driver &D, const ArgList &Args,
 -                                   std::vector<StringRef> &Features) {
 -  if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
 -    StringRef MArch = A->getValue();
--    // TODO: handle rv64
--    std::pair<StringRef, StringRef> MArchSplit = StringRef(MArch).split("rv32");
--    if (!MArchSplit.second.size())
+-
+-    // RISC-V ISA strings must be lowercase.
+-    if (std::any_of(std::begin(MArch), std::end(MArch),
+-                    [](char c) { return isupper(c); })) {
+-
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name) << MArch
+-        << "string must be lowercase";
+-      return;
+-    }
+-
+-    // ISA string must begin with rv32 or rv64.
+-    if (!(MArch.startswith("rv32") || MArch.startswith("rv64")) ||
+-        (MArch.size() < 5)) {
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name) << MArch
+-        << "string must begin with rv32{i,e,g} or rv64{i,g}";
+-      return;
+-    }
+-
+-    bool HasRV64 = MArch.startswith("rv64") ? true : false;
+-
+-    // The canonical order specified in ISA manual.
+-    // Ref: Table 22.1 in RISC-V User-Level ISA V2.2
+-    StringRef StdExts = "mafdqlcbjtpvn";
+-    bool HasF = false, HasD = false;
+-    char Baseline = MArch[4];
+-
+-    // First letter should be 'e', 'i' or 'g'.
+-    switch (Baseline) {
+-    default:
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name) << MArch
+-        << "first letter should be 'e', 'i' or 'g'";
+-      return;
+-    case 'e': {
+-      StringRef Error;
+-      // Currently LLVM does not support 'e'.
+-      // Extension 'e' is not allowed in rv64.
+-      if (HasRV64)
+-        Error = "standard user-level extension 'e' requires 'rv32'";
+-      else
+-        Error = "unsupported standard user-level extension 'e'";
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name)
+-        << MArch << Error;
+-      return;
+-    }
+-    case 'i':
+-      break;
+-    case 'g':
+-      // g = imafd
+-      StdExts = StdExts.drop_front(4);
+-      Features.push_back("+m");
+-      Features.push_back("+a");
+-      Features.push_back("+f");
+-      Features.push_back("+d");
+-      HasF = true;
+-      HasD = true;
+-      break;
+-    }
+-
+-    // Skip rvxxx
+-    StringRef Exts = MArch.substr(5);
+-
+-    // Remove non-standard extensions and supervisor-level extensions.
+-    // They have 'x', 's', 'sx' prefixes. Parse them at the end.
+-    // Find the very first occurrence of 's' or 'x'.
+-    StringRef OtherExts;
+-    size_t Pos = Exts.find_first_of("sx");
+-    if (Pos != StringRef::npos) {
+-      OtherExts = Exts.substr(Pos);
+-      Exts = Exts.substr(0, Pos);
+-    }
+-
+-    std::string Major, Minor;
+-    if (!getExtensionVersion(D, MArch, std::string(1, Baseline),
+-                             Exts, Major, Minor))
 -      return;
 -
--    for (char c : MArchSplit.second) {
+-    // TODO: Use version number when setting target features
+-    // and consume the underscore '_' that might follow.
+-
+-    auto StdExtsItr = StdExts.begin();
+-    auto StdExtsEnd = StdExts.end();
+-
+-    for (auto I = Exts.begin(), E = Exts.end(); I != E; ++I)  {
+-      char c = *I;
+-
+-      // Check ISA extensions are specified in the canonical order.
+-      while (StdExtsItr != StdExtsEnd && *StdExtsItr != c)
+-        ++StdExtsItr;
+-
+-      if (StdExtsItr == StdExtsEnd) {
+-        // Either c contains a valid extension but it was not given in
+-        // canonical order or it is an invalid extension.
+-        StringRef Error;
+-        if (StdExts.contains(c))
+-          Error = "standard user-level extension not given in canonical order";
+-        else
+-          Error = "invalid standard user-level extension";
+-        D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-          << MArch <<  Error << std::string(1, c);
+-        return;
+-      }
+-
+-      // Move to next char to prevent repeated letter.
+-      ++StdExtsItr;
+-
+-      if (std::next(I) != E) {
+-        // Skip c.
+-        std::string Next = std::string(std::next(I), E);
+-        std::string Major, Minor;
+-        if (!getExtensionVersion(D, MArch, std::string(1, c),
+-                                 Next, Major, Minor))
+-          return;
+-
+-        // TODO: Use version number when setting target features
+-        // and consume the underscore '_' that might follow.
+-      }
+-
+-      // The order is OK, then push it into features.
 -      switch (c) {
--      case 'i':
--        break;
+-      default:
+-        // Currently LLVM supports only "mafdc".
+-        D.Diag(diag::err_drv_invalid_riscv_ext_arch_name)
+-          << MArch << "unsupported standard user-level extension"
+-          << std::string(1, c);
+-        return;
 -      case 'm':
 -        Features.push_back("+m");
 -        break;
@@ -530,16 +1124,37 @@ index 2b4ae88365..0000000000
 -        break;
 -      case 'f':
 -        Features.push_back("+f");
+-        HasF = true;
 -        break;
 -      case 'd':
 -        Features.push_back("+d");
+-        HasD = true;
 -        break;
 -      case 'c':
 -        Features.push_back("+c");
 -        break;
 -      }
 -    }
+-
+-    // Dependency check.
+-    // It's illegal to specify the 'd' (double-precision floating point)
+-    // extension without also specifying the 'f' (single precision
+-    // floating-point) extension.
+-    if (HasD && !HasF)
+-      D.Diag(diag::err_drv_invalid_riscv_arch_name) << MArch
+-        << "d requires f extension to also be specified";
+-
+-    // Additional dependency checks.
+-    // TODO: The 'q' extension requires rv64.
+-    // TODO: It is illegal to specify 'e' extensions with 'f' and 'd'.
+-
+-    // Handle all other types of extensions.
+-    getExtensionFeatures(D, Args, Features, MArch, OtherExts);
 -  }
+-
+-  // Now add any that the user explicitly requested on the command line,
+-  // which may override the defaults.
+-  handleTargetFeaturesGroup(Args, Features, options::OPT_m_riscv_Features_Group);
 -}
 -
 -StringRef riscv::getRISCVABI(const ArgList &Args, const llvm::Triple &Triple) {
@@ -587,7 +1202,7 @@ index beda14979f..0000000000
 -
 -#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_ARCH_RISCV_H
 diff --git a/lib/Driver/ToolChains/Clang.cpp b/lib/Driver/ToolChains/Clang.cpp
-index 3c08e88bcd..4fec4ef9db 100644
+index 10487a6d45..2a3b26672f 100644
 --- a/lib/Driver/ToolChains/Clang.cpp
 +++ b/lib/Driver/ToolChains/Clang.cpp
 @@ -12,7 +12,6 @@
@@ -598,7 +1213,7 @@ index 3c08e88bcd..4fec4ef9db 100644
  #include "Arch/Sparc.h"
  #include "Arch/SystemZ.h"
  #include "Arch/X86.h"
-@@ -328,10 +327,6 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
+@@ -333,10 +332,6 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
    case llvm::Triple::ppc64le:
      ppc::getPPCTargetFeatures(D, Triple, Args, Features);
      break;
@@ -609,22 +1224,17 @@ index 3c08e88bcd..4fec4ef9db 100644
    case llvm::Triple::systemz:
      systemz::getSystemZTargetFeatures(Args, Features);
      break;
-@@ -552,14 +547,6 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
-     }
+@@ -520,9 +515,6 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
+     // XCore never wants frame pointers, regardless of OS.
+     // WebAssembly never wants frame pointers.
+     return false;
+-  case llvm::Triple::riscv32:
+-  case llvm::Triple::riscv64:
+-    return !areOptimizationsEnabled(Args);
+   default:
+     break;
    }
- 
--  switch (Triple.getArch()) {
--    case llvm::Triple::riscv32:
--    case llvm::Triple::riscv64:
--      return !areOptimizationsEnabled(Args);
--    default:
--      break;
--  }
--
-   if (Triple.isOSWindows()) {
-     switch (Triple.getArch()) {
-     case llvm::Triple::x86:
-@@ -1295,8 +1282,6 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
+@@ -1284,8 +1276,6 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
  
    case llvm::Triple::hexagon:
    case llvm::Triple::ppc64le:
@@ -633,7 +1243,7 @@ index 3c08e88bcd..4fec4ef9db 100644
    case llvm::Triple::systemz:
    case llvm::Triple::xcore:
      return false;
-@@ -1408,11 +1393,6 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
+@@ -1404,11 +1394,6 @@ void Clang::RenderTargetOptions(const llvm::Triple &EffectiveTriple,
      AddPPCTargetArgs(Args, CmdArgs);
      break;
  
@@ -645,14 +1255,14 @@ index 3c08e88bcd..4fec4ef9db 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
    case llvm::Triple::sparcv9:
-@@ -1690,25 +1670,6 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
+@@ -1772,25 +1757,6 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
    }
  }
  
 -void Clang::AddRISCVTargetArgs(const ArgList &Args,
 -                               ArgStringList &CmdArgs) const {
 -  // FIXME: currently defaults to the soft-float ABIs. Will need to be
--  // expanded to select ilp32f, ilp32d, lp64f, lp64d when appropiate.
+-  // expanded to select ilp32f, ilp32d, lp64f, lp64d when appropriate.
 -  const char *ABIName = nullptr;
 -  const llvm::Triple &Triple = getToolChain().getTriple();
 -  if (Arg *A = Args.getLastArg(options::OPT_mabi_EQ))
@@ -672,7 +1282,7 @@ index 3c08e88bcd..4fec4ef9db 100644
                                 ArgStringList &CmdArgs) const {
    sparc::FloatABI FloatABI =
 diff --git a/lib/Driver/ToolChains/Clang.h b/lib/Driver/ToolChains/Clang.h
-index 8893d88a8c..e23822b9c6 100644
+index df67fb2cb3..a216982a67 100644
 --- a/lib/Driver/ToolChains/Clang.h
 +++ b/lib/Driver/ToolChains/Clang.h
 @@ -60,8 +60,6 @@ private:
@@ -685,7 +1295,7 @@ index 8893d88a8c..e23822b9c6 100644
                            llvm::opt::ArgStringList &CmdArgs) const;
    void AddSystemZTargetArgs(const llvm::opt::ArgList &Args,
 diff --git a/lib/Driver/ToolChains/Gnu.cpp b/lib/Driver/ToolChains/Gnu.cpp
-index 041bf78f7b..17cb675c89 100644
+index 935071f891..54bc11bb3d 100644
 --- a/lib/Driver/ToolChains/Gnu.cpp
 +++ b/lib/Driver/ToolChains/Gnu.cpp
 @@ -8,14 +8,13 @@
@@ -701,10 +1311,10 @@ index 041bf78f7b..17cb675c89 100644
  #include "Arch/SystemZ.h"
  #include "CommonArgs.h"
 -#include "Linux.h"
- #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
  #include "clang/Driver/Compilation.h"
-@@ -274,10 +273,6 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
+ #include "clang/Driver/Driver.h"
+@@ -273,10 +272,6 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
      return "elf64ppc";
    case llvm::Triple::ppc64le:
      return "elf64lppc";
@@ -715,7 +1325,7 @@ index 041bf78f7b..17cb675c89 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      return "elf32_sparc";
-@@ -629,18 +624,6 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
+@@ -636,18 +631,6 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
        ppc::getPPCAsmModeForCPU(getCPUName(Args, getToolChain().getTriple())));
      break;
    }
@@ -734,7 +1344,7 @@ index 041bf78f7b..17cb675c89 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel: {
      CmdArgs.push_back("-32");
-@@ -873,10 +856,6 @@ static bool isMicroMips(const ArgList &Args) {
+@@ -874,10 +857,6 @@ static bool isMicroMips(const ArgList &Args) {
    return A && A->getOption().matches(options::OPT_mmicromips);
  }
  
@@ -745,7 +1355,7 @@ index 041bf78f7b..17cb675c89 100644
  static Multilib makeMultilib(StringRef commonSuffix) {
    return Multilib(commonSuffix, commonSuffix, commonSuffix);
  }
-@@ -1422,41 +1401,6 @@ static void findAndroidArmMultilibs(const Driver &D,
+@@ -1423,41 +1402,6 @@ static void findAndroidArmMultilibs(const Driver &D,
      Result.Multilibs = AndroidArmMultilibs;
  }
  
@@ -787,18 +1397,19 @@ index 041bf78f7b..17cb675c89 100644
  static bool findBiarchMultilibs(const Driver &D,
                                  const llvm::Triple &TargetTriple,
                                  StringRef Path, const ArgList &Args,
-@@ -1895,10 +1839,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+@@ -1924,11 +1868,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
        "powerpc64le-linux-gnu", "powerpc64le-unknown-linux-gnu",
        "powerpc64le-suse-linux", "ppc64le-redhat-linux"};
  
 -  static const char *const RISCV32LibDirs[] = {"/lib", "/lib32"};
 -  static const char *const RISCVTriples[] = {"riscv32-unknown-linux-gnu",
--                                             "riscv64-unknown-linux-gnu"};
+-                                             "riscv64-unknown-linux-gnu",
+-                                             "riscv32-unknown-elf"};
 -
    static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
    static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",
                                                 "sparcv8-linux-gnu"};
-@@ -2076,12 +2016,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
+@@ -2151,12 +2090,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
      LibDirs.append(begin(PPC64LELibDirs), end(PPC64LELibDirs));
      TripleAliases.append(begin(PPC64LETriples), end(PPC64LETriples));
      break;
@@ -811,8 +1422,8 @@ index 041bf78f7b..17cb675c89 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDirs.append(begin(SPARCv8LibDirs), end(SPARCv8LibDirs));
-@@ -2129,8 +2063,6 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
-   } else if (tools::isMipsArch(TargetArch)) {
+@@ -2204,8 +2137,6 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+   } else if (TargetTriple.isMIPS()) {
      if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
        return false;
 -  } else if (isRISCV(TargetArch)) {
@@ -820,7 +1431,7 @@ index 041bf78f7b..17cb675c89 100644
    } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                    NeedsBiarchSuffix, Detected)) {
      return false;
-@@ -2342,8 +2274,6 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
+@@ -2467,8 +2398,6 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
    case llvm::Triple::ppc:
    case llvm::Triple::ppc64:
    case llvm::Triple::ppc64le:
@@ -829,8 +1440,19 @@ index 041bf78f7b..17cb675c89 100644
    case llvm::Triple::systemz:
    case llvm::Triple::mips:
    case llvm::Triple::mipsel:
+@@ -2605,9 +2534,7 @@ void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
+       getTriple().getOS() == llvm::Triple::NaCl ||
+       (getTriple().getVendor() == llvm::Triple::MipsTechnologies &&
+        !getTriple().hasEnvironment()) ||
+-      getTriple().getOS() == llvm::Triple::Solaris ||
+-      getTriple().getArch() == llvm::Triple::riscv32 ||
+-      getTriple().getArch() == llvm::Triple::riscv64;
++      getTriple().getOS() == llvm::Triple::Solaris;
+ 
+   if (DriverArgs.hasFlag(options::OPT_fuse_init_array,
+                          options::OPT_fno_use_init_array, UseInitArrayDefault))
 diff --git a/lib/Driver/ToolChains/Linux.cpp b/lib/Driver/ToolChains/Linux.cpp
-index 4e9d0f1f9f..236591bb56 100644
+index 65ab9b2daf..4485773330 100644
 --- a/lib/Driver/ToolChains/Linux.cpp
 +++ b/lib/Driver/ToolChains/Linux.cpp
 @@ -11,7 +11,6 @@
@@ -839,9 +1461,9 @@ index 4e9d0f1f9f..236591bb56 100644
  #include "Arch/PPC.h"
 -#include "Arch/RISCV.h"
  #include "CommonArgs.h"
- #include "clang/Basic/VirtualFileSystem.h"
  #include "clang/Config/config.h"
-@@ -177,9 +176,6 @@ static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
+ #include "clang/Driver/Distro.h"
+@@ -198,9 +197,6 @@ static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
        Triple.getEnvironment() == llvm::Triple::GNUX32)
      return "libx32";
  
@@ -851,19 +1473,19 @@ index 4e9d0f1f9f..236591bb56 100644
    return Triple.isArch32Bit() ? "lib" : "lib64";
  }
  
-@@ -230,8 +226,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
+@@ -270,8 +266,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
    const bool IsAndroid = Triple.isAndroid();
-   const bool IsMips = tools::isMipsArch(Arch);
+   const bool IsMips = Triple.isMIPS();
    const bool IsHexagon = Arch == llvm::Triple::hexagon;
 -  const bool IsRISCV =
 -      Arch == llvm::Triple::riscv32 || Arch == llvm::Triple::riscv64;
  
    if (IsMips && !SysRoot.empty())
      ExtraOpts.push_back("--sysroot=" + SysRoot);
-@@ -339,11 +333,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
-   addPathIfExists(D, SysRoot + "/lib/../" + OSLibDir, Paths);
-   addPathIfExists(D, SysRoot + "/usr/lib/" + MultiarchTriple, Paths);
-   addPathIfExists(D, SysRoot + "/usr/lib/../" + OSLibDir, Paths);
+@@ -402,11 +396,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
+     addPathIfExists(D, SysRoot + "/usr/" + OSLibDir, Paths);
+   else
+     addPathIfExists(D, SysRoot + "/usr/lib/../" + OSLibDir, Paths);
 -  if (IsRISCV) {
 -    StringRef ABIName = tools::riscv::getRISCVABI(Args, Triple);
 -    addPathIfExists(D, SysRoot + "/" + OSLibDir + "/" + ABIName, Paths);
@@ -872,7 +1494,7 @@ index 4e9d0f1f9f..236591bb56 100644
  
    // Try walking via the GCC triple path in case of biarch or multiarch GCC
    // installations with strange symlinks.
-@@ -522,18 +511,6 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
+@@ -599,18 +588,6 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
      Loader =
          (tools::ppc::hasPPCAbiArg(Args, "elfv1")) ? "ld64.so.1" : "ld64.so.2";
      break;
@@ -891,6 +1513,315 @@ index 4e9d0f1f9f..236591bb56 100644
    case llvm::Triple::sparc:
    case llvm::Triple::sparcel:
      LibDir = "lib";
+diff --git a/lib/Driver/ToolChains/RISCVToolchain.cpp b/lib/Driver/ToolChains/RISCVToolchain.cpp
+deleted file mode 100644
+index e787c82b28..0000000000
+--- a/lib/Driver/ToolChains/RISCVToolchain.cpp
++++ /dev/null
+@@ -1,141 +0,0 @@
+-//===--- RISCVToolchain.cpp - RISCV ToolChain Implementations ---*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "RISCVToolchain.h"
+-#include "CommonArgs.h"
+-#include "InputInfo.h"
+-#include "clang/Driver/Compilation.h"
+-#include "clang/Driver/Options.h"
+-#include "llvm/Option/ArgList.h"
+-#include "llvm/Support/FileSystem.h"
+-#include "llvm/Support/Path.h"
+-#include "llvm/Support/raw_ostream.h"
+-
+-using namespace clang::driver;
+-using namespace clang::driver::toolchains;
+-using namespace clang::driver::tools;
+-using namespace clang;
+-using namespace llvm::opt;
+-
+-/// RISCV Toolchain
+-RISCVToolChain::RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
+-                               const ArgList &Args)
+-    : Generic_ELF(D, Triple, Args) {
+-  GCCInstallation.init(Triple, Args);
+-  getFilePaths().push_back(computeSysRoot() + "/lib");
+-  if (GCCInstallation.isValid()) {
+-    getFilePaths().push_back(GCCInstallation.getInstallPath().str());
+-    getProgramPaths().push_back(
+-        (GCCInstallation.getParentLibPath() + "/../bin").str());
+-  }
+-}
+-
+-Tool *RISCVToolChain::buildLinker() const {
+-  return new tools::RISCV::Linker(*this);
+-}
+-
+-void RISCVToolChain::addClangTargetOptions(
+-    const llvm::opt::ArgList &DriverArgs,
+-    llvm::opt::ArgStringList &CC1Args,
+-    Action::OffloadKind) const {
+-  CC1Args.push_back("-nostdsysteminc");
+-  CC1Args.push_back("-fuse-init-array");
+-}
+-
+-void RISCVToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+-                                               ArgStringList &CC1Args) const {
+-  if (DriverArgs.hasArg(options::OPT_nostdinc))
+-    return;
+-
+-  if (!DriverArgs.hasArg(options::OPT_nostdlibinc)) {
+-    SmallString<128> Dir(computeSysRoot());
+-    llvm::sys::path::append(Dir, "include");
+-    addSystemInclude(DriverArgs, CC1Args, Dir.str());
+-  }
+-}
+-
+-void RISCVToolChain::addLibStdCxxIncludePaths(
+-    const llvm::opt::ArgList &DriverArgs,
+-    llvm::opt::ArgStringList &CC1Args) const {
+-  const GCCVersion &Version = GCCInstallation.getVersion();
+-  StringRef TripleStr = GCCInstallation.getTriple().str();
+-  const Multilib &Multilib = GCCInstallation.getMultilib();
+-  addLibStdCXXIncludePaths(computeSysRoot() + "/include/c++/" + Version.Text,
+-      "", TripleStr, "", "", Multilib.includeSuffix(), DriverArgs, CC1Args);
+-}
+-
+-std::string RISCVToolChain::computeSysRoot() const {
+-  if (!getDriver().SysRoot.empty())
+-    return getDriver().SysRoot;
+-
+-  if (!GCCInstallation.isValid())
+-    return std::string();
+-
+-  StringRef LibDir = GCCInstallation.getParentLibPath();
+-  StringRef TripleStr = GCCInstallation.getTriple().str();
+-  std::string SysRootDir = LibDir.str() + "/../" + TripleStr.str();
+-
+-  if (!llvm::sys::fs::exists(SysRootDir))
+-    return std::string();
+-
+-  return SysRootDir;
+-}
+-
+-void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+-                                 const InputInfo &Output,
+-                                 const InputInfoList &Inputs,
+-                                 const ArgList &Args,
+-                                 const char *LinkingOutput) const {
+-  const ToolChain &ToolChain = getToolChain();
+-  const Driver &D = ToolChain.getDriver();
+-  ArgStringList CmdArgs;
+-
+-  if (!D.SysRoot.empty())
+-    CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
+-
+-  std::string Linker = getToolChain().GetProgramPath(getShortName());
+-
+-  bool WantCRTs =
+-      !Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles);
+-
+-  if (WantCRTs) {
+-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt0.o")));
+-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtbegin.o")));
+-  }
+-
+-  Args.AddAllArgs(CmdArgs, options::OPT_L);
+-  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
+-  Args.AddAllArgs(CmdArgs,
+-                  {options::OPT_T_Group, options::OPT_e, options::OPT_s,
+-                   options::OPT_t, options::OPT_Z_Flag, options::OPT_r});
+-
+-  AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
+-
+-  // TODO: add C++ includes and libs if compiling C++.
+-
+-  if (!Args.hasArg(options::OPT_nostdlib) &&
+-      !Args.hasArg(options::OPT_nodefaultlibs)) {
+-    if (ToolChain.ShouldLinkCXXStdlib(Args))
+-      ToolChain.AddCXXStdlibLibArgs(Args, CmdArgs);
+-    CmdArgs.push_back("--start-group");
+-    CmdArgs.push_back("-lc");
+-    CmdArgs.push_back("-lgloss");
+-    CmdArgs.push_back("--end-group");
+-    CmdArgs.push_back("-lgcc");
+-  }
+-
+-  if (WantCRTs)
+-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtend.o")));
+-
+-  CmdArgs.push_back("-o");
+-  CmdArgs.push_back(Output.getFilename());
+-  C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
+-                                          CmdArgs, Inputs));
+-}
+-// RISCV tools end.
+diff --git a/lib/Driver/ToolChains/RISCVToolchain.h b/lib/Driver/ToolChains/RISCVToolchain.h
+deleted file mode 100644
+index 4b38690b1b..0000000000
+--- a/lib/Driver/ToolChains/RISCVToolchain.h
++++ /dev/null
+@@ -1,63 +0,0 @@
+-//===--- RISCVToolchain.h - RISCV ToolChain Implementations -----*- C++ -*-===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCVTOOLCHAIN_H
+-#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCVTOOLCHAIN_H
+-
+-#include "Gnu.h"
+-#include "clang/Driver/ToolChain.h"
+-
+-namespace clang {
+-namespace driver {
+-namespace toolchains {
+-
+-class LLVM_LIBRARY_VISIBILITY RISCVToolChain : public Generic_ELF {
+-public:
+-  RISCVToolChain(const Driver &D, const llvm::Triple &Triple,
+-                 const llvm::opt::ArgList &Args);
+-
+-  bool IsIntegratedAssemblerDefault() const override { return true; }
+-  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+-                             llvm::opt::ArgStringList &CC1Args,
+-                             Action::OffloadKind) const override;
+-  void
+-  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+-                            llvm::opt::ArgStringList &CC1Args) const override;
+-  void
+-  addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+-                           llvm::opt::ArgStringList &CC1Args) const override;
+-
+-protected:
+-  Tool *buildLinker() const override;
+-
+-private:
+-  std::string computeSysRoot() const;
+-};
+-
+-} // end namespace toolchains
+-
+-namespace tools {
+-namespace RISCV {
+-class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
+-public:
+-  Linker(const ToolChain &TC) : GnuTool("RISCV::Linker", "ld", TC) {}
+-  bool hasIntegratedCPP() const override { return false; }
+-  bool isLinkJob() const override { return true; }
+-  void ConstructJob(Compilation &C, const JobAction &JA,
+-                    const InputInfo &Output, const InputInfoList &Inputs,
+-                    const llvm::opt::ArgList &TCArgs,
+-                    const char *LinkingOutput) const override;
+-};
+-} // end namespace RISCV
+-} // end namespace tools
+-
+-} // end namespace driver
+-} // end namespace clang
+-
+-#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_RISCVTOOLCHAIN_H
+diff --git a/lib/Sema/SemaDeclAttr.cpp b/lib/Sema/SemaDeclAttr.cpp
+index 63501d9291..d6c1371682 100644
+--- a/lib/Sema/SemaDeclAttr.cpp
++++ b/lib/Sema/SemaDeclAttr.cpp
+@@ -5503,64 +5503,6 @@ static void handleAVRSignalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+   handleSimpleAttribute<AVRSignalAttr>(S, D, AL);
+ }
+ 
+-
+-static void handleRISCVInterruptAttr(Sema &S, Decl *D,
+-                                     const ParsedAttr &AL) {
+-  // Warn about repeated attributes.
+-  if (const auto *A = D->getAttr<RISCVInterruptAttr>()) {
+-    S.Diag(AL.getRange().getBegin(),
+-      diag::warn_riscv_repeated_interrupt_attribute);
+-    S.Diag(A->getLocation(), diag::note_riscv_repeated_interrupt_attribute);
+-    return;
+-  }
+-
+-  // Check the attribute argument. Argument is optional.
+-  if (!checkAttributeAtMostNumArgs(S, AL, 1))
+-    return;
+-
+-  StringRef Str;
+-  SourceLocation ArgLoc;
+-
+-  // 'machine'is the default interrupt mode.
+-  if (AL.getNumArgs() == 0)
+-    Str = "machine";
+-  else if (!S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+-    return;
+-
+-  // Semantic checks for a function with the 'interrupt' attribute:
+-  // - Must be a function.
+-  // - Must have no parameters.
+-  // - Must have the 'void' return type.
+-  // - The attribute itself must either have no argument or one of the
+-  //   valid interrupt types, see [RISCVInterruptDocs].
+-
+-  if (D->getFunctionType() == nullptr) {
+-    S.Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
+-      << "'interrupt'" << ExpectedFunction;
+-    return;
+-  }
+-
+-  if (hasFunctionProto(D) && getFunctionOrMethodNumParams(D) != 0) {
+-    S.Diag(D->getLocation(), diag::warn_riscv_interrupt_attribute) << 0;
+-    return;
+-  }
+-
+-  if (!getFunctionOrMethodResultType(D)->isVoidType()) {
+-    S.Diag(D->getLocation(), diag::warn_riscv_interrupt_attribute) << 1;
+-    return;
+-  }
+-
+-  RISCVInterruptAttr::InterruptType Kind;
+-  if (!RISCVInterruptAttr::ConvertStrToInterruptType(Str, Kind)) {
+-    S.Diag(AL.getLoc(), diag::warn_attribute_type_not_supported) << AL << Str
+-                                                                 << ArgLoc;
+-    return;
+-  }
+-
+-  D->addAttr(::new (S.Context) RISCVInterruptAttr(
+-    AL.getLoc(), S.Context, Kind, AL.getAttributeSpellingListIndex()));
+-}
+-
+ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+   // Dispatch the interrupt attribute based on the current target.
+   switch (S.Context.getTargetInfo().getTriple().getArch()) {
+@@ -5578,10 +5520,6 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+   case llvm::Triple::avr:
+     handleAVRInterruptAttr(S, D, AL);
+     break;
+-  case llvm::Triple::riscv32:
+-  case llvm::Triple::riscv64:
+-    handleRISCVInterruptAttr(S, D, AL);
+-    break;
+   default:
+     handleARMInterruptAttr(S, D, AL);
+     break;
+diff --git a/test/CodeGen/c11atomics.c b/test/CodeGen/c11atomics.c
+index cf251738be..12430db99a 100644
+--- a/test/CodeGen/c11atomics.c
++++ b/test/CodeGen/c11atomics.c
+@@ -5,7 +5,7 @@
+ // on RISC platforms, where the compare-exchange loop becomes a ll/sc pair for
+ // the load and then another ll/sc in the loop, expanding to about 30
+ // instructions when it should be only 4.  It has a smaller, but still
+-// noticeable, impact on platforms like x86 and RISC-V, where there are atomic
++// noticeable, impact on platforms like x86, where there are atomic
+ // RMW instructions.
+ //
+ // We currently emit cmpxchg loops for most operations on _Bools, because
 diff --git a/test/CodeGen/riscv32-abi.c b/test/CodeGen/riscv32-abi.c
 deleted file mode 100644
 index 04eceb3a81..0000000000
@@ -1811,10 +2742,10 @@ diff --git a/test/Driver/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib64/lp64d
 deleted file mode 100644
 index e69de29bb2..0000000000
 diff --git a/test/Driver/frame-pointer.c b/test/Driver/frame-pointer.c
-index cf5c07d542..ecb16af3cf 100644
+index 85c9f3a21f..ecb16af3cf 100644
 --- a/test/Driver/frame-pointer.c
 +++ b/test/Driver/frame-pointer.c
-@@ -33,18 +33,6 @@
+@@ -33,30 +33,6 @@
  // RUN: %clang -target mips64el-linux-gnu -### -S -O0 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK0-32 %s
  // RUN: %clang -target mips64el-linux-gnu -### -S -O1 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK1-32 %s
  
@@ -1829,6 +2760,18 @@ index cf5c07d542..ecb16af3cf 100644
 -// RUN: %clang -target riscv64-unknown-elf -### -S -O2 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK2-64 %s
 -// RUN: %clang -target riscv64-unknown-elf -### -S -O3 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK3-64 %s
 -// RUN: %clang -target riscv64-unknown-elf -### -S -Os %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECKs-64 %s
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -### -S -O0 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK0-32 %s
+-// RUN: %clang -target riscv32-unknown-linux-gnu -### -S -O1 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK1-32 %s
+-// RUN: %clang -target riscv32-unknown-linux-gnu -### -S -O2 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK2-32 %s
+-// RUN: %clang -target riscv32-unknown-linux-gnu -### -S -O3 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK3-32 %s
+-// RUN: %clang -target riscv32-unknown-linux-gnu -### -S -Os %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECKs-32 %s
+-
+-// RUN: %clang -target riscv64-unknown-linux-gnu -### -S -O0 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK0-64 %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -### -S -O1 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK1-64 %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -### -S -O2 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK2-64 %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -### -S -O3 %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECK3-64 %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -### -S -Os %s -o %t.s 2>&1 | FileCheck -check-prefix=CHECKs-64 %s
 -
  // CHECK0-32: -mdisable-fp-elim
  // CHECK1-32-NOT: -mdisable-fp-elim
@@ -1886,16 +2829,348 @@ index 8b79c8462b..0000000000
 -// RUN:   | FileCheck -check-prefix=CHECK-RV64-ILP32 %s
 -
 -// CHECK-RV64-ILP32: error: unknown target ABI 'ilp32'
+diff --git a/test/Driver/riscv-arch.c b/test/Driver/riscv-arch.c
+deleted file mode 100644
+index 5329fe87aa..0000000000
+--- a/test/Driver/riscv-arch.c
++++ /dev/null
+@@ -1,317 +0,0 @@
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32i -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32im -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ima -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imaf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imafd -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ic -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imac -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imafc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imafdc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ia -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32iaf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32iafd -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32iac -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32iafc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32iafdc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32g -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32gc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64i -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64im -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64ima -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imaf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imafd -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64ic -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imac -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imafc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imafdc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64ia -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64iaf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64iafd -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64iac -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64iafc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64iafdc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64g -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64gc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck %s
+-
+-// CHECK-NOT: error: invalid arch name '
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32 %s
+-// RV32: error: invalid arch name 'rv32'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32m -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32M %s
+-// RV32M: error: invalid arch name 'rv32m'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32id -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32ID %s
+-// RV32ID: error: invalid arch name 'rv32id'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32l -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32L %s
+-// RV32L: error: invalid arch name 'rv32l'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imadf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32IMADF %s
+-// RV32IMADF: error: invalid arch name 'rv32imadf'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imm -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32IMM %s
+-// RV32IMM: error: invalid arch name 'rv32imm'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=RV32I -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32I-UPPER %s
+-// RV32I-UPPER: error: invalid arch name 'RV32I'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64 %s
+-// RV64: error: invalid arch name 'rv64'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64m -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64M %s
+-// RV64M: error: invalid arch name 'rv64m'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64id -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64ID %s
+-// RV64ID: error: invalid arch name 'rv64id'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64l -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64L %s
+-// RV64L: error: invalid arch name 'rv64l'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imadf -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64IMADF %s
+-// RV64IMADF: error: invalid arch name 'rv64imadf'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64imm -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64IMM %s
+-// RV64IMM: error: invalid arch name 'rv64imm'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=RV64I -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64I-UPPER %s
+-// RV64I-UPPER: error: invalid arch name 'RV64I'
+-
+-
+-// Testing specific messages and unsupported extensions.
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32e -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32E %s
+-// RV32E: error: invalid arch name 'rv32e',
+-// RV32E: standard user-level extension 'e'
+-
+-// RUN: %clang -target riscv64-unknown-elf -march=rv64e -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV64E %s
+-// RV64E: error: invalid arch name 'rv64e',
+-// RV64E: standard user-level extension 'e' requires 'rv32'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imC -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-LOWER %s
+-// RV32-LOWER: error: invalid arch name 'rv32imC',
+-// RV32-LOWER: string must be lowercase
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-STR %s
+-// RV32-STR: error: invalid arch name 'rv32',
+-// RV32-STR: string must begin with rv32{i,e,g} or rv64{i,g}
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32q -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-LETTER %s
+-// RV32-LETTER: error: invalid arch name 'rv32q',
+-// RV32-LETTER: first letter should be 'e', 'i' or 'g'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imcq -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-ORDER %s
+-// RV32-ORDER: error: invalid arch name 'rv32imcq',
+-// RV32-ORDER: standard user-level extension not given in canonical order 'q'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imw -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-STD-INVAL %s
+-// RV32-STD-INVAL: error: invalid arch name 'rv32imw',
+-// RV32-STD-INVAL: invalid standard user-level extension 'w'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imqc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-STD %s
+-// RV32-STD: error: invalid arch name 'rv32imqc',
+-// RV32-STD: unsupported standard user-level extension 'q'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32xabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32X %s
+-// RV32X: error: invalid arch name 'rv32xabc',
+-// RV32X: first letter should be 'e', 'i' or 'g'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32sxabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32SX %s
+-// RV32SX: error: invalid arch name 'rv32sxabc',
+-// RV32SX: first letter should be 'e', 'i' or 'g'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32sabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32S %s
+-// RV32S: error: invalid arch name 'rv32sabc',
+-// RV32S: first letter should be 'e', 'i' or 'g'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ix -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32X-NAME %s
+-// RV32X-NAME: error: invalid arch name 'rv32ix',
+-// RV32X-NAME: non-standard user-level extension name missing after 'x'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isx -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32SX-NAME %s
+-// RV32SX-NAME: error: invalid arch name 'rv32isx',
+-// RV32SX-NAME: non-standard supervisor-level extension
+-// RV32SX-NAME: name missing after 'sx'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32is -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32S-NAME %s
+-// RV32S-NAME: error: invalid arch name 'rv32is',
+-// RV32S-NAME: standard supervisor-level extension
+-// RV32S-NAME: name missing after 's'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ix_s_sx -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32ALL-NAME %s
+-// RV32ALL-NAME: error: invalid arch name 'rv32ix_s_sx',
+-// RV32ALL-NAME: non-standard user-level extension
+-// RV32ALL-NAME: name missing after 'x'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32X-UNS %s
+-// RV32X-UNS: error: invalid arch name 'rv32ixabc',
+-// RV32X-UNS: unsupported non-standard user-level extension 'xabc'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isa -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32S-UNS %s
+-// RV32S-UNS: error: invalid arch name 'rv32isa',
+-// RV32S-UNS: unsupported standard supervisor-level extension 'sa'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isxabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32SX-UNS %s
+-// RV32SX-UNS: error: invalid arch name 'rv32isxabc',
+-// RV32SX-UNS: unsupported non-standard supervisor-level extension 'sxabc'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_sp_sxlw -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32ALL %s
+-// RV32ALL: error: invalid arch name 'rv32ixabc_sp_sxlw',
+-// RV32ALL: unsupported non-standard user-level extension 'xabc'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32i20 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-IVER %s
+-// RV32-IVER: error: invalid arch name 'rv32i20', unsupported
+-// RV32-IVER: version number 20 for extension 'i'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32imc5 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-CVER %s
+-// RV32-CVER: error: invalid arch name 'rv32imc5', unsupported
+-// RV32-CVER: version number 5 for extension 'c'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32i2p -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-IMINOR-MISS %s
+-// RV32-IMINOR-MISS: error: invalid arch name 'rv32i2p',
+-// RV32-IMINOR-MISS: minor version number missing after 'p' for extension 'i'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32i2p0 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-IMINOR0 %s
+-// RV32-IMINOR0: error: invalid arch name 'rv32i2p0',
+-// RV32-IMINOR0: unsupported version number 2.0 for extension 'i'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32i2p1 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-IMINOR1 %s
+-// RV32-IMINOR1: error: invalid arch name 'rv32i2p1', unsupported
+-// RV32-IMINOR1: version number 2.1 for extension 'i'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ix2p -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-XMINOR-MISS %s
+-// RV32-XMINOR-MISS: error: invalid arch name 'rv32ix2p',
+-// RV32-XMINOR-MISS: minor version number missing after 'p' for extension 'x2p'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32is2p0 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-SMINOR0 %s
+-// RV32-SMINOR0: error: invalid arch name 'rv32is2p0',
+-// RV32-SMINOR0: unsupported version number 2.0 for extension 's2p0'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isx2p1 -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-SXMINOR1 %s
+-// RV32-SXMINOR1: error: invalid arch name 'rv32isx2p1', unsupported
+-// RV32-SXMINOR1: version number 2.1 for extension 'sx2p1'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_ -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-XSEP %s
+-// RV32-XSEP: error: invalid arch name 'rv32ixabc_',
+-// RV32-XSEP: extension name missing after separator '_'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_a -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-PREFIX %s
+-// RV32-PREFIX: error: invalid arch name 'rv32ixabc_a',
+-// RV32-PREFIX: invalid extension prefix 'a'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isabc_xdef -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-X-ORDER %s
+-// RV32-X-ORDER: error: invalid arch name 'rv32isabc_xdef',
+-// RV32-X-ORDER: non-standard user-level extension not given
+-// RV32-X-ORDER: in canonical order 'xdef'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32isxabc_sdef -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-S-ORDER %s
+-// RV32-S-ORDER: error: invalid arch name 'rv32isxabc_sdef',
+-// RV32-S-ORDER: standard supervisor-level extension not given
+-// RV32-S-ORDER: in canonical order 'sdef'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_xabc -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-XDUP %s
+-// RV32-XDUP: error: invalid arch name 'rv32ixabc_xabc',
+-// RV32-XDUP: duplicated non-standard user-level extension 'xabc'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_xdef -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-X-X-INVAL %s
+-// RV32-X-X-INVAL: error: invalid arch name 'rv32ixabc_xdef', unsupported
+-// RV32-X-X-INVAL: non-standard user-level extension 'xabc'
+-
+-// RUN: %clang -target riscv32-unknown-elf -march=rv32ixabc_sdef_sxghi -### %s \
+-// RUN: -fsyntax-only 2>&1 | FileCheck -check-prefix=RV32-X-S-SX-INVAL %s
+-// RV32-X-S-SX-INVAL: error: invalid arch name 'rv32ixabc_sdef_sxghi',
+-// RV32-X-S-SX-INVAL: unsupported non-standard user-level extension 'xabc'
 diff --git a/test/Driver/riscv-features.c b/test/Driver/riscv-features.c
 deleted file mode 100644
-index 565596cdd3..0000000000
+index 95f84f31c6..0000000000
 --- a/test/Driver/riscv-features.c
 +++ /dev/null
-@@ -1,4 +0,0 @@
+@@ -1,13 +0,0 @@
 -// RUN: %clang -target riscv32-unknown-elf -### %s -fsyntax-only 2>&1 | FileCheck %s
 -// RUN: %clang -target riscv64-unknown-elf -### %s -fsyntax-only 2>&1 | FileCheck %s
 -
 -// CHECK: fno-signed-char
+-
+-// RUN: %clang -target riscv32-unknown-elf -### %s -mrelax 2>&1 | FileCheck %s -check-prefix=RELAX
+-// RUN: %clang -target riscv32-unknown-elf -### %s -mno-relax 2>&1 | FileCheck %s -check-prefix=NO-RELAX
+-// RUN: %clang -target riscv32-unknown-elf -### %s 2>&1 | FileCheck %s -check-prefix=DEFAULT
+-
+-// RELAX: "-target-feature" "+relax"
+-// NO-RELAX: "-target-feature" "-relax"
+-// DEFAULT-NOT: "-target-feature" "+relax"
+-// DEFAULT-NOT: "-target-feature" "-relax"
 diff --git a/test/Driver/riscv-gnutools.c b/test/Driver/riscv-gnutools.c
 deleted file mode 100644
 index afcb5052aa..0000000000
@@ -1923,45 +3198,110 @@ index afcb5052aa..0000000000
 -// MABI-ILP64-MARCH-G: "{{.*}}as{{(.exe)?}}" "-mabi" "lp64" "-march" "rv64g"
 diff --git a/test/Driver/riscv32-toolchain.c b/test/Driver/riscv32-toolchain.c
 deleted file mode 100644
-index 36ba4b6df3..0000000000
+index 9e8af3a8ff..0000000000
 --- a/test/Driver/riscv32-toolchain.c
 +++ /dev/null
-@@ -1,122 +0,0 @@
+@@ -1,187 +0,0 @@
 -// A basic clang -cc1 command-line, and simple environment check.
 -
 -// RUN: %clang %s -### -no-canonical-prefixes -target riscv32 2>&1 | FileCheck -check-prefix=CC1 %s
 -// CC1: clang{{.*}} "-cc1" "-triple" "riscv32"
 -
+-// RUN: %clang %s -### -no-canonical-prefixes \
+-// RUN:   -target riscv32-unknown-elf \
+-// RUN:   --gcc-toolchain=%S/Inputs/basic_riscv32_tree \
+-// RUN:   --sysroot=%S/Inputs/basic_riscv32_tree/riscv32-unknown-elf 2>&1 \
+-// RUN:   | FileCheck -check-prefix=C-RV32-BAREMETAL-ILP32 %s
+-
+-// C-RV32-BAREMETAL-ILP32: "-fuse-init-array"
+-// C-RV32-BAREMETAL-ILP32: "{{.*}}Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../bin{{/|\\\\}}riscv32-unknown-elf-ld"
+-// C-RV32-BAREMETAL-ILP32: "--sysroot={{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf"
+-// C-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf/lib{{/|\\\\}}crt0.o"
+-// C-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtbegin.o"
+-// C-RV32-BAREMETAL-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf/lib"
+-// C-RV32-BAREMETAL-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1"
+-// C-RV32-BAREMETAL-ILP32: "--start-group" "-lc" "-lgloss" "--end-group" "-lgcc"
+-// C-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtend.o"
+-
+-// RUN: %clang %s -### -no-canonical-prefixes \
+-// RUN:   -target riscv32-unknown-elf \
+-// RUN:   --sysroot= \
+-// RUN:   --gcc-toolchain=%S/Inputs/basic_riscv32_tree 2>&1 \
+-// RUN:   | FileCheck -check-prefix=C-RV32-BAREMETAL-NOSYSROOT-ILP32 %s
+-
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "-fuse-init-array"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../bin{{/|\\\\}}riscv32-unknown-elf-ld"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../riscv32-unknown-elf/lib{{/|\\\\}}crt0.o"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtbegin.o"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../riscv32-unknown-elf{{/|\\\\}}lib"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "--start-group" "-lc" "-lgloss" "--end-group" "-lgcc"
+-// C-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtend.o"
+-
+-// RUN: %clangxx %s -### -no-canonical-prefixes \
+-// RUN:   -target riscv32-unknown-elf -stdlib=libstdc++ \
+-// RUN:   --gcc-toolchain=%S/Inputs/basic_riscv32_tree \
+-// RUN:   --sysroot=%S/Inputs/basic_riscv32_tree/riscv32-unknown-elf 2>&1 \
+-// RUN:   | FileCheck -check-prefix=CXX-RV32-BAREMETAL-ILP32 %s
+-
+-// CXX-RV32-BAREMETAL-ILP32: "-fuse-init-array"
+-// CXX-RV32-BAREMETAL-ILP32: "-internal-isystem" "{{.*}}Inputs/basic_riscv32_tree/riscv32-unknown-elf/include/c++{{/|\\\\}}8.0.1"
+-// CXX-RV32-BAREMETAL-ILP32: "{{.*}}Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../bin{{/|\\\\}}riscv32-unknown-elf-ld"
+-// CXX-RV32-BAREMETAL-ILP32: "--sysroot={{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf"
+-// CXX-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf/lib{{/|\\\\}}crt0.o"
+-// CXX-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtbegin.o"
+-// CXX-RV32-BAREMETAL-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/riscv32-unknown-elf/lib"
+-// CXX-RV32-BAREMETAL-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1"
+-// CXX-RV32-BAREMETAL-ILP32: "-lstdc++" "--start-group" "-lc" "-lgloss" "--end-group" "-lgcc"
+-// CXX-RV32-BAREMETAL-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtend.o"
+-
+-// RUN: %clangxx %s -### -no-canonical-prefixes \
+-// RUN:   -target riscv32-unknown-elf -stdlib=libstdc++ \
+-// RUN:   --sysroot= \
+-// RUN:   --gcc-toolchain=%S/Inputs/basic_riscv32_tree 2>&1 \
+-// RUN:   | FileCheck -check-prefix=CXX-RV32-BAREMETAL-NOSYSROOT-ILP32 %s
+-
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "-fuse-init-array"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "-internal-isystem" "{{.*}}Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../riscv32-unknown-elf/include/c++{{/|\\\\}}8.0.1"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../bin{{/|\\\\}}riscv32-unknown-elf-ld"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../riscv32-unknown-elf/lib{{/|\\\\}}crt0.o"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtbegin.o"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1/../../../../riscv32-unknown-elf/lib"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "-L{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "-lstdc++" "--start-group" "-lc" "-lgloss" "--end-group" "-lgcc"
+-// CXX-RV32-BAREMETAL-NOSYSROOT-ILP32: "{{.*}}/Inputs/basic_riscv32_tree/lib/gcc/riscv32-unknown-elf/8.0.1{{/|\\\\}}crtend.o"
 -
 -// RUN: %clang %s -### -no-canonical-prefixes -fuse-ld=ld \
 -// RUN:   -target riscv32-linux-unknown-elf \
 -// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
 -// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
--// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32 %s
+-// RUN:   | FileCheck -check-prefix=C-RV32-LINUX-MULTI-ILP32 %s
 -
--// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
--// CC1-RV32-LINUX-ILP32: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
--// CC1-RV32-LINUX-ILP32: "-m" "elf32lriscv"
--// CC1-RV32-LINUX-ILP32: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32.so.1"
--// CC1-RV32-LINUX-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32{{/|\\\\}}crtbegin.o"
--// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32"
--// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32"
--// CC1-RV32-LINUX-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32"
+-// C-RV32-LINUX-MULTI-ILP32: "-fuse-init-array"
+-// C-RV32-LINUX-MULTI-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
+-// C-RV32-LINUX-MULTI-ILP32: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
+-// C-RV32-LINUX-MULTI-ILP32: "-m" "elf32lriscv"
+-// C-RV32-LINUX-MULTI-ILP32: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32.so.1"
+-// C-RV32-LINUX-MULTI-ILP32: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32{{/|\\\\}}crtbegin.o"
+-// C-RV32-LINUX-MULTI-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32"
+-// C-RV32-LINUX-MULTI-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32"
+-// C-RV32-LINUX-MULTI-ILP32: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32"
 -
 -// RUN: %clang %s -### -no-canonical-prefixes -fuse-ld=ld \
 -// RUN:   -target riscv32-linux-unknown-elf -march=rv32imafd -mabi=ilp32d \
 -// RUN:   --gcc-toolchain=%S/Inputs/multilib_riscv_linux_sdk \
 -// RUN:   --sysroot=%S/Inputs/multilib_riscv_linux_sdk/sysroot 2>&1 \
--// RUN:   | FileCheck -check-prefix=CC1-RV32-LINUX-ILP32D %s
+-// RUN:   | FileCheck -check-prefix=C-RV32-LINUX-MULTI-ILP32D %s
 -
--// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
--// CC1-RV32-LINUX-ILP32D: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
--// CC1-RV32-LINUX-ILP32D: "-m" "elf32lriscv"
--// CC1-RV32-LINUX-ILP32D: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32d.so.1"
--// CC1-RV32-LINUX-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d{{/|\\\\}}crtbegin.o"
--// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d"
--// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d"
--// CC1-RV32-LINUX-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d"
+-// C-RV32-LINUX-MULTI-ILP32D: "-fuse-init-array"
+-// C-RV32-LINUX-MULTI-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/../../../../riscv64-unknown-linux-gnu/bin{{/|\\\\}}ld"
+-// C-RV32-LINUX-MULTI-ILP32D: "--sysroot={{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot"
+-// C-RV32-LINUX-MULTI-ILP32D: "-m" "elf32lriscv"
+-// C-RV32-LINUX-MULTI-ILP32D: "-dynamic-linker" "/lib/ld-linux-riscv32-ilp32d.so.1"
+-// C-RV32-LINUX-MULTI-ILP32D: "{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d{{/|\\\\}}crtbegin.o"
+-// C-RV32-LINUX-MULTI-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/lib/gcc/riscv64-unknown-linux-gnu/7.2.0/lib32/ilp32d"
+-// C-RV32-LINUX-MULTI-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/lib32/ilp32d"
+-// C-RV32-LINUX-MULTI-ILP32D: "-L{{.*}}/Inputs/multilib_riscv_linux_sdk/sysroot/usr/lib32/ilp32d"
 -
 -// RUN: %clang -target riscv32 %s -emit-llvm -S -o - | FileCheck %s
 -
@@ -2146,11 +3486,148 @@ index 44dcc937df..0000000000
 -
 -// CHECK: define dso_local fp128 @check_longdouble()
 -long double check_longdouble() { return 0; }
+diff --git a/test/Driver/types.c b/test/Driver/types.c
+deleted file mode 100644
+index 03fe105ec4..0000000000
+--- a/test/Driver/types.c
++++ /dev/null
+@@ -1,18 +0,0 @@
+-// Check whether __int128_t and __uint128_t are supported.
+-
+-// RUN: not %clang -c --target=riscv32-unknown-linux-gnu -fsyntax-only %s \
+-// RUN: 2>&1 | FileCheck %s
+-
+-// RUN: %clang -c --target=riscv32-unknown-linux-gnu -fsyntax-only %s \
+-// RUN: -fno-force-enable-int128 -fforce-enable-int128
+-
+-// RUN: not %clang -c --target=riscv32-unknown-linux-gnu -fsyntax-only %s \
+-// RUN: -fforce-enable-int128 -fno-force-enable-int128
+-
+-void a() {
+-  __int128_t s;
+-  __uint128_t t;
+-}
+-
+-// CHECK: error: use of undeclared identifier '__int128_t'
+-// CHECK: error: use of undeclared identifier '__uint128_t'
+diff --git a/test/Modules/Inputs/module.map b/test/Modules/Inputs/module.map
+index 3f128c0bb0..93fe468873 100644
+--- a/test/Modules/Inputs/module.map
++++ b/test/Modules/Inputs/module.map
+@@ -380,11 +380,6 @@ module TargetFeatures {
+     module x86_32 { requires x86_32 }
+     module x86_64 { requires x86_64 }
+   }
+-  module riscv {
+-    requires riscv
+-    module riscv32 { requires riscv32 }
+-    module riscv64 { requires riscv64 }
+-  }
+ }
+ 
+ module DebugSubmodules {
+diff --git a/test/Modules/target-features.m b/test/Modules/target-features.m
+index b2597960cb..b4524835f5 100644
+--- a/test/Modules/target-features.m
++++ b/test/Modules/target-features.m
+@@ -1,7 +1,6 @@
+ // REQUIRES: x86-registered-target
+ // REQUIRES: arm-registered-target
+ // REQUIRES: aarch64-registered-target
+-// REQUIRES: riscv-registered-target
+ 
+ // RUN: rm -rf %t
+ 
+@@ -18,10 +17,6 @@
+ // RUN: FileCheck %s -check-prefix=X86_32 < %t.x86_32
+ // RUN: not %clang_cc1 -triple x86_64-unknown-unknown -fmodules -fmodules-cache-path=%t -fimplicit-module-maps -I %S/Inputs -fsyntax-only  %s 2> %t.x86_64
+ // RUN: FileCheck %s -check-prefix=X86_64 < %t.x86_64
+-// RUN: not %clang_cc1 -triple riscv32-unknown-unknown -fmodules -fmodules-cache-path=%t -fimplicit-module-maps -I %S/Inputs -fsyntax-only  %s 2> %t.riscv32
+-// RUN: FileCheck %s -check-prefix=RISCV32 < %t.riscv32
+-// RUN: not %clang_cc1 -triple riscv64-unknown-unknown -fmodules -fmodules-cache-path=%t -fimplicit-module-maps -I %S/Inputs -fsyntax-only  %s 2> %t.riscv64
+-// RUN: FileCheck %s -check-prefix=RISCV64 < %t.riscv64
+ 
+ #ifndef SANITY_CHECK
+ @import TargetFeatures;
+@@ -29,22 +24,16 @@
+ // AARCH64-NOT: module 'TargetFeatures' requires
+ // X86_32-NOT: module 'TargetFeatures' requires
+ // X86_64-NOT: module 'TargetFeatures' requires
+-// RISCV32-NOT: module 'TargetFeatures' requires
+-// RISCV64-NOT: module 'TargetFeatures' requires
+ @import TargetFeatures.arm;
+ // AARCH32-NOT: module 'TargetFeatures.arm' requires
+ // AARCH64-NOT: module 'TargetFeatures.arm' requires
+ // X86_32: module 'TargetFeatures.arm' requires feature 'arm'
+ // X86_64: module 'TargetFeatures.arm' requires feature 'arm'
+-// RISCV32: module 'TargetFeatures.arm' requires
+-// RISCV64: module 'TargetFeatures.arm' requires
+ @import TargetFeatures.arm.aarch32;
+ // AARCH32-NOT: module 'TargetFeatures.arm.aarch32' requires
+ // AARCH64: module 'TargetFeatures.arm.aarch32' requires feature 'aarch32'
+ // X86_32: module 'TargetFeatures.arm.aarch32' requires feature 
+ // X86_64: module 'TargetFeatures.arm.aarch32' requires feature
+-// RISCV32: module 'TargetFeatures.arm.aarch32' requires feature
+-// RISCV64: module 'TargetFeatures.arm.aarch32' requires feature
+ #endif
+ 
+ @import TargetFeatures.arm.aarch64;
+@@ -52,8 +41,6 @@
+ // AARCH64-NOT: module 'TargetFeatures.arm.aarch64' requires
+ // X86_32: module 'TargetFeatures.arm.aarch64' requires feature 
+ // X86_64: module 'TargetFeatures.arm.aarch64' requires feature
+-// RISCV32: module 'TargetFeatures.arm.aarch64' requires feature
+-// RISCV64: module 'TargetFeatures.arm.aarch64' requires feature
+ 
+ #ifndef SANITY_CHECK
+ @import TargetFeatures.x86;
+@@ -61,41 +48,14 @@
+ // AARCH64:  module 'TargetFeatures.x86' requires feature 'x86'
+ // X86_32-NOT: module 'TargetFeatures.x86' requires
+ // X86_64-NOT: module 'TargetFeatures.x86' requires
+-// RISCV32:  module 'TargetFeatures.x86' requires feature 'x86'
+-// RISCV64:  module 'TargetFeatures.x86' requires feature 'x86'
+ @import TargetFeatures.x86.x86_32;
+ // AARCH32:  module 'TargetFeatures.x86.x86_32' requires feature
+ // AARCH64:  module 'TargetFeatures.x86.x86_32' requires feature
+ // X86_32-NOT: module 'TargetFeatures.x86.x86_32' requires
+ // X86_64: module 'TargetFeatures.x86.x86_32' requires feature 'x86_32'
+-// RISCV32:  module 'TargetFeatures.x86.x86_32' requires feature
+-// RISCV64:  module 'TargetFeatures.x86.x86_32' requires feature
+ @import TargetFeatures.x86.x86_64;
+ // AARCH32:  module 'TargetFeatures.x86.x86_64' requires feature
+ // AARCH64:  module 'TargetFeatures.x86.x86_64' requires feature
+ // X86_32: module 'TargetFeatures.x86.x86_64' requires feature 'x86_64'
+ // X86_64-NOT: module 'TargetFeatures.x86.x86_64' requires
+-// RISCV32:  module 'TargetFeatures.x86.x86_64' requires feature
+-// RISCV64:  module 'TargetFeatures.x86.x86_64' requires feature
+-@import TargetFeatures.riscv;
+-// AARCH32:  module 'TargetFeatures.riscv' requires feature
+-// AARCH64:  module 'TargetFeatures.riscv' requires feature
+-// X86_32: module 'TargetFeatures.riscv' requires feature
+-// X86_64: module 'TargetFeatures.riscv' requires feature
+-// RISCV32-NOT: module 'TargetFeatures.riscv' requires feature
+-// RISCV64-NOT: module 'TargetFeatures.riscv' requires feature
+-@import TargetFeatures.riscv.riscv32;
+-// AARCH32:  module 'TargetFeatures.riscv.riscv32' requires feature
+-// AARCH64:  module 'TargetFeatures.riscv.riscv32' requires feature
+-// X86_32: module 'TargetFeatures.riscv.riscv32' requires feature
+-// X86_64: module 'TargetFeatures.riscv.riscv32' requires feature
+-// RISCV32-NOT: module 'TargetFeatures.riscv.riscv32' requires feature
+-// RISCV64: module 'TargetFeatures.riscv.riscv32' requires feature 'riscv32'
+-@import TargetFeatures.riscv.riscv64;
+-// AARCH32:  module 'TargetFeatures.riscv.riscv64' requires feature
+-// AARCH64:  module 'TargetFeatures.riscv.riscv64' requires feature
+-// X86_32: module 'TargetFeatures.riscv.riscv64' requires feature
+-// X86_64: module 'TargetFeatures.riscv.riscv64' requires feature
+-// RISCV32: module 'TargetFeatures.riscv.riscv64' requires feature 'riscv64'
+-// RISCV64-NOT: module 'TargetFeatures.riscv.riscv64' requires feature
+ #endif
 diff --git a/test/Preprocessor/init.c b/test/Preprocessor/init.c
-index 1b4f500742..9fd39e6006 100644
+index ff48b11868..5672bdc52b 100644
 --- a/test/Preprocessor/init.c
 +++ b/test/Preprocessor/init.c
-@@ -10006,420 +10006,3 @@
+@@ -10053,420 +10053,3 @@
  // ARM-DARWIN-BAREMETAL-64: #define __PTRDIFF_TYPE__ long int
  // ARM-DARWIN-BAREMETAL-64: #define __SIZE_TYPE__ long unsigned int
  
@@ -2571,6 +4048,151 @@ index 1b4f500742..9fd39e6006 100644
 -// RISCV64-LINUX: #define __unix__ 1
 -// RISCV64-LINUX: #define linux 1
 -// RISCV64-LINUX: #define unix 1
+diff --git a/test/Preprocessor/riscv-target-features.c b/test/Preprocessor/riscv-target-features.c
+deleted file mode 100644
+index 2c63e0fa29..0000000000
+--- a/test/Preprocessor/riscv-target-features.c
++++ /dev/null
+@@ -1,49 +0,0 @@
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32i -x c -E -dM %s \
+-// RUN: -o - | FileCheck %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64i -x c -E -dM %s \
+-// RUN: -o - | FileCheck %s
+-
+-// CHECK-NOT: __riscv_div
+-// CHECK-NOT: __riscv_mul
+-// CHECK-NOT: __riscv_muldiv
+-// CHECK-NOT: __riscv_compressed
+-// CHECK-NOT: __riscv_flen
+-// CHECK-NOT: __riscv_fdiv
+-// CHECK-NOT: __riscv_fsqrt
+-// CHECK-NOT: __riscv_atomic
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32im -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-M-EXT %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64im -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-M-EXT %s
+-// CHECK-M-EXT: __riscv_div 1
+-// CHECK-M-EXT: __riscv_mul 1
+-// CHECK-M-EXT: __riscv_muldiv 1
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32ia -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-A-EXT %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64ia -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-A-EXT %s
+-// CHECK-A-EXT: __riscv_atomic 1
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32if -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-F-EXT %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64if -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-F-EXT %s
+-// CHECK-F-EXT: __riscv_fdiv 1
+-// CHECK-F-EXT: __riscv_flen 32
+-// CHECK-F-EXT: __riscv_fsqrt 1
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32ifd -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-D-EXT %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64ifd -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-D-EXT %s
+-// CHECK-D-EXT: __riscv_fdiv 1
+-// CHECK-D-EXT: __riscv_flen 64
+-// CHECK-D-EXT: __riscv_fsqrt 1
+-
+-// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32ic -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-C-EXT %s
+-// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64ic -x c -E -dM %s \
+-// RUN: -o - | FileCheck --check-prefix=CHECK-C-EXT %s
+-// CHECK-C-EXT: __riscv_compressed 1
+diff --git a/test/Sema/riscv-interrupt-attr.c b/test/Sema/riscv-interrupt-attr.c
+deleted file mode 100644
+index 55f0863c1f..0000000000
+--- a/test/Sema/riscv-interrupt-attr.c
++++ /dev/null
+@@ -1,62 +0,0 @@
+-// RUN: %clang_cc1 -triple riscv32-unknown-elf -emit-llvm -DCHECK_IR < %s| FileCheck %s
+-// RUN: %clang_cc1 -triple riscv64-unknown-elf -emit-llvm -DCHECK_IR < %s| FileCheck %s
+-// RUN: %clang_cc1 %s -triple riscv32-unknown-elf -verify -fsyntax-only
+-// RUN: %clang_cc1 %s -triple riscv64-unknown-elf -verify -fsyntax-only
+-
+-#if defined(CHECK_IR)
+-// CHECK-LABEL:  @foo_user() #0
+-// CHECK: ret void
+-__attribute__((interrupt("user"))) void foo_user(void) {}
+-// CHECK-LABEL:  @foo_supervisor() #1
+-// CHECK: ret void
+-__attribute__((interrupt("supervisor"))) void foo_supervisor(void) {}
+-// CHECK-LABEL:  @foo_machine() #2
+-// CHECK: ret void
+-__attribute__((interrupt("machine"))) void foo_machine(void) {}
+-// CHECK-LABEL:  @foo_default() #2
+-// CHECK: ret void
+-__attribute__((interrupt())) void foo_default(void) {}
+-// CHECK-LABEL:  @foo_default2() #2
+-// CHECK: ret void
+-__attribute__((interrupt())) void foo_default2(void) {}
+-// CHECK: attributes #0
+-// CHECK: "interrupt"="user"
+-// CHECK: attributes #1
+-// CHECK: "interrupt"="supervisor"
+-// CHECK: attributes #2
+-// CHECK: "interrupt"="machine"
+-#else
+-struct a { int b; };
+-
+-struct a test __attribute__((interrupt)); // expected-warning {{'interrupt' attribute only applies to functions}}
+-
+-__attribute__((interrupt("USER"))) void foo1(void) {} // expected-warning {{'interrupt' attribute argument not supported: USER}}
+-
+-__attribute__((interrupt("user", 1))) void foo2(void) {} // expected-error {{'interrupt' attribute takes no more than 1 argument}}
+-
+-__attribute__((interrupt)) int foo3(void) {return 0;} // expected-warning {{RISC-V 'interrupt' attribute only applies to functions that have a 'void' return type}}
+-
+-__attribute__((interrupt())) void foo4();
+-__attribute__((interrupt())) void foo4() {};
+-
+-__attribute__((interrupt())) void foo5(int a) {} // expected-warning {{RISC-V 'interrupt' attribute only applies to functions that have no parameters}}
+-
+-__attribute__((interrupt("user"), interrupt("supervisor"))) void foo6(void) {} // expected-warning {{repeated RISC-V 'interrupt' attribute}} \
+-  // expected-note {{repeated RISC-V 'interrupt' attribute is here}}
+-
+-__attribute__((interrupt, interrupt)) void foo7(void) {} // expected-warning {{repeated RISC-V 'interrupt' attribute}} \
+-                                                     // expected-note {{repeated RISC-V 'interrupt' attribute is here}}
+-
+-__attribute__((interrupt(""))) void foo8(void) {} // expected-warning {{'interrupt' attribute argument not supported}}
+-
+-__attribute__((interrupt("user"))) void foo9(void);
+-__attribute__((interrupt("supervisor"))) void foo9(void);
+-__attribute__((interrupt("machine"))) void foo9(void);
+-
+-__attribute__((interrupt("user"))) void foo10(void) {}
+-__attribute__((interrupt("supervisor"))) void foo11(void) {}
+-__attribute__((interrupt("machine"))) void foo12(void) {}
+-__attribute__((interrupt())) void foo13(void) {}
+-__attribute__((interrupt)) void foo14(void) {}
+-#endif
+-
+diff --git a/test/Sema/riscv-interrupt-attr.cpp b/test/Sema/riscv-interrupt-attr.cpp
+deleted file mode 100644
+index a01999b3a1..0000000000
+--- a/test/Sema/riscv-interrupt-attr.cpp
++++ /dev/null
+@@ -1,16 +0,0 @@
+-// RUN: %clang_cc1 -x c++ -triple riscv32-unknown-elf -emit-llvm  -DCHECK_IR < %s | FileCheck %s
+-// RUN: %clang_cc1 -x c++ -triple riscv64-unknown-elf -emit-llvm  -DCHECK_IR < %s | FileCheck %s
+-// RUN: %clang_cc1 %s -triple riscv32-unknown-elf -verify -fsyntax-only
+-// RUN: %clang_cc1 %s -triple riscv64-unknown-elf -verify -fsyntax-only
+-
+-#if defined(CHECK_IR)
+-// CHECK-LABEL: @_Z11foo_defaultv() #0
+-// CHECK: ret void
+-[[gnu::interrupt]] void foo_default() {}
+-// CHECK: attributes #0
+-// CHECK: "interrupt"="machine"
+-#else
+-[[gnu::interrupt]] [[gnu::interrupt]] void foo1() {} // expected-warning {{repeated RISC-V 'interrupt' attribute}} \
+-                                                     // expected-note {{repeated RISC-V 'interrupt' attribute is here}}
+-[[gnu::interrupt]] void foo2() {}
+-#endif
 -- 
-2.16.2
+2.17.2
 

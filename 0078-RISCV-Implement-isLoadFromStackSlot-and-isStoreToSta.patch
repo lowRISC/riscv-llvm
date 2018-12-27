@@ -4,8 +4,8 @@ Subject: [RISCV] Implement isLoadFromStackSlot and isStoreToStackSlot
 
 This does result in some codegen changes to the torture suite.
 ---
- lib/Target/RISCV/RISCVInstrInfo.cpp | 49 +++++++++++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.h   |  5 ++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp | 49 +++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.h   |  5 +++
  2 files changed, 54 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.cpp b/lib/Target/RISCV/RISCVInstrInfo.cpp
@@ -85,5 +85,5 @@ index c7c91b64099..d9b7ea55e77 100644
                     const DebugLoc &DL, unsigned DstReg, unsigned SrcReg,
                     bool KillSrc) const override;
 -- 
-2.16.2
+2.17.2
 

@@ -4,8 +4,8 @@ Subject: [RISCV] Codegen support for RV32D floating point conversion
  operations
 
 ---
- lib/Target/RISCV/RISCVInstrInfoD.td  | 14 ++++++
- test/CodeGen/RISCV/double-convert.ll | 89 ++++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoD.td  | 14 +++++
+ test/CodeGen/RISCV/double-convert.ll | 89 ++++++++++++++++++++++++++++
  2 files changed, 103 insertions(+)
  create mode 100644 test/CodeGen/RISCV/double-convert.ll
 
@@ -130,5 +130,5 @@ index 00000000000..4b2c9707aa4
 +  ret double %1
 +}
 -- 
-2.16.2
+2.17.2
 

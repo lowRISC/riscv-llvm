@@ -10,7 +10,7 @@ Doesn't seem to have any real impact on the code I'm testing against.
  2 files changed, 19 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index adf0d0c70ab..bac74ee62c5 100644
+index 84f21e8b64a..87820d8fe43 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -30,6 +30,7 @@
@@ -32,8 +32,8 @@ index adf0d0c70ab..bac74ee62c5 100644
 +    return;
 +
 +  KnownBits Known2;
-+  DAG.computeKnownBits(Op->getOperand(3), Known, Depth + 1);
-+  DAG.computeKnownBits(Op->getOperand(4), Known2, Depth + 1);
++  Known = DAG.computeKnownBits(Op->getOperand(3), Depth + 1);
++  Known2 = DAG.computeKnownBits(Op->getOperand(4), Depth + 1);
 +  Known.Zero &= Known2.Zero;
 +  Known.One &= Known2.One;
 +}
@@ -42,7 +42,7 @@ index adf0d0c70ab..bac74ee62c5 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index ccce434f69f..807cb9c0b8d 100644
+index 5a764a2106c..c17bdbf4d03 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -46,6 +46,11 @@ public:
@@ -58,5 +58,5 @@ index ccce434f69f..807cb9c0b8d 100644
    SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
  
 -- 
-2.16.2
+2.17.2
 

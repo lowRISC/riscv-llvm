@@ -4,9 +4,9 @@ Subject: [RISCV] Reserve an emergency spill slot for the register scavenger
  when necessary
 
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp | 19 +++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp | 19 +++++
  lib/Target/RISCV/RISCVFrameLowering.h   |  3 +
- test/CodeGen/RISCV/large-stack.ll       | 99 ++++++++++++++++++++++++++++++---
+ test/CodeGen/RISCV/large-stack.ll       | 99 +++++++++++++++++++++++--
  3 files changed, 114 insertions(+), 7 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
@@ -186,5 +186,5 @@ index cecca220e19..d3b429022a4 100644
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

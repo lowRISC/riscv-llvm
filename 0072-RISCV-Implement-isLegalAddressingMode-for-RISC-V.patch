@@ -13,7 +13,7 @@ TODO: test that captures codegen change.
  2 files changed, 28 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index bc388ea3be6..e9c003aeba9 100644
+index 943e293836e..09c93fe778e 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -149,6 +149,30 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -48,7 +48,7 @@ index bc388ea3be6..e9c003aeba9 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 30403f45045..e7dd46fc835 100644
+index 499f06434f2..827699878f0 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -37,6 +37,10 @@ public:
@@ -63,5 +63,5 @@ index 30403f45045..e7dd46fc835 100644
    SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
  
 -- 
-2.16.2
+2.17.2
 

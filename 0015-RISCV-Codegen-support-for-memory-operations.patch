@@ -6,17 +6,17 @@ This required the implementation of RISCVTargetInstrInfo::copyPhysReg. Support
 for lowring global addresses follow in the next patch.
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp |   3 +
- lib/Target/RISCV/RISCVInstrInfo.cpp    |  12 +++
+ lib/Target/RISCV/RISCVInstrInfo.cpp    |  12 ++
  lib/Target/RISCV/RISCVInstrInfo.h      |   4 +
- lib/Target/RISCV/RISCVInstrInfo.td     |  28 ++++++
- test/CodeGen/RISCV/mem.ll              | 177 +++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td     |  28 ++++
+ test/CodeGen/RISCV/mem.ll              | 177 +++++++++++++++++++++++++
  test/CodeGen/RISCV/wide-mem.ll         |  16 +++
  6 files changed, 240 insertions(+)
  create mode 100644 test/CodeGen/RISCV/mem.ll
  create mode 100644 test/CodeGen/RISCV/wide-mem.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index d76170b7b78..70e33a25941 100644
+index f30965a94ba..3f159e11071 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -49,6 +49,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -306,5 +306,5 @@ index 00000000000..93239315261
 +  ret i64 %1
 +}
 -- 
-2.16.2
+2.17.2
 

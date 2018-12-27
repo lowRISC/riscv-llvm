@@ -9,13 +9,13 @@ generated if necessary.
 Differential Revision: https://reviews.llvm.org/D41221
 Patch by Shiva Chen.
 ---
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp | 26 ++++++++++++++++-------
- test/MC/RISCV/cnop.s                              | 26 +++++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 26 +++++++++++++------
+ test/MC/RISCV/cnop.s                          | 26 +++++++++++++++++++
  2 files changed, 44 insertions(+), 8 deletions(-)
  create mode 100644 test/MC/RISCV/cnop.s
 
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index 6e06a4975e2..3dcd36f1b71 100644
+index dc8b18d8ded..d39c0fdd82b 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -27,12 +27,13 @@ using namespace llvm;
@@ -28,16 +28,16 @@ index 6e06a4975e2..3dcd36f1b71 100644
  
  public:
 -  RISCVAsmBackend(uint8_t OSABI, bool Is64Bit)
--      : MCAsmBackend(), OSABI(OSABI), Is64Bit(Is64Bit) {}
+-      : MCAsmBackend(support::little), OSABI(OSABI), Is64Bit(Is64Bit) {}
 +  RISCVAsmBackend(const MCSubtargetInfo &STI, uint8_t OSABI, bool Is64Bit)
-+      : MCAsmBackend(), STI(STI), OSABI(OSABI), Is64Bit(Is64Bit) {}
++      : MCAsmBackend(support::little), STI(STI), OSABI(OSABI), Is64Bit(Is64Bit) {}
    ~RISCVAsmBackend() override {}
  
    void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-@@ -88,15 +89,24 @@ public:
+@@ -90,15 +91,24 @@ public:
  };
  
- bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+ bool RISCVAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
 -  // Once support for the compressed instruction set is added, we will be able
 -  // to conditionally support 16-bit NOPs
 -  if ((Count % 4) != 0)
@@ -52,19 +52,19 @@ index 6e06a4975e2..3dcd36f1b71 100644
 +  // The canonical nop on RISC-V is addi x0, x0, 0.
 +  uint64_t Nop32Count = Count / 4;
 +  for (uint64_t i = Nop32Count; i != 0; --i)
-     OW->write32(0x13);
+     OS.write("\x13\0\0\0", 4);
  
 +  // The canonical nop on RVC is c.nop.
 +  if (HasStdExtC) {
 +    uint64_t Nop16Count = (Count - Nop32Count * 4) / 2;
 +    for (uint64_t i = Nop16Count; i != 0; --i)
-+      OW->write16(0x01);
++      OS.write("\x01\0", 2);
 +  }
 +
    return true;
  }
  
-@@ -235,5 +245,5 @@ MCAsmBackend *llvm::createRISCVAsmBackend(const Target &T,
+@@ -237,5 +247,5 @@ MCAsmBackend *llvm::createRISCVAsmBackend(const Target &T,
                                            const MCTargetOptions &Options) {
    const Triple &TT = STI.getTargetTriple();
    uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
@@ -104,5 +104,5 @@ index 00000000000..8d526263724
 +       .size   main, .Lfunc_end1-main
 +                                        # -- End function
 -- 
-2.16.2
+2.17.2
 

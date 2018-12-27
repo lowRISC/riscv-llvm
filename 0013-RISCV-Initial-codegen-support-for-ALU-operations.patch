@@ -22,27 +22,27 @@ Differential Revision: https://reviews.llvm.org/D29933
 ---
  lib/Target/RISCV/CMakeLists.txt         |  11 ++
  lib/Target/RISCV/LLVMBuild.txt          |   3 +-
- lib/Target/RISCV/RISCV.h                |  31 ++++++
+ lib/Target/RISCV/RISCV.h                |  31 ++++
  lib/Target/RISCV/RISCV.td               |   7 +-
- lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 ++++++++++++
- lib/Target/RISCV/RISCVCallingConv.td    |  29 +++++
- lib/Target/RISCV/RISCVFrameLowering.cpp |  29 +++++
- lib/Target/RISCV/RISCVFrameLowering.h   |  35 ++++++
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  60 +++++++++++
- lib/Target/RISCV/RISCVISelLowering.cpp  | 170 +++++++++++++++++++++++++++++
- lib/Target/RISCV/RISCVISelLowering.h    |  62 +++++++++++
- lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++++
- lib/Target/RISCV/RISCVInstrInfo.h       |  32 ++++++
- lib/Target/RISCV/RISCVInstrInfo.td      |  60 ++++++++++-
- lib/Target/RISCV/RISCVMCInstLower.cpp   |  50 +++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 +++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.h    |  40 +++++++
- lib/Target/RISCV/RISCVRegisterInfo.td   |  13 ++-
- lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++++
- lib/Target/RISCV/RISCVSubtarget.h       |  75 +++++++++++++
- lib/Target/RISCV/RISCVTargetMachine.cpp |  26 ++++-
- lib/Target/RISCV/RISCVTargetMachine.h   |   6 ++
- test/CodeGen/RISCV/alu32.ll             | 183 ++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVAsmPrinter.cpp    |  67 +++++++++
+ lib/Target/RISCV/RISCVCallingConv.td    |  29 ++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp |  29 ++++
+ lib/Target/RISCV/RISCVFrameLowering.h   |  35 +++++
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp  |  60 ++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp  | 170 ++++++++++++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.h    |  62 ++++++++
+ lib/Target/RISCV/RISCVInstrInfo.cpp     |  31 ++++
+ lib/Target/RISCV/RISCVInstrInfo.h       |  32 +++++
+ lib/Target/RISCV/RISCVInstrInfo.td      |  60 +++++++-
+ lib/Target/RISCV/RISCVMCInstLower.cpp   |  50 +++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |  61 ++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.h    |  40 ++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td   |  13 +-
+ lib/Target/RISCV/RISCVSubtarget.cpp     |  48 +++++++
+ lib/Target/RISCV/RISCVSubtarget.h       |  75 ++++++++++
+ lib/Target/RISCV/RISCVTargetMachine.cpp |  26 +++-
+ lib/Target/RISCV/RISCVTargetMachine.h   |   6 +
+ test/CodeGen/RISCV/alu32.ll             | 183 ++++++++++++++++++++++++
  test/CodeGen/RISCV/lit.local.cfg        |   2 +
  24 files changed, 1120 insertions(+), 11 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCV.h
@@ -356,7 +356,7 @@ index 00000000000..71f85864a39
 +#endif
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 new file mode 100644
-index 00000000000..6ce7a163f2f
+index 00000000000..75d90c247ff
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -0,0 +1,60 @@
@@ -406,7 +406,7 @@ index 00000000000..6ce7a163f2f
 +void RISCVDAGToDAGISel::Select(SDNode *Node) {
 +  // If we have a custom node, we have already selected
 +  if (Node->isMachineOpcode()) {
-+    DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
++    LLVM_DEBUG(dbgs() << "== "; Node->dump(CurDAG); dbgs() << "\n");
 +    Node->setNodeId(-1);
 +    return;
 +  }
@@ -422,7 +422,7 @@ index 00000000000..6ce7a163f2f
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
 new file mode 100644
-index 00000000000..d76170b7b78
+index 00000000000..f30965a94ba
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -0,0 +1,170 @@
@@ -529,8 +529,8 @@ index 00000000000..d76170b7b78
 +    // Arguments passed in registers.
 +    EVT RegVT = VA.getLocVT();
 +    if (RegVT != XLenVT) {
-+      DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
-+          << RegVT.getEVTString() << "\n");
++      LLVM_DEBUG(dbgs() << "LowerFormalArguments Unhandled argument type: "
++                        << RegVT.getEVTString() << "\n");
 +      report_fatal_error("unhandled argument type");
 +    }
 +    const unsigned VReg =
@@ -1154,7 +1154,7 @@ index 00000000000..cf8956414aa
 +
 +#endif
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index ea8bb43c53e..e12168b7399 100644
+index 9e1a58d8621..d1374227772 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
 @@ -11,6 +11,7 @@
@@ -1165,10 +1165,10 @@ index ea8bb43c53e..e12168b7399 100644
  #include "RISCVTargetMachine.h"
  #include "llvm/ADT/STLExtras.h"
  #include "llvm/CodeGen/Passes.h"
-@@ -58,10 +59,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
+@@ -52,10 +53,31 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
      : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
                          getEffectiveRelocModel(TT, RM),
-                         getEffectiveCodeModel(CM), OL),
+                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
 -      TLOF(make_unique<TargetLoweringObjectFileELF>()) {
 +      TLOF(make_unique<TargetLoweringObjectFileELF>()),
 +      Subtarget(TT, CPU, FS, *this) {
@@ -1428,5 +1428,5 @@ index 00000000000..c63820126f8
 +if not 'RISCV' in config.root.targets:
 +    config.unsupported = True
 -- 
-2.16.2
+2.17.2
 

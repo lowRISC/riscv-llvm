@@ -7,14 +7,14 @@ Subject: [RISCV] Add initial RV64I codegen support
  lib/Target/RISCV/RISCVISelLowering.cpp    |   6 +-
  lib/Target/RISCV/RISCVInstrInfo.cpp       |  24 +-
  lib/Target/RISCV/RISCVInstrInfo.h         |   5 +-
- lib/Target/RISCV/RISCVInstrInfo.td        |  67 ++++-
+ lib/Target/RISCV/RISCVInstrInfo.td        |  67 ++-
  lib/Target/RISCV/RISCVRegisterInfo.cpp    |   1 +
  lib/Target/RISCV/RISCVSubtarget.cpp       |   2 +-
- test/CodeGen/RISCV/addc-adde-sube-subc.ll | 100 ++++++
- test/CodeGen/RISCV/alu32.ll               | 150 +++++++++
- test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/imm.ll                 |  64 ++++
- test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++++++
+ test/CodeGen/RISCV/addc-adde-sube-subc.ll | 100 +++++
+ test/CodeGen/RISCV/alu32.ll               | 150 +++++++
+ test/CodeGen/RISCV/alu64.ll               | 484 ++++++++++++++++++++++
+ test/CodeGen/RISCV/imm.ll                 |  64 +++
+ test/CodeGen/RISCV/mem64.ll               | 229 ++++++++++
  12 files changed, 1114 insertions(+), 19 deletions(-)
  create mode 100644 test/CodeGen/RISCV/alu64.ll
  create mode 100644 test/CodeGen/RISCV/mem64.ll
@@ -32,7 +32,7 @@ index e3cf8afcf00..170c8ff2825 100644
  def RV64 : HwMode<"+64bit">;
  def RV32 : HwMode<"-64bit">;
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 40a9683e963..1bad44bd1b7 100644
+index 3615418ac57..b80f4aca6bd 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -183,7 +183,7 @@ SDValue RISCVTargetLowering::lowerGlobalAddress(SDValue Op,
@@ -1539,5 +1539,5 @@ index 00000000000..9aaf3afc0dc
 +  ret i64 %1
 +}
 -- 
-2.16.2
+2.17.2
 

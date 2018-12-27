@@ -13,17 +13,17 @@ Also incorporates changes from:
 Differential Revision: https://reviews.llvm.org/D42132
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 12 +++++
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 42 +++++++++++++++-
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 +++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  4 ++
- lib/Target/RISCV/RISCVInstrFormatsC.td             | 40 +++++++++++++++
- lib/Target/RISCV/RISCVInstrInfoC.td                | 58 ++++++++++++++++++++++
- test/MC/RISCV/fixups-compressed.s                  | 18 +++++++
- test/MC/RISCV/relocations.s                        | 14 +++++-
- test/MC/RISCV/rv32c-invalid.s                      | 13 +++++
- test/MC/RISCV/rv32c-valid.s                        | 19 +++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 12 ++++
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 42 +++++++++++++-
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  4 ++
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  6 ++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  4 ++
+ lib/Target/RISCV/RISCVInstrFormatsC.td        | 40 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 58 +++++++++++++++++++
+ test/MC/RISCV/fixups-compressed.s             | 18 ++++++
+ test/MC/RISCV/relocations.s                   | 14 ++++-
+ test/MC/RISCV/rv32c-invalid.s                 | 13 +++++
+ test/MC/RISCV/rv32c-valid.s                   | 19 ++++++
  11 files changed, 226 insertions(+), 4 deletions(-)
  create mode 100644 test/MC/RISCV/fixups-compressed.s
 
@@ -72,10 +72,10 @@ index c4a3116b33a..cde00f5d515 100644
      return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 12) - 1);
    case Match_InvalidSImm13Lsb0:
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index 06b8f47cf72..6e06a4975e2 100644
+index 13038074eb8..dc8b18d8ded 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -63,7 +63,9 @@ public:
+@@ -64,7 +64,9 @@ public:
        { "fixup_riscv_lo12_s",      0,     32,  0 },
        { "fixup_riscv_pcrel_hi20", 12,     20,  MCFixupKindInfo::FKF_IsPCRel },
        { "fixup_riscv_jal",        12,     20,  MCFixupKindInfo::FKF_IsPCRel },
@@ -86,7 +86,7 @@ index 06b8f47cf72..6e06a4975e2 100644
      };
  
      if (Kind < FirstTargetFixupKind)
-@@ -152,10 +154,45 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+@@ -154,10 +156,45 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
      Value = (Sbit << 31) | (Mid6 << 25) | (Lo4 << 8) | (Hi1 << 7);
      return Value;
    }
@@ -130,9 +130,9 @@ index 06b8f47cf72..6e06a4975e2 100644
 +}
 +
  void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-                                  const MCValue &Target,
-                                  MutableArrayRef<char> Data, uint64_t Value,
-@@ -171,6 +208,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                                  const MCValue &Target, MutableArrayRef<char> Data,
+                                  uint64_t Value, bool IsResolved,
+@@ -173,6 +210,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
    Value <<= Info.TargetOffset;
  
    unsigned Offset = Fixup.getOffset();
@@ -140,7 +140,7 @@ index 06b8f47cf72..6e06a4975e2 100644
  
  #ifndef NDEBUG
    unsigned NumBytes = (Info.TargetSize + 7) / 8;
-@@ -179,7 +217,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+@@ -181,7 +219,7 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
  
    // For each byte of the fragment that the fixup touches, mask in the
    // bits from the fixup value.
@@ -150,7 +150,7 @@ index 06b8f47cf72..6e06a4975e2 100644
    }
  }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-index e256156dc96..ad53228c104 100644
+index e5632d8defa..2503171a6e6 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -59,6 +59,10 @@ unsigned RISCVELFObjectWriter::getRelocType(MCContext &Ctx,
@@ -182,7 +182,7 @@ index 115229414d5..cfb5d99e79f 100644
    // fixup_riscv_invalid - used as a sentinel and a marker, must be last fixup
    fixup_riscv_invalid,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index 81c7a4d9059..68d4d96d9d0 100644
+index 9612695c285..0866e0de92b 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -181,6 +181,10 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
@@ -461,5 +461,5 @@ index 86c2dff5698..ce4273d3802 100644
 +# CHECK: encoding: [0xfd,0xef]
 +c.bnez  a5,  254
 -- 
-2.16.2
+2.17.2
 

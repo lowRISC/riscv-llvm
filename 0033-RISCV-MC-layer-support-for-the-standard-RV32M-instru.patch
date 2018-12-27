@@ -4,12 +4,12 @@ Subject: [RISCV] MC layer support for the standard RV32M instruction set
  extension
 
 ---
- lib/Target/RISCV/RISCV.td           | 14 ++++++++++----
+ lib/Target/RISCV/RISCV.td           | 14 ++++++++----
  lib/Target/RISCV/RISCVInstrInfo.td  |  6 ++++++
- lib/Target/RISCV/RISCVInstrInfoM.td | 28 ++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoM.td | 28 ++++++++++++++++++++++++
  lib/Target/RISCV/RISCVSubtarget.h   |  2 ++
  test/MC/RISCV/rv32i-invalid.s       |  3 +++
- test/MC/RISCV/rv32m-valid.s         | 33 +++++++++++++++++++++++++++++++++
+ test/MC/RISCV/rv32m-valid.s         | 33 +++++++++++++++++++++++++++++
  6 files changed, 82 insertions(+), 4 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoM.td
  create mode 100644 test/MC/RISCV/rv32m-valid.s
@@ -159,5 +159,5 @@ index 00000000000..70c1c29d3ad
 +# CHECK: encoding: [0x33,0x79,0x89,0x03]
 +remu x18, x18, x24
 -- 
-2.16.2
+2.17.2
 

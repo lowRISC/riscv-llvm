@@ -9,20 +9,20 @@ Ensure callee-saved registers are accessed relative to the stackpointer. This
 is necessary as callee-saved register spills are performed before the frame
 pointer is set.
 ---
- lib/Target/RISCV/RISCVFrameLowering.cpp     | 29 +++++++++
+ lib/Target/RISCV/RISCVFrameLowering.cpp     | 29 +++++++
  lib/Target/RISCV/RISCVFrameLowering.h       |  3 +
- lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 20 ++++++
- lib/Target/RISCV/RISCVInstrInfo.td          | 27 ++++++++
- lib/Target/RISCV/RISCVRegisterInfo.cpp      | 14 ++---
+ lib/Target/RISCV/RISCVISelDAGToDAG.cpp      | 20 +++++
+ lib/Target/RISCV/RISCVInstrInfo.td          | 27 ++++++
+ lib/Target/RISCV/RISCVRegisterInfo.cpp      | 14 ++-
  test/CodeGen/RISCV/blockaddress.ll          |  4 +-
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 96 ++++++++++++++---------------
- test/CodeGen/RISCV/calls.ll                 | 20 +++---
- test/CodeGen/RISCV/div.ll                   | 32 +++++-----
- test/CodeGen/RISCV/frame.ll                 | 36 +++++++++++
- test/CodeGen/RISCV/indirectbr.ll            |  8 +--
- test/CodeGen/RISCV/mul.ll                   | 20 +++---
- test/CodeGen/RISCV/rem.ll                   |  8 +--
- test/CodeGen/RISCV/shifts.ll                | 12 ++--
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll | 96 ++++++++++-----------
+ test/CodeGen/RISCV/calls.ll                 | 20 ++---
+ test/CodeGen/RISCV/div.ll                   | 32 +++----
+ test/CodeGen/RISCV/frame.ll                 | 36 ++++++++
+ test/CodeGen/RISCV/indirectbr.ll            |  8 +-
+ test/CodeGen/RISCV/mul.ll                   | 20 ++---
+ test/CodeGen/RISCV/rem.ll                   |  8 +-
+ test/CodeGen/RISCV/shifts.ll                | 12 +--
  14 files changed, 221 insertions(+), 108 deletions(-)
  create mode 100644 test/CodeGen/RISCV/frame.ll
 
@@ -78,7 +78,7 @@ index 0b2c7a40298..ba093bb83f0 100644
  
    MachineBasicBlock::iterator
 diff --git a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
-index daac114b557..7daae302194 100644
+index b964f19a7ce..bbb8ab877b6 100644
 --- a/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 +++ b/lib/Target/RISCV/RISCVISelDAGToDAG.cpp
 @@ -14,6 +14,7 @@
@@ -724,7 +724,7 @@ index 00000000000..4a2486e0026
 +
 +declare void @test1(i8*)
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
-index 40641da6d6f..45232c81b12 100644
+index 286989312e2..b78333eb048 100644
 --- a/test/CodeGen/RISCV/indirectbr.ll
 +++ b/test/CodeGen/RISCV/indirectbr.ll
 @@ -5,11 +5,11 @@
@@ -734,7 +734,7 @@ index 40641da6d6f..45232c81b12 100644
 -; RV32I-NEXT:    sw ra, 0(s0)
 +; RV32I-NEXT:    sw ra, 0(sp)
  ; RV32I-NEXT:    jalr zero, a0, 0
- ; RV32I-NEXT:  .LBB0_1: # %ret
+ ; RV32I-NEXT:  .LBB0_1: # %test_label
  ; RV32I-NEXT:    addi a0, zero, 0
 -; RV32I-NEXT:    lw ra, 0(s0)
 +; RV32I-NEXT:    lw ra, 0(sp)
@@ -748,7 +748,7 @@ index 40641da6d6f..45232c81b12 100644
 -; RV32I-NEXT:    sw ra, 0(s0)
 +; RV32I-NEXT:    sw ra, 0(sp)
  ; RV32I-NEXT:    jalr zero, a0, 1380
- ; RV32I-NEXT:  .LBB1_1: # %ret
+ ; RV32I-NEXT:  .LBB1_1: # %test_label
  ; RV32I-NEXT:    addi a0, zero, 0
 -; RV32I-NEXT:    lw ra, 0(s0)
 +; RV32I-NEXT:    lw ra, 0(sp)
@@ -912,5 +912,5 @@ index c4033c574ef..b76b7248b9d 100644
    %1 = shl i64 %a, %b
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

@@ -10,7 +10,7 @@ triggers quite a few codegen differences in the torture suite.
  2 files changed, 22 insertions(+)
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index a9f9f5c7d56..c60b4abc2c8 100644
+index e83bd7ae29b..a8e2b6ba765 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -181,6 +181,26 @@ bool RISCVTargetLowering::isLegalAddImmediate(int64_t Imm) const {
@@ -41,7 +41,7 @@ index a9f9f5c7d56..c60b4abc2c8 100644
  // operation matches one of the comparisons supported directly in the RISC-V
  // ISA.
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 17183004df6..d6dfbf6625e 100644
+index 3fe5700141b..ab12cae6519 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -42,6 +42,8 @@ public:
@@ -54,5 +54,5 @@ index 17183004df6..d6dfbf6625e 100644
    // Provide custom lowering hooks for some operations.
    SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
 -- 
-2.16.2
+2.17.2
 

@@ -5,17 +5,17 @@ Subject: [RISCV] Codegen for atomic fences, loads, and stores
 ---
  lib/Target/RISCV/RISCVISelLowering.cpp  |  17 ++
  lib/Target/RISCV/RISCVISelLowering.h    |   8 +
- lib/Target/RISCV/RISCVInstrInfo.td      |  20 +++
+ lib/Target/RISCV/RISCVInstrInfo.td      |  20 ++
  lib/Target/RISCV/RISCVTargetMachine.cpp |   7 +
- test/CodeGen/RISCV/atomics.ll           | 270 ++++++++++++++++++++++++++++++++
+ test/CodeGen/RISCV/atomics.ll           | 270 ++++++++++++++++++++++++
  5 files changed, 322 insertions(+)
  create mode 100644 test/CodeGen/RISCV/atomics.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index e024744c88c..a3349ef49fc 100644
+index acb519065a9..12f12bfcacb 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -1200,3 +1200,20 @@ RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
+@@ -1192,3 +1192,20 @@ RISCVTargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
      return 2;
    return getNumRegisters(Context, VT);
  }
@@ -37,11 +37,11 @@ index e024744c88c..a3349ef49fc 100644
 +  return nullptr;
 +}
 diff --git a/lib/Target/RISCV/RISCVISelLowering.h b/lib/Target/RISCV/RISCVISelLowering.h
-index 3e49c2db7f3..30403f45045 100644
+index 6a5e60572ae..499f06434f2 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.h
 +++ b/lib/Target/RISCV/RISCVISelLowering.h
 @@ -57,6 +57,14 @@ public:
-   unsigned getNumRegistersForCallingConv(LLVMContext &Context,
+                                          CallingConv::ID CC,
                                           EVT VT) const override;
  
 +  bool shouldInsertFencesForAtomic(const Instruction *I) const override {
@@ -87,10 +87,10 @@ index cdeef08640c..983732db2c8 100644
  
  // Pessimistically assume the stack pointer will be clobbered
 diff --git a/lib/Target/RISCV/RISCVTargetMachine.cpp b/lib/Target/RISCV/RISCVTargetMachine.cpp
-index e75fb3b701c..7cf90fa66e2 100644
+index 5d0f25e3092..8a04013fa2f 100644
 --- a/lib/Target/RISCV/RISCVTargetMachine.cpp
 +++ b/lib/Target/RISCV/RISCVTargetMachine.cpp
-@@ -74,6 +74,7 @@ public:
+@@ -68,6 +68,7 @@ public:
      return getTM<RISCVTargetMachine>();
    }
  
@@ -98,7 +98,7 @@ index e75fb3b701c..7cf90fa66e2 100644
    bool addInstSelector() override;
    void addPreEmitPass() override;
  };
-@@ -83,6 +84,12 @@ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
+@@ -77,6 +78,12 @@ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
    return new RISCVPassConfig(*this, PM);
  }
  
@@ -388,5 +388,5 @@ index 00000000000..bb81aa9d0eb
 +  ret void
 +}
 -- 
-2.16.2
+2.17.2
 

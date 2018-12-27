@@ -3,16 +3,16 @@ From: Alex Bradbury <asb@lowrisc.org>
 Subject: [RISCV] Add codegen for RV32F arithmetic and conversion operations
 
 ---
- lib/Target/RISCV/RISCVISelLowering.cpp |  53 ++++++++-
- lib/Target/RISCV/RISCVInstrInfoF.td    |  56 ++++++++++
- test/CodeGen/RISCV/float-arith.ll      | 194 +++++++++++++++++++++++++++++++++
- test/CodeGen/RISCV/float-convert.ll    |  72 ++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp |  53 ++++++-
+ lib/Target/RISCV/RISCVInstrInfoF.td    |  56 +++++++
+ test/CodeGen/RISCV/float-arith.ll      | 194 +++++++++++++++++++++++++
+ test/CodeGen/RISCV/float-convert.ll    |  72 +++++++++
  4 files changed, 370 insertions(+), 5 deletions(-)
  create mode 100644 test/CodeGen/RISCV/float-arith.ll
  create mode 100644 test/CodeGen/RISCV/float-convert.ll
 
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 1bad44bd1b7..ceda3dd3cc9 100644
+index b80f4aca6bd..e015611343f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
 @@ -45,6 +45,9 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
@@ -475,5 +475,5 @@ index 00000000000..af87024e5db
 +  ret float %3
 +}
 -- 
-2.16.2
+2.17.2
 

@@ -7,7 +7,7 @@ Subject: [RISCV] MC layer support for the standard RV64A instruction set
  lib/Target/RISCV/RISCVInstrInfoA.td |  14 +++
  test/MC/RISCV/rv32a-invalid.s       |   3 +
  test/MC/RISCV/rv64a-invalid.s       |  14 +++
- test/MC/RISCV/rv64a-valid.s         | 189 ++++++++++++++++++++++++++++++++++++
+ test/MC/RISCV/rv64a-valid.s         | 189 ++++++++++++++++++++++++++++
  4 files changed, 220 insertions(+)
  create mode 100644 test/MC/RISCV/rv64a-invalid.s
  create mode 100644 test/MC/RISCV/rv64a-valid.s
@@ -261,5 +261,5 @@ index 00000000000..18299548ffa
 +# CHECK-RV32: :[[@LINE+1]]:1: error: instruction use requires an option to be enabled
 +amomaxu.d.aqrl s5, s4, (s3)
 -- 
-2.16.2
+2.17.2
 

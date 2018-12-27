@@ -5,15 +5,15 @@ Subject: [RISCV] Add support for %pcrel_lo.
 Differential Revision: https://reviews.llvm.org/D42515
 Patch by Ahmed Charles.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  5 +++--
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 22 +++++++++++++---------
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  4 ++++
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  6 ++++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  9 +++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  5 ++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  1 +
- test/MC/RISCV/relocations.s                        | 20 ++++++++++++++++++++
- test/MC/RISCV/rv32i-invalid.s                      |  9 +++++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  5 +++--
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 22 +++++++++++--------
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  4 ++++
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  6 +++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  9 ++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp |  5 ++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h   |  1 +
+ test/MC/RISCV/relocations.s                   | 20 +++++++++++++++++
+ test/MC/RISCV/rv32i-invalid.s                 |  9 ++++++++
  9 files changed, 69 insertions(+), 12 deletions(-)
 
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
@@ -33,10 +33,10 @@ index ae2a83f577b..b861922e765 100644
  
    bool isSImm12Lsb0() const { return isBareSimmNLsb0<12>(); }
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index 3dcd36f1b71..c42177e0b4f 100644
+index d39c0fdd82b..e8763fa0203 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-@@ -58,15 +58,17 @@ public:
+@@ -59,15 +59,17 @@ public:
        // This table *must* be in the order that the fixup_* kinds are defined in
        // RISCVFixupKinds.h.
        //
@@ -63,7 +63,7 @@ index 3dcd36f1b71..c42177e0b4f 100644
      };
  
      if (Kind < FirstTargetFixupKind)
-@@ -122,8 +124,10 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+@@ -124,8 +126,10 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
    case FK_Data_8:
      return Value;
    case RISCV::fixup_riscv_lo12_i:
@@ -75,7 +75,7 @@ index 3dcd36f1b71..c42177e0b4f 100644
    case RISCV::fixup_riscv_hi20:
    case RISCV::fixup_riscv_pcrel_hi20:
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-index ad53228c104..0dc371c46f2 100644
+index 2503171a6e6..8e4741ff2c8 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -55,6 +55,10 @@ unsigned RISCVELFObjectWriter::getRelocType(MCContext &Ctx,
@@ -107,7 +107,7 @@ index cfb5d99e79f..604c3dc9921 100644
    // instruction
    fixup_riscv_jal,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index 68d4d96d9d0..a1ecb3e5937 100644
+index 0866e0de92b..5ba3be5e34e 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -171,6 +171,15 @@ unsigned RISCVMCCodeEmitter::getImmOpValue(const MCInst &MI, unsigned OpNo,
@@ -248,5 +248,5 @@ index 938298e4347..61c8dfc1826 100644
  # Unrecognized operand modifier
  addi t0, sp, %modifer(255) # CHECK: :[[@LINE]]:15: error: unrecognized operand modifier
 -- 
-2.16.2
+2.17.2
 

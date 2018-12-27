@@ -6,13 +6,13 @@ Subject: [RISCV] Encode RISCV specific ELF e_flags to RISCV Binary by
 Differential Revision: https://reviews.llvm.org/D41658
 Patch by Shiva Chen.
 ---
- lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |  2 ++
- lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp | 39 ++++++++++++++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h   | 24 +++++++++++++
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       | 12 +++++++
- .../RISCV/MCTargetDesc/RISCVTargetStreamer.cpp     | 18 ++++++++++
- .../RISCV/MCTargetDesc/RISCVTargetStreamer.h       | 22 ++++++++++++
- test/MC/RISCV/elf-flags.s                          | 13 ++++++++
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt  |  2 +
+ .../RISCV/MCTargetDesc/RISCVELFStreamer.cpp   | 39 +++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVELFStreamer.h     | 24 ++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp  | 12 ++++++
+ .../MCTargetDesc/RISCVTargetStreamer.cpp      | 18 +++++++++
+ .../RISCV/MCTargetDesc/RISCVTargetStreamer.h  | 22 +++++++++++
+ test/MC/RISCV/elf-flags.s                     | 13 +++++++
  7 files changed, 130 insertions(+)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.cpp
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVELFStreamer.h
@@ -215,5 +215,5 @@ index 00000000000..1d183aab339
 +
 +nop
 -- 
-2.16.2
+2.17.2
 

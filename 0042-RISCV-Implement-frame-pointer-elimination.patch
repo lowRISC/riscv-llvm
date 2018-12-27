@@ -6,37 +6,37 @@ Subject: [RISCV] Implement frame pointer elimination
  lib/Target/RISCV/RISCVFrameLowering.cpp      |   41 +-
  lib/Target/RISCV/RISCVRegisterInfo.cpp       |    6 +-
  test/CodeGen/RISCV/addc-adde-sube-subc.ll    |   14 -
- test/CodeGen/RISCV/alu32.ll                  |  133 ---
+ test/CodeGen/RISCV/alu32.ll                  |  133 --
  test/CodeGen/RISCV/analyze-branch.ll         |    6 -
  test/CodeGen/RISCV/bare-select.ll            |    7 -
  test/CodeGen/RISCV/blockaddress.ll           |    3 -
  test/CodeGen/RISCV/branch-relaxation.ll      |   20 +-
  test/CodeGen/RISCV/branch.ll                 |    7 -
- test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll  |  115 +--
+ test/CodeGen/RISCV/bswap-ctlz-cttz-ctpop.ll  |  115 +-
  test/CodeGen/RISCV/byval.ll                  |   20 +-
- test/CodeGen/RISCV/calling-conv-sext-zext.ll |  117 ---
- test/CodeGen/RISCV/calling-conv.ll           | 1409 +++++++++++++++++---------
+ test/CodeGen/RISCV/calling-conv-sext-zext.ll |  117 --
+ test/CodeGen/RISCV/calling-conv.ll           | 1409 +++++++++++-------
  test/CodeGen/RISCV/calls.ll                  |   65 +-
  test/CodeGen/RISCV/div.ll                    |   38 -
  test/CodeGen/RISCV/fp128.ll                  |   66 +-
  test/CodeGen/RISCV/frame.ll                  |   62 +-
  test/CodeGen/RISCV/frameaddr-returnaddr.ll   |    7 -
- test/CodeGen/RISCV/i32-icmp.ll               |   70 --
+ test/CodeGen/RISCV/i32-icmp.ll               |   70 -
  test/CodeGen/RISCV/imm.ll                    |   35 -
  test/CodeGen/RISCV/indirectbr.ll             |    6 -
  test/CodeGen/RISCV/inline-asm.ll             |   28 -
  test/CodeGen/RISCV/jumptable.ll              |   13 +-
- test/CodeGen/RISCV/large-stack.ll            |  223 ++--
+ test/CodeGen/RISCV/large-stack.ll            |  223 +--
  test/CodeGen/RISCV/mem.ll                    |   84 --
  test/CodeGen/RISCV/mul.ll                    |   22 -
  test/CodeGen/RISCV/rem.ll                    |    6 -
  test/CodeGen/RISCV/rotl-rotr.ll              |   14 -
  test/CodeGen/RISCV/select-cc.ll              |    7 -
- test/CodeGen/RISCV/sext-zext-trunc.ll        |  210 ----
+ test/CodeGen/RISCV/sext-zext-trunc.ll        |  210 ---
  test/CodeGen/RISCV/shifts.ll                 |    9 -
- test/CodeGen/RISCV/vararg.ll                 | 1050 ++++++++++++-------
+ test/CodeGen/RISCV/vararg.ll                 | 1047 ++++++++-----
  test/CodeGen/RISCV/wide-mem.ll               |   14 -
- 33 files changed, 1886 insertions(+), 2041 deletions(-)
+ 33 files changed, 1884 insertions(+), 2040 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
 index 32ed896bc98..33703f5ec20 100644
@@ -1005,7 +1005,7 @@ index 6c67f60a436..30ba8e6562e 100644
  ; RV32I-NEXT:    addi sp, sp, 32
  ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/calling-conv-sext-zext.ll b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
-index 3488f08f8fc..5cc7f1a0b99 100644
+index 0d882501682..b319e782458 100644
 --- a/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 +++ b/test/CodeGen/RISCV/calling-conv-sext-zext.ll
 @@ -5,13 +5,6 @@
@@ -1387,7 +1387,7 @@ index 3488f08f8fc..5cc7f1a0b99 100644
  ; RV32I-NEXT:    addi sp, sp, 16
  ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
-index 3a55752d2cb..c1d8be833f7 100644
+index ace09688723..d5081040d68 100644
 --- a/test/CodeGen/RISCV/calling-conv.ll
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -1,6 +1,8 @@
@@ -2856,28 +2856,28 @@ index 3a55752d2cb..c1d8be833f7 100644
 -; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
+-; RV32I-NEXT:    addi a1, zero, 4
+-; RV32I-NEXT:    sw a1, 12(a0)
+-; RV32I-NEXT:    addi a1, zero, 3
+-; RV32I-NEXT:    sw a1, 8(a0)
 -; RV32I-NEXT:    addi a1, zero, 2
 -; RV32I-NEXT:    sw a1, 4(a0)
 -; RV32I-NEXT:    addi a1, zero, 1
 -; RV32I-NEXT:    sw a1, 0(a0)
--; RV32I-NEXT:    addi a1, zero, 3
--; RV32I-NEXT:    sw a1, 8(a0)
--; RV32I-NEXT:    addi a1, zero, 4
--; RV32I-NEXT:    sw a1, 12(a0)
 -; RV32I-NEXT:    lw s0, 8(sp)
 -; RV32I-NEXT:    lw ra, 12(sp)
 -; RV32I-NEXT:    addi sp, sp, 16
 -; RV32I-NEXT:    jalr zero, ra, 0
 +; RV32I-FPELIM-LABEL: callee_large_struct_ret:
 +; RV32I-FPELIM:       # %bb.0:
++; RV32I-FPELIM-NEXT:    addi a1, zero, 4
++; RV32I-FPELIM-NEXT:    sw a1, 12(a0)
++; RV32I-FPELIM-NEXT:    addi a1, zero, 3
++; RV32I-FPELIM-NEXT:    sw a1, 8(a0)
 +; RV32I-FPELIM-NEXT:    addi a1, zero, 2
 +; RV32I-FPELIM-NEXT:    sw a1, 4(a0)
 +; RV32I-FPELIM-NEXT:    addi a1, zero, 1
 +; RV32I-FPELIM-NEXT:    sw a1, 0(a0)
-+; RV32I-FPELIM-NEXT:    addi a1, zero, 3
-+; RV32I-FPELIM-NEXT:    sw a1, 8(a0)
-+; RV32I-FPELIM-NEXT:    addi a1, zero, 4
-+; RV32I-FPELIM-NEXT:    sw a1, 12(a0)
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +;
 +; RV32I-WITHFP-LABEL: callee_large_struct_ret:
@@ -2886,14 +2886,14 @@ index 3a55752d2cb..c1d8be833f7 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 16
++; RV32I-WITHFP-NEXT:    addi a1, zero, 4
++; RV32I-WITHFP-NEXT:    sw a1, 12(a0)
++; RV32I-WITHFP-NEXT:    addi a1, zero, 3
++; RV32I-WITHFP-NEXT:    sw a1, 8(a0)
 +; RV32I-WITHFP-NEXT:    addi a1, zero, 2
 +; RV32I-WITHFP-NEXT:    sw a1, 4(a0)
 +; RV32I-WITHFP-NEXT:    addi a1, zero, 1
 +; RV32I-WITHFP-NEXT:    sw a1, 0(a0)
-+; RV32I-WITHFP-NEXT:    addi a1, zero, 3
-+; RV32I-WITHFP-NEXT:    sw a1, 8(a0)
-+; RV32I-WITHFP-NEXT:    addi a1, zero, 4
-+; RV32I-WITHFP-NEXT:    sw a1, 12(a0)
 +; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 16
@@ -3748,7 +3748,7 @@ index e33dd2b8d1e..ddefa22835a 100644
    ret i32 -559038737
  }
 diff --git a/test/CodeGen/RISCV/indirectbr.ll b/test/CodeGen/RISCV/indirectbr.ll
-index 5a51c0fb006..24fc963e72b 100644
+index 94c10908758..1602df5f9d6 100644
 --- a/test/CodeGen/RISCV/indirectbr.ll
 +++ b/test/CodeGen/RISCV/indirectbr.ll
 @@ -7,12 +7,9 @@ define i32 @indirectbr(i8* %target) nounwind {
@@ -3758,7 +3758,7 @@ index 5a51c0fb006..24fc963e72b 100644
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
  ; RV32I-NEXT:    jalr zero, a0, 0
- ; RV32I-NEXT:  .LBB0_1: # %ret
+ ; RV32I-NEXT:  .LBB0_1: # %test_label
  ; RV32I-NEXT:    addi a0, zero, 0
 -; RV32I-NEXT:    lw s0, 8(sp)
  ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3771,7 +3771,7 @@ index 5a51c0fb006..24fc963e72b 100644
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
  ; RV32I-NEXT:    jalr zero, a0, 1380
- ; RV32I-NEXT:  .LBB1_1: # %ret
+ ; RV32I-NEXT:  .LBB1_1: # %test_label
  ; RV32I-NEXT:    addi a0, zero, 0
 -; RV32I-NEXT:    lw s0, 8(sp)
  ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5041,7 +5041,7 @@ index df7995cff73..5d00d69a1d2 100644
  ; RV32I-NEXT:    addi sp, sp, 16
  ; RV32I-NEXT:    jalr zero, ra, 0
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index 9f805b33ac0..2564d91361e 100644
+index 093d204772a..726d8b05fa7 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -1,6 +1,8 @@
@@ -5064,16 +5064,16 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
--; RV32I-NEXT:    sw a1, 4(s0)
+-; RV32I-NEXT:    addi a0, a1, 0
 -; RV32I-NEXT:    sw a7, 28(s0)
 -; RV32I-NEXT:    sw a6, 24(s0)
 -; RV32I-NEXT:    sw a5, 20(s0)
 -; RV32I-NEXT:    sw a4, 16(s0)
 -; RV32I-NEXT:    sw a3, 12(s0)
 -; RV32I-NEXT:    sw a2, 8(s0)
--; RV32I-NEXT:    addi a0, s0, 8
--; RV32I-NEXT:    sw a0, -12(s0)
--; RV32I-NEXT:    lw a0, 4(s0)
+-; RV32I-NEXT:    addi a1, s0, 8
+-; RV32I-NEXT:    sw a1, -12(s0)
+-; RV32I-NEXT:    sw a0, 4(s0)
 -; RV32I-NEXT:    lw s0, 8(sp)
 -; RV32I-NEXT:    lw ra, 12(sp)
 -; RV32I-NEXT:    addi sp, sp, 48
@@ -5081,16 +5081,16 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-LABEL: va1:
 +; RV32I-FPELIM:       # %bb.0:
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -48
-+; RV32I-FPELIM-NEXT:    sw a1, 20(sp)
++; RV32I-FPELIM-NEXT:    addi a0, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 +; RV32I-FPELIM-NEXT:    sw a4, 32(sp)
 +; RV32I-FPELIM-NEXT:    sw a3, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a2, 24(sp)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 24
-+; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
-+; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
++; RV32I-FPELIM-NEXT:    addi a1, sp, 24
++; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
++; RV32I-FPELIM-NEXT:    sw a0, 20(sp)
 +; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +;
@@ -5100,16 +5100,16 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 16
-+; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
++; RV32I-WITHFP-NEXT:    addi a0, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 +; RV32I-WITHFP-NEXT:    sw a4, 16(s0)
 +; RV32I-WITHFP-NEXT:    sw a3, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 8
-+; RV32I-WITHFP-NEXT:    sw a0, -12(s0)
-+; RV32I-WITHFP-NEXT:    lw a0, 4(s0)
++; RV32I-WITHFP-NEXT:    addi a1, s0, 8
++; RV32I-WITHFP-NEXT:    sw a1, -12(s0)
++; RV32I-WITHFP-NEXT:    sw a0, 4(s0)
 +; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -5127,16 +5127,16 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
--; RV32I-NEXT:    sw a1, 4(s0)
+-; RV32I-NEXT:    addi a0, a1, 0
 -; RV32I-NEXT:    sw a7, 28(s0)
 -; RV32I-NEXT:    sw a6, 24(s0)
 -; RV32I-NEXT:    sw a5, 20(s0)
 -; RV32I-NEXT:    sw a4, 16(s0)
 -; RV32I-NEXT:    sw a3, 12(s0)
 -; RV32I-NEXT:    sw a2, 8(s0)
--; RV32I-NEXT:    addi a0, s0, 8
--; RV32I-NEXT:    sw a0, -12(s0)
--; RV32I-NEXT:    lw a0, 4(s0)
+-; RV32I-NEXT:    addi a1, s0, 8
+-; RV32I-NEXT:    sw a1, -12(s0)
+-; RV32I-NEXT:    sw a0, 4(s0)
 -; RV32I-NEXT:    lw s0, 8(sp)
 -; RV32I-NEXT:    lw ra, 12(sp)
 -; RV32I-NEXT:    addi sp, sp, 48
@@ -5144,16 +5144,16 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-LABEL: va1_va_arg:
 +; RV32I-FPELIM:       # %bb.0:
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -48
-+; RV32I-FPELIM-NEXT:    sw a1, 20(sp)
++; RV32I-FPELIM-NEXT:    addi a0, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 +; RV32I-FPELIM-NEXT:    sw a4, 32(sp)
 +; RV32I-FPELIM-NEXT:    sw a3, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a2, 24(sp)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 24
-+; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
-+; RV32I-FPELIM-NEXT:    lw a0, 20(sp)
++; RV32I-FPELIM-NEXT:    addi a1, sp, 24
++; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
++; RV32I-FPELIM-NEXT:    sw a0, 20(sp)
 +; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +;
@@ -5163,16 +5163,16 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 16
-+; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
++; RV32I-WITHFP-NEXT:    addi a0, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 +; RV32I-WITHFP-NEXT:    sw a4, 16(s0)
 +; RV32I-WITHFP-NEXT:    sw a3, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 8
-+; RV32I-WITHFP-NEXT:    sw a0, -12(s0)
-+; RV32I-WITHFP-NEXT:    lw a0, 4(s0)
++; RV32I-WITHFP-NEXT:    addi a1, s0, 8
++; RV32I-WITHFP-NEXT:    sw a1, -12(s0)
++; RV32I-WITHFP-NEXT:    sw a0, 4(s0)
 +; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -5191,7 +5191,7 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    sw s1, 4(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
--; RV32I-NEXT:    sw a1, 4(s0)
+-; RV32I-NEXT:    addi s1, a1, 0
 -; RV32I-NEXT:    sw a7, 28(s0)
 -; RV32I-NEXT:    sw a6, 24(s0)
 -; RV32I-NEXT:    sw a5, 20(s0)
@@ -5200,7 +5200,7 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw a2, 8(s0)
 -; RV32I-NEXT:    addi a0, s0, 8
 -; RV32I-NEXT:    sw a0, -16(s0)
--; RV32I-NEXT:    lw s1, 4(s0)
+-; RV32I-NEXT:    sw s1, 4(s0)
 -; RV32I-NEXT:    addi a0, s1, 15
 -; RV32I-NEXT:    andi a0, a0, -16
 -; RV32I-NEXT:    sub a0, sp, a0
@@ -5222,7 +5222,7 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-NEXT:    sw s0, 8(sp)
 +; RV32I-FPELIM-NEXT:    sw s1, 4(sp)
 +; RV32I-FPELIM-NEXT:    addi s0, sp, 16
-+; RV32I-FPELIM-NEXT:    sw a1, 4(s0)
++; RV32I-FPELIM-NEXT:    addi s1, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 28(s0)
 +; RV32I-FPELIM-NEXT:    sw a6, 24(s0)
 +; RV32I-FPELIM-NEXT:    sw a5, 20(s0)
@@ -5231,7 +5231,7 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-NEXT:    sw a2, 8(s0)
 +; RV32I-FPELIM-NEXT:    addi a0, s0, 8
 +; RV32I-FPELIM-NEXT:    sw a0, -16(s0)
-+; RV32I-FPELIM-NEXT:    lw s1, 4(s0)
++; RV32I-FPELIM-NEXT:    sw s1, 4(s0)
 +; RV32I-FPELIM-NEXT:    addi a0, s1, 15
 +; RV32I-FPELIM-NEXT:    andi a0, a0, -16
 +; RV32I-FPELIM-NEXT:    sub a0, sp, a0
@@ -5254,7 +5254,7 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    sw s1, 4(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 16
-+; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
++; RV32I-WITHFP-NEXT:    addi s1, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
@@ -5263,7 +5263,7 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
 +; RV32I-WITHFP-NEXT:    addi a0, s0, 8
 +; RV32I-WITHFP-NEXT:    sw a0, -16(s0)
-+; RV32I-WITHFP-NEXT:    lw s1, 4(s0)
++; RV32I-WITHFP-NEXT:    sw s1, 4(s0)
 +; RV32I-WITHFP-NEXT:    addi a0, s1, 15
 +; RV32I-WITHFP-NEXT:    andi a0, a0, -16
 +; RV32I-WITHFP-NEXT:    sub a0, sp, a0
@@ -5554,24 +5554,24 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw ra, 20(sp)
 -; RV32I-NEXT:    sw s0, 16(sp)
 -; RV32I-NEXT:    addi s0, sp, 24
+-; RV32I-NEXT:    addi t0, a2, 0
+-; RV32I-NEXT:    addi a0, a1, 0
 -; RV32I-NEXT:    sw a7, 20(s0)
 -; RV32I-NEXT:    sw a6, 16(s0)
 -; RV32I-NEXT:    sw a5, 12(s0)
 -; RV32I-NEXT:    sw a4, 8(s0)
 -; RV32I-NEXT:    sw a3, 4(s0)
--; RV32I-NEXT:    addi a0, s0, 19
--; RV32I-NEXT:    sw a0, -12(s0)
--; RV32I-NEXT:    lui a0, %hi(__adddf3)
--; RV32I-NEXT:    addi a5, a0, %lo(__adddf3)
--; RV32I-NEXT:    addi a0, s0, 11
--; RV32I-NEXT:    andi a0, a0, -8
--; RV32I-NEXT:    lw a4, 0(a0)
--; RV32I-NEXT:    ori a0, a0, 4
--; RV32I-NEXT:    lw a3, 0(a0)
--; RV32I-NEXT:    addi a0, a1, 0
--; RV32I-NEXT:    addi a1, a2, 0
--; RV32I-NEXT:    addi a2, a4, 0
--; RV32I-NEXT:    jalr ra, a5, 0
+-; RV32I-NEXT:    addi a1, s0, 19
+-; RV32I-NEXT:    sw a1, -12(s0)
+-; RV32I-NEXT:    lui a1, %hi(__adddf3)
+-; RV32I-NEXT:    addi a4, a1, %lo(__adddf3)
+-; RV32I-NEXT:    addi a1, s0, 11
+-; RV32I-NEXT:    andi a1, a1, -8
+-; RV32I-NEXT:    lw a2, 0(a1)
+-; RV32I-NEXT:    ori a1, a1, 4
+-; RV32I-NEXT:    lw a3, 0(a1)
+-; RV32I-NEXT:    addi a1, t0, 0
+-; RV32I-NEXT:    jalr ra, a4, 0
 -; RV32I-NEXT:    lw s0, 16(sp)
 -; RV32I-NEXT:    lw ra, 20(sp)
 -; RV32I-NEXT:    addi sp, sp, 48
@@ -5580,24 +5580,24 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM:       # %bb.0:
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -32
 +; RV32I-FPELIM-NEXT:    sw ra, 4(sp)
++; RV32I-FPELIM-NEXT:    addi t0, a2, 0
++; RV32I-FPELIM-NEXT:    addi a0, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 24(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 20(sp)
 +; RV32I-FPELIM-NEXT:    sw a4, 16(sp)
 +; RV32I-FPELIM-NEXT:    sw a3, 12(sp)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 27
-+; RV32I-FPELIM-NEXT:    sw a0, 0(sp)
-+; RV32I-FPELIM-NEXT:    lui a0, %hi(__adddf3)
-+; RV32I-FPELIM-NEXT:    addi a5, a0, %lo(__adddf3)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 19
-+; RV32I-FPELIM-NEXT:    andi a0, a0, -8
-+; RV32I-FPELIM-NEXT:    lw a4, 0(a0)
-+; RV32I-FPELIM-NEXT:    ori a0, a0, 4
-+; RV32I-FPELIM-NEXT:    lw a3, 0(a0)
-+; RV32I-FPELIM-NEXT:    addi a0, a1, 0
-+; RV32I-FPELIM-NEXT:    addi a1, a2, 0
-+; RV32I-FPELIM-NEXT:    addi a2, a4, 0
-+; RV32I-FPELIM-NEXT:    jalr ra, a5, 0
++; RV32I-FPELIM-NEXT:    addi a1, sp, 27
++; RV32I-FPELIM-NEXT:    sw a1, 0(sp)
++; RV32I-FPELIM-NEXT:    lui a1, %hi(__adddf3)
++; RV32I-FPELIM-NEXT:    addi a4, a1, %lo(__adddf3)
++; RV32I-FPELIM-NEXT:    addi a1, sp, 19
++; RV32I-FPELIM-NEXT:    andi a1, a1, -8
++; RV32I-FPELIM-NEXT:    lw a2, 0(a1)
++; RV32I-FPELIM-NEXT:    ori a1, a1, 4
++; RV32I-FPELIM-NEXT:    lw a3, 0(a1)
++; RV32I-FPELIM-NEXT:    addi a1, t0, 0
++; RV32I-FPELIM-NEXT:    jalr ra, a4, 0
 +; RV32I-FPELIM-NEXT:    lw ra, 4(sp)
 +; RV32I-FPELIM-NEXT:    addi sp, sp, 32
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
@@ -5608,24 +5608,24 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 20(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 16(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 24
++; RV32I-WITHFP-NEXT:    addi t0, a2, 0
++; RV32I-WITHFP-NEXT:    addi a0, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 20(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 16(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a4, 8(s0)
 +; RV32I-WITHFP-NEXT:    sw a3, 4(s0)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 19
-+; RV32I-WITHFP-NEXT:    sw a0, -12(s0)
-+; RV32I-WITHFP-NEXT:    lui a0, %hi(__adddf3)
-+; RV32I-WITHFP-NEXT:    addi a5, a0, %lo(__adddf3)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 11
-+; RV32I-WITHFP-NEXT:    andi a0, a0, -8
-+; RV32I-WITHFP-NEXT:    lw a4, 0(a0)
-+; RV32I-WITHFP-NEXT:    ori a0, a0, 4
-+; RV32I-WITHFP-NEXT:    lw a3, 0(a0)
-+; RV32I-WITHFP-NEXT:    addi a0, a1, 0
-+; RV32I-WITHFP-NEXT:    addi a1, a2, 0
-+; RV32I-WITHFP-NEXT:    addi a2, a4, 0
-+; RV32I-WITHFP-NEXT:    jalr ra, a5, 0
++; RV32I-WITHFP-NEXT:    addi a1, s0, 19
++; RV32I-WITHFP-NEXT:    sw a1, -12(s0)
++; RV32I-WITHFP-NEXT:    lui a1, %hi(__adddf3)
++; RV32I-WITHFP-NEXT:    addi a4, a1, %lo(__adddf3)
++; RV32I-WITHFP-NEXT:    addi a1, s0, 11
++; RV32I-WITHFP-NEXT:    andi a1, a1, -8
++; RV32I-WITHFP-NEXT:    lw a2, 0(a1)
++; RV32I-WITHFP-NEXT:    ori a1, a1, 4
++; RV32I-WITHFP-NEXT:    lw a3, 0(a1)
++; RV32I-WITHFP-NEXT:    addi a1, t0, 0
++; RV32I-WITHFP-NEXT:    jalr ra, a4, 0
 +; RV32I-WITHFP-NEXT:    lw s0, 16(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 20(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -5643,25 +5643,25 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw ra, 20(sp)
 -; RV32I-NEXT:    sw s0, 16(sp)
 -; RV32I-NEXT:    addi s0, sp, 24
+-; RV32I-NEXT:    addi t0, a2, 0
+-; RV32I-NEXT:    addi a0, a1, 0
 -; RV32I-NEXT:    sw a7, 20(s0)
 -; RV32I-NEXT:    sw a6, 16(s0)
 -; RV32I-NEXT:    sw a5, 12(s0)
 -; RV32I-NEXT:    sw a4, 8(s0)
 -; RV32I-NEXT:    sw a3, 4(s0)
--; RV32I-NEXT:    addi a0, s0, 11
--; RV32I-NEXT:    andi a0, a0, -8
--; RV32I-NEXT:    ori a3, a0, 4
+-; RV32I-NEXT:    addi a1, s0, 11
+-; RV32I-NEXT:    andi a1, a1, -8
+-; RV32I-NEXT:    ori a3, a1, 4
 -; RV32I-NEXT:    sw a3, -12(s0)
--; RV32I-NEXT:    lw a4, 0(a0)
--; RV32I-NEXT:    addi a0, a3, 4
--; RV32I-NEXT:    sw a0, -12(s0)
--; RV32I-NEXT:    lui a0, %hi(__adddf3)
--; RV32I-NEXT:    addi a5, a0, %lo(__adddf3)
+-; RV32I-NEXT:    lw a2, 0(a1)
+-; RV32I-NEXT:    addi a1, a3, 4
+-; RV32I-NEXT:    sw a1, -12(s0)
+-; RV32I-NEXT:    lui a1, %hi(__adddf3)
+-; RV32I-NEXT:    addi a4, a1, %lo(__adddf3)
 -; RV32I-NEXT:    lw a3, 0(a3)
--; RV32I-NEXT:    addi a0, a1, 0
--; RV32I-NEXT:    addi a1, a2, 0
--; RV32I-NEXT:    addi a2, a4, 0
--; RV32I-NEXT:    jalr ra, a5, 0
+-; RV32I-NEXT:    addi a1, t0, 0
+-; RV32I-NEXT:    jalr ra, a4, 0
 -; RV32I-NEXT:    lw s0, 16(sp)
 -; RV32I-NEXT:    lw ra, 20(sp)
 -; RV32I-NEXT:    addi sp, sp, 48
@@ -5670,25 +5670,25 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM:       # %bb.0:
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -32
 +; RV32I-FPELIM-NEXT:    sw ra, 4(sp)
++; RV32I-FPELIM-NEXT:    addi t0, a2, 0
++; RV32I-FPELIM-NEXT:    addi a0, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 24(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 20(sp)
 +; RV32I-FPELIM-NEXT:    sw a4, 16(sp)
 +; RV32I-FPELIM-NEXT:    sw a3, 12(sp)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 19
-+; RV32I-FPELIM-NEXT:    andi a0, a0, -8
-+; RV32I-FPELIM-NEXT:    ori a3, a0, 4
++; RV32I-FPELIM-NEXT:    addi a1, sp, 19
++; RV32I-FPELIM-NEXT:    andi a1, a1, -8
++; RV32I-FPELIM-NEXT:    ori a3, a1, 4
 +; RV32I-FPELIM-NEXT:    sw a3, 0(sp)
-+; RV32I-FPELIM-NEXT:    lw a4, 0(a0)
-+; RV32I-FPELIM-NEXT:    addi a0, a3, 4
-+; RV32I-FPELIM-NEXT:    sw a0, 0(sp)
-+; RV32I-FPELIM-NEXT:    lui a0, %hi(__adddf3)
-+; RV32I-FPELIM-NEXT:    addi a5, a0, %lo(__adddf3)
++; RV32I-FPELIM-NEXT:    lw a2, 0(a1)
++; RV32I-FPELIM-NEXT:    addi a1, a3, 4
++; RV32I-FPELIM-NEXT:    sw a1, 0(sp)
++; RV32I-FPELIM-NEXT:    lui a1, %hi(__adddf3)
++; RV32I-FPELIM-NEXT:    addi a4, a1, %lo(__adddf3)
 +; RV32I-FPELIM-NEXT:    lw a3, 0(a3)
-+; RV32I-FPELIM-NEXT:    addi a0, a1, 0
-+; RV32I-FPELIM-NEXT:    addi a1, a2, 0
-+; RV32I-FPELIM-NEXT:    addi a2, a4, 0
-+; RV32I-FPELIM-NEXT:    jalr ra, a5, 0
++; RV32I-FPELIM-NEXT:    addi a1, t0, 0
++; RV32I-FPELIM-NEXT:    jalr ra, a4, 0
 +; RV32I-FPELIM-NEXT:    lw ra, 4(sp)
 +; RV32I-FPELIM-NEXT:    addi sp, sp, 32
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
@@ -5699,25 +5699,25 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 20(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 16(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 24
++; RV32I-WITHFP-NEXT:    addi t0, a2, 0
++; RV32I-WITHFP-NEXT:    addi a0, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 20(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 16(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a4, 8(s0)
 +; RV32I-WITHFP-NEXT:    sw a3, 4(s0)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 11
-+; RV32I-WITHFP-NEXT:    andi a0, a0, -8
-+; RV32I-WITHFP-NEXT:    ori a3, a0, 4
++; RV32I-WITHFP-NEXT:    addi a1, s0, 11
++; RV32I-WITHFP-NEXT:    andi a1, a1, -8
++; RV32I-WITHFP-NEXT:    ori a3, a1, 4
 +; RV32I-WITHFP-NEXT:    sw a3, -12(s0)
-+; RV32I-WITHFP-NEXT:    lw a4, 0(a0)
-+; RV32I-WITHFP-NEXT:    addi a0, a3, 4
-+; RV32I-WITHFP-NEXT:    sw a0, -12(s0)
-+; RV32I-WITHFP-NEXT:    lui a0, %hi(__adddf3)
-+; RV32I-WITHFP-NEXT:    addi a5, a0, %lo(__adddf3)
++; RV32I-WITHFP-NEXT:    lw a2, 0(a1)
++; RV32I-WITHFP-NEXT:    addi a1, a3, 4
++; RV32I-WITHFP-NEXT:    sw a1, -12(s0)
++; RV32I-WITHFP-NEXT:    lui a1, %hi(__adddf3)
++; RV32I-WITHFP-NEXT:    addi a4, a1, %lo(__adddf3)
 +; RV32I-WITHFP-NEXT:    lw a3, 0(a3)
-+; RV32I-WITHFP-NEXT:    addi a0, a1, 0
-+; RV32I-WITHFP-NEXT:    addi a1, a2, 0
-+; RV32I-WITHFP-NEXT:    addi a2, a4, 0
-+; RV32I-WITHFP-NEXT:    jalr ra, a5, 0
++; RV32I-WITHFP-NEXT:    addi a1, t0, 0
++; RV32I-WITHFP-NEXT:    jalr ra, a4, 0
 +; RV32I-WITHFP-NEXT:    lw s0, 16(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 20(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -5801,17 +5801,17 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw s0, 24(sp)
 -; RV32I-NEXT:    sw s1, 20(sp)
 -; RV32I-NEXT:    addi s0, sp, 32
--; RV32I-NEXT:    sw a1, 4(s0)
+-; RV32I-NEXT:    addi s1, a1, 0
 -; RV32I-NEXT:    sw a7, 28(s0)
 -; RV32I-NEXT:    sw a6, 24(s0)
 -; RV32I-NEXT:    sw a5, 20(s0)
 -; RV32I-NEXT:    sw a4, 16(s0)
 -; RV32I-NEXT:    sw a3, 12(s0)
 -; RV32I-NEXT:    sw a2, 8(s0)
+-; RV32I-NEXT:    sw s1, 4(s0)
 -; RV32I-NEXT:    addi a0, s0, 8
 -; RV32I-NEXT:    sw a0, -16(s0)
 -; RV32I-NEXT:    sw a0, -20(s0)
--; RV32I-NEXT:    lw s1, 4(s0)
 -; RV32I-NEXT:    lui a1, %hi(notdead)
 -; RV32I-NEXT:    addi a1, a1, %lo(notdead)
 -; RV32I-NEXT:    jalr ra, a1, 0
@@ -5844,17 +5844,17 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -48
 +; RV32I-FPELIM-NEXT:    sw ra, 12(sp)
 +; RV32I-FPELIM-NEXT:    sw s1, 8(sp)
-+; RV32I-FPELIM-NEXT:    sw a1, 20(sp)
++; RV32I-FPELIM-NEXT:    addi s1, a1, 0
 +; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
 +; RV32I-FPELIM-NEXT:    sw a4, 32(sp)
 +; RV32I-FPELIM-NEXT:    sw a3, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a2, 24(sp)
++; RV32I-FPELIM-NEXT:    sw s1, 20(sp)
 +; RV32I-FPELIM-NEXT:    addi a0, sp, 24
 +; RV32I-FPELIM-NEXT:    sw a0, 4(sp)
 +; RV32I-FPELIM-NEXT:    sw a0, 0(sp)
-+; RV32I-FPELIM-NEXT:    lw s1, 20(sp)
 +; RV32I-FPELIM-NEXT:    lui a1, %hi(notdead)
 +; RV32I-FPELIM-NEXT:    addi a1, a1, %lo(notdead)
 +; RV32I-FPELIM-NEXT:    jalr ra, a1, 0
@@ -5889,17 +5889,17 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw s0, 24(sp)
 +; RV32I-WITHFP-NEXT:    sw s1, 20(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 32
-+; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
++; RV32I-WITHFP-NEXT:    addi s1, a1, 0
 +; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
 +; RV32I-WITHFP-NEXT:    sw a4, 16(s0)
 +; RV32I-WITHFP-NEXT:    sw a3, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
++; RV32I-WITHFP-NEXT:    sw s1, 4(s0)
 +; RV32I-WITHFP-NEXT:    addi a0, s0, 8
 +; RV32I-WITHFP-NEXT:    sw a0, -16(s0)
 +; RV32I-WITHFP-NEXT:    sw a0, -20(s0)
-+; RV32I-WITHFP-NEXT:    lw s1, 4(s0)
 +; RV32I-WITHFP-NEXT:    lui a1, %hi(notdead)
 +; RV32I-WITHFP-NEXT:    addi a1, a1, %lo(notdead)
 +; RV32I-WITHFP-NEXT:    jalr ra, a1, 0
@@ -6132,7 +6132,7 @@ index 9f805b33ac0..2564d91361e 100644
    %1 = call i32 (i32, ...) @va5_aligned_stack_callee(i32 1, i32 11,
      fp128 0xLEB851EB851EB851F400091EB851EB851, i32 12, i32 13, i64 20000000000,
      i32 14, double 2.720000e+00, i32 15, [2 x i32] [i32 16, i32 17])
-@@ -505,27 +814,44 @@ define void @va5_aligned_stack_caller() nounwind {
+@@ -505,26 +814,42 @@ define void @va5_aligned_stack_caller() nounwind {
  ; still set up correctly.
  
  define i32 @va6_no_fixed_args(...) nounwind {
@@ -6142,7 +6142,6 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw ra, 12(sp)
 -; RV32I-NEXT:    sw s0, 8(sp)
 -; RV32I-NEXT:    addi s0, sp, 16
--; RV32I-NEXT:    sw a0, 0(s0)
 -; RV32I-NEXT:    sw a7, 28(s0)
 -; RV32I-NEXT:    sw a6, 24(s0)
 -; RV32I-NEXT:    sw a5, 20(s0)
@@ -6150,9 +6149,9 @@ index 9f805b33ac0..2564d91361e 100644
 -; RV32I-NEXT:    sw a3, 12(s0)
 -; RV32I-NEXT:    sw a2, 8(s0)
 -; RV32I-NEXT:    sw a1, 4(s0)
--; RV32I-NEXT:    addi a0, s0, 4
--; RV32I-NEXT:    sw a0, -12(s0)
--; RV32I-NEXT:    lw a0, 0(s0)
+-; RV32I-NEXT:    addi a1, s0, 4
+-; RV32I-NEXT:    sw a1, -12(s0)
+-; RV32I-NEXT:    sw a0, 0(s0)
 -; RV32I-NEXT:    lw s0, 8(sp)
 -; RV32I-NEXT:    lw ra, 12(sp)
 -; RV32I-NEXT:    addi sp, sp, 48
@@ -6160,7 +6159,6 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-LABEL: va6_no_fixed_args:
 +; RV32I-FPELIM:       # %bb.0:
 +; RV32I-FPELIM-NEXT:    addi sp, sp, -48
-+; RV32I-FPELIM-NEXT:    sw a0, 16(sp)
 +; RV32I-FPELIM-NEXT:    sw a7, 44(sp)
 +; RV32I-FPELIM-NEXT:    sw a6, 40(sp)
 +; RV32I-FPELIM-NEXT:    sw a5, 36(sp)
@@ -6168,9 +6166,9 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-FPELIM-NEXT:    sw a3, 28(sp)
 +; RV32I-FPELIM-NEXT:    sw a2, 24(sp)
 +; RV32I-FPELIM-NEXT:    sw a1, 20(sp)
-+; RV32I-FPELIM-NEXT:    addi a0, sp, 20
-+; RV32I-FPELIM-NEXT:    sw a0, 12(sp)
-+; RV32I-FPELIM-NEXT:    lw a0, 16(sp)
++; RV32I-FPELIM-NEXT:    addi a1, sp, 20
++; RV32I-FPELIM-NEXT:    sw a1, 12(sp)
++; RV32I-FPELIM-NEXT:    sw a0, 16(sp)
 +; RV32I-FPELIM-NEXT:    addi sp, sp, 48
 +; RV32I-FPELIM-NEXT:    jalr zero, ra, 0
 +;
@@ -6180,7 +6178,6 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    sw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    addi s0, sp, 16
-+; RV32I-WITHFP-NEXT:    sw a0, 0(s0)
 +; RV32I-WITHFP-NEXT:    sw a7, 28(s0)
 +; RV32I-WITHFP-NEXT:    sw a6, 24(s0)
 +; RV32I-WITHFP-NEXT:    sw a5, 20(s0)
@@ -6188,9 +6185,9 @@ index 9f805b33ac0..2564d91361e 100644
 +; RV32I-WITHFP-NEXT:    sw a3, 12(s0)
 +; RV32I-WITHFP-NEXT:    sw a2, 8(s0)
 +; RV32I-WITHFP-NEXT:    sw a1, 4(s0)
-+; RV32I-WITHFP-NEXT:    addi a0, s0, 4
-+; RV32I-WITHFP-NEXT:    sw a0, -12(s0)
-+; RV32I-WITHFP-NEXT:    lw a0, 0(s0)
++; RV32I-WITHFP-NEXT:    addi a1, s0, 4
++; RV32I-WITHFP-NEXT:    sw a1, -12(s0)
++; RV32I-WITHFP-NEXT:    sw a0, 0(s0)
 +; RV32I-WITHFP-NEXT:    lw s0, 8(sp)
 +; RV32I-WITHFP-NEXT:    lw ra, 12(sp)
 +; RV32I-WITHFP-NEXT:    addi sp, sp, 48
@@ -6240,5 +6237,5 @@ index 0e74fe277bb..cbb89f631a5 100644
    %1 = load i64, i64* @val64
    ret i64 %1
 -- 
-2.16.2
+2.17.2
 

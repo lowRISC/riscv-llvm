@@ -22,23 +22,23 @@ Patch by Shiva Chen.
  10 files changed, 27 insertions(+), 12 deletions(-)
 
 diff --git a/include/llvm/Object/ELFObjectFile.h b/include/llvm/Object/ELFObjectFile.h
-index 9c691e1c283..4d001039238 100644
+index b0705897b02..0f620681cd9 100644
 --- a/include/llvm/Object/ELFObjectFile.h
 +++ b/include/llvm/Object/ELFObjectFile.h
-@@ -80,6 +80,8 @@ public:
+@@ -81,6 +81,8 @@ public:
  
    SubtargetFeatures getARMFeatures() const;
  
 +  SubtargetFeatures getRISCVFeatures() const;
 +
    void setARMSubArch(Triple &TheTriple) const override;
- };
  
+   virtual uint16_t getEType() const = 0;
 diff --git a/lib/Object/ELFObjectFile.cpp b/lib/Object/ELFObjectFile.cpp
-index 3c1bdf5a1de..e806c8f28b1 100644
+index 791914b62e8..9fb3a55ac7b 100644
 --- a/lib/Object/ELFObjectFile.cpp
 +++ b/lib/Object/ELFObjectFile.cpp
-@@ -238,12 +238,25 @@ SubtargetFeatures ELFObjectFileBase::getARMFeatures() const {
+@@ -240,12 +240,25 @@ SubtargetFeatures ELFObjectFileBase::getARMFeatures() const {
    return Features;
  }
  
@@ -180,5 +180,5 @@ index 0d7ea62e9b0..e54f6411ad3 100644
  
  # CHECK-INST: c.fldsp  fs0, 504(sp)
 -- 
-2.16.2
+2.17.2
 

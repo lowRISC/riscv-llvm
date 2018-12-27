@@ -6,10 +6,10 @@ Subject: [RISCV] Initial support for emitting call frame information (needs
 This patch tests that appropriate directives are emitted, but I haven't done
 an end-to-end test using gdb.
 ---
- lib/Target/RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp   |  2 ++
- .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp       |  6 +++++-
- lib/Target/RISCV/RISCVFrameLowering.cpp            | 21 +++++++++++++++++++
- test/CodeGen/RISCV/cfi-info.ll                     | 24 ++++++++++++++++++++++
+ .../RISCV/MCTargetDesc/RISCVMCAsmInfo.cpp     |  2 ++
+ .../RISCV/MCTargetDesc/RISCVMCTargetDesc.cpp  |  6 ++++-
+ lib/Target/RISCV/RISCVFrameLowering.cpp       | 21 ++++++++++++++++
+ test/CodeGen/RISCV/cfi-info.ll                | 24 +++++++++++++++++++
  4 files changed, 52 insertions(+), 1 deletion(-)
  create mode 100644 test/CodeGen/RISCV/cfi-info.ll
 
@@ -118,5 +118,5 @@ index 00000000000..32d246380ac
 +  ret i32 %4
 +}
 -- 
-2.16.2
+2.17.2
 

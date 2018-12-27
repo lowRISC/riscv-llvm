@@ -9,11 +9,11 @@ targeting a RISC-V variant with floating point enabled.
 Differential Revision: https://reviews.llvm.org/D41503
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp |   8 +-
- lib/Target/RISCV/InstPrinter/RISCVInstPrinter.h   |  19 ++--
- lib/Target/RISCV/RISCV.td                         |   5 +
- test/MC/RISCV/csr-aliases.s                       | 117 ++++++++++++++++++++++
- 4 files changed, 140 insertions(+), 9 deletions(-)
+ .../RISCV/InstPrinter/RISCVInstPrinter.cpp    |   8 +-
+ .../RISCV/InstPrinter/RISCVInstPrinter.h      |  19 +--
+ lib/Target/RISCV/RISCV.td                     |   5 +
+ test/MC/RISCV/csr-aliases.s                   | 116 ++++++++++++++++++
+ 4 files changed, 139 insertions(+), 9 deletions(-)
  create mode 100644 test/MC/RISCV/csr-aliases.s
 
 diff --git a/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp b/lib/Target/RISCV/InstPrinter/RISCVInstPrinter.cpp
@@ -115,10 +115,10 @@ index 7247854d713..f431738c3d7 100644
  }
 diff --git a/test/MC/RISCV/csr-aliases.s b/test/MC/RISCV/csr-aliases.s
 new file mode 100644
-index 00000000000..cc51e9536d3
+index 00000000000..b07415744da
 --- /dev/null
 +++ b/test/MC/RISCV/csr-aliases.s
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,116 @@
 +# RUN: llvm-mc -filetype=obj -triple riscv32 -mattr=+f < %s \
 +# RUN:     | llvm-objdump -d -mattr=+f -riscv-no-aliases - \
 +# RUN:     | FileCheck -check-prefix=CHECK-INST %s
@@ -235,7 +235,6 @@ index 00000000000..cc51e9536d3
 +# CHECK-EXT-F: fsflagsi 31
 +# CHECK-EXT-F-OFF: csrwi 1, 31
 +csrrwi zero, 1, 31
-+
 -- 
-2.16.2
+2.17.2
 

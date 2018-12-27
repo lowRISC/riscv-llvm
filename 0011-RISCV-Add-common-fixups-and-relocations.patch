@@ -17,23 +17,23 @@ Upstream commit: https://reviews.llvm.org/rL314389
 
 Contains cleanups from https://reviews.llvm.org/rL317908
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      | 186 +++++++++++++++++++--
- lib/Target/RISCV/MCTargetDesc/CMakeLists.txt       |   3 +-
- lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp  | 110 +++++++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |   4 +-
- .../RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp    |  23 ++-
- lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h    |  46 +++++
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  62 ++++++-
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp      |  99 +++++++++++
- lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h        |  75 +++++++++
- lib/Target/RISCV/RISCVInstrFormats.td              |  35 +++-
- lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- test/MC/RISCV/fixups-diagnostics.s                 |  18 ++
- test/MC/RISCV/fixups.s                             |  49 ++++++
- test/MC/RISCV/hilo-constaddr.s                     |  39 +++++
- test/MC/RISCV/relocations.s                        |  65 +++++++
- test/MC/RISCV/rv32i-invalid.s                      |  64 ++++++-
- test/MC/RISCV/rv32i-valid.s                        |  21 +++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp | 186 ++++++++++++++++--
+ lib/Target/RISCV/MCTargetDesc/CMakeLists.txt  |   3 +-
+ .../RISCV/MCTargetDesc/RISCVAsmBackend.cpp    | 110 ++++++++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |   4 +-
+ .../MCTargetDesc/RISCVELFObjectWriter.cpp     |  23 ++-
+ .../RISCV/MCTargetDesc/RISCVFixupKinds.h      |  46 +++++
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  62 +++++-
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp |  99 ++++++++++
+ lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.h   |  75 +++++++
+ lib/Target/RISCV/RISCVInstrFormats.td         |  35 +++-
+ lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
+ test/MC/RISCV/fixups-diagnostics.s            |  18 ++
+ test/MC/RISCV/fixups.s                        |  49 +++++
+ test/MC/RISCV/hilo-constaddr.s                |  39 ++++
+ test/MC/RISCV/relocations.s                   |  65 ++++++
+ test/MC/RISCV/rv32i-invalid.s                 |  64 +++++-
+ test/MC/RISCV/rv32i-valid.s                   |  21 ++
  17 files changed, 859 insertions(+), 41 deletions(-)
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
  create mode 100644 lib/Target/RISCV/MCTargetDesc/RISCVMCExpr.cpp
@@ -323,7 +323,7 @@ index d79de74f7cf..60429647edd 100644
 +  RISCVMCTargetDesc.cpp
  )
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
-index cb794c5a4e3..06b8f47cf72 100644
+index 52973bfca9b..13038074eb8 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVAsmBackend.cpp
 @@ -7,9 +7,12 @@
@@ -339,7 +339,7 @@ index cb794c5a4e3..06b8f47cf72 100644
  #include "llvm/MC/MCDirectives.h"
  #include "llvm/MC/MCELFObjectWriter.h"
  #include "llvm/MC/MCExpr.h"
-@@ -45,7 +48,31 @@ public:
+@@ -46,7 +49,31 @@ public:
      return false;
    }
  
@@ -370,9 +370,9 @@ index cb794c5a4e3..06b8f47cf72 100644
 +    return Infos[Kind - FirstTargetFixupKind];
 +  }
  
-   bool mayNeedRelaxation(const MCInst &Inst) const override { return false; }
- 
-@@ -71,11 +98,90 @@ bool RISCVAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+   bool mayNeedRelaxation(const MCInst &Inst,
+                          const MCSubtargetInfo &STI) const override { return false; }
+@@ -73,11 +100,90 @@ bool RISCVAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
    return true;
  }
  
@@ -435,9 +435,9 @@ index cb794c5a4e3..06b8f47cf72 100644
 +}
 +
  void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
-                                  const MCValue &Target,
-                                  MutableArrayRef<char> Data, uint64_t Value,
-                                  bool IsResolved) const {
+                                  const MCValue &Target, MutableArrayRef<char> Data,
+                                  uint64_t Value, bool IsResolved,
+                                  const MCSubtargetInfo *STI) const {
 -  return;
 +  MCContext &Ctx = Asm.getContext();
 +  MCFixupKindInfo Info = getFixupKindInfo(Fixup.getKind());
@@ -463,7 +463,7 @@ index cb794c5a4e3..06b8f47cf72 100644
 +  }
  }
  
- std::unique_ptr<MCObjectWriter>
+ std::unique_ptr<MCObjectTargetWriter>
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
 index 4fe604316de..9fafbb0a95a 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
@@ -483,7 +483,7 @@ index 4fe604316de..9fafbb0a95a 100644
    MO_None,
    MO_LO,
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
-index 445cdfd0d20..e256156dc96 100644
+index d3d07a4574f..e5632d8defa 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVELFObjectWriter.cpp
 @@ -7,6 +7,7 @@
@@ -522,7 +522,7 @@ index 445cdfd0d20..e256156dc96 100644
 +  }
  }
  
- std::unique_ptr<MCObjectWriter>
+ std::unique_ptr<MCObjectTargetWriter>
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h b/lib/Target/RISCV/MCTargetDesc/RISCVFixupKinds.h
 new file mode 100644
 index 00000000000..115229414d5
@@ -576,7 +576,7 @@ index 00000000000..115229414d5
 +
 +#endif
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index f4eaf06f622..ce766ddf2fe 100644
+index 0aeec8e7dd5..f7604910c58 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -11,6 +11,9 @@
@@ -1096,7 +1096,7 @@ index 00000000000..19cc6922d6d
 +# CHECK-REL-NOT: R_RISCV
 diff --git a/test/MC/RISCV/hilo-constaddr.s b/test/MC/RISCV/hilo-constaddr.s
 new file mode 100644
-index 00000000000..691401f0bab
+index 00000000000..b2ea2c12e1d
 --- /dev/null
 +++ b/test/MC/RISCV/hilo-constaddr.s
 @@ -0,0 +1,39 @@
@@ -1106,8 +1106,8 @@ index 00000000000..691401f0bab
 +# RUN: llvm-mc -filetype=obj -triple=riscv32 %s \
 +# RUN:  | llvm-readobj -r | FileCheck %s -check-prefix=CHECK-REL
 +
-+# Check the assembler can handle hi and lo expressions with a constant 
-+# address, and constant expressions involving labels. Test case derived from 
++# Check the assembler can handle hi and lo expressions with a constant
++# address, and constant expressions involving labels. Test case derived from
 +# test/MC/Mips/hilo-addressing.s
 +
 +# Check that 1 is added to the high 20 bits if bit 11 of the low part is 1.
@@ -1367,5 +1367,5 @@ index 95d9da4bb51..be6560062bb 100644
  # CHECK: encoding: [0x93,0x70,0xf1,0x7f]
  andi ra, sp, 2047
 -- 
-2.16.2
+2.17.2
 

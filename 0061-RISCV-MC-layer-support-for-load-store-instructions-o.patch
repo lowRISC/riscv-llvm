@@ -13,21 +13,21 @@ Also incorporates changes from:
 Differential Revision: https://reviews.llvm.org/D42132
 Patch by Ana Pazos.
 ---
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |  48 ++++++++
- .../RISCV/Disassembler/RISCVDisassembler.cpp       |  62 ++++++++--
- lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h      |  12 +-
- .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |  22 +++-
- lib/Target/RISCV/RISCV.td                          |   7 ++
- lib/Target/RISCV/RISCVInstrFormats.td              |  16 ++-
- lib/Target/RISCV/RISCVInstrFormatsC.td             |  96 +++++++++++++++
- lib/Target/RISCV/RISCVInstrInfo.td                 |   1 +
- lib/Target/RISCV/RISCVInstrInfoC.td                | 132 +++++++++++++++++++++
- lib/Target/RISCV/RISCVRegisterInfo.td              |  30 +++++
- lib/Target/RISCV/RISCVSubtarget.h                  |   2 +
- test/MC/RISCV/rv32c-invalid.s                      |  18 +++
- test/MC/RISCV/rv32c-valid.s                        |  23 ++++
- test/MC/RISCV/rv64c-invalid.s                      |  18 +++
- test/MC/RISCV/rv64c-valid.s                        |  30 +++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp |  48 +++++++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp  |  62 ++++++--
+ lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h |  12 +-
+ .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp |  22 ++-
+ lib/Target/RISCV/RISCV.td                     |   7 +
+ lib/Target/RISCV/RISCVInstrFormats.td         |  16 ++-
+ lib/Target/RISCV/RISCVInstrFormatsC.td        |  96 +++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td            |   1 +
+ lib/Target/RISCV/RISCVInstrInfoC.td           | 132 ++++++++++++++++++
+ lib/Target/RISCV/RISCVRegisterInfo.td         |  30 ++++
+ lib/Target/RISCV/RISCVSubtarget.h             |   2 +
+ test/MC/RISCV/rv32c-invalid.s                 |  18 +++
+ test/MC/RISCV/rv32c-valid.s                   |  23 +++
+ test/MC/RISCV/rv64c-invalid.s                 |  18 +++
+ test/MC/RISCV/rv64c-valid.s                   |  30 ++++
  15 files changed, 495 insertions(+), 22 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVInstrFormatsC.td
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoC.td
@@ -103,7 +103,7 @@ index 588e39ee3cf..c4a3116b33a 100644
      return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 11),
                                        (1 << 11) - 1);
 diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
-index 2649f1b3729..eeada77dae3 100644
+index 2649f1b3729..3cb7e78f236 100644
 --- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 +++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
 @@ -130,10 +130,41 @@ static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
@@ -169,12 +169,12 @@ index 2649f1b3729..eeada77dae3 100644
 +  // It's a 32 bit instruction if bit 0 and 1 are 1.
 +  if ((Bytes[0] & 0x3) == 0x3) {
 +    Insn = support::endian::read32le(Bytes.data());
-+    DEBUG(dbgs() << "Trying RISCV32 table :\n");
++    LLVM_DEBUG(dbgs() << "Trying RISCV32 table :\n");
 +    Result = decodeInstruction(DecoderTable32, MI, Insn, Address, this, STI);
 +    Size = 4;
 +  } else {
 +    Insn = support::endian::read16le(Bytes.data());
-+    DEBUG(dbgs() << "Trying RISCV_C table (16-bit Instruction):\n");
++    LLVM_DEBUG(dbgs() << "Trying RISCV_C table (16-bit Instruction):\n");
 +    // Calling the auto-generated decoder function.
 +    Result = decodeInstruction(DecoderTable16, MI, Insn, Address, this, STI);
 +    Size = 2;
@@ -211,7 +211,7 @@ index b38f2eaa81b..b278a2ed390 100644
  
  enum {
 diff --git a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
-index ce766ddf2fe..81c7a4d9059 100644
+index f7604910c58..9612695c285 100644
 --- a/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 +++ b/lib/Target/RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp
 @@ -83,9 +83,25 @@ MCCodeEmitter *llvm::createRISCVMCCodeEmitter(const MCInstrInfo &MCII,
@@ -220,7 +220,7 @@ index ce766ddf2fe..81c7a4d9059 100644
                                             const MCSubtargetInfo &STI) const {
 -  // For now, we only support RISC-V instructions with 32-bit length
 -  uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
--  support::endian::Writer<support::little>(OS).write(Bits);
+-  support::endian::write(OS, Bits, support::little);
 +  const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
 +  // Get byte count of instruction.
 +  unsigned Size = Desc.getSize();
@@ -230,12 +230,12 @@ index ce766ddf2fe..81c7a4d9059 100644
 +    llvm_unreachable("Unhandled encodeInstruction length!");
 +  case 2: {
 +    uint16_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
-+    support::endian::Writer<support::little>(OS).write<uint16_t>(Bits);
++    support::endian::write<uint16_t>(OS, Bits, support::little);
 +    break;
 +  }
 +  case 4: {
 +    uint32_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
-+    support::endian::Writer<support::little>(OS).write(Bits);
++    support::endian::write(OS, Bits, support::little);
 +    break;
 +  }
 +  }
@@ -726,5 +726,5 @@ index 00000000000..5efc7a9036a
 +# CHECK-NO-EXT:  error: instruction use requires an option to be enabled
 +c.sd    a5, 248(a3)
 -- 
-2.16.2
+2.17.2
 
