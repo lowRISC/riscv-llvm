@@ -90,7 +90,7 @@ passed in, and create an appropriate virtual register. `LowerReturn` will copy
 the return value into the register appropriate for the target calling 
 convention.
 
-<!-- More info on RISCVISD::RET_FLAG --!>
+<!-- More info on RISCVISD::RET_FLAG -->
 
 ## Specifying the calling convention
 
